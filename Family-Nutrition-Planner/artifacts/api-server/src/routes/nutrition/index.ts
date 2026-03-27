@@ -582,7 +582,9 @@ Return ONLY a valid JSON array:
         const s = jsonStr.indexOf("["); const e = jsonStr.lastIndexOf("]");
         if (s !== -1 && e !== -1) items = JSON.parse(jsonStr.slice(s, e + 1)) as PantryVisionItem[];
       } catch { items = []; }
-      res.json({ mode: "pantry", items });
+      // Normalize: expose both `item` (required contract key) and `name` (compat alias)
+      const normalizedItems = items.map(i => ({ item: i.name, name: i.name, nameHindi: i.nameHindi, quantity: i.quantity, unit: i.unit, weightGrams: i.weightGrams, confidence: i.confidence }));
+      res.json({ mode: "pantry", items: normalizedItems });
     } catch (err) {
       req.log.error({ err }, "Gemini Vision pantry scan failed");
       res.status(500).json({ error: "Pantry scan failed", mode: "pantry", items: [] });

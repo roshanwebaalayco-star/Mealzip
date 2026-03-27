@@ -235,8 +235,6 @@ ${result.mealDescription ? `Description: ${result.mealDescription}` : ""}`;
 
 Please respond warmly about this meal. Mention the calorie and protein count naturally, give a brief ICMR-NIN 2024 nutritional note, and ask if they'd like suggestions to improve it. Keep it conversational and encouraging — under 100 words.`;
 
-        // Do NOT set pendingFoodContext here — the scan-triggered AI prompt already includes all
-        // food context. The user's next typed message goes to the AI without duplication.
         await streamMessage(activeConvoId, aiPrompt);
 
         if (activeFamily) {

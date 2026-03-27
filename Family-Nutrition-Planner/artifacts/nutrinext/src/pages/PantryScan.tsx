@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 const CONFIDENCE_THRESHOLD = 0.65;
 
 interface PantryItem {
+  item: string;
   name: string;
   nameHindi?: string;
   quantity: number;
@@ -64,7 +65,7 @@ export default function PantryScan() {
         if (res.ok) {
           const scanData = await res.json() as {
             mode: "pantry";
-            items?: Array<{ name: string; nameHindi?: string; quantity: number; unit: string; weightGrams: number; confidence: number }>;
+            items?: Array<{ item: string; name: string; nameHindi?: string; quantity: number; unit: string; weightGrams: number; confidence: number }>;
           };
           if (scanData.items && scanData.items.length > 0) {
             setPantryItems(scanData.items.map(item => ({
@@ -94,6 +95,7 @@ export default function PantryScan() {
           };
           const allDetected = [...(data.detectedFoods ?? []), ...(data.lowConfidenceItems ?? [])];
           setPantryItems(allDetected.map((f) => ({
+            item: f.name,
             name: f.name,
             quantity: 1,
             unit: "serving",
