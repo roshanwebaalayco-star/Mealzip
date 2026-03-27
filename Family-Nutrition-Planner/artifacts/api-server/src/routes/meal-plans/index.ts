@@ -473,7 +473,7 @@ FAMILY MEMBERS LIST (for per-member variations):
 ${JSON.stringify(memberSummaries.map(m => ({ name: m.name, age: m.age, conditions: m.healthConditions, role: m.role })), null, 2)}
 
 INSTRUCTIONS:
-1. Create 7 days (Monday-Sunday): Breakfast, Lunch, Dinner, Snack
+1. Create 7 days (Monday-Sunday): Breakfast, Mid-morning, Lunch, Evening Snack, Dinner (5 meals)
 2. Use recipe IDs from the list above where possible (id: null for unlisted)
 3. ICMR-NIN 2024: Protein 10-15% calories, Carbs 60-65%, Fat 20-25%, Fiber ≥25g/day
 4. Budget: max ₹${budgetPerMeal * members.length} per meal for ${members.length} people
@@ -481,7 +481,7 @@ INSTRUCTIONS:
 6. For EVERY dinner, provide a 3-step leftover chain showing how tonight's dinner becomes tomorrow's lunch and the day-after's breakfast/snack
 7. Harmony Score = % of members whose nutrition/preference needs are met
 8. Provide AI insights in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
-9. For EACH meal, provide per-member variations keyed by member name — what this member should eat differently (e.g., "Rahul: low-carb portion", "Priya: no added salt", "Baby: mashed")
+9. For EACH meal: include icmr_rationale (1-2 sentence ICMR-NIN 2024 justification), instructions (3-5 numbered cooking steps), and per-member member_plates with add/reduce/avoid lists based on each member's health conditions
 
 Return ONLY valid JSON:
 {
@@ -496,27 +496,47 @@ Return ONLY valid JSON:
         "breakfast": {
           "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
           "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "memberVariations": {"<memberName>": "<variation or empty string>"}
+          "icmr_rationale": "<1-2 sentence ICMR-NIN 2024 justification for this dish>",
+          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+          "memberVariations": {"<memberName>": "<variation or empty string>"},
+          "member_plates": {"<memberName>": {"add": ["<food/nutrient to add>"], "reduce": ["<food to reduce>"], "avoid": ["<food to avoid>"]}}
+        },
+        "mid_morning": {
+          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
+          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
+          "icmr_rationale": "<ICMR rationale>",
+          "instructions": ["Step 1: ..."],
+          "memberVariations": {"<memberName>": "<variation>"},
+          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
         },
         "lunch": {
           "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
           "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "memberVariations": {"<memberName>": "<variation or empty string>"}
+          "icmr_rationale": "<ICMR rationale>",
+          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+          "memberVariations": {"<memberName>": "<variation>"},
+          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
+        },
+        "evening_snack": {
+          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
+          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
+          "icmr_rationale": "<ICMR rationale>",
+          "instructions": ["Step 1: ..."],
+          "memberVariations": {"<memberName>": "<variation>"},
+          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
         },
         "dinner": {
           "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
           "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "memberVariations": {"<memberName>": "<variation or empty string>"},
+          "icmr_rationale": "<ICMR rationale>",
+          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+          "memberVariations": {"<memberName>": "<variation>"},
+          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}},
           "leftoverChain": [
             {"step": 1, "day": "<nextDay>", "meal": "Lunch", "dish": "<how dinner becomes next-day lunch>"},
             {"step": 2, "day": "<dayAfterNext>", "meal": "Breakfast", "dish": "<how leftover becomes breakfast>"},
             {"step": 3, "day": "<dayAfterNext>", "meal": "Snack", "dish": "<final use of ingredient>"}
           ]
-        },
-        "snack": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "memberVariations": {"<memberName>": "<variation or empty string>"}
         }
       },
       "dailyHarmonyScore": <0-100>,

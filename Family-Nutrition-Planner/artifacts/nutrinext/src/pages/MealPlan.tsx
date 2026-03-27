@@ -6,7 +6,8 @@ import { useLanguage } from "@/contexts/language-context";
 import { useListMealPlans, useGenerateMealPlan, getListMealPlansQueryKey } from "@workspace/api-client-react";
 import {
   Loader2, Sparkles, Utensils, Info, RefreshCw, ThumbsUp, ThumbsDown,
-  CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown
+  CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown, ChevronUp,
+  CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle
 } from "lucide-react";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
 import { HarmonyScore } from "@/components/HarmonyScore";
@@ -23,6 +24,12 @@ interface LeftoverStep {
   dish: string;
 }
 
+interface MemberPlate {
+  add: string[];
+  reduce: string[];
+  avoid: string[];
+}
+
 interface MealCell {
   recipeName?: string;
   nameHindi?: string;
@@ -34,6 +41,9 @@ interface MealCell {
   recipeId?: number | null;
   memberVariations?: Record<string, string>;
   leftoverChain?: LeftoverStep[];
+  icmr_rationale?: string;
+  instructions?: string[];
+  member_plates?: Record<string, MemberPlate>;
 }
 
 interface DayData {
@@ -123,6 +133,9 @@ export default function MealPlan() {
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
+  const [rationaleExpanded, setRationaleExpanded] = useState<Record<string, boolean>>({});
+  const [instructionsExpanded, setInstructionsExpanded] = useState<Record<string, boolean>>({});
+  const [activeMealTab, setActiveMealTab] = useState("lunch");
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -302,6 +315,13 @@ export default function MealPlan() {
   const planData = typeof currentPlan.plan === "string" ? JSON.parse(currentPlan.plan) : currentPlan.plan;
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const meals = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  const MEAL_SLOTS = [
+    { key: "breakfast", label: "Breakfast", labelHi: "नाश्ता", shortLabel: "BF" },
+    { key: "mid_morning", label: "Mid-morning", labelHi: "मध्य-सुबह", shortLabel: "MM" },
+    { key: "lunch", label: "Lunch", labelHi: "दोपहर", shortLabel: "LU" },
+    { key: "evening_snack", label: "Evening Snack", labelHi: "शाम-नाश्ता", shortLabel: "ES" },
+    { key: "dinner", label: "Dinner", labelHi: "रात", shortLabel: "DI" },
+  ];
 
   const getDayData = (day: string): DayData | null => {
     const dayArr = planData?.days as DayData[] | undefined;
@@ -311,9 +331,14 @@ export default function MealPlan() {
   const getDayMeal = (day: string, meal: string): MealCell => {
     const dayObj = getDayData(day);
     if (dayObj) {
-      const key = meal.toLowerCase();
-      const m = dayObj.meals?.[key];
+      const key = meal.toLowerCase().replace(/ /g, "_");
+      const meals = dayObj.meals as Record<string, MealCell> | undefined;
+      // Direct key lookup
+      const m = meals?.[key];
       if (m) return m;
+      // Backward compat: "snack" → also try "evening_snack"
+      if (key === "evening_snack" && meals?.["snack"]) return meals["snack"];
+      if (key === "snack" && meals?.["evening_snack"]) return meals["evening_snack"];
     }
     return { name: "—", calories: 0 };
   };
@@ -631,6 +656,11 @@ export default function MealPlan() {
                     const feedback = feedbackState[feedbackKey];
                     const isDinner = meal === "Dinner";
                     const leftoverChain = isDinner ? getLeftoverChain(di) : null;
+                    const rationaleKey = `${di}-${meal}`;
+                    const instructionsKey = `${di}-${meal}-inst`;
+                    const hasRationale = !!cell.icmr_rationale;
+                    const hasInstructions = !!(cell.instructions && cell.instructions.length > 0);
+                    const hasPlates = !!(cell.member_plates && Object.keys(cell.member_plates).length > 0);
 
                     return (
                       <div key={meal} className={`p-3 space-y-1.5 ${mealColors[mi]}`}>
@@ -653,19 +683,108 @@ export default function MealPlan() {
                           )}
                         </div>
 
-                        {/* Per-member variations */}
-                        {familyMembers && familyMembers.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {familyMembers.map((member, idx) => {
-                              const aiVariation = cell.memberVariations?.[member.name] || cell.memberVariations?.[member.name.split(" ")[0]];
-                              const variation = (aiVariation && aiVariation.trim()) ? aiVariation : getMemberVariation(member, meal);
-                              return variation ? (
-                                <span key={member.id} className={`text-[9px] px-1.5 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
-                                  {member.name.split(" ")[0]}: {variation}
-                                </span>
-                              ) : null;
-                            })}
+                        {/* "Why this dish?" collapsible — ICMR rationale */}
+                        <button
+                          type="button"
+                          onClick={() => setRationaleExpanded(prev => ({ ...prev, [rationaleKey]: !prev[rationaleKey] }))}
+                          className="flex items-center gap-1 text-[9px] text-secondary/80 hover:text-secondary transition-colors"
+                        >
+                          <HelpCircle className="w-3 h-3 shrink-0" />
+                          <span className="font-medium">{t("Why this dish?", "यह क्यों?")}</span>
+                          {rationaleExpanded[rationaleKey] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                        {rationaleExpanded[rationaleKey] && (
+                          <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2 text-[9px] text-secondary/90 leading-relaxed">
+                            {hasRationale
+                              ? cell.icmr_rationale
+                              : t(
+                                  "Chosen to meet ICMR-NIN 2024 macronutrient targets and suit this family's health profile.",
+                                  "ICMR-NIN 2024 पोषण लक्ष्यों और परिवार की स्वास्थ्य स्थिति के अनुसार चुना गया।"
+                                )}
                           </div>
+                        )}
+
+                        {/* Cooking instructions collapsible */}
+                        <button
+                          type="button"
+                          onClick={() => setInstructionsExpanded(prev => ({ ...prev, [instructionsKey]: !prev[instructionsKey] }))}
+                          className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <BookOpen className="w-3 h-3 shrink-0" />
+                          <span className="font-medium">{t("Steps", "विधि")}</span>
+                          {instructionsExpanded[instructionsKey] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                        {instructionsExpanded[instructionsKey] && (
+                          <div className="bg-muted/30 border border-border/30 rounded-xl p-2 space-y-1">
+                            {hasInstructions
+                              ? cell.instructions!.map((step, si) => (
+                                  <div key={si} className="flex gap-1.5 text-[9px] text-foreground/80">
+                                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">{si + 1}</span>
+                                    <span className="leading-relaxed">{step.replace(/^Step \d+:\s*/i, "")}</span>
+                                  </div>
+                                ))
+                              : (
+                                <p className="text-[9px] text-muted-foreground italic">
+                                  {t("Cook as per your family recipe — new plans will include step-by-step instructions.", "अपनी पारिवारिक रेसिपी के अनुसार बनाएं — नई योजना में चरण-दर-चरण निर्देश होंगे।")}
+                                </p>
+                              )
+                            }
+                          </div>
+                        )}
+
+                        {/* Per-member plate cards (structured add/reduce/avoid) */}
+                        {familyMembers && familyMembers.length > 0 && (
+                          hasPlates ? (
+                            <div className="space-y-1.5 pt-0.5">
+                              {familyMembers.map((member, idx) => {
+                                const firstName = member.name.split(" ")[0];
+                                const plate = cell.member_plates?.[member.name] ?? cell.member_plates?.[firstName];
+                                const legacyVariation = cell.memberVariations?.[member.name] ?? cell.memberVariations?.[firstName];
+                                if (!plate && !legacyVariation) return null;
+                                return (
+                                  <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[8px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                                    <p className="font-bold text-[9px] leading-none">{firstName}</p>
+                                    {plate ? (
+                                      <>
+                                        {plate.add.length > 0 && (
+                                          <div className="flex items-start gap-1">
+                                            <CheckCircle2 className="w-2.5 h-2.5 text-green-600 shrink-0 mt-0.5" />
+                                            <span className="text-green-700">{plate.add.join(", ")}</span>
+                                          </div>
+                                        )}
+                                        {plate.reduce.length > 0 && (
+                                          <div className="flex items-start gap-1">
+                                            <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0 mt-0.5" />
+                                            <span className="text-amber-700">{t("Reduce", "कम करें")}: {plate.reduce.join(", ")}</span>
+                                          </div>
+                                        )}
+                                        {plate.avoid.length > 0 && (
+                                          <div className="flex items-start gap-1">
+                                            <XCircle className="w-2.5 h-2.5 text-red-500 shrink-0 mt-0.5" />
+                                            <span className="text-red-600">{t("Avoid", "न लें")}: {plate.avoid.join(", ")}</span>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : legacyVariation ? (
+                                      <p className="text-foreground/70">{legacyVariation}</p>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {familyMembers.map((member, idx) => {
+                                const aiVariation = cell.memberVariations?.[member.name] || cell.memberVariations?.[member.name.split(" ")[0]];
+                                const variation = (aiVariation && aiVariation.trim()) ? aiVariation : getMemberVariation(member, meal);
+                                return variation ? (
+                                  <span key={member.id} className={`text-[9px] px-1.5 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                                    {member.name.split(" ")[0]}: {variation}
+                                  </span>
+                                ) : null;
+                              })}
+                            </div>
+                          )
                         )}
 
                         {/* Leftover chain */}
@@ -724,6 +843,134 @@ export default function MealPlan() {
         })}
       </div>
 
+      {/* ── Per-Member Plates section (5 meal slot tabs) ── */}
+      {familyMembers && familyMembers.length > 0 && (
+        <div className="glass-card rounded-3xl overflow-hidden" style={{ background: "rgba(255,255,255,0.55)" }}>
+          {/* Section header */}
+          <div className="px-4 pt-4 pb-2">
+            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+              <Utensils className="w-4 h-4 text-primary" />
+              {t("Personalised Plates", "व्यक्तिगत थाली")}
+              {(expandedDay || days[0]) && (
+                <span className="text-[10px] text-muted-foreground font-normal ml-1">— {expandedDay ?? days[0]}</span>
+              )}
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {t("Select a meal slot to see each member's plate guidance.", "भोजन स्लॉट चुनें — हर सदस्य की थाली देखें।")}
+            </p>
+          </div>
+
+          {/* 5 meal slot tabs */}
+          <div className="flex gap-1 px-4 pb-2 overflow-x-auto">
+            {MEAL_SLOTS.map(slot => (
+              <button
+                key={slot.key}
+                type="button"
+                onClick={() => setActiveMealTab(slot.key)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                  activeMealTab === slot.key
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                }`}
+              >
+                {lang === "hi" ? slot.labelHi : slot.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Per-member plate cards for selected tab */}
+          {(() => {
+            const activeDay = expandedDay ?? days[0];
+            const slotInfo = MEAL_SLOTS.find(s => s.key === activeMealTab);
+            const mealLabel = activeMealTab.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+            const mealCell = getDayMeal(activeDay, mealLabel);
+            const dishName = lang === "hi" && mealCell.nameHindi ? mealCell.nameHindi : (mealCell.recipeName || mealCell.name || "—");
+
+            return (
+              <div className="px-4 pb-4 space-y-2">
+                {/* Active meal dish name */}
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-foreground">{dishName}</p>
+                  {(mealCell.calories || 0) > 0 && (
+                    <span className="text-[9px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{mealCell.calories} kcal</span>
+                  )}
+                  {mealCell.estimatedCost && (
+                    <span className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{mealCell.estimatedCost}</span>
+                  )}
+                </div>
+
+                {/* Member plate cards */}
+                <div className="grid grid-cols-1 gap-2">
+                  {familyMembers.map((member, idx) => {
+                    const firstName = member.name.split(" ")[0];
+                    const plate = mealCell.member_plates?.[member.name] ?? mealCell.member_plates?.[firstName];
+                    const legacyVariation = mealCell.memberVariations?.[member.name] ?? mealCell.memberVariations?.[firstName];
+                    const fallback = legacyVariation || getMemberVariation(member, slotInfo?.label ?? activeMealTab);
+
+                    return (
+                      <div key={member.id} className={`rounded-2xl border p-3 space-y-1.5 ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs">{member.name}</span>
+                          {member.role && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground">{member.role}</span>
+                          )}
+                        </div>
+                        {plate ? (
+                          <>
+                            {plate.add.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="text-[9px] font-semibold text-green-700">{t("Add", "जोड़ें")}: </span>
+                                  <span className="text-[9px] text-green-700/80">{plate.add.join(", ")}</span>
+                                </div>
+                              </div>
+                            )}
+                            {plate.reduce.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="text-[9px] font-semibold text-amber-700">{t("Reduce", "कम करें")}: </span>
+                                  <span className="text-[9px] text-amber-700/80">{plate.reduce.join(", ")}</span>
+                                </div>
+                              </div>
+                            )}
+                            {plate.avoid.length > 0 && (
+                              <div className="flex items-start gap-1.5">
+                                <XCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="text-[9px] font-semibold text-red-600">{t("Avoid", "न लें")}: </span>
+                                  <span className="text-[9px] text-red-600/80">{plate.avoid.join(", ")}</span>
+                                </div>
+                              </div>
+                            )}
+                            {plate.add.length === 0 && plate.reduce.length === 0 && plate.avoid.length === 0 && (
+                              <p className="text-[9px] text-muted-foreground">{t("Standard serving — no modifications needed.", "सामान्य मात्रा — कोई बदलाव नहीं।")}</p>
+                            )}
+                          </>
+                        ) : fallback ? (
+                          <p className="text-[9px] text-foreground/70">{fallback}</p>
+                        ) : (
+                          <p className="text-[9px] text-muted-foreground">{t("Standard serving.", "सामान्य मात्रा।")}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ICMR rationale for this slot */}
+                {mealCell.icmr_rationale && (
+                  <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2.5 flex gap-2">
+                    <Info className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
+                    <p className="text-[9px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Dietary note */}
       <div className="glass-card rounded-3xl p-5" style={{ background: "rgba(240,253,248,0.65)" }}>
         <div className="flex gap-3 relative z-10">
@@ -734,8 +981,8 @@ export default function MealPlan() {
             <h4 className="font-semibold text-sm text-secondary mb-1">{t("Dietary Assurance", "आहार आश्वासन")}</h4>
             <p className="text-xs text-secondary/80 leading-relaxed">
               {t(
-                "Strictly adheres to ICMR-NIN 2024 guidelines. Hover any meal to see per-member plate variations, leftover chains, and log what you actually ate. Click the camera icon to log a meal, or +alt to log something different.",
-                "ICMR-NIN 2024 दिशानिर्देशों का पालन। भोजन पर होवर करें — सदस्य-विशेष बदलाव, बचे खाने की चेन, और कैमरा आइकन से लॉग करें।"
+                "Strictly adheres to ICMR-NIN 2024 guidelines. Expand any day card to see per-meal rationale, cooking steps, and per-member add/reduce/avoid plate guidance.",
+                "ICMR-NIN 2024 दिशानिर्देशों का पालन। दिन का कार्ड खोलें — प्रत्येक भोजन का कारण, खाना पकाने के चरण, और सदस्य-विशेष थाली मार्गदर्शन देखें।"
               )}
             </p>
           </div>

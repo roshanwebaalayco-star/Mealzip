@@ -200,12 +200,19 @@ Liquid Glass 2025+ (`artifacts/nutrinext/src/index.css`):
 - Grocery list generation automatically passes `pantryIngredients` + `updateMode: "subtract"` when pantry is non-empty
 - Generate button shows pantry item count, success toast includes exclusion note
 
-### Meal Plan Card UX (Task #8)
+### Meal Plan Card UX (Task #8 — completed)
 - Today's day card highlighted with a primary-colored ring and dot indicator
 - Breakfast name preview shown on collapsed day cards
 - Carbs badge added alongside calories and protein badges
 - "Expand All" / "Collapse All" button to open all 7 day cards at once
 - Clicking any card when Expand All is active collapses all and shows only that card
+- **NEW**: AI prompt updated to return 5 meal slots per day: breakfast, mid_morning, lunch, evening_snack, dinner
+- **NEW**: `icmr_rationale` (ICMR-NIN 2024 justification string), `instructions` (3-5 cooking steps array), and `member_plates` (per-member add/reduce/avoid) added to each meal in AI response
+- **NEW**: "Why this dish?" collapsible panel per meal — shows ICMR rationale or a standard fallback
+- **NEW**: "Steps" collapsible panel per meal — shows numbered cooking instructions or a placeholder
+- **NEW**: Per-member plate cards with structured ✅ Add / ⚠️ Reduce / ❌ Avoid rows (falls back to legacy `memberVariations` string chips for old plans)
+- **NEW**: "Personalised Plates" page-level section with 5 meal slot tab buttons (Breakfast / Mid-morning / Lunch / Evening Snack / Dinner) — shows full per-member plate cards for the currently expanded day (or Monday if none expanded)
+- **NEW**: `getDayMeal()` handles backward compat: `snack` ↔ `evening_snack` key aliasing for old stored plans
 
 ### Grocery Sharing & Language Toggle (Task #9)
 - Share button in grocery list header: uses Web Share API (mobile/WhatsApp-native) with clipboard fallback
