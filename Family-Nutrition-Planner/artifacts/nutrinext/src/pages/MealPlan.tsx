@@ -725,7 +725,7 @@ export default function MealPlan() {
                                 ))
                               : (
                                 <p className="text-[9px] text-muted-foreground italic">
-                                  {t("Cook as per your family recipe — new plans will include step-by-step instructions.", "अपनी पारिवारिक रेसिपी के अनुसार बनाएं — नई योजना में चरण-दर-चरण निर्देश होंगे।")}
+                                  {t("Cooking instructions will appear after generating a new plan.", "नई योजना बनाने के बाद खाना पकाने के निर्देश दिखाई देंगे।")}
                                 </p>
                               )
                             }
@@ -739,34 +739,36 @@ export default function MealPlan() {
                               {familyMembers.map((member, idx) => {
                                 const firstName = member.name.split(" ")[0];
                                 const plate = cell.member_plates?.[member.name] ?? cell.member_plates?.[firstName];
+                                const hasStructuredContent = plate && (plate.add.length + plate.reduce.length + plate.avoid.length) > 0;
                                 const legacyVariation = cell.memberVariations?.[member.name] ?? cell.memberVariations?.[firstName];
-                                if (!plate && !legacyVariation) return null;
+                                const autoVariation = legacyVariation?.trim() || getMemberVariation(member, meal);
+                                if (!hasStructuredContent && !autoVariation) return null;
                                 return (
                                   <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[8px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
                                     <p className="font-bold text-[9px] leading-none">{firstName}</p>
-                                    {plate ? (
+                                    {hasStructuredContent ? (
                                       <>
-                                        {plate.add.length > 0 && (
+                                        {plate!.add.length > 0 && (
                                           <div className="flex items-start gap-1">
                                             <CheckCircle2 className="w-2.5 h-2.5 text-green-600 shrink-0 mt-0.5" />
-                                            <span className="text-green-700">{plate.add.join(", ")}</span>
+                                            <span className="text-green-700">{plate!.add.join(", ")}</span>
                                           </div>
                                         )}
-                                        {plate.reduce.length > 0 && (
+                                        {plate!.reduce.length > 0 && (
                                           <div className="flex items-start gap-1">
                                             <AlertTriangle className="w-2.5 h-2.5 text-amber-500 shrink-0 mt-0.5" />
-                                            <span className="text-amber-700">{t("Reduce", "कम करें")}: {plate.reduce.join(", ")}</span>
+                                            <span className="text-amber-700">{t("Reduce", "कम करें")}: {plate!.reduce.join(", ")}</span>
                                           </div>
                                         )}
-                                        {plate.avoid.length > 0 && (
+                                        {plate!.avoid.length > 0 && (
                                           <div className="flex items-start gap-1">
                                             <XCircle className="w-2.5 h-2.5 text-red-500 shrink-0 mt-0.5" />
-                                            <span className="text-red-600">{t("Avoid", "न लें")}: {plate.avoid.join(", ")}</span>
+                                            <span className="text-red-600">{t("Avoid", "न लें")}: {plate!.avoid.join(", ")}</span>
                                           </div>
                                         )}
                                       </>
-                                    ) : legacyVariation ? (
-                                      <p className="text-foreground/70">{legacyVariation}</p>
+                                    ) : autoVariation ? (
+                                      <p className="text-foreground/70">{autoVariation}</p>
                                     ) : null}
                                   </div>
                                 );
@@ -904,8 +906,9 @@ export default function MealPlan() {
                   {familyMembers.map((member, idx) => {
                     const firstName = member.name.split(" ")[0];
                     const plate = mealCell.member_plates?.[member.name] ?? mealCell.member_plates?.[firstName];
+                    const hasStructuredContent = plate && (plate.add.length + plate.reduce.length + plate.avoid.length) > 0;
                     const legacyVariation = mealCell.memberVariations?.[member.name] ?? mealCell.memberVariations?.[firstName];
-                    const fallback = legacyVariation || getMemberVariation(member, slotInfo?.label ?? activeMealTab);
+                    const fallback = legacyVariation?.trim() || getMemberVariation(member, slotInfo?.label ?? activeMealTab);
 
                     return (
                       <div key={member.id} className={`rounded-2xl border p-3 space-y-1.5 ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
@@ -915,43 +918,40 @@ export default function MealPlan() {
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground">{member.role}</span>
                           )}
                         </div>
-                        {plate ? (
+                        {hasStructuredContent ? (
                           <>
-                            {plate.add.length > 0 && (
+                            {plate!.add.length > 0 && (
                               <div className="flex items-start gap-1.5">
                                 <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0 mt-0.5" />
                                 <div>
                                   <span className="text-[9px] font-semibold text-green-700">{t("Add", "जोड़ें")}: </span>
-                                  <span className="text-[9px] text-green-700/80">{plate.add.join(", ")}</span>
+                                  <span className="text-[9px] text-green-700/80">{plate!.add.join(", ")}</span>
                                 </div>
                               </div>
                             )}
-                            {plate.reduce.length > 0 && (
+                            {plate!.reduce.length > 0 && (
                               <div className="flex items-start gap-1.5">
                                 <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
                                 <div>
                                   <span className="text-[9px] font-semibold text-amber-700">{t("Reduce", "कम करें")}: </span>
-                                  <span className="text-[9px] text-amber-700/80">{plate.reduce.join(", ")}</span>
+                                  <span className="text-[9px] text-amber-700/80">{plate!.reduce.join(", ")}</span>
                                 </div>
                               </div>
                             )}
-                            {plate.avoid.length > 0 && (
+                            {plate!.avoid.length > 0 && (
                               <div className="flex items-start gap-1.5">
                                 <XCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
                                 <div>
                                   <span className="text-[9px] font-semibold text-red-600">{t("Avoid", "न लें")}: </span>
-                                  <span className="text-[9px] text-red-600/80">{plate.avoid.join(", ")}</span>
+                                  <span className="text-[9px] text-red-600/80">{plate!.avoid.join(", ")}</span>
                                 </div>
                               </div>
-                            )}
-                            {plate.add.length === 0 && plate.reduce.length === 0 && plate.avoid.length === 0 && (
-                              <p className="text-[9px] text-muted-foreground">{t("Standard serving — no modifications needed.", "सामान्य मात्रा — कोई बदलाव नहीं।")}</p>
                             )}
                           </>
                         ) : fallback ? (
                           <p className="text-[9px] text-foreground/70">{fallback}</p>
                         ) : (
-                          <p className="text-[9px] text-muted-foreground">{t("Standard serving.", "सामान्य मात्रा।")}</p>
+                          <p className="text-[9px] text-muted-foreground italic">{t("Standard serving — no specific modifications needed.", "सामान्य मात्रा — कोई विशेष बदलाव नहीं।")}</p>
                         )}
                       </div>
                     );
