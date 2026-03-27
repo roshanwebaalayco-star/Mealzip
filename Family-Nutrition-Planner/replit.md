@@ -123,10 +123,14 @@ All packages use `composite: true`. Build order:
 | `db` / `supabasePool` | Supabase (Singapore `aws-1-ap-southeast-1.pooler.supabase.com:5432`) | All user data: `users`, `families`, `family_members`, `meal_plans`, `conversations`, `messages`, `meal_feedback`, `health_logs`, `nutrition_logs`, `grocery_lists`, `pantry_items`, `food_gi_nutrition` |
 | `localDb` / `pool` | Local PostgreSQL (Replit) | Static reference data only: `recipes` (12,771 rows), `icmr_nin_rda` (22 rows) — fast full-text search |
 
-- `SUPABASE_DATABASE_URL` env secret → Supabase session pooler URL
-- Falls back to `DATABASE_URL` (local) if `SUPABASE_DATABASE_URL` not set
+**Required secrets for dual-pool mode:**
+- `DATABASE_URL` — local PostgreSQL connection string (always required; used for recipes + ICMR reference data)
+- `SUPABASE_DATABASE_URL` — Supabase session pooler URL format: `postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres` (required for user data persistence; falls back to `DATABASE_URL` if absent)
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role JWT (stored for future use with Supabase REST API / Row Level Security; currently unused by direct Postgres connections)
+
 - Supabase project ref: `kpwgbmubunfwvelkntsw` (Singapore AP region)
 - Schema pushed to Supabase via `pnpm --filter @workspace/db run push-supabase-force`
+- Note: direct DB host (`db.[ref].supabase.co`) is IPv6-only; use the pooler URL (`aws-1-ap-southeast-1.pooler.supabase.com`) for IPv4 connectivity
 
 ## Authentication
 
