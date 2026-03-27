@@ -153,7 +153,7 @@ export default function FamilySetup() {
         setFamilyData(newFamilyData);
         if (newMembers.length > 0) setMembers(newMembers);
         setChatComplete(true);
-        await executeSave(newFamilyData, newMembers.length > 0 ? newMembers : members, "/meal-plan", 1);
+        await executeSave(newFamilyData, newMembers.length > 0 ? newMembers : members, "/pantry-scan", 1);
       }
     } catch {
       setChatMessages(prev => [...prev, { role: "model", content: "Sorry, I had trouble responding. Please try again." }]);
@@ -242,7 +242,7 @@ export default function FamilySetup() {
     }));
   };
 
-  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry", minMembers = 2) => {
+  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry-scan", minMembers = 2) => {
     if (!fd.name) {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
@@ -362,7 +362,7 @@ export default function FamilySetup() {
     if (voiceMembers.length > 0) setMembers(voiceMembers);
     setVoiceModalOpen(false);
 
-    await executeSave(mergedFamilyData, finalMembers, "/meal-plan", 1);
+    await executeSave(mergedFamilyData, finalMembers, "/pantry-scan", 1);
   };
 
   const handleVoiceClose = (partialData?: VoiceFormData) => {

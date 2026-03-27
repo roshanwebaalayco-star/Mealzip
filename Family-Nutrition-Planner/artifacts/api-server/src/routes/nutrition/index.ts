@@ -478,4 +478,67 @@ Focus on raw ingredients common in Indian kitchens: vegetables, pulses/dal, grai
   }
 });
 
+router.post("/nutrition/meal-vision", async (req, res): Promise<void> => {
+  const { imageBase64 } = req.body as { imageBase64?: string };
+  if (!imageBase64) {
+    res.status(400).json({ error: "imageBase64 required" });
+    return;
+  }
+
+  const MEAL_VISION_PROMPT = `You are an expert Indian nutrition analyst. Look at this photo of a meal/plate of food.
+
+Identify each food item visible on the plate and estimate its quantity and nutrition.
+
+For each item return:
+- name: English name (e.g. "Dal Tadka", "Whole Wheat Roti", "Palak Paneer")
+- nameHindi: Hindi name
+- estimatedGrams: estimated weight in grams
+- nutrition: { calories, protein, carbs, fat, fiber, iron } per the estimated grams (not per 100g)
+- confidence: 0.0 to 1.0
+
+Return ONLY a valid JSON object — no markdown, no explanation:
+{
+  "items": [
+    { "name": "Dal Tadka", "nameHindi": "दाल तड़का", "estimatedGrams": 200, "nutrition": { "calories": 180, "protein": 10, "carbs": 25, "fat": 5, "fiber": 6, "iron": 2.5 }, "confidence": 0.90 },
+    { "name": "Whole Wheat Roti", "nameHindi": "गेहूं की रोटी", "estimatedGrams": 80, "nutrition": { "calories": 200, "protein": 6, "carbs": 40, "fat": 2, "fiber": 4, "iron": 1.5 }, "confidence": 0.88 }
+  ],
+  "totalNutrition": { "calories": 380, "protein": 16, "carbs": 65, "fat": 7, "fiber": 10, "iron": 4.0 },
+  "mealDescription": "A balanced Indian meal with dal and roti providing good protein and complex carbs per ICMR-NIN 2024.",
+  "icmrNote": "This meal covers approximately 20% of daily protein needs."
+}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        role: "user",
+        parts: [
+          { text: MEAL_VISION_PROMPT },
+          { inlineData: { mimeType: "image/jpeg", data: imageBase64 } },
+        ],
+      }],
+      config: { maxOutputTokens: 2048, responseMimeType: "application/json" },
+    });
+
+    const text = result.text ?? "";
+    let parsed: { items?: unknown[]; totalNutrition?: unknown; mealDescription?: string; icmrNote?: string } = {};
+    try {
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = fenceMatch ? fenceMatch[1] : text;
+      const braceStart = jsonStr.indexOf("{");
+      const braceEnd = jsonStr.lastIndexOf("}");
+      if (braceStart !== -1 && braceEnd !== -1) {
+        parsed = JSON.parse(jsonStr.slice(braceStart, braceEnd + 1)) as typeof parsed;
+      }
+    } catch {
+      parsed = { items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } };
+    }
+
+    res.json(parsed);
+  } catch (err) {
+    req.log.error({ err }, "Gemini Vision meal scan failed");
+    res.status(500).json({ error: "Meal vision scan failed", items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } });
+  }
+});
+
 export default router;
