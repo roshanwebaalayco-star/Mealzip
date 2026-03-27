@@ -110,8 +110,6 @@ export default function Chat() {
   const [voiceLang, setVoiceLang] = useState<string>(() =>
     localStorage.getItem("chatVoiceLang") || "hi-IN"
   );
-  const [pendingFoodContext, setPendingFoodContext] = useState<string | null>(null);
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -160,12 +158,7 @@ export default function Chat() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
 
-    let messageToSend = userMsg;
-    if (pendingFoodContext) {
-      messageToSend = `${pendingFoodContext}\n\nUser: ${userMsg}`;
-      setPendingFoodContext(null);
-    }
-    await streamMessage(activeConvoId, messageToSend);
+    await streamMessage(activeConvoId, userMsg);
   };
 
   useEffect(() => {
@@ -404,15 +397,6 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
 
         {/* Input bar */}
         <div className="relative z-10 p-3 md:p-4 border-t border-white/60">
-          {pendingFoodContext && (
-            <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-700">
-              <Camera className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1 truncate">Meal photo analysed — your next message will include the nutrition context</span>
-              <button onClick={() => setPendingFoodContext(null)} className="shrink-0">
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          )}
           <form
             onSubmit={handleSubmit}
             className="flex items-center gap-2 bg-white/55 backdrop-blur-sm border border-white/80 rounded-2xl px-3 py-2 shadow-inner"
@@ -461,7 +445,7 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={pendingFoodContext ? "Type your response about this meal…" : "Type your message or tap mic to speak…"}
+              placeholder="Type your message or tap mic to speak…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 py-1"
               disabled={isStreaming || isScanningMeal}
             />
