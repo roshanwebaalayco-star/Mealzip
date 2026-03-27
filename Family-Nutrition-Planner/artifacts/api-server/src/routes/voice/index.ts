@@ -66,7 +66,7 @@ router.post("/voice/transcribe", async (req, res): Promise<void> => {
     const blob = new Blob([audioBuffer], { type: mimeType });
     formData.append("file", blob, fileName);
     formData.append("language_code", languageCode);
-    formData.append("model", "saarika:v2");
+    formData.append("model", "saarika:v2.5");
 
     const response = await fetch("https://api.sarvam.ai/speech-to-text", {
       method: "POST",
