@@ -621,8 +621,15 @@ Return ONLY a valid JSON object:
       const jsonStr = fenceMatch ? fenceMatch[1] : text;
       const s = jsonStr.indexOf("{"); const e = jsonStr.lastIndexOf("}");
       if (s !== -1 && e !== -1) parsed = JSON.parse(jsonStr.slice(s, e + 1)) as typeof parsed;
-    } catch { parsed = { items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } }; }
-    res.json({ mode: "meal", ...parsed });
+    } catch { /* fall through to safe defaults */ }
+    const DEFAULT_NUTRITION = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 };
+    res.json({
+      mode: "meal",
+      items: parsed.items ?? [],
+      totalNutrition: parsed.totalNutrition ?? DEFAULT_NUTRITION,
+      mealDescription: parsed.mealDescription ?? "",
+      icmrNote: parsed.icmrNote ?? "",
+    });
   } catch (err) {
     req.log.error({ err }, "Gemini Vision meal scan failed");
     res.status(500).json({ error: "Meal scan failed", mode: "meal", items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } });
