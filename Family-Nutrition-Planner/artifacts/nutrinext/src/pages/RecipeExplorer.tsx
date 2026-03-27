@@ -2,10 +2,37 @@ import { useState } from "react";
 import { useListRecipes } from "@workspace/api-client-react";
 import { Search, Clock, Flame, Leaf, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { apiFetch } from "@/lib/api-fetch";
+import RecipeDetailModal from "@/components/RecipeDetailModal";
+
+interface RecipeDetail {
+  id: number;
+  name: string;
+  nameHindi?: string | null;
+  cuisine?: string | null;
+  diet?: string | null;
+  course?: string | null;
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+  fiber?: number | null;
+  iron?: number | null;
+  prepTimeMin?: number | null;
+  cookTimeMin?: number | null;
+  totalTimeMin?: number | null;
+  servings?: number | null;
+  costPerServing?: number | null;
+  ingredients?: string | null;
+  instructions?: string | null;
+  imageUrl?: string | null;
+}
 
 export default function RecipeExplorer() {
   const [search, setSearch] = useState("");
   const [dietFilter, setDietFilter] = useState("");
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
 
   const { data, isLoading } = useListRecipes({
     q: search || undefined,
@@ -20,6 +47,22 @@ export default function RecipeExplorer() {
     vegan: "Vegan",
     "non-vegetarian": "Non-Veg",
   };
+
+  async function openRecipeDetail(id: number, basicInfo: RecipeDetail) {
+    if (loadingId === id) return;
+    setSelectedRecipe(basicInfo);
+    setLoadingId(id);
+    try {
+      const res = await apiFetch(`/api/recipes/${id}`);
+      if (res.ok) {
+        const detail = await res.json() as RecipeDetail;
+        setSelectedRecipe(detail);
+      }
+    } catch {
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -82,7 +125,26 @@ export default function RecipeExplorer() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: i * 0.03 }}
-              className="recipe-card glass-card rounded-3xl overflow-hidden cursor-pointer"
+              className="recipe-card glass-card rounded-3xl overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
+              onClick={() => openRecipeDetail(recipe.id, {
+                id: recipe.id,
+                name: recipe.name,
+                nameHindi: recipe.nameHindi,
+                cuisine: recipe.cuisine,
+                diet: recipe.diet,
+                course: recipe.course,
+                calories: recipe.calories,
+                protein: recipe.protein,
+                carbs: recipe.carbs,
+                fat: recipe.fat,
+                fiber: recipe.fiber,
+                prepTimeMin: recipe.prepTimeMin,
+                cookTimeMin: recipe.cookTimeMin,
+                totalTimeMin: recipe.totalTimeMin,
+                servings: recipe.servings,
+                costPerServing: recipe.costPerServing,
+                imageUrl: recipe.imageUrl,
+              })}
             >
               {/* Image */}
               <div className="h-44 relative overflow-hidden bg-muted">
@@ -92,7 +154,7 @@ export default function RecipeExplorer() {
                     "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80"
                   }
                   alt={recipe.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                 />
                 {/* Cuisine badge */}
                 <div className="absolute top-2.5 left-2.5">
@@ -113,6 +175,12 @@ export default function RecipeExplorer() {
                     </div>
                   )}
                 </div>
+                {/* Loading overlay */}
+                {loadingId === recipe.id && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  </div>
+                )}
                 {/* Bottom gradient */}
                 <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/30 to-transparent" />
               </div>
@@ -137,6 +205,7 @@ export default function RecipeExplorer() {
                     {(recipe.prepTimeMin || 0) + (recipe.cookTimeMin || 0)}m
                   </span>
                 </div>
+                <p className="text-[10px] text-primary mt-2 font-medium">Tap for full recipe →</p>
               </div>
             </motion.div>
           ))}
@@ -147,6 +216,14 @@ export default function RecipeExplorer() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Recipe detail modal */}
+      {selectedRecipe && (
+        <RecipeDetailModal
+          recipe={selectedRecipe}
+          onClose={() => setSelectedRecipe(null)}
+        />
       )}
     </div>
   );

@@ -51,14 +51,14 @@ Family-Nutrition-Planner/
 
 **API Route Modules** (all under `/api`):
 - `/auth` — register/login, returns JWT
-- `/families` — family profiles + members
+- `/families` — family profiles + members + **`POST /families/profile-chat`** (stateless chat: `{messages, language}` → `{reply, extractedData, isComplete}`) for text-chat profile curation
 - `/recipes` — recipe search/listing against the seeded DB
 - `/meal-plans` — AI-generated weekly meal plans
 - `/meal-feedback` — thumbs up/down per meal for Week 2 regeneration
-- `/nutrition` — nutrition lookup (recipe_db → icmr_nin → generic_estimate fallback chain), food scan (YOLOv11/demo)
+- `/nutrition` — nutrition lookup, food scan (YOLOv11/demo), **`POST /nutrition/pantry-vision`** (Gemini Vision: returns `{name, nameHindi, quantity, unit, weightGrams, confidence}` per detected item)
 - `/nutrition-summary/:memberId` — per-member nutrition vs. ICMR-NIN targets
 - `/voice` — Sarvam AI STT transcription (`POST /api/voice/transcribe`)
-- `/grocery` — AI-generated grocery lists with cost estimates
+- `/grocery` — AI-generated grocery lists with cost estimates + `healthRationale` per item (ICMR-NIN citation)
 - `/gemini` — Gemini conversation endpoints with SSE streaming
 - `/demo` — seeds a demo "Sharma Family" profile
 - `/health` — health log entries + symptom advisor
@@ -82,7 +82,7 @@ Family-Nutrition-Planner/
 - **Auth**: `useAuth` hook reads/writes JWT to localStorage; `setAuthTokenGetter` injects Bearer token into all API calls
 - **App state**: `AppStateContext` tracks active family (defaults to first family returned by API)
 
-**Key pages**: Dashboard, FamilySetup (multi-step wizard with voice input), MealPlan (weekly calendar view), RecipeExplorer, Chat (AI with SSE streaming + voice), Scanner (food detection), Grocery, Nutrition (charts via Recharts), HealthLog, Login, Register
+**Key pages**: Dashboard, FamilySetup (multi-step wizard with 3 paths: voice / text-chat / manual form), MealPlan (weekly calendar view), RecipeExplorer (clickable cards → RecipeDetailModal), Chat (AI with SSE streaming + voice), Scanner (food detection with Gemini Vision pantry scan + quantity estimation), Grocery (ICMR health rationale per item), Nutrition (charts via Recharts), HealthLog, Login, Register
 
 ### API Client Code Generation (Orval)
 

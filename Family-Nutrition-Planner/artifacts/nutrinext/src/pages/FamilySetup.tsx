@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCreateFamily, useAddFamilyMember } from "@workspace/api-client-react";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic } from "lucide-react";
+import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic, MessageSquare, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
 import VoiceAssistantModal from "@/components/VoiceAssistantModal";
@@ -70,6 +70,126 @@ export default function FamilySetup() {
   ]);
 
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+
+  const CHAT_LANGUAGES = [
+    { key: "English", label: "English" },
+    { key: "Hindi", label: "हिंदी" },
+    { key: "Bengali", label: "বাংলা" },
+    { key: "Tamil", label: "தமிழ்" },
+    { key: "Telugu", label: "తెలుగు" },
+    { key: "Marathi", label: "मराठी" },
+    { key: "Gujarati", label: "ગુજરાતી" },
+    { key: "Kannada", label: "ಕನ್ನಡ" },
+    { key: "Malayalam", label: "മലയാളം" },
+    { key: "Punjabi", label: "ਪੰਜਾਬੀ" },
+    { key: "Odia", label: "ଓଡ଼ିଆ" },
+  ];
+
+  type ChatMsg = { role: "user" | "model"; content: string };
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatLang, setChatLang] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatComplete, setChatComplete] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
+
+  const sendChatMessage = async (userText: string, msgs: ChatMsg[]) => {
+    if (!chatLang) return;
+    setChatLoading(true);
+    const newMsgs: ChatMsg[] = [...msgs, { role: "user", content: userText }];
+    setChatMessages(newMsgs);
+    setChatInput("");
+    try {
+      const res = await fetch("/api/families/profile-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
+        },
+        body: JSON.stringify({ messages: newMsgs, language: chatLang }),
+      });
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json() as { reply: string; extractedData?: Record<string, unknown>; isComplete: boolean };
+      const updatedMsgs: ChatMsg[] = [...newMsgs, { role: "model", content: data.reply }];
+      setChatMessages(updatedMsgs);
+      if (data.isComplete && data.extractedData) {
+        const p = data.extractedData as {
+          familyName?: string;
+          state?: string;
+          monthlyBudget?: number;
+          dietaryType?: string;
+          members?: Array<{ name?: string; age?: number; gender?: string; role?: string; healthConditions?: string[] }>;
+        };
+        const newFamilyData = {
+          ...familyData,
+          ...(p.familyName ? { name: p.familyName } : {}),
+          ...(p.state ? { state: p.state } : {}),
+          ...(p.monthlyBudget ? { monthlyBudget: p.monthlyBudget } : {}),
+          ...(p.dietaryType ? { dietaryType: p.dietaryType as typeof familyData.dietaryType } : {}),
+        };
+        const newMembers: MemberDraft[] = (p.members ?? []).filter(m => m.name).map(m => ({
+          _id: ++_memberIdCounter,
+          name: m.name ?? "",
+          role: m.role ?? "other",
+          age: m.age ?? 25,
+          gender: m.gender ?? "male",
+          weightKg: 65,
+          heightCm: 165,
+          activityLevel: "moderate",
+          healthConditions: m.healthConditions ?? [],
+          dietaryRestrictions: [],
+          healthGoal: "general_wellness",
+          dietaryType: newFamilyData.dietaryType,
+          memberFastingDays: [],
+          foodAllergies: "",
+        }));
+        setFamilyData(newFamilyData);
+        if (newMembers.length > 0) setMembers(newMembers);
+        setChatComplete(true);
+        await executeSave(newFamilyData, newMembers.length > 0 ? newMembers : members, "/meal-plan", 1);
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: "model", content: "Sorry, I had trouble responding. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const startChat = async (lang: string) => {
+    setChatLang(lang);
+    setChatMessages([]);
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/families/profile-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
+        },
+        body: JSON.stringify({ messages: [{ role: "user", content: `Hello! Please help me set up my family profile. Use ${lang}.` }], language: lang }),
+      });
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json() as { reply: string };
+      setChatMessages([
+        { role: "user", content: `Hello! Please help me set up my family profile. Use ${lang}.` },
+        { role: "model", content: data.reply },
+      ]);
+    } catch {
+      setChatMessages([
+        { role: "user", content: `Hello!` },
+        { role: "model", content: "Namaste! 🙏 Let's set up your family profile. What is your family name?" },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
@@ -302,22 +422,164 @@ export default function FamilySetup() {
             className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-border"
           >
             <div className="space-y-6">
-              {/* Conversational voice setup */}
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/20">
-                <div>
-                  <p className="font-semibold text-sm">{t("Voice Setup", "वॉइस सेटअप")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("Set up your entire family profile by speaking — the AI will guide you", "AI आपसे बात करके पूरी प्रोफाइल भरेगा")}
-                  </p>
+              {/* Quick setup options: Voice + Chat */}
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t("Quick Setup (AI-Guided)", "AI गाइडेड सेटअप")}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Voice Setup */}
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm">{t("Voice Setup", "वॉइस सेटअप")}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                        {t("Speak in your language", "अपनी भाषा में बोलें")}
+                      </p>
+                    </div>
+                    <Button type="button" size="sm" onClick={() => setVoiceModalOpen(true)} className="gap-1.5 shrink-0 ml-2">
+                      <Mic className="w-3.5 h-3.5" />
+                      {t("Voice", "बोलें")}
+                    </Button>
+                  </div>
+
+                  {/* Chat Setup */}
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/5 border border-secondary/20">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm">{t("Chat Setup", "चैट सेटअप")}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                        {t("Type your answers", "टाइप करके जवाब दें")}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setChatOpen(true); setChatLang(null); setChatMessages([]); setChatComplete(false); }}
+                      className="gap-1.5 shrink-0 ml-2 border-secondary/40 text-secondary hover:bg-secondary/10"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      {t("Chat", "चैट")}
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => setVoiceModalOpen(true)}
-                  className="gap-2 shrink-0 bg-primary text-white hover:bg-primary/90"
-                >
-                  <Mic className="w-4 h-4" />
-                  {t("Start Voice Setup", "वॉइस शुरू करें")}
-                </Button>
+              </div>
+
+              {/* Inline Chat Interface */}
+              <AnimatePresence>
+                {chatOpen && (
+                  <motion.div
+                    key="chat"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border border-secondary/30 rounded-2xl bg-secondary/5 overflow-hidden">
+                      {/* Chat header */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-secondary/10 border-b border-secondary/20">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-secondary" />
+                          <span className="text-sm font-semibold">{t("ParivarSehat AI Chat", "पारिवार सेहत AI चैट")}</span>
+                        </div>
+                        <button type="button" onClick={() => setChatOpen(false)} className="text-muted-foreground hover:text-foreground">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Language selection */}
+                      {!chatLang && (
+                        <div className="p-4">
+                          <p className="text-sm font-semibold mb-1">🙏 Namaste!</p>
+                          <p className="text-xs text-muted-foreground mb-3">{t("Select your preferred language to continue:", "अपनी भाषा चुनें:")}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {CHAT_LANGUAGES.map(l => (
+                              <button
+                                key={l.key}
+                                type="button"
+                                onClick={() => startChat(l.key)}
+                                className="px-3 py-1.5 text-xs font-medium rounded-full bg-white border border-secondary/30 hover:bg-secondary/10 hover:border-secondary/60 transition-colors"
+                              >
+                                {l.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Chat messages */}
+                      {chatLang && (
+                        <>
+                          <div className="h-52 overflow-y-auto p-3 space-y-2">
+                            {chatLoading && chatMessages.length === 0 && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                {t("Starting chat…", "चैट शुरू हो रही है…")}
+                              </div>
+                            )}
+                            {chatMessages.map((msg, i) => (
+                              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                                  msg.role === "user"
+                                    ? "bg-primary text-white rounded-br-sm"
+                                    : "bg-white border border-border text-foreground rounded-bl-sm"
+                                }`}>
+                                  {msg.content}
+                                </div>
+                              </div>
+                            ))}
+                            {chatLoading && chatMessages.length > 0 && (
+                              <div className="flex justify-start">
+                                <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-3 py-2 flex gap-1">
+                                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                  <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                                </div>
+                              </div>
+                            )}
+                            {chatComplete && (
+                              <div className="text-center py-2">
+                                <p className="text-xs text-green-600 font-semibold">✅ {t("Profile collected! Saving…", "प्रोफाइल तैयार! सहेज रहे हैं…")}</p>
+                              </div>
+                            )}
+                            <div ref={chatEndRef} />
+                          </div>
+
+                          {/* Input box */}
+                          {!chatComplete && (
+                            <div className="flex items-center gap-2 p-3 border-t border-secondary/20 bg-white/50">
+                              <Input
+                                value={chatInput}
+                                onChange={e => setChatInput(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter" && !e.shiftKey && chatInput.trim() && !chatLoading) {
+                                    e.preventDefault();
+                                    sendChatMessage(chatInput.trim(), chatMessages);
+                                  }
+                                }}
+                                placeholder={t("Type your answer…", "अपना जवाब टाइप करें…")}
+                                disabled={chatLoading}
+                                className="h-8 text-xs rounded-xl bg-white"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={!chatInput.trim() || chatLoading}
+                                onClick={() => sendChatMessage(chatInput.trim(), chatMessages)}
+                                className="h-8 w-8 p-0 shrink-0"
+                              >
+                                {chatLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground font-medium">{t("or fill form manually", "या फॉर्म भरें")}</span>
+                <div className="flex-1 h-px bg-border" />
               </div>
 
               <div>

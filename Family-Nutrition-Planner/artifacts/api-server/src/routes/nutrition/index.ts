@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { recipesTable, familyMembersTable, foodGiNutritionTable } from "@workspace/db";
 import { AnalyzeNutritionBody, ScanFoodBody } from "@workspace/api-zod";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
+import { ai } from "@workspace/integrations-gemini-ai";
 
 const router: IRouter = Router();
 
@@ -407,6 +408,74 @@ router.post("/nutrition/food-gi/seed", async (req, res): Promise<void> => {
   }
   await db.insert(foodGiNutritionTable).values(COMMON_INDIAN_FOOD_GI);
   res.json({ message: `Seeded ${COMMON_INDIAN_FOOD_GI.length} common Indian food GI entries`, seeded: true });
+});
+
+interface PantryVisionItem {
+  name: string;
+  nameHindi?: string;
+  quantity: number;
+  unit: string;
+  weightGrams: number;
+  confidence: number;
+}
+
+router.post("/nutrition/pantry-vision", async (req, res): Promise<void> => {
+  const { imageBase64 } = req.body as { imageBase64?: string };
+  if (!imageBase64) {
+    res.status(400).json({ error: "imageBase64 required" });
+    return;
+  }
+
+  const PANTRY_VISION_PROMPT = `You are an expert Indian pantry analyst. Look at this image of a kitchen pantry, fridge, shelf, or vegetables and identify ALL visible food ingredients.
+
+For each visible item estimate:
+- name: English name (e.g. "Tomatoes", "Atta", "Toor Dal")
+- nameHindi: Hindi name (e.g. "टमाटर", "आटा", "तुअर दाल")
+- quantity: numeric amount (e.g. 4, 0.5, 1, 500)
+- unit: kg | g | pieces | litre | ml | bunch | packet | bag
+- weightGrams: total estimated weight in grams (e.g. 300, 1000, 500)
+- confidence: 0.0 to 1.0
+
+Return ONLY a valid JSON array with no other text:
+[
+  { "name": "Tomatoes", "nameHindi": "टमाटर", "quantity": 4, "unit": "pieces", "weightGrams": 320, "confidence": 0.92 },
+  { "name": "Atta (Whole Wheat Flour)", "nameHindi": "आटा", "quantity": 1, "unit": "kg", "weightGrams": 1000, "confidence": 0.89 }
+]
+
+Focus on raw ingredients common in Indian kitchens: vegetables, pulses/dal, grains/atta/rice, spices, oils, dairy (milk/paneer/curd), fruits. Skip unreadable packaged products.`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        role: "user",
+        parts: [
+          { text: PANTRY_VISION_PROMPT },
+          { inlineData: { mimeType: "image/jpeg", data: imageBase64 } },
+        ],
+      }],
+      config: { maxOutputTokens: 2048 },
+    });
+
+    const text = result.text ?? "";
+    let items: PantryVisionItem[] = [];
+    try {
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = fenceMatch ? fenceMatch[1] : text;
+      const arrStart = jsonStr.indexOf("[");
+      const arrEnd = jsonStr.lastIndexOf("]");
+      if (arrStart !== -1 && arrEnd !== -1) {
+        items = JSON.parse(jsonStr.slice(arrStart, arrEnd + 1)) as PantryVisionItem[];
+      }
+    } catch {
+      items = [];
+    }
+
+    res.json({ items });
+  } catch (err) {
+    req.log.error({ err }, "Gemini Vision pantry scan failed");
+    res.status(500).json({ error: "Vision scan failed", items: [] });
+  }
 });
 
 export default router;

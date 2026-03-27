@@ -46,8 +46,13 @@ interface ManualEntry {
 
 interface PantryItem {
   name: string;
+  nameHindi?: string;
+  quantity?: number;
+  unit?: string;
+  weightGrams?: number;
   confidence: number;
   checked: boolean;
+  source?: "vision" | "yolo";
 }
 
 const COMMON_PANTRY_INGREDIENTS = [
@@ -69,6 +74,7 @@ function PantryScanner({ familyId }: { familyId: number }) {
   const [savedToPantry, setSavedToPantry] = useState(false);
   const [showCommonList, setShowCommonList] = useState(false);
   const [commonChecked, setCommonChecked] = useState<Record<string, boolean>>({});
+  const [isVisionScanning, setIsVisionScanning] = useState(false);
   const scanMutation = useScanFood();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,13 +86,44 @@ function PantryScanner({ familyId }: { familyId: number }) {
       const result = event.target?.result as string;
       setImagePreview(result);
       const base64 = result.split(",")[1];
+
+      setIsVisionScanning(true);
+      try {
+        const res = await fetch("/api/nutrition/pantry-vision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}` },
+          body: JSON.stringify({ imageBase64: base64 }),
+        });
+        if (res.ok) {
+          const visionData = await res.json() as { items?: Array<{ name: string; nameHindi?: string; quantity: number; unit: string; weightGrams: number; confidence: number }> };
+          if (visionData.items && visionData.items.length > 0) {
+            setPantryItems(visionData.items.map(item => ({
+              name: item.name,
+              nameHindi: item.nameHindi,
+              quantity: item.quantity,
+              unit: item.unit,
+              weightGrams: item.weightGrams,
+              confidence: item.confidence,
+              checked: item.confidence >= CONFIDENCE_THRESHOLD,
+              source: "vision" as const,
+            })));
+            setIsVisionScanning(false);
+            return;
+          }
+        }
+      } catch { /* fall through to YOLO */ }
+      setIsVisionScanning(false);
+
       try {
         const data = await scanMutation.mutateAsync({ data: { imageBase64: base64, mode: "pantry" } });
-        const allDetected = [
-          ...(data.detectedFoods ?? []),
-          ...(data.lowConfidenceItems ?? []),
-        ];
-        setPantryItems(allDetected.map((f: DetectedFood) => ({ name: f.name, confidence: f.confidence, checked: f.confidence >= CONFIDENCE_THRESHOLD })));
+        const allDetected = [...(data.detectedFoods ?? []), ...(data.lowConfidenceItems ?? [])];
+        setPantryItems(allDetected.map((f: DetectedFood) => ({
+          name: f.name,
+          confidence: f.confidence,
+          weightGrams: f.estimatedGrams,
+          checked: f.confidence >= CONFIDENCE_THRESHOLD,
+          source: "yolo" as const,
+        })));
       } catch (err) {
         if (!isYoloUnavailable(err)) {
           toast({ title: t("Scan failed", "स्कैन विफल"), variant: "destructive" });
@@ -154,11 +191,15 @@ function PantryScanner({ familyId }: { familyId: number }) {
         {imagePreview ? (
           <div className="rounded-2xl overflow-hidden aspect-video bg-black/80 relative mb-3">
             <img src={imagePreview} className="w-full h-full object-contain" alt="Pantry" />
-            {scanMutation.isPending && (
+            {(isVisionScanning || scanMutation.isPending) && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                 <div className="text-center text-white">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm font-semibold">{t("Identifying ingredients…", "सामग्री पहचानी जा रही है…")}</p>
+                  <p className="text-sm font-semibold">
+                    {isVisionScanning
+                      ? t("AI Vision scanning…", "AI Vision स्कैन हो रहा है…")
+                      : t("Identifying ingredients…", "सामग्री पहचानी जा रही है…")}
+                  </p>
                 </div>
               </div>
             )}
@@ -239,10 +280,19 @@ function PantryScanner({ familyId }: { familyId: number }) {
                     setPantryItems(updated);
                   }}
                 />
-                <label htmlFor={`pantry-${idx}`} className="flex-1 text-sm font-medium cursor-pointer">
-                  {item.name}
+                <label htmlFor={`pantry-${idx}`} className="flex-1 cursor-pointer min-w-0">
+                  <p className="text-sm font-medium">{item.name}</p>
+                  {item.nameHindi && (
+                    <p className="text-[10px] text-muted-foreground">{item.nameHindi}</p>
+                  )}
+                  {(item.quantity != null && item.unit) && (
+                    <p className="text-[10px] text-primary/70 font-medium">
+                      {item.quantity} {item.unit}
+                      {item.weightGrams ? ` · ~${item.weightGrams}g` : ""}
+                    </p>
+                  )}
                 </label>
-                <Badge className={`text-[9px] ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                <Badge className={`text-[9px] shrink-0 ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                   {(item.confidence * 100).toFixed(0)}%
                 </Badge>
               </div>

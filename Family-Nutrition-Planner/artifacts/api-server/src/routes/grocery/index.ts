@@ -62,34 +62,39 @@ router.post("/grocery-lists/generate", async (req, res): Promise<void> => {
     ? `\nPantry items already available (DO NOT include in shopping list unless extra quantity needed): ${pantryIngredients.join(", ")}`
     : "";
 
-  const prompt = `You are a smart Indian grocery shopping assistant. Given this family meal plan, generate a detailed weekly grocery list with cost-saving alternatives.
+  const prompt = `You are ParivarSehat AI — a smart Indian Kirana grocery assistant. Generate a comprehensive weekly grocery list for this family's meal plan.
 
-Family: ${family.name}, State: ${family.state}, Monthly Budget: ₹${budget}
+Family: ${family.name}, State: ${family.state}
 Weekly grocery budget: ₹${weeklyBudget}${pantryNote}
 
-Meal plan: ${JSON.stringify(mealPlan.plan).slice(0, 3000)}
+Meal plan summary: ${JSON.stringify(mealPlan.plan).slice(0, 2500)}
 
-Return a JSON object with this structure:
+Return ONLY valid JSON with this structure — every item MUST have a healthRationale:
 {
   "items": [
     {
       "category": "Vegetables|Fruits|Grains|Pulses|Dairy|Spices|Oil|Other",
       "name": "ingredient name in English",
       "nameHindi": "name in Hindi",
-      "quantity": "500g",
+      "quantity": "500g or 1 kg or 250 ml",
       "estimatedCost": 30,
-      "cheaperAlternative": "optional cheaper swap",
+      "cheaperAlternative": "optional cheaper swap for same nutrition",
       "alternativeCost": 20,
-      "priority": "essential|optional"
+      "priority": "essential|optional",
+      "healthRationale": "1-line reason why this ingredient is good for the family's health (e.g. 'Rich in iron — supports anaemia management per ICMR-NIN 2024')"
     }
   ],
   "totalEstimatedCost": 850,
   "budgetStatus": "within|over|under",
-  "savingsTips": ["tip 1", "tip 2"],
+  "savingsTips": ["tip 1", "tip 2", "tip 3"],
   "seasonalSuggestions": ["seasonal produce tip"]
 }
 
-Focus on Indian market pricing. Prioritize seasonal local produce to reduce costs.`;
+Rules:
+- Use tier-2 Indian city prices (Lucknow, Nagpur, Coimbatore etc.)
+- Prioritize seasonal local produce
+- Group essential items first within each category
+- healthRationale must reference ICMR-NIN 2024 or specific health benefit`;
 
   try {
     const response = await ai.models.generateContent({

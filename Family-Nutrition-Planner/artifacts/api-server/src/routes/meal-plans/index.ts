@@ -21,6 +21,20 @@ const router: IRouter = Router();
 
 const MAX_OUTPUT_TOKENS = 16000;
 
+function tryParseJson(text: string): Record<string, unknown> | null {
+  try { return JSON.parse(text) as Record<string, unknown>; } catch { /* fall through */ }
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()) as Record<string, unknown>; } catch { /* fall through */ }
+  }
+  const braceStart = text.indexOf("{");
+  const braceEnd = text.lastIndexOf("}");
+  if (braceStart !== -1 && braceEnd > braceStart) {
+    try { return JSON.parse(text.slice(braceStart, braceEnd + 1)) as Record<string, unknown>; } catch { /* fall through */ }
+  }
+  return null;
+}
+
 async function callGeminiWithJsonRetry(
   prompt: string,
   label: string,
@@ -33,11 +47,7 @@ async function callGeminiWithJsonRetry(
       config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
     });
     const text = response.text ?? "{}";
-    try {
-      return { text, data: JSON.parse(text) as Record<string, unknown> };
-    } catch {
-      return { text, data: null };
-    }
+    return { text, data: tryParseJson(text) };
   }
 
   const first = await attempt();
@@ -45,6 +55,7 @@ async function callGeminiWithJsonRetry(
 
   log.error({ label, rawText: first.text.slice(0, 500) }, `${label}: first JSON parse failed, retrying`);
 
+  await new Promise(r => setTimeout(r, 2000));
   const second = await attempt();
   if (second.data !== null) {
     log.info({ label }, `${label}: JSON parse succeeded on retry`);
@@ -437,108 +448,76 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     ? `\nPREVIOUS FEEDBACK - AVOID these types:\n${dislikedMeals.slice(0, 10).join("\n")}\nCONTINUE these popular meals:\n${likedMeals.slice(0, 5).join("\n")}\n`
     : "";
 
-  const leftoversNote = `
-LEFTOVER REUSE STRATEGY:
-- Monday dal/sabzi can be repurposed as Tuesday paratha filling
-- Cooked rice from lunch can become khichdi for dinner
-- Suggest at least 2 leftover-based meals across the week
-`;
+  const memberListForPrompt = memberSummaries.map(m => ({
+    name: m.name, role: m.role, age: m.age, gender: m.gender,
+    conditions: m.healthConditions,
+    diet: m.dietaryRestrictions,
+    allergies: m.allergies,
+  }));
 
-  const prompt = `You are NutriNext AI, India's expert family nutritionist following ICMR-NIN 2024 Dietary Reference Values.
+  const recipeListForPrompt = filteredRecipes.slice(0, 30).map(r => ({
+    id: r.id, name: r.name, course: r.course, diet: r.diet, cal: r.calories, cost: r.costPerServing,
+  }));
 
-Generate a 7-day family meal plan for ${family.name} family from ${family.state}.
-Zone: ${zone.toUpperCase()} India cuisine preferred.
+  const prompt = `You are ParivarSehat AI — India's expert family nutritionist (ICMR-NIN 2024).
 
-FAMILY MEMBERS:
-${JSON.stringify(memberSummaries, null, 2)}
+Generate a 7-day family meal plan for the ${family.name} family from ${family.state} (${zone.toUpperCase()} India zone).
 
-BUDGET: Monthly ₹${family.monthlyBudget} → Weekly ₹${weeklyBudget} → Per meal ≤ ₹${budgetPerMeal * members.length}
-CUISINES: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
-LANGUAGE: ${family.primaryLanguage}
-${festivalContext}${fastingNote}${pantryNote}${feedbackNote}${leftoversNote}
+FAMILY (${members.length} members):
+${JSON.stringify(memberListForPrompt)}
 
-AVAILABLE RECIPES FROM DATABASE (filtered for zone "${zone}" and dietary needs):
-${JSON.stringify(filteredRecipes.slice(0, 80).map(r => ({
-  id: r.id,
-  name: r.name,
-  cuisine: r.cuisine,
-  course: r.course,
-  cal: r.calories,
-  cost: r.costPerServing,
-  ing: r.ingredients?.split(",").slice(0, 5).join(",").trim(),
-})))}
+BUDGET: ₹${weeklyBudget}/week → max ₹${budgetPerMeal * members.length} per meal
+CUISINE: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
+${festivalContext}${fastingNote}${pantryNote}${feedbackNote}
 
+"ONE BASE, MANY PLATES" PHILOSOPHY (MANDATORY):
+Every dinner = ONE base dish cooked once, plated differently per family member based on their health conditions.
+Example: Base = Dal Tadka + Chapati
+- Papa (Diabetes): smaller rice portion, extra dal, no ghee
+- Dadi (Hypertension): sendha namak or no added salt, light tadka
+- Beti (Anaemia): add lemon squeeze + peanut chutney for iron absorption
+- Baby (3yr): mashed dal + 1 chapati with ghee
+This saves time, money, and effort. Apply to ALL dinners and lunches.
 
-FAMILY MEMBERS LIST (for per-member variations):
-${JSON.stringify(memberSummaries.map(m => ({ name: m.name, age: m.age, conditions: m.healthConditions, role: m.role })), null, 2)}
+AVAILABLE RECIPES FROM DATABASE (use these recipeIds in your plan):
+${JSON.stringify(recipeListForPrompt)}
 
-INSTRUCTIONS:
-1. Create 7 days (Monday-Sunday): Breakfast, Mid-morning, Lunch, Evening Snack, Dinner (5 meals)
-2. Use recipe IDs from the list above where possible (id: null for unlisted)
-3. ICMR-NIN 2024: Protein 10-15% calories, Carbs 60-65%, Fat 20-25%, Fiber ≥25g/day
-4. Budget: max ₹${budgetPerMeal * members.length} per meal for ${members.length} people
-5. All health conditions respected: diabetes (low GI), hypertension (low sodium), obesity (low calorie)
-6. For EVERY dinner, provide a 3-step leftover chain showing how tonight's dinner becomes tomorrow's lunch and the day-after's breakfast/snack
-7. Harmony Score = % of members whose nutrition/preference needs are met
-8. Provide AI insights in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
-9. For EACH meal: include icmr_rationale (1-2 sentence ICMR-NIN 2024 justification), instructions (3-5 numbered cooking steps), and per-member member_plates with add/reduce/avoid lists based on each member's health conditions
+RULES:
+1. 7 days (Monday–Sunday), 5 meals each: breakfast, mid_morning, lunch, evening_snack, dinner
+2. Prefer recipe IDs from the list above; use recipeId: null for AI-invented dishes
+3. ICMR-NIN 2024 targets: Protein 10–15% cal, Carbs 60–65%, Fat 20–25%, Fiber ≥25g/day
+4. For EACH health condition: diabetes→low GI; hypertension→low sodium; obesity→reduced portion; anaemia→iron-rich
+5. For EVERY dinner include a 3-step leftover chain (how dinner becomes next-day lunch, then breakfast/snack)
+6. Harmony Score = % of members whose nutritional/preference needs are met
+7. Write aiInsights in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}, under 150 words
 
-Return ONLY valid JSON:
+For each meal slot return this exact JSON structure:
+{
+  "recipeId": <number|null>,
+  "recipeName": "<English name>",
+  "nameHindi": "<Hindi name>",
+  "description": "<1-sentence visual description so cook can picture the dish>",
+  "servings": <number>,
+  "estimatedCost": <INR total for family>,
+  "isLeftover": false,
+  "notes": "",
+  "icmr_rationale": "<1-sentence ICMR-NIN 2024 justification>",
+  "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+  "memberVariations": {"<name>": "<short adaptation note>"},
+  "member_plates": {"<name>": {"add": ["<item>"], "reduce": ["<item>"], "avoid": ["<item>"]}}
+}
+For dinner add: "leftoverChain": [{"step":1,"day":"<nextDay>","meal":"Lunch","dish":"<description>"},{"step":2,"day":"<dayAfterNext>","meal":"Breakfast","dish":"<description>"},{"step":3,"day":"<dayAfterNext>","meal":"Snack","dish":"<description>"}]
+
+Return ONLY valid JSON (no markdown, no explanation):
 {
   "harmonyScore": <0-100>,
   "totalBudgetEstimate": <weekly INR>,
-  "aiInsights": "<insights with leftover tips>",
+  "aiInsights": "<string>",
   "days": [
     {
       "day": "Monday",
       "isFastingDay": false,
-      "meals": {
-        "breakfast": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "icmr_rationale": "<1-2 sentence ICMR-NIN 2024 justification for this dish>",
-          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-          "memberVariations": {"<memberName>": "<variation or empty string>"},
-          "member_plates": {"<memberName>": {"add": ["<food/nutrient to add>"], "reduce": ["<food to reduce>"], "avoid": ["<food to avoid>"]}}
-        },
-        "mid_morning": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "icmr_rationale": "<ICMR rationale>",
-          "instructions": ["Step 1: ..."],
-          "memberVariations": {"<memberName>": "<variation>"},
-          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
-        },
-        "lunch": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "icmr_rationale": "<ICMR rationale>",
-          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-          "memberVariations": {"<memberName>": "<variation>"},
-          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
-        },
-        "evening_snack": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "icmr_rationale": "<ICMR rationale>",
-          "instructions": ["Step 1: ..."],
-          "memberVariations": {"<memberName>": "<variation>"},
-          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}}
-        },
-        "dinner": {
-          "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>",
-          "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "",
-          "icmr_rationale": "<ICMR rationale>",
-          "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-          "memberVariations": {"<memberName>": "<variation>"},
-          "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}},
-          "leftoverChain": [
-            {"step": 1, "day": "<nextDay>", "meal": "Lunch", "dish": "<how dinner becomes next-day lunch>"},
-            {"step": 2, "day": "<dayAfterNext>", "meal": "Breakfast", "dish": "<how leftover becomes breakfast>"},
-            {"step": 3, "day": "<dayAfterNext>", "meal": "Snack", "dish": "<final use of ingredient>"}
-          ]
-        }
-      },
+      "meals": { "breakfast": {...}, "mid_morning": {...}, "lunch": {...}, "evening_snack": {...}, "dinner": {...} },
       "dailyHarmonyScore": <0-100>,
       "dailyNutrition": {"calories": <n>, "protein": <n>, "carbs": <n>, "fat": <n>, "fiber": <n>, "iron": <n>}
     }

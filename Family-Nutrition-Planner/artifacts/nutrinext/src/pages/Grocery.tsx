@@ -26,6 +26,7 @@ interface GroceryItem {
   cheaperAlternative?: string;
   alternativeCost?: number;
   priority: "essential" | "optional";
+  healthRationale?: string;
 }
 
 type SavedSwap = { name: string; cost: number; source: "db" | "ai" };
@@ -609,6 +610,11 @@ export default function Grocery() {
                                 : t("Find Cheaper", "सस्ता खोजें")}
                           </Button>
                         </div>
+                        {item.healthRationale && (
+                          <p className="text-[10px] text-primary/70 mt-1 leading-snug italic">
+                            {item.healthRationale}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );

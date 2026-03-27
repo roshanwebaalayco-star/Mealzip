@@ -34,6 +34,7 @@ interface MealCell {
   recipeName?: string;
   nameHindi?: string;
   name?: string;
+  description?: string;
   calories?: number;
   estimatedCost?: number;
   isLeftover?: boolean;
