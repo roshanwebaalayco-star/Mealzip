@@ -273,4 +273,7 @@
     background: white !important;
     border: 1px solid #e5e7eb !important;
   }
+  .grocery-print-area {
+    display: block !important;
+  }
 }

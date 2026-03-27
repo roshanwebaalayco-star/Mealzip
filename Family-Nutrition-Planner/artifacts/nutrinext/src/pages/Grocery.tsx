@@ -262,7 +262,9 @@ export default function Grocery() {
       try {
         await navigator.share({ title: t("Grocery List", "खरीदारी सूची"), text });
         return;
-      } catch { /* fallback to wa.me */ }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
     }
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -489,7 +491,7 @@ export default function Grocery() {
               title={t("Share on WhatsApp", "WhatsApp पर शेयर करें")}
             >
               <Share2 className="w-3.5 h-3.5" />
-              {t("WhatsApp", "WhatsApp")}
+              {t("Share on WhatsApp", "WhatsApp पर शेयर")}
             </button>
             <button
               onClick={handlePrintList}
@@ -501,6 +503,8 @@ export default function Grocery() {
             </button>
           </div>
 
+          {/* Printable area starts here */}
+          <div className="grocery-print-area space-y-6">
           {/* Budget Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="glass-card rounded-2xl p-4">
@@ -653,6 +657,7 @@ export default function Grocery() {
               )}
             </div>
           )}
+          </div>{/* end grocery-print-area */}
         </>
       )}
     </div>
