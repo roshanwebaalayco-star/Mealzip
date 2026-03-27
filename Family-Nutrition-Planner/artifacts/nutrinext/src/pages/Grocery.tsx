@@ -68,7 +68,7 @@ export default function Grocery() {
   const [swappedItems, setSwappedItems] = useState<Record<string, { name: string; estimatedCost?: number }>>({});
   const [dbSwaps, setDbSwaps] = useState<Record<string, SavedSwap | null>>({});
   const [swapLoading, setSwapLoading] = useState<Record<string, boolean>>({});
-  const [tableView, setTableView] = useState(false);
+  const [tableView, setTableView] = useState(true);
 
   // Pantry state — persisted in localStorage per family
   const pantryKey = activeFamily ? `pantry_${activeFamily.id}` : null;
