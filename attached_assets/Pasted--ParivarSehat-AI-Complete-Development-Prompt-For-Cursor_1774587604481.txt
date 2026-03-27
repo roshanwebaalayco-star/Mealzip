@@ -1,0 +1,393 @@
+# ParivarSehat AI — Complete Development Prompt
+**For: Cursor / Replit / Any AI Code Generator**
+
+---
+
+## PROJECT OVERVIEW
+
+Build a mobile-first web application called **ParivarSehat AI** (brand: NutriNext) that generates personalized family meal plans using Gemini 2.5 Pro API, backed by ICMR-NIN 2024 nutritional data. The app serves Indian families with multiple members having conflicting health conditions — one cooking event, differentiated plates per person.
+
+---
+
+## WHAT ALREADY EXISTS (Keep These, Fix These)
+
+### ✅ Keep From Current Build
+- NutriNext branding + orange logo
+- Bilingual labels (English / हिंदी) on every field
+- Language toggle (EN / हिंदी) in sidebar
+- Health conditions checkboxes: Diabetes, Hypertension, Obesity, Anemia, Thyroid
+- Fasting days: Monday, Tuesday, Thursday, Ekadashi, Saturday
+- Age / Weight (kg) / Height (cm) input fields
+- Health Goal dropdown + Dietary Type dropdown
+- "Add Another Member" expandable section
+- Navigation sidebar: Home, Meals, Grocery, Nutrition, Health
+- "Powered by Gemini AI & ICMR-NIN 2024" footer
+- Back button on profile screen
+
+### ❌ Fix Immediately
+- **"Error saving profile" button** — this is the critical bug. Profile must save successfully to localStorage and navigate to Home
+- All form data must persist across navigation (do not lose data on back/forward)
+- Every button must have a working onClick handler — no dead buttons anywhere
+- Language toggle must actually switch ALL text on screen, not just the label
+
+---
+
+## COMPLETE SCREEN ARCHITECTURE
+
+### Screen 1: Splash / Landing
+- NutriNext logo centered
+- Tagline: "One Kitchen. Every Condition. Zero Compromise."
+- Tagline in Hindi below: "एक रसोई। हर जरूरत। पूरा समाधान।"
+- Two buttons: "Get Started" / "Login"
+- Language selector (EN / हिंदी)
+- "Powered by Gemini AI & ICMR-NIN 2024" at bottom
+
+### Screen 2: Family Setup
+- Header: "Setup Your Family / अपना परिवार सेट करें"
+- Family name input (text)
+- Region dropdown: Jharkhand / Bihar / North Indian / South Indian / Bengali / Marathi / Gujarati / Rajasthani / Other
+- Weekly grocery budget (₹ input, numeric)
+- "Add First Member" button → opens Member Profile Form
+
+### Screen 3: Member Profile Form (Repeatable)
+**Fix the current broken version. All fields:**
+- Member name (text)
+- Relationship: Self / Spouse / Father / Mother / Son / Daughter / Grandparent / Other
+- Age (numeric)
+- Weight in kg (numeric)
+- Height in cm (numeric)
+- Gender: Male / Female / Other
+- Health Goal dropdown:
+  - General Wellness / सामान्य स्वास्थ्य
+  - Weight Loss / वजन घटाना
+  - Muscle Gain / मांसपेशी बढ़ाना
+  - Disease Management / रोग प्रबंधन
+  - Child Growth / बच्चे का विकास
+- Dietary Type dropdown:
+  - Vegetarian / शाकाहारी
+  - Eggetarian / अंडाहारी
+  - Non-Vegetarian / मांसाहारी
+  - Vegan / वीगन
+  - Jain / जैन
+- Health Conditions (multi-select checkboxes):
+  - Diabetes / मधुमेह
+  - Hypertension / उच्च रक्तचाप
+  - Obesity / मोटापा
+  - Anemia / रक्ताल्पता
+  - Thyroid / थायरॉइड
+  - High Cholesterol / उच्च कोलेस्ट्रॉल
+  - PCOD / पीसीओडी
+  - Growing Child / बढ़ता बच्चा
+  - Elderly (60+) / बुजुर्ग
+  - None / कोई नहीं
+- Fasting Days (multi-select checkboxes):
+  - Monday / सोमवार
+  - Tuesday / मंगलवार
+  - Thursday / गुरुवार
+  - Friday / शुक्रवार
+  - Saturday / शनिवार
+  - Ekadashi / एकादशी
+  - Ramadan / रमजान
+  - Navratri / नवरात्रि
+  - None / कोई नहीं
+- Food Allergies (text input, optional)
+- "Save Member" button → saves to state, shows member card
+- "Add Another Member" button → opens fresh form
+- "Continue to Pantry →" button (appears after at least 1 member saved)
+
+**CRITICAL: Save must work. Use React useState or localStorage. No "Error saving profile".**
+
+### Screen 4: Pantry Input
+- Header: "What's In Your Kitchen? / रसोई में क्या है?"
+- Subtext: "Check items you have. We'll use these first."
+- Grid of 40 common ingredients with checkboxes (icons + name in Hindi/English):
+  - Grains: Rice, Wheat/Atta, Ragi, Bajra, Jowar, Poha, Suji
+  - Pulses: Toor Dal, Moong Dal, Chana Dal, Masoor Dal, Rajma, Chana
+  - Vegetables: Onion, Tomato, Potato, Spinach, Methi, Lauki, Bhindi, Brinjal, Carrot
+  - Protein: Eggs, Paneer, Tofu, Chicken, Fish
+  - Dairy: Milk, Curd, Ghee, Butter
+  - Others: Mustard Oil, Groundnut Oil, Jaggery, Sugar, Salt
+- "Today's Festival / Fast?" toggle:
+  - If yes → dropdown: Navratri / Ramadan / Ekadashi / Janmashtami / Other
+- "Generate My Family's Plan →" CTA button (large, orange)
+
+### Screen 5: Today's Meal Plan (CORE SCREEN)
+**This is the most important screen. It must be perfect.**
+
+Layout:
+- Header: "Today's Plan / आज का प्लान" + date
+- **Base Dish Card** (full width):
+  - Dish name (large, bold) in English + Hindi
+  - Region badge (e.g., "Jharkhand Traditional")
+  - Cook time + difficulty
+  - "Why this dish?" expandable section (ICMR rationale)
+  - Step-by-step cooking instructions (numbered, clear)
+
+- **Per-Person Plate Cards** (one card per family member):
+  - Member name + condition badge (e.g., "Diabetic" in red, "Growing Child" in green)
+  - Plate modifications listed clearly:
+    - ✅ Add: (e.g., "Extra methi leaves for iron")
+    - ⬇️ Reduce: (e.g., "Half portion of rice — GI management")
+    - ❌ Avoid: (e.g., "Skip pickle — high sodium")
+  - Nutritional summary: Calories / Protein / Iron / GI Score
+  - ICMR reference cited inline
+
+- **Meal Timeline** (horizontal tabs):
+  - Breakfast / नाश्ता
+  - Mid-morning / मध्याह्न
+  - Lunch / दोपहर
+  - Evening Snack / शाम
+  - Dinner / रात
+
+- Bottom actions:
+  - "View Grocery List →"
+  - "Regenerate Plan 🔄"
+  - "Save This Plan ❤️"
+
+### Screen 6: Kirana Grocery List
+- Header: "Your Kirana List / किराना सूची"
+- Budget bar: "₹[spent] of ₹[budget] used" with color indicator
+- Grouped by category (Grains / Vegetables / Protein / Dairy / Spices)
+- Each item: checkbox + name (Hindi/English) + quantity in grams + estimated ₹ price
+- "Items You Already Have" section (greyed out, from pantry input)
+- Total cost at bottom
+- "Share List" button (WhatsApp share)
+- "Download PDF" button
+
+### Screen 7: Nutrition Dashboard
+- Header: "Family Nutrition / पोषण डैशबोर्ड"
+- Per-member nutrition card showing:
+  - Today's intake vs ICMR-NIN recommended (progress bars)
+  - Calories / Protein / Iron / Calcium / Fiber
+  - Color coded: Green (met) / Yellow (partial) / Red (deficit)
+- "Weekly Trend" section (simple bar chart, 7 days)
+- "Health Score" per member (0-100, calculated from nutritional compliance)
+
+### Screen 8: Health Progress
+- Header: "Health Tracking / स्वास्थ्य ट्रैकिंग"
+- Manual daily check-in per member:
+  - Energy level today (1-5 emoji scale)
+  - For diabetic: "Today's morning glucose (mg/dL)" optional input
+  - For anemic: "Feeling fatigued?" yes/no
+  - Weight this week (optional)
+- "Based on today's input, we've adjusted tomorrow's plan" message
+- 4-week progress chart per member
+
+---
+
+## GEMINI API INTEGRATION
+
+### Setup
+```javascript
+const API_KEY = process.env.GEMINI_API_KEY;
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${API_KEY}`;
+```
+
+### System Prompt (Send With Every Request)
+```
+You are ParivarSehat AI, India's family kitchen nutrition engine.
+Built exclusively on ICMR-NIN Dietary Guidelines 2024.
+You ONLY answer family meal planning and nutrition questions.
+
+CORE RULES:
+1. Output ONE base dish the whole family cooks together
+2. Output plate-level modifications per member based on their conditions
+3. Use ICMR Annexure III GI values for all diabetic recommendations
+4. Keep total cost within stated budget
+5. Respect region, religion, fasting, and allergy restrictions
+6. Cooking instructions must be simple enough for a first-time cook
+7. All nutritional claims must cite ICMR-NIN 2024 tables
+8. Respond in [LANGUAGE] as specified in input
+
+OUTPUT FORMAT (strict JSON):
+{
+  "base_dish": {
+    "name_en": "",
+    "name_hi": "",
+    "region": "",
+    "cook_time_minutes": 0,
+    "difficulty": "Easy/Medium/Hard",
+    "instructions": ["step1", "step2"],
+    "icmr_rationale": ""
+  },
+  "member_plates": [
+    {
+      "member_name": "",
+      "condition": "",
+      "add": [],
+      "reduce": [],
+      "avoid": [],
+      "calories": 0,
+      "protein_g": 0,
+      "iron_mg": 0,
+      "gi_score": 0
+    }
+  ],
+  "grocery_list": [
+    {
+      "item_en": "",
+      "item_hi": "",
+      "quantity_grams": 0,
+      "estimated_price_inr": 0,
+      "category": ""
+    }
+  ],
+  "total_cost_inr": 0,
+  "meals": {
+    "breakfast": {},
+    "mid_morning": {},
+    "lunch": {},
+    "evening_snack": {},
+    "dinner": {}
+  }
+}
+```
+
+### Request Builder Function
+```javascript
+async function generateMealPlan(familyProfile, pantryItems, language, festival) {
+  const prompt = `
+FAMILY PROFILE:
+${JSON.stringify(familyProfile)}
+
+PANTRY AVAILABLE:
+${pantryItems.join(', ')}
+
+BUDGET: ₹${familyProfile.weeklyBudget / 7} per day
+REGION: ${familyProfile.region}
+LANGUAGE: ${language}
+TODAY'S FESTIVAL/FAST: ${festival || 'None'}
+DATE: ${new Date().toLocaleDateString('en-IN')}
+
+Generate today's complete family meal plan following all output format rules.
+  `;
+  
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+  
+  const data = await response.json();
+  return JSON.parse(data.candidates[0].content.parts[0].text);
+}
+```
+
+---
+
+## DATA ARCHITECTURE
+
+### Family Profile Object (localStorage)
+```javascript
+{
+  familyName: "string",
+  region: "string",
+  weeklyBudget: number,
+  language: "en" | "hi",
+  members: [
+    {
+      id: "uuid",
+      name: "string",
+      relationship: "string",
+      age: number,
+      weight: number,
+      height: number,
+      gender: "string",
+      healthGoal: "string",
+      dietaryType: "string",
+      conditions: ["Diabetes", "Anemia"],
+      fastingDays: ["Monday", "Ekadashi"],
+      allergies: "string"
+    }
+  ]
+}
+```
+
+### Nutrition Database (Google Sheets → JSON)
+```javascript
+{
+  dish_id: "JHK_001",
+  name_en: "Dhuska",
+  name_hi: "धुस्का",
+  region: "Jharkhand",
+  ingredients: [
+    { name: "Raw Rice", grams: 200, icmr_id: "RAW_RICE_01" },
+    { name: "Chana Dal", grams: 100, icmr_id: "CHANA_DAL_01" }
+  ],
+  nutrition_per_100g: {
+    calories: 0, protein: 0, iron: 0, gi_score: 0, calcium: 0, fiber: 0
+  },
+  good_for: ["General", "Growing Child"],
+  avoid_if: ["Diabetes"],
+  diabetic_modification: "Bake instead of fry, reduce portion to 60g",
+  anemia_modification: "Serve with guava for iron absorption",
+  estimated_cost_inr: 0
+}
+```
+
+---
+
+## UI/UX REQUIREMENTS
+
+### Design System
+- Primary color: #F97316 (orange)
+- Background: #FFFFFF (light mode), #0A0A0F (dark mode)
+- Font: Inter or Noto Sans (supports Devanagari for Hindi)
+- Border radius: 12px on all cards
+- All buttons minimum 48px height (mobile touch targets)
+- Loading states on every async operation (spinner + "Generating your family's plan...")
+
+### Bilingual Implementation
+- Every label must show: "English / हिंदी"
+- Language toggle switches ALL text on screen instantly
+- Store language preference in localStorage
+- Default: detect browser language, fallback to English
+
+### Mobile-First Rules
+- Max width 430px (phone screen)
+- Bottom navigation bar (not sidebar) on mobile
+- All inputs use appropriate keyboard types (numeric for age/weight)
+- No horizontal scrolling anywhere
+- Touch-friendly checkboxes (min 40x40px tap area)
+
+### Error Handling (Fix The Current Broken State)
+- Every form submission: validate all required fields before API call
+- Show inline error messages below each invalid field (red text)
+- API errors: show "Unable to generate plan. Please try again." with retry button
+- Network offline: show cached last plan with "Showing last saved plan" badge
+- Loading: full-screen loader with encouraging message in Hindi/English
+
+---
+
+## CRITICAL BUGS TO FIX FIRST
+
+1. **"Error saving profile"** — Form save must write to localStorage successfully before navigating
+2. **Field validation** — No empty saves. Required: name, age, at least one health condition
+3. **Navigation state** — Back button must not lose filled form data
+4. **Language toggle** — Must translate entire screen, not just its own label
+5. **"Add Another Member"** — Each new member form must be independent, not overwrite previous
+
+---
+
+## TECH STACK
+
+- **Framework**: React (Vite) or Next.js
+- **Styling**: Tailwind CSS
+- **State**: React useState + localStorage (no backend needed for MVP)
+- **API**: Gemini 2.5 Pro via REST (Google AI Studio free tier)
+- **Charts**: Recharts (free, lightweight)
+- **Icons**: Lucide React
+- **Deployment**: Vercel (free tier)
+
+---
+
+## WHAT SUCCESS LOOKS LIKE
+
+A judge enters their own family's details in under 60 seconds and receives a real, personalized, ICMR-backed meal plan with per-person plate modifications, a kirana grocery list within budget, and step-by-step cooking instructions — without a single crash, error, or confusing screen.
