@@ -440,6 +440,14 @@ export const GenerateMealPlanBody = zod.object({
         .boolean()
         .optional()
         .describe("Generate a fasting-mode plan (Navratri, Ekadashi, etc.)"),
+      pantryIngredients: zod
+        .array(zod.string())
+        .optional()
+        .describe("Ingredients already available at home; prefer recipes that use these."),
+      festivalType: zod
+        .string()
+        .optional()
+        .describe("Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning."),
     })
     .optional(),
 });

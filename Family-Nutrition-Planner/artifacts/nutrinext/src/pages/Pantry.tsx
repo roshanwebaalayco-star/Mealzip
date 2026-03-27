@@ -111,17 +111,41 @@ const PANTRY_GROUPS: PantryGroup[] = [
 ];
 
 const FESTIVAL_OPTIONS = [
-  { value: "navratri", label: "Navratri / नवरात्रि" },
-  { value: "ramadan", label: "Ramadan / रमज़ान" },
-  { value: "ekadashi", label: "Ekadashi / एकादशी" },
-  { value: "janmashtami", label: "Janmashtami / जन्माष्टमी" },
-  { value: "other", label: "Other / अन्य" },
+  { value: "navratri", label: "Navratri / नवरात्रि", isFasting: true },
+  { value: "ramadan", label: "Ramadan / रमज़ान", isFasting: true },
+  { value: "ekadashi", label: "Ekadashi / एकादशी", isFasting: true },
+  { value: "janmashtami", label: "Janmashtami / जन्माष्टमी", isFasting: true },
+  { value: "other", label: "Other / अन्य", isFasting: false },
 ];
 
-const FASTING_FESTIVALS = new Set(["navratri", "ramadan", "ekadashi", "janmashtami"]);
+const ALL_ITEMS = PANTRY_GROUPS.flatMap(g => g.items);
 
-function pantryItemLabel(item: PantryIngredient): string {
-  return `${item.en} / ${item.hi}`;
+function idToLabel(id: string): string {
+  const item = ALL_ITEMS.find(i => i.id === id);
+  return item ? `${item.en} / ${item.hi}` : id;
+}
+
+function labelToId(label: string): string | undefined {
+  return ALL_ITEMS.find(i => `${i.en} / ${i.hi}` === label || i.en === label)?.id;
+}
+
+function loadStoredIds(familyId: number): Set<string> {
+  try {
+    const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${familyId}`) ?? "[]");
+    return new Set(
+      stored.map(entry => {
+        const byLabel = labelToId(entry);
+        return byLabel ?? entry;
+      }).filter(id => ALL_ITEMS.some(i => i.id === id))
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSelectedIds(familyId: number, selectedIds: Set<string>): void {
+  const labels = Array.from(selectedIds).map(idToLabel);
+  localStorage.setItem(`pantry_${familyId}`, JSON.stringify(labels));
 }
 
 export default function Pantry() {
@@ -131,16 +155,9 @@ export default function Pantry() {
   const queryClient = useQueryClient();
   const generate = useGenerateMealPlan();
 
-  const pantryKey = activeFamily ? `pantry_${activeFamily.id}` : null;
-
-  const [selected, setSelected] = useState<Set<string>>(() => {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
     if (!activeFamily) return new Set();
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${activeFamily.id}`) ?? "[]");
-      return new Set(stored);
-    } catch {
-      return new Set();
-    }
+    return loadStoredIds(activeFamily.id);
   });
 
   const [festivalToggle, setFestivalToggle] = useState(false);
@@ -150,22 +167,17 @@ export default function Pantry() {
   );
 
   useEffect(() => {
-    if (!pantryKey) return;
-    localStorage.setItem(pantryKey, JSON.stringify(Array.from(selected)));
-  }, [selected, pantryKey]);
-
-  useEffect(() => {
-    if (!activeFamily) { setSelected(new Set()); return; }
-    try {
-      const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${activeFamily.id}`) ?? "[]");
-      setSelected(new Set(stored));
-    } catch {
-      setSelected(new Set());
-    }
+    if (!activeFamily) { setSelectedIds(new Set()); return; }
+    setSelectedIds(loadStoredIds(activeFamily.id));
   }, [activeFamily?.id]);
 
+  useEffect(() => {
+    if (!activeFamily) return;
+    saveSelectedIds(activeFamily.id, selectedIds);
+  }, [selectedIds, activeFamily?.id]);
+
   const toggleItem = (id: string) => {
-    setSelected(prev => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -182,24 +194,33 @@ export default function Pantry() {
     });
   };
 
+  const selectedLabels = Array.from(selectedIds).map(idToLabel);
+  const selectedFestivalOption = FESTIVAL_OPTIONS.find(f => f.value === festival);
+
   const handleGenerate = async () => {
     if (!activeFamily) {
       toast({ title: "No family selected", description: "Please complete family setup first.", variant: "destructive" });
       return;
     }
-    const isFasting = festivalToggle ? FASTING_FESTIVALS.has(festival) : undefined;
+    const isFasting = festivalToggle ? (selectedFestivalOption?.isFasting ?? false) : undefined;
+    const festivalType = festivalToggle ? selectedFestivalOption?.label.split(" / ")[0] : undefined;
+
     try {
       await generate.mutateAsync({
         data: {
           familyId: activeFamily.id,
           weekStartDate: new Date().toISOString(),
-          preferences: isFasting !== undefined ? { isFasting } : undefined,
+          preferences: {
+            ...(isFasting !== undefined ? { isFasting } : {}),
+            ...(festivalType ? { festivalType } : {}),
+            ...(selectedLabels.length > 0 ? { pantryIngredients: selectedLabels } : {}),
+          },
         },
       });
       await queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey() });
       toast({
         title: "Meal plan ready!",
-        description: `Generated for ${activeFamily.name}${festivalToggle ? ` (${FESTIVAL_OPTIONS.find(f => f.value === festival)?.label})` : ""}.`,
+        description: `Generated for ${activeFamily.name}${festivalToggle ? ` (${selectedFestivalOption?.label.split(" / ")[0]})` : ""}${selectedLabels.length > 0 ? ` using ${selectedLabels.length} pantry items` : ""}.`,
       });
       setLocation("/meal-plan");
     } catch {
@@ -207,8 +228,7 @@ export default function Pantry() {
     }
   };
 
-  const totalSelected = selected.size;
-  const allItems = PANTRY_GROUPS.flatMap(g => g.items);
+  const totalSelected = selectedIds.size;
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
@@ -229,7 +249,7 @@ export default function Pantry() {
       {/* Ingredient groups */}
       <div className="space-y-3">
         {PANTRY_GROUPS.map(group => {
-          const groupSelected = group.items.filter(i => selected.has(i.id)).length;
+          const groupSelected = group.items.filter(i => selectedIds.has(i.id)).length;
           const isExpanded = expandedGroups.has(group.label);
           return (
             <div key={group.label} className="glass-card rounded-2xl overflow-hidden">
@@ -252,15 +272,15 @@ export default function Pantry() {
               {isExpanded && (
                 <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {group.items.map(item => {
-                    const checked = selected.has(item.id);
+                    const checked = selectedIds.has(item.id);
                     return (
                       <button
                         key={item.id}
                         onClick={() => toggleItem(item.id)}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center ${
                           checked
-                            ? `border-primary bg-primary/10 shadow-sm`
-                            : `border-border bg-muted/30 hover:border-primary/40 hover:bg-primary/5`
+                            ? "border-primary bg-primary/10 shadow-sm"
+                            : "border-border bg-muted/30 hover:border-primary/40 hover:bg-primary/5"
                         }`}
                       >
                         <span className="text-2xl">{item.emoji}</span>
@@ -307,7 +327,7 @@ export default function Pantry() {
             </SelectContent>
           </Select>
         )}
-        {festivalToggle && FASTING_FESTIVALS.has(festival) && (
+        {festivalToggle && selectedFestivalOption?.isFasting && (
           <p className="text-xs text-primary font-medium">
             🙏 Fasting-mode meal plan will be generated (sabudana, kuttu, fruits, etc.)
           </p>
@@ -321,14 +341,18 @@ export default function Pantry() {
             Items already in your kitchen ({totalSelected}):
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {allItems.filter(i => selected.has(i.id)).map(item => (
-              <span
-                key={item.id}
-                className="text-xs bg-green-500/10 text-green-800 border border-green-500/20 rounded-full px-2.5 py-0.5"
-              >
-                {item.emoji} {item.en}
-              </span>
-            ))}
+            {Array.from(selectedIds).map(id => {
+              const item = ALL_ITEMS.find(i => i.id === id);
+              if (!item) return null;
+              return (
+                <span
+                  key={id}
+                  className="text-xs bg-green-500/10 text-green-800 border border-green-500/20 rounded-full px-2.5 py-0.5"
+                >
+                  {item.emoji} {item.en}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -354,7 +378,7 @@ export default function Pantry() {
       </Button>
       {totalSelected > 0 && !generate.isPending && (
         <p className="text-center text-xs text-muted-foreground -mt-3">
-          {totalSelected} pantry item{totalSelected === 1 ? "" : "s"} will be used for your meal plan
+          {totalSelected} pantry item{totalSelected === 1 ? "" : "s"} will be used when planning your meals
         </p>
       )}
     </div>

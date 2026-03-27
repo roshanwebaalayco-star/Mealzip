@@ -420,8 +420,17 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
   }));
 
+  const pantryIngredients = preferences?.pantryIngredients ?? [];
+  const festivalType = preferences?.festivalType;
+
   const fastingNote = isFasting
-    ? `\n🙏 FASTING MODE: Include sabudana, kuttu, singhara, fruits, milk-based dishes, and sendha namak items. ${festivalFasting.recommendedFoods.length > 0 ? `Festival foods: ${festivalFasting.recommendedFoods.slice(0, 6).join(", ")}.` : ""}\n`
+    ? `\n🙏 FASTING MODE${festivalType ? ` (${festivalType})` : ""}: Include sabudana, kuttu, singhara, fruits, milk-based dishes, and sendha namak items. ${festivalFasting.recommendedFoods.length > 0 ? `Festival foods: ${festivalFasting.recommendedFoods.slice(0, 6).join(", ")}.` : ""}\n`
+    : festivalType
+      ? `\n🎉 FESTIVAL: ${festivalType}. Include traditional festive dishes and sweets where appropriate.\n`
+      : "";
+
+  const pantryNote = pantryIngredients.length > 0
+    ? `\n🏠 PANTRY ITEMS (already at home): ${pantryIngredients.join(", ")}.\nPREFER recipes that use these ingredients to minimise shopping. Incorporate them into breakfast/lunch/dinner where nutritionally appropriate.\n`
     : "";
 
   const feedbackNote = dislikedMeals.length > 0
@@ -446,7 +455,7 @@ ${JSON.stringify(memberSummaries, null, 2)}
 BUDGET: Monthly ₹${family.monthlyBudget} → Weekly ₹${weeklyBudget} → Per meal ≤ ₹${budgetPerMeal * members.length}
 CUISINES: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
 LANGUAGE: ${family.primaryLanguage}
-${festivalContext}${fastingNote}${feedbackNote}${leftoversNote}
+${festivalContext}${fastingNote}${pantryNote}${feedbackNote}${leftoversNote}
 
 AVAILABLE RECIPES FROM DATABASE (filtered for zone "${zone}" and dietary needs):
 ${JSON.stringify(filteredRecipes.slice(0, 80).map(r => ({
