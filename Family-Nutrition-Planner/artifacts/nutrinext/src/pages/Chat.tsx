@@ -3,10 +3,8 @@ import { useAppState, useVoiceRecorder } from "@/hooks/use-app-state";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import { useListGeminiConversations, useCreateGeminiConversation, useTranscribeVoice } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown, Camera, X, Flame, BarChart2 } from "lucide-react";
+import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiFetch } from "@/lib/api-fetch";
-import { useMutation } from "@tanstack/react-query";
 
 const VOICE_LANGUAGES = [
   { code: "hi-IN", label: "हिन्दी" },
@@ -22,81 +20,6 @@ const VOICE_LANGUAGES = [
   { code: "or-IN", label: "ଓଡ଼ିଆ" },
 ];
 
-interface MealVisionItem {
-  name: string;
-  nameHindi?: string;
-  estimatedGrams: number;
-  nutrition: { calories: number; protein: number; carbs: number; fat: number; fiber: number; iron: number };
-  confidence: number;
-}
-
-interface MealVisionResult {
-  items: MealVisionItem[];
-  totalNutrition: { calories: number; protein: number; carbs: number; fat: number; fiber: number; iron: number };
-  mealDescription?: string;
-  icmrNote?: string;
-}
-
-function FoodScanBubble({ result, imageUrl, onDismiss }: { result: MealVisionResult; imageUrl: string; onDismiss: () => void }) {
-  const total = result.totalNutrition;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex gap-2.5 justify-start"
-    >
-      <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
-        <Camera className="w-4 h-4 text-orange-600" />
-      </div>
-      <div className="max-w-[85%] glass-panel rounded-3xl rounded-tl-lg overflow-hidden">
-        {imageUrl && (
-          <img src={imageUrl} alt="Meal" className="w-full h-32 object-cover" />
-        )}
-        <div className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-foreground">📸 {result.items.length} food item{result.items.length !== 1 ? "s" : ""} detected</p>
-            <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {result.items.map((item, i) => (
-              <span key={i} className="text-[10px] bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-2 py-0.5">
-                {item.name} ({item.estimatedGrams}g)
-              </span>
-            ))}
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            <div className="bg-orange-50 rounded-lg p-1.5 text-center">
-              <Flame className="w-3 h-3 text-orange-500 mx-auto mb-0.5" />
-              <p className="text-[10px] font-bold text-orange-700">{Math.round(total.calories)}</p>
-              <p className="text-[9px] text-orange-500">kcal</p>
-            </div>
-            <div className="bg-blue-50 rounded-lg p-1.5 text-center">
-              <BarChart2 className="w-3 h-3 text-blue-500 mx-auto mb-0.5" />
-              <p className="text-[10px] font-bold text-blue-700">{Math.round(total.protein)}g</p>
-              <p className="text-[9px] text-blue-500">protein</p>
-            </div>
-            <div className="bg-yellow-50 rounded-lg p-1.5 text-center">
-              <p className="text-base leading-none mb-0.5">🌾</p>
-              <p className="text-[10px] font-bold text-yellow-700">{Math.round(total.carbs)}g</p>
-              <p className="text-[9px] text-yellow-500">carbs</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-1.5 text-center">
-              <p className="text-base leading-none mb-0.5">🫙</p>
-              <p className="text-[10px] font-bold text-purple-700">{Math.round(total.fat)}g</p>
-              <p className="text-[9px] text-purple-500">fat</p>
-            </div>
-          </div>
-          {result.icmrNote && (
-            <p className="text-[10px] text-primary/70 italic leading-snug">{result.icmrNote}</p>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 export default function Chat() {
   const { toast } = useToast();
   const { activeFamily } = useAppState();
@@ -106,34 +29,14 @@ export default function Chat() {
 
   const [activeConvoId, setActiveConvoId] = useState<number | null>(null);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<{ role: string; content: string; type?: "food-scan"; scanResult?: MealVisionResult; imageUrl?: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [voiceLang, setVoiceLang] = useState<string>(() =>
     localStorage.getItem("chatVoiceLang") || "hi-IN"
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
-
-  const [isScanningMeal, setIsScanningMeal] = useState(false);
-
-  const logMealMutation = useMutation({
-    mutationFn: async (data: { foodDescription: string; calories: number; proteinG: number; carbsG: number; fatG: number }) => {
-      const res = await apiFetch("/api/nutrition-logs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          familyId: activeFamily?.id,
-          logDate: new Date().toISOString().split("T")[0],
-          mealType: "snack",
-          source: "scanner",
-          ...data,
-        }),
-      });
-      return res.json();
-    },
-  });
 
   useEffect(() => {
     if (convos && convos.length > 0 && !activeConvoId) {
@@ -184,80 +87,6 @@ export default function Chat() {
     } else {
       await startRecording();
     }
-  };
-
-  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeConvoId) return;
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      const base64 = dataUrl.split(",")[1];
-
-      setIsScanningMeal(true);
-      setMessages(prev => [...prev, {
-        role: "user",
-        content: "📸 [Meal photo sent for analysis]",
-      }]);
-
-      try {
-        // Canonical mode-based scan endpoint (mode: "meal")
-        const res = await fetch("/api/nutrition/scan", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
-          },
-          body: JSON.stringify({ imageBase64: base64, mode: "meal" }),
-        });
-
-        if (!res.ok) throw new Error("Vision scan failed");
-        const result = await res.json() as MealVisionResult & { mode?: string };
-
-        setMessages(prev => [...prev, {
-          role: "food-scan",
-          content: "",
-          type: "food-scan",
-          scanResult: result,
-          imageUrl: dataUrl,
-        }]);
-
-        const total = result.totalNutrition;
-        const itemNames = result.items.map(i => `${i.name} (~${i.estimatedGrams}g)`).join(", ");
-        const foodContext = `[Food Photo Analysis]
-I took a photo of my meal. AI detected: ${itemNames}.
-Estimated nutrition: ${Math.round(total.calories)} kcal, ${Math.round(total.protein)}g protein, ${Math.round(total.carbs)}g carbs, ${Math.round(total.fat)}g fat.
-${result.mealDescription ? `Description: ${result.mealDescription}` : ""}`;
-
-        const aiPrompt = `${foodContext}
-
-Please respond warmly about this meal. Mention the calorie and protein count naturally, give a brief ICMR-NIN 2024 nutritional note, and ask if they'd like suggestions to improve it. Keep it conversational and encouraging — under 100 words.`;
-
-        await streamMessage(activeConvoId, aiPrompt);
-
-        if (activeFamily) {
-          logMealMutation.mutate({
-            foodDescription: itemNames || "Meal from photo",
-            calories: total.calories,
-            proteinG: total.protein,
-            carbsG: total.carbs,
-            fatG: total.fat,
-          });
-        }
-      } catch {
-        toast({
-          title: "Could not analyse photo",
-          description: "Please try a clearer photo or type what you ate.",
-          variant: "destructive",
-        });
-        setMessages(prev => prev.filter(m => m.content !== "📸 [Meal photo sent for analysis]"));
-      } finally {
-        setIsScanningMeal(false);
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const hints = [
@@ -318,8 +147,6 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
               </div>
               <p className="text-sm max-w-xs mb-5 leading-relaxed">
                 Ask me anything about your family's nutrition, ICMR guidelines, or recipe suggestions.
-                <br />
-                <span className="text-xs text-primary/60">📸 Tap the camera icon to log a meal photo!</span>
               </p>
               <div className="flex flex-wrap justify-center gap-2 max-w-sm">
                 {hints.map((hint) => (
@@ -336,56 +163,44 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
           )}
 
           <AnimatePresence initial={false}>
-            {messages.map((msg, i) => {
-              if (msg.type === "food-scan" && msg.scanResult) {
-                return (
-                  <FoodScanBubble
-                    key={i}
-                    result={msg.scanResult}
-                    imageUrl={msg.imageUrl ?? ""}
-                    onDismiss={() => setMessages(prev => prev.filter((_, idx) => idx !== i))}
-                  />
-                );
-              }
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {msg.role !== "user" && (
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <Bot className="w-4 h-4 text-primary" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-gradient-to-br from-primary to-orange-500 text-white rounded-3xl rounded-tr-lg shadow-md shadow-primary/20"
-                        : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
+            {messages.map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {msg.role !== "user" && (
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="w-4 h-4 text-primary" />
                   </div>
-                </motion.div>
-              );
-            })}
+                )}
+                <div
+                  className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-gradient-to-br from-primary to-orange-500 text-white rounded-3xl rounded-tr-lg shadow-md shadow-primary/20"
+                      : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
+                </div>
+              </motion.div>
+            ))}
           </AnimatePresence>
 
-          {(isStreaming || isScanningMeal) && (
+          {isStreaming && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex gap-2.5 justify-start"
             >
               <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                {isScanningMeal ? <Camera className="w-4 h-4 text-primary animate-pulse" /> : <Bot className="w-4 h-4 text-primary" />}
+                <Bot className="w-4 h-4 text-primary" />
               </div>
               <div className="max-w-[78%] glass-panel rounded-3xl rounded-tl-lg px-4 py-3 text-sm text-foreground">
                 <p className="whitespace-pre-wrap relative z-10">
-                  {isScanningMeal ? "Analysing your meal photo…" : currentMessage}
+                  {currentMessage}
                   <span className="inline-block w-1.5 h-4 bg-primary ml-1 rounded-sm animate-pulse" />
                 </p>
               </div>
@@ -415,29 +230,6 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
               )}
             </button>
 
-            {/* Camera button */}
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isScanningMeal || isStreaming}
-              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all text-muted-foreground hover:text-orange-500 hover:bg-orange-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Log meal from photo"
-            >
-              {isScanningMeal ? (
-                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              ref={cameraInputRef}
-              onChange={handleCameraCapture}
-            />
-
             <input
               ref={inputRef}
               type="text"
@@ -445,11 +237,11 @@ Please respond warmly about this meal. Mention the calorie and protein count nat
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message or tap mic to speak…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 py-1"
-              disabled={isStreaming || isScanningMeal}
+              disabled={isStreaming}
             />
             <button
               type="submit"
-              disabled={isStreaming || isScanningMeal || !input.trim()}
+              disabled={isStreaming || !input.trim()}
               className="btn-liquid w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
