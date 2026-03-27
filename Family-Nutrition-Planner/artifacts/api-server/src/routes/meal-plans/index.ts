@@ -695,8 +695,27 @@ ${JSON.stringify(finalRecipes.slice(0, 60).map(r => ({
     costPerServing: r.costPerServing, course: r.course,
   })), null, 2)}
 
-Return valid JSON with same schema as before (harmonyScore, totalBudgetEstimate, aiInsights, days[]).
-For each dinner include a leftoverChain array (3 steps).`;
+Return valid JSON:
+{
+  "harmonyScore": <0-100>,
+  "totalBudgetEstimate": <weekly INR>,
+  "aiInsights": "<insights>",
+  "days": [
+    {
+      "day": "Monday",
+      "isFastingDay": false,
+      "meals": {
+        "breakfast": { "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>", "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "", "icmr_rationale": "<1-2 sentence ICMR-NIN 2024 justification>", "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."], "memberVariations": {}, "member_plates": {"<memberName>": {"add": [], "reduce": [], "avoid": []}} },
+        "mid_morning": { "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>", "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "", "icmr_rationale": "<rationale>", "instructions": ["Step 1: ..."], "memberVariations": {}, "member_plates": {} },
+        "lunch": { "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>", "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "", "icmr_rationale": "<rationale>", "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."], "memberVariations": {}, "member_plates": {} },
+        "evening_snack": { "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>", "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "", "icmr_rationale": "<rationale>", "instructions": ["Step 1: ..."], "memberVariations": {}, "member_plates": {} },
+        "dinner": { "recipeId": <id|null>, "recipeName": "<name>", "nameHindi": "<hindi>", "servings": <n>, "estimatedCost": <INR>, "isLeftover": false, "notes": "", "icmr_rationale": "<rationale>", "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."], "memberVariations": {}, "member_plates": {}, "leftoverChain": [{"step": 1, "day": "<nextDay>", "meal": "Lunch", "dish": "<how dinner becomes next-day lunch>"}, {"step": 2, "day": "<dayAfterNext>", "meal": "Breakfast", "dish": "<how leftover becomes breakfast>"}, {"step": 3, "day": "<dayAfterNext>", "meal": "Snack", "dish": "<final use>"}] }
+      },
+      "dailyHarmonyScore": <0-100>,
+      "dailyNutrition": {"calories": <n>, "protein": <n>, "carbs": <n>, "fat": <n>, "fiber": <n>, "iron": <n>}
+    }
+  ]
+}`;
 
   let planData: Record<string, unknown>;
   try {

@@ -314,7 +314,7 @@ export default function MealPlan() {
 
   const planData = typeof currentPlan.plan === "string" ? JSON.parse(currentPlan.plan) : currentPlan.plan;
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const meals = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  const meals = ["Breakfast", "Mid Morning", "Lunch", "Evening Snack", "Dinner"];
   const MEAL_SLOTS = [
     { key: "breakfast", label: "Breakfast", labelHi: "नाश्ता", shortLabel: "BF" },
     { key: "mid_morning", label: "Mid-morning", labelHi: "मध्य-सुबह", shortLabel: "MM" },
@@ -374,7 +374,7 @@ export default function MealPlan() {
     logMealMutation.mutate({ memberId: firstMember.id, meal, mealType });
   };
 
-  const mealColors = ["bg-orange-50/60", "bg-amber-50/50", "bg-emerald-50/50", "bg-blue-50/40"];
+  const mealColors = ["bg-orange-50/60", "bg-amber-50/50", "bg-emerald-50/50", "bg-violet-50/40", "bg-blue-50/40"];
 
   return (
     <motion.div
@@ -584,7 +584,7 @@ export default function MealPlan() {
           const dn = dayObj?.dailyNutrition;
           const isToday = day === todayDayName;
           const isExpanded = allExpanded || expandedDay === day;
-          const mealTranslations: Record<string, string> = { Breakfast: "नाश्ता", Lunch: "दोपहर", Dinner: "रात", Snack: "नाश्ता" };
+          const mealTranslations: Record<string, string> = { Breakfast: "नाश्ता", "Mid Morning": "मध्य-सुबह", Lunch: "दोपहर", "Evening Snack": "शाम-नाश्ता", Dinner: "रात", Snack: "शाम-नाश्ता" };
           const breakfastCell = getDayMeal(day, "Breakfast");
           const breakfastPreview = lang === "hi" && breakfastCell.nameHindi
             ? breakfastCell.nameHindi
