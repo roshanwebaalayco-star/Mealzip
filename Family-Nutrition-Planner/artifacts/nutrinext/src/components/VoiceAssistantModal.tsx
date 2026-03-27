@@ -7,7 +7,7 @@ import { useVoiceAssistant, type VoiceFormData } from "@/hooks/use-voice-assista
 interface Props {
   open: boolean;
   language: string;
-  onClose: () => void;
+  onClose: (partialData?: VoiceFormData) => void;
   onComplete: (data: VoiceFormData) => void;
 }
 
@@ -87,8 +87,9 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
   }, [messages]);
 
   const handleClose = () => {
+    const partial = Object.keys(formData).length > 0 ? { ...formData } : undefined;
     stop();
-    onClose();
+    onClose(partial);
   };
 
   const micLabel = {
@@ -111,11 +112,11 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
         <DialogContent
-          className="max-w-lg w-full h-[90dvh] flex flex-col p-0 gap-0 rounded-2xl overflow-hidden"
+          className="fixed inset-0 w-screen h-screen max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 flex flex-col p-0 gap-0 overflow-hidden"
           hideCloseButton
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b bg-primary/5">
+          <div className="flex items-center justify-between px-5 py-4 border-b bg-primary/5 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
                 AI
@@ -136,7 +137,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
           </div>
 
           {/* Conversation + Progress layout */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden min-h-0">
             {/* Chat area */}
             <div
               ref={scrollRef}
@@ -201,7 +202,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
             </div>
 
             {/* Progress sidebar */}
-            <div className="w-36 border-l bg-muted/30 px-3 py-4 shrink-0 hidden sm:flex flex-col gap-3">
+            <div className="w-44 border-l bg-muted/30 px-3 py-4 shrink-0 hidden sm:flex flex-col gap-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Progress
               </p>
@@ -234,7 +235,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
           </div>
 
           {/* Controls */}
-          <div className="border-t bg-white px-5 py-4">
+          <div className="border-t bg-white px-5 py-4 shrink-0">
             <div className="flex flex-col items-center gap-3">
               {/* Mic button */}
               <div className="relative">

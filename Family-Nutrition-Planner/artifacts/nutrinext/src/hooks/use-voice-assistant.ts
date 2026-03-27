@@ -109,6 +109,8 @@ export function useVoiceAssistant() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceRafRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const start = useCallback(
     async (language: string = "hindi", onComplete: (data: VoiceFormData) => void) => {
@@ -173,6 +175,14 @@ export function useVoiceAssistant() {
           };
 
           recorder.onstop = async () => {
+            if (silenceRafRef.current) {
+              cancelAnimationFrame(silenceRafRef.current);
+              silenceRafRef.current = null;
+            }
+            if (audioCtxRef.current) {
+              try { audioCtxRef.current.close(); } catch { /* ignore */ }
+              audioCtxRef.current = null;
+            }
             stream.getTracks().forEach((t) => t.stop());
             if (abortRef.current) {
               reject(new Error("aborted"));
@@ -202,9 +212,50 @@ export function useVoiceAssistant() {
           };
 
           recorder.start();
+
           stopTimerRef.current = setTimeout(() => {
             if (recorder.state === "recording") recorder.stop();
           }, 8000);
+
+          try {
+            const audioCtx = new AudioContext();
+            audioCtxRef.current = audioCtx;
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            const bufLen = analyser.frequencyBinCount;
+            const data = new Uint8Array(bufLen);
+
+            let silenceStart: number | null = null;
+            const SILENCE_THRESHOLD = 8;
+            const SILENCE_HOLD_MS = 1800;
+            let hasSpoken = false;
+
+            const checkSilence = () => {
+              if (recorder.state !== "recording") return;
+              analyser.getByteTimeDomainData(data);
+              let sum = 0;
+              for (const v of data) sum += (v - 128) ** 2;
+              const rms = Math.sqrt(sum / bufLen);
+
+              if (rms >= SILENCE_THRESHOLD) {
+                hasSpoken = true;
+                silenceStart = null;
+              } else if (hasSpoken) {
+                if (silenceStart === null) silenceStart = Date.now();
+                else if (Date.now() - silenceStart > SILENCE_HOLD_MS) {
+                  if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+                  if (recorder.state === "recording") recorder.stop();
+                  return;
+                }
+              }
+              silenceRafRef.current = requestAnimationFrame(checkSilence);
+            };
+            silenceRafRef.current = requestAnimationFrame(checkSilence);
+          } catch {
+            // silence detection unavailable, use timeout only
+          }
         });
 
       const callChatTurn = async (
@@ -315,6 +366,14 @@ export function useVoiceAssistant() {
     isRunningRef.current = false;
     try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    if (silenceRafRef.current) {
+      cancelAnimationFrame(silenceRafRef.current);
+      silenceRafRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      try { audioCtxRef.current.close(); } catch { /* ignore */ }
+      audioCtxRef.current = null;
+    }
     if (recorderRef.current?.state === "recording") {
       try { recorderRef.current.stop(); } catch { /* ignore */ }
     }
@@ -330,6 +389,10 @@ export function useVoiceAssistant() {
 
   const stopListeningEarly = useCallback(() => {
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    if (silenceRafRef.current) {
+      cancelAnimationFrame(silenceRafRef.current);
+      silenceRafRef.current = null;
+    }
     if (recorderRef.current?.state === "recording") {
       try { recorderRef.current.stop(); } catch { /* ignore */ }
     }

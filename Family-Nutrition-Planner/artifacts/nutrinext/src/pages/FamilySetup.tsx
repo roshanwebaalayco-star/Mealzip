@@ -122,7 +122,7 @@ export default function FamilySetup() {
     }));
   };
 
-  const executeSave = async (fd: typeof familyData, mems: MemberDraft[]) => {
+  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry") => {
     if (!fd.name) {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
@@ -194,8 +194,8 @@ export default function FamilySetup() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/families"] });
-      toast({ title: "Success!", description: "Family profile created. Now select what's in your pantry." });
-      setLocation("/pantry");
+      toast({ title: "Success!", description: "Family profile created!" });
+      setLocation(redirectTo);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Please try again.";
       toast({ title: "Error saving profile", description: msg, variant: "destructive" });
@@ -242,7 +242,42 @@ export default function FamilySetup() {
     if (voiceMembers.length > 0) setMembers(voiceMembers);
     setVoiceModalOpen(false);
 
-    await executeSave(mergedFamilyData, finalMembers);
+    await executeSave(mergedFamilyData, finalMembers, "/meal-plan");
+  };
+
+  const handleVoiceClose = (partialData?: VoiceFormData) => {
+    setVoiceModalOpen(false);
+    if (!partialData) return;
+    setFamilyData(prev => ({
+      ...prev,
+      ...(partialData.familyName ? { name: partialData.familyName } : {}),
+      ...(partialData.state ? { state: partialData.state } : {}),
+      ...(partialData.monthlyBudget ? { monthlyBudget: partialData.monthlyBudget } : {}),
+      ...(partialData.dietaryType
+        ? { dietaryType: partialData.dietaryType as typeof familyData.dietaryType }
+        : {}),
+    }));
+    if (partialData.members && partialData.members.length > 0) {
+      setMembers(partialData.members
+        .filter(m => m.name)
+        .map(m => ({
+          _id: ++_memberIdCounter,
+          name: m.name ?? "",
+          role: m.role ?? "other",
+          age: m.age ?? 25,
+          gender: m.gender ?? "male",
+          weightKg: 65,
+          heightCm: 165,
+          activityLevel: "moderate",
+          healthConditions: m.healthConditions ?? [],
+          dietaryRestrictions: [],
+          healthGoal: m.healthGoal ?? "general_wellness",
+          dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
+          memberFastingDays: [],
+          foodAllergies: "",
+        }))
+      );
+    }
   };
 
   return (
@@ -644,7 +679,7 @@ export default function FamilySetup() {
       <VoiceAssistantModal
         open={voiceModalOpen}
         language={familyData.primaryLanguage}
-        onClose={() => setVoiceModalOpen(false)}
+        onClose={handleVoiceClose}
         onComplete={handleVoiceComplete}
       />
     </div>
