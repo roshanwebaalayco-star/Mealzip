@@ -513,10 +513,12 @@ For each meal slot return this exact JSON structure:
   "isLeftover": false,
   "notes": "",
   "icmr_rationale": "<1-sentence ICMR-NIN 2024 justification>",
+  "ingredients": ["200g poha", "1 tsp mustard seeds", "1 tbsp oil", "salt to taste"],
   "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
   "memberVariations": {"<name>": "<short adaptation note>"},
   "member_plates": {"<name>": {"add": ["<item>"], "reduce": ["<item>"], "avoid": ["<item>"]}}
 }
+CRITICAL: For every meal slot where recipeId is null (AI-invented dish), you MUST include a realistic "ingredients" array with at least 4 items including quantities. For recipeId slots, "ingredients" may be omitted (will be fetched from DB).
 For dinner add: "leftoverChain": [{"step":1,"day":"<nextDay>","meal":"Lunch","dish":"<description>"},{"step":2,"day":"<dayAfterNext>","meal":"Breakfast","dish":"<description>"},{"step":3,"day":"<dayAfterNext>","meal":"Snack","dish":"<description>"}]
 
 MANDATORY CONSTRAINTS:

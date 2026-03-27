@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer } from "lucide-react";
+import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,7 @@ export default function Grocery() {
   const [swappedItems, setSwappedItems] = useState<Record<string, { name: string; estimatedCost?: number }>>({});
   const [dbSwaps, setDbSwaps] = useState<Record<string, SavedSwap | null>>({});
   const [swapLoading, setSwapLoading] = useState<Record<string, boolean>>({});
+  const [tableView, setTableView] = useState(false);
 
   // Pantry state — persisted in localStorage per family
   const pantryKey = activeFamily ? `pantry_${activeFamily.id}` : null;
@@ -502,6 +503,14 @@ export default function Grocery() {
               <Printer className="w-3.5 h-3.5" />
               {t("Download", "डाउनलोड")}
             </button>
+            <button
+              onClick={() => setTableView(v => !v)}
+              className={`flex items-center gap-1.5 text-xs font-medium glass-card px-3 py-1.5 rounded-xl transition-colors ${tableView ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-white/80 hover:text-foreground"}`}
+              title={t("Kirana table view", "किराना टेबल व्यू")}
+            >
+              {tableView ? <LayoutList className="w-3.5 h-3.5" /> : <Table2 className="w-3.5 h-3.5" />}
+              {tableView ? t("Card View", "कार्ड व्यू") : t("Kirana Table", "किराना टेबल")}
+            </button>
           </div>
 
           {/* Printable area starts here */}
@@ -548,80 +557,149 @@ export default function Grocery() {
             </div>
           )}
 
-          {/* Grouped Items */}
-          {Object.entries(grouped).map(([category, catItems]) => (
-            <div key={category} className="glass-card rounded-2xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Leaf className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-foreground">{t(category, category)}</h3>
-                <Badge variant="secondary" className="text-xs">{catItems.length}</Badge>
+          {/* Grouped Items — Kirana Table or Card View */}
+          {tableView ? (
+            /* ──────── KIRANA TABLE VIEW ──────── */
+            <div className="glass-card rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-muted">
+                <Table2 className="w-4 h-4 text-primary" />
+                <h3 className="font-semibold text-sm text-foreground">{t("Kirana Bill", "किराना बिल")}</h3>
+                <Badge variant="secondary" className="text-xs ml-auto">{items.length} {t("items", "आइटम")}</Badge>
               </div>
-              <div className="space-y-2">
-                {catItems.map((item, i) => {
-                  const checkKey = `${category}-${i}`;
-                  const swapKey = `${latest.id}-${i}`;
-                  const isChecked = checkedItems.has(checkKey);
-                  const isSwapped = !!swappedItems[swapKey];
-                  const dbSwap = dbSwaps[swapKey];
-                  const isSwapLoading = !!swapLoading[swapKey];
-                  const displayName = isSwapped && dbSwap ? dbSwap.name : (lang === "hi" && item.nameHindi ? item.nameHindi : item.name);
-                  const displayCost = isSwapped && dbSwap ? dbSwap.cost : item.estimatedCost;
-                  return (
-                    <div key={checkKey} className={`flex items-start gap-3 p-3 rounded-xl transition-all ${isChecked ? "opacity-50" : ""}`}>
-                      <button onClick={() => toggleItem(checkKey)} className="mt-0.5 shrink-0">
-                        {isChecked
-                          ? <CheckCircle2 className="w-5 h-5 text-primary" />
-                          : <Circle className="w-5 h-5 text-muted-foreground" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`font-medium text-sm ${isChecked ? "line-through" : ""} ${isSwapped ? "text-green-700" : ""}`}>
-                            {displayName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{item.quantity}</span>
-                          {item.priority === "essential" && (
-                            <Badge className="text-[10px] py-0 px-1.5 h-4 bg-primary/20 text-primary border-primary/30">
-                              {t("Essential", "जरूरी")}
-                            </Badge>
-                          )}
-                          {isSwapped && (
-                            <Badge className="text-[10px] py-0 px-1.5 h-4 bg-green-500/20 text-green-700 border-green-500/30">
-                              {dbSwap?.source === "db" ? t("DB Verified", "DB सत्यापित") : t("Swapped", "बदला")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          <span className="flex items-center gap-1 text-xs font-semibold text-foreground/80">
-                            <IndianRupee className="w-3 h-3" />{displayCost}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={isSwapLoading}
-                            onClick={() => handleCheaperSwap(latest.id, i, item)}
-                            className="h-5 px-2 text-[10px] gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
-                          >
-                            <ArrowLeftRight className={`w-2.5 h-2.5 ${isSwapLoading ? "animate-spin" : ""}`} />
-                            {isSwapLoading
-                              ? t("Finding...", "ढूंढ रहे हैं...")
-                              : isSwapped
-                                ? t("Use Original", "मूल लें")
-                                : t("Find Cheaper", "सस्ता खोजें")}
-                          </Button>
-                        </div>
-                        {item.healthRationale && (
-                          <p className="text-[10px] text-primary/70 mt-1 leading-snug italic">
-                            {item.healthRationale}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 text-left">
+                      <th className="px-3 py-2 text-xs font-semibold text-muted-foreground w-6"></th>
+                      <th className="px-3 py-2 text-xs font-semibold text-muted-foreground">{t("Item", "सामान")}</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-muted-foreground">{t("Qty", "मात्रा")}</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-muted-foreground text-right">{t("Est. Cost", "अनुमानित")}</th>
+                      <th className="px-3 py-2 text-xs font-semibold text-muted-foreground">{t("Health Note", "स्वास्थ्य नोट")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, i) => {
+                      const checkKey = `${item.category}-${i}`;
+                      const isChecked = checkedItems.has(checkKey);
+                      const displayName = lang === "hi" && item.nameHindi ? item.nameHindi : item.name;
+                      return (
+                        <tr key={checkKey} className={`border-t border-muted/50 transition-all ${isChecked ? "opacity-40 bg-muted/20" : "hover:bg-muted/10"}`}>
+                          <td className="px-3 py-2">
+                            <button onClick={() => toggleItem(checkKey)} className="mt-0.5">
+                              {isChecked
+                                ? <CheckCircle2 className="w-4 h-4 text-primary" />
+                                : <Circle className="w-4 h-4 text-muted-foreground" />}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>{displayName}</div>
+                            <div className="text-[10px] text-muted-foreground">{item.category}</div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.quantity}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-foreground/80 whitespace-nowrap">
+                            ₹{item.estimatedCost}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] text-primary/70 italic max-w-[180px]">
+                            {item.healthRationale || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-primary/30 bg-primary/5">
+                      <td colSpan={3} className="px-3 py-2 font-bold text-sm text-foreground">{t("Total Kirana Bill", "कुल किराना बिल")}</td>
+                      <td className="px-3 py-2 text-right font-bold text-sm text-foreground">
+                        ₹{items.reduce((s, it) => s + (it.estimatedCost || 0), 0)}
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-muted-foreground">
+                        {latest.budgetStatus === "over"
+                          ? <span className="text-red-600">{t("Over budget!", "बजट से अधिक!")}</span>
+                          : <span className="text-green-600">{t("Within budget ✓", "बजट में ✓")}</span>}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
-          ))}
+          ) : (
+            /* ──────── CARD VIEW (existing) ──────── */
+            <>
+              {Object.entries(grouped).map(([category, catItems]) => (
+                <div key={category} className="glass-card rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="w-4 h-4 text-primary" />
+                    <h3 className="font-semibold text-foreground">{t(category, category)}</h3>
+                    <Badge variant="secondary" className="text-xs">{catItems.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {catItems.map((item, i) => {
+                      const checkKey = `${category}-${i}`;
+                      const swapKey = `${latest.id}-${i}`;
+                      const isChecked = checkedItems.has(checkKey);
+                      const isSwapped = !!swappedItems[swapKey];
+                      const dbSwap = dbSwaps[swapKey];
+                      const isSwapLoading = !!swapLoading[swapKey];
+                      const displayName = isSwapped && dbSwap ? dbSwap.name : (lang === "hi" && item.nameHindi ? item.nameHindi : item.name);
+                      const displayCost = isSwapped && dbSwap ? dbSwap.cost : item.estimatedCost;
+                      return (
+                        <div key={checkKey} className={`flex items-start gap-3 p-3 rounded-xl transition-all ${isChecked ? "opacity-50" : ""}`}>
+                          <button onClick={() => toggleItem(checkKey)} className="mt-0.5 shrink-0">
+                            {isChecked
+                              ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                              : <Circle className="w-5 h-5 text-muted-foreground" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`font-medium text-sm ${isChecked ? "line-through" : ""} ${isSwapped ? "text-green-700" : ""}`}>
+                                {displayName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{item.quantity}</span>
+                              {item.priority === "essential" && (
+                                <Badge className="text-[10px] py-0 px-1.5 h-4 bg-primary/20 text-primary border-primary/30">
+                                  {t("Essential", "जरूरी")}
+                                </Badge>
+                              )}
+                              {isSwapped && (
+                                <Badge className="text-[10px] py-0 px-1.5 h-4 bg-green-500/20 text-green-700 border-green-500/30">
+                                  {dbSwap?.source === "db" ? t("DB Verified", "DB सत्यापित") : t("Swapped", "बदला")}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                              <span className="flex items-center gap-1 text-xs font-semibold text-foreground/80">
+                                <IndianRupee className="w-3 h-3" />{displayCost}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={isSwapLoading}
+                                onClick={() => handleCheaperSwap(latest.id, i, item)}
+                                className="h-5 px-2 text-[10px] gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
+                              >
+                                <ArrowLeftRight className={`w-2.5 h-2.5 ${isSwapLoading ? "animate-spin" : ""}`} />
+                                {isSwapLoading
+                                  ? t("Finding...", "ढूंढ रहे हैं...")
+                                  : isSwapped
+                                    ? t("Use Original", "मूल लें")
+                                    : t("Find Cheaper", "सस्ता खोजें")}
+                              </Button>
+                            </div>
+                            {item.healthRationale && (
+                              <p className="text-[10px] text-primary/70 mt-1 leading-snug italic">
+                                {item.healthRationale}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
 
           {/* Already in Your Kitchen — bottom of list */}
           {pantryItems.length > 0 && (

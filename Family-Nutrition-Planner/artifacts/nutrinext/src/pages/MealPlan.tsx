@@ -69,6 +69,7 @@ interface MealCell {
   leftoverChain?: LeftoverStep[];
   icmr_rationale?: string;
   instructions?: string[];
+  ingredients?: string[];
   member_plates?: Record<string, MemberPlate>;
 }
 
@@ -411,6 +412,7 @@ export default function MealPlan() {
       calories: cell.calories,
       costPerServing: cell.estimatedCost,
       instructions: cell.instructions ? cell.instructions.join("\n") : null,
+      ingredients: cell.ingredients ? cell.ingredients.join(" | ") : null,
       icmr_rationale: cell.icmr_rationale,
     };
     setDetailRecipe(basic);
