@@ -234,13 +234,13 @@ export default function FamilySetup() {
       return;
     }
 
-    // Inline validation — collect errors per member
+    // Inline validation — collect errors per member keyed by stable _id
     const errors: Record<number, MemberErrors> = {};
-    members.forEach((m, i) => {
+    members.forEach((m) => {
       const e: MemberErrors = {};
       if (!m.name.trim()) e.name = "Name is required";
       if (m.age === "" || m.age <= 0 || !Number.isFinite(Number(m.age))) e.age = "Enter a valid age";
-      if (Object.keys(e).length > 0) errors[i] = e;
+      if (Object.keys(e).length > 0) errors[m._id] = e;
     });
     if (Object.keys(errors).length > 0) {
       setMemberErrors(errors);
@@ -546,11 +546,11 @@ export default function FamilySetup() {
                       value={member.name} 
                       onChange={e => {
                         handleUpdateMember(idx, "name", e.target.value);
-                        if (memberErrors[idx]?.name) setMemberErrors(prev => ({ ...prev, [idx]: { ...prev[idx], name: undefined } }));
+                        if (memberErrors[member._id]?.name) setMemberErrors(prev => ({ ...prev, [member._id]: { ...prev[member._id], name: undefined } }));
                       }}
-                      className={`mt-1 ${memberErrors[idx]?.name ? "border-destructive" : ""}`}
+                      className={`mt-1 ${memberErrors[member._id]?.name ? "border-destructive" : ""}`}
                     />
-                    {memberErrors[idx]?.name && <p className="text-xs text-destructive mt-1">{memberErrors[idx].name}</p>}
+                    {memberErrors[member._id]?.name && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].name}</p>}
                   </div>
                   <div>
                     <Label>Role / संबंध</Label>
@@ -575,11 +575,11 @@ export default function FamilySetup() {
                       onChange={e => {
                         const val = e.target.value === "" ? "" : parseInt(e.target.value);
                         handleUpdateMember(idx, "age", val as number | "");
-                        if (memberErrors[idx]?.age) setMemberErrors(prev => ({ ...prev, [idx]: { ...prev[idx], age: undefined } }));
+                        if (memberErrors[member._id]?.age) setMemberErrors(prev => ({ ...prev, [member._id]: { ...prev[member._id], age: undefined } }));
                       }}
-                      className={`mt-1 ${memberErrors[idx]?.age ? "border-destructive" : ""}`}
+                      className={`mt-1 ${memberErrors[member._id]?.age ? "border-destructive" : ""}`}
                     />
-                    {memberErrors[idx]?.age && <p className="text-xs text-destructive mt-1">{memberErrors[idx].age}</p>}
+                    {memberErrors[member._id]?.age && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].age}</p>}
                   </div>
                   <div>
                     <Label>Weight (kg) / वजन</Label>
