@@ -99,17 +99,43 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
 
   await db.insert(messagesTable).values({ conversationId: params.data.id, role: "user", content: parsed.data.content });
 
-  const chatMessages = await db.select().from(messagesTable)
+  const allMessages = await db.select().from(messagesTable)
     .where(eq(messagesTable.conversationId, params.data.id))
     .orderBy(messagesTable.createdAt);
 
-  // Recipe DB search: extract keywords from user message and search the recipe DB
+  // 6b: Trim conversation history to avoid context window overflow
+  const MAX_HISTORY_MESSAGES = 20;
+  const chatMessages = allMessages.slice(-MAX_HISTORY_MESSAGES);
+
+  // 6a: Improved food keyword extraction with stop-words and multi-word Indian food names
   const userMsg = parsed.data.content;
-  const foodKeywords = userMsg.replace(/[^a-zA-Z0-9\u0900-\u097F\s]/g, "").split(/\s+/).filter(w => w.length > 2).slice(0, 4);
+  const stopWords = new Set([
+    "what", "how", "can", "you", "tell", "me", "about", "should", "for", "the",
+    "and", "with", "make", "cook", "recipe", "food", "eat", "good", "best", "please",
+    "kya", "hai", "aur", "mein", "ka", "ki", "ke", "kaise", "banate", "batao", "achha", "kaun",
+    "this", "that", "from", "give", "want", "need", "help", "list", "when", "does",
+  ]);
+  const multiWordFoods = [
+    "dal makhani", "chole bhature", "aloo gobi", "palak paneer", "rajma chawal",
+    "kadhi chawal", "pav bhaji", "vada pav", "khichdi", "poha", "upma", "idli",
+    "dosa", "roti", "paratha", "sabzi", "dal", "curry", "rice", "paneer",
+    "biryani", "chicken", "mutton", "fish", "egg", "litti chokha", "dal baati",
+    "gatte ki sabzi", "butter chicken", "aloo paratha", "masala dosa",
+  ];
+  const lowerMsg = userMsg.toLowerCase();
+  const quotedPhrases = [...lowerMsg.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+  const foundMultiWord = multiWordFoods.filter(f => lowerMsg.includes(f));
+  const singleWords = lowerMsg
+    .replace(/[^\w\s\u0900-\u097F]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stopWords.has(w));
+  const foodKeywords = [...new Set([...quotedPhrases, ...foundMultiWord, ...singleWords])].slice(0, 6);
   let recipeContext = "";
-  if (foodKeywords.length > 0) {
+  // Flatten multi-word foods to individual tokens for full-text search
+  const tsTokens = [...new Set(foodKeywords.flatMap(k => k.split(/\s+/)).filter(w => w.length > 2))];
+  if (tsTokens.length > 0) {
     try {
-      const tsQuery = foodKeywords.join(":* & ") + ":*";
+      const tsQuery = tsTokens.join(":* & ") + ":*";
       const matchedRecipes = await db.select({
         name: recipesTable.name,
         nameHindi: recipesTable.nameHindi,
@@ -123,6 +149,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
       .from(recipesTable)
       .where(sql`to_tsvector('simple', coalesce(${recipesTable.name}, '') || ' ' || coalesce(${recipesTable.nameHindi}, '') || ' ' || coalesce(${recipesTable.ingredients}, '')) @@ to_tsquery('simple', ${tsQuery})`)
       .limit(8);
+      
 
       if (matchedRecipes.length > 0) {
         recipeContext = `\n\nMATCHED RECIPES FROM DATABASE:\n${JSON.stringify(matchedRecipes.map(r => ({
@@ -167,6 +194,22 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   }
 
   await db.insert(messagesTable).values({ conversationId: params.data.id, role: "assistant", content: fullResponse });
+
+  // 6d: Auto-generate conversation title from the first user message
+  // allMessages includes the message we just inserted, so length === 1 means this is the first
+  if (allMessages.length === 1) {
+    try {
+      const titleResp = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: `Give this conversation a title in 5 words or less (no quotes, no punctuation at end) based on this first message: "${userMsg}"` }] }],
+        config: { maxOutputTokens: 20 },
+      });
+      const autoTitle = titleResp.text?.trim().replace(/^["']|["']$/g, "").slice(0, 60);
+      if (autoTitle) {
+        await db.update(conversationsTable).set({ title: autoTitle }).where(eq(conversationsTable.id, params.data.id));
+      }
+    } catch { /* non-critical */ }
+  }
 
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   res.end();

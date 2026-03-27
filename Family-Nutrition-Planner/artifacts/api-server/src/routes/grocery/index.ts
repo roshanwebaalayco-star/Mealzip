@@ -106,8 +106,8 @@ Focus on Indian market pricing. Prioritize seasonal local produce to reduce cost
       if (Array.isArray(groceryData.items)) {
         const before = groceryData.items.length;
         groceryData.items = groceryData.items.filter((item: { name?: string; nameHindi?: string }) => {
-          const itemName = (item.name ?? "").toLowerCase();
-          return !pantrySet.some(p => itemName.includes(p) || p.includes(itemName));
+          const itemName = item.name ?? "";
+          return !pantrySet.some(p => ingredientMatches(p, itemName));
         });
         const subtracted = before - groceryData.items.length;
         // Recalculate total after subtraction
@@ -135,6 +135,46 @@ Focus on Indian market pricing. Prioritize seasonal local produce to reduce cost
   } catch (err) {
     res.status(500).json({ error: "Grocery generation failed", details: String(err) });
   }
+});
+
+// 7b: Flexible ingredient matching for pantry subtraction
+function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, "").trim();
+  const p = normalize(pantryItem);
+  const g = normalize(groceryItem);
+  if (p.includes(g) || g.includes(p)) return true;
+  return p.split(" ").some(word => word.length > 3 && g.split(" ").includes(word));
+}
+
+// 7a: Persist accepted swap for a grocery list item
+router.patch("/grocery-lists/:id/swaps", async (req, res): Promise<void> => {
+  const listId = parseInt(req.params.id);
+  if (isNaN(listId)) { res.status(400).json({ error: "Invalid list id" }); return; }
+
+  const { itemName, swappedWith, cost, source } = req.body as {
+    itemName: string;
+    swappedWith: string | null;
+    cost?: number;
+    source?: "db" | "ai";
+  };
+  if (!itemName) { res.status(400).json({ error: "itemName is required" }); return; }
+
+  const [list] = await db.select({ id: groceryListsTable.id, acceptedSwaps: groceryListsTable.acceptedSwaps })
+    .from(groceryListsTable).where(eq(groceryListsTable.id, listId));
+  if (!list) { res.status(404).json({ error: "Grocery list not found" }); return; }
+
+  const existing = (list.acceptedSwaps as Record<string, unknown> | null) ?? {};
+  let updated: Record<string, unknown>;
+  if (swappedWith === null) {
+    // Remove swap (user reverted to original)
+    updated = { ...existing };
+    delete updated[itemName];
+  } else {
+    updated = { ...existing, [itemName]: { name: swappedWith, cost: cost ?? 0, source: source ?? "ai" } };
+  }
+
+  await db.update(groceryListsTable).set({ acceptedSwaps: updated }).where(eq(groceryListsTable.id, listId));
+  res.json({ success: true, acceptedSwaps: updated });
 });
 
 // DB-backed cheaper alternative ingredient lookup endpoint

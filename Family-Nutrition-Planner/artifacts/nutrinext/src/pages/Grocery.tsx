@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-fetch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,8 @@ interface GroceryItem {
   priority: "essential" | "optional";
 }
 
+type SavedSwap = { name: string; cost: number; source: "db" | "ai" };
+
 interface GroceryList {
   id: number;
   weekOf: string;
@@ -31,6 +33,7 @@ interface GroceryList {
   };
   totalEstimatedCost: number;
   budgetStatus: string;
+  acceptedSwaps?: Record<string, SavedSwap>;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -51,7 +54,7 @@ export default function Grocery() {
   const queryClient = useQueryClient();
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [swappedItems, setSwappedItems] = useState<Record<string, { name: string; estimatedCost?: number }>>({});
-  const [dbSwaps, setDbSwaps] = useState<Record<string, { name: string; cost: number; source: "db" | "ai" } | null>>({});
+  const [dbSwaps, setDbSwaps] = useState<Record<string, SavedSwap | null>>({});
   const [swapLoading, setSwapLoading] = useState<Record<string, boolean>>({});
 
   const handleCheaperSwap = async (listId: number, itemIdx: number, item: GroceryItem) => {
@@ -60,6 +63,12 @@ export default function Grocery() {
     if (isSwapped) {
       setSwappedItems(prev => { const next = { ...prev }; delete next[key]; return next; });
       toast({ title: "Reverted to original", description: item.name });
+      // Persist revert to DB (fire-and-forget)
+      apiFetch(`/api/grocery-lists/${listId}/swaps`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemName: item.name, swappedWith: null }),
+      }).catch(() => {/* non-critical */});
       return;
     }
     setSwapLoading(prev => ({ ...prev, [key]: true }));
@@ -80,6 +89,12 @@ export default function Grocery() {
           title: `Swapped to cheaper option! ${swapDisplay.source === "db" ? "(DB verified)" : "(AI suggested)"}`,
           description: `${swapDisplay.name} — ₹${swapDisplay.cost}`,
         });
+        // Persist accepted swap to DB (fire-and-forget)
+        apiFetch(`/api/grocery-lists/${listId}/swaps`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemName: item.name, swappedWith: swapDisplay.name, cost: swapDisplay.cost, source: swapDisplay.source }),
+        }).catch(() => {/* non-critical */});
       } else {
         toast({ title: "No cheaper alternative found", description: `${item.name} is already budget-optimal` });
       }
@@ -131,6 +146,30 @@ export default function Grocery() {
     acc[cat].push(item);
     return acc;
   }, {});
+
+  // 7a: Restore accepted swaps from DB when grocery list loads
+  useEffect(() => {
+    if (!latest?.acceptedSwaps || !items.length) return;
+    const savedSwaps = latest.acceptedSwaps;
+    if (Object.keys(savedSwaps).length === 0) return;
+    const newDbSwaps: Record<string, SavedSwap | null> = {};
+    const newSwapped: Record<string, { name: string; estimatedCost?: number }> = {};
+    Object.entries(grouped).forEach(([, catItems]) => {
+      catItems.forEach((item, i) => {
+        const saved = savedSwaps[item.name];
+        if (saved) {
+          const swapKey = `${latest.id}-${i}`;
+          newDbSwaps[swapKey] = saved;
+          newSwapped[swapKey] = { name: item.name, estimatedCost: item.estimatedCost };
+        }
+      });
+    });
+    if (Object.keys(newDbSwaps).length > 0) {
+      setDbSwaps(newDbSwaps);
+      setSwappedItems(newSwapped);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latest?.id]);
 
   const toggleItem = (key: string) => {
     setCheckedItems(prev => {

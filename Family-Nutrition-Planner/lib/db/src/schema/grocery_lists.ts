@@ -12,6 +12,7 @@ export const groceryListsTable = pgTable("grocery_lists", {
   items: jsonb("items"),
   totalEstimatedCost: integer("total_estimated_cost"),
   budgetStatus: text("budget_status").notNull().default("within"),
+  acceptedSwaps: jsonb("accepted_swaps").default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("grocery_lists_family_id_idx").on(table.familyId),

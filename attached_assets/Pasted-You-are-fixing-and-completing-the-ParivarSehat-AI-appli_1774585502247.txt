@@ -1,0 +1,906 @@
+You are fixing and completing the ParivarSehat AI application.
+This is a React + Express.js + PostgreSQL + Gemini AI app for
+Indian family meal planning. Many core systems are scaffolded
+but not actually connected or functional.
+
+Work through every section below in order. Do not skip any 
+section. After completing each section, confirm what was done 
+before moving to the next.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — ENVIRONMENT & SECRETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create a .env.example file in the project root listing every 
+required environment variable with a description comment. 
+The actual values come from Replit Secrets.
+
+Required variables:
+
+  DATABASE_URL          # PostgreSQL connection string from Replit DB
+  GEMINI_API_KEY        # From aistudio.google.com
+  GOOGLE_CLIENT_ID      # From Google Cloud Console OAuth 2.0
+  GOOGLE_CLIENT_SECRET  # From Google Cloud Console OAuth 2.0
+  SESSION_SECRET        # Random 64-character string for express-session
+  NODE_ENV              # Set to "production" or "development"
+  YOLOV11_INFERENCE_URL # Optional — scanner degrades gracefully if missing
+
+At server startup in server/index.ts, add a boot check:
+
+  const REQUIRED_VARS = [
+    'DATABASE_URL',
+    'GEMINI_API_KEY',
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'SESSION_SECRET'
+  ];
+
+  const missing = REQUIRED_VARS.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.error('FATAL: Missing environment variables:', missing);
+    process.exit(1);
+  }
+
+This prevents silent failures where the app starts but 
+nothing works.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — DATABASE CONNECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2a. Connect Drizzle ORM to PostgreSQL:
+
+In server/db.ts (or wherever the DB client is initialized), 
+ensure it reads from process.env.DATABASE_URL:
+
+  import { drizzle } from 'drizzle-orm/node-postgres';
+  import { Pool } from 'pg';
+  import * as schema from './schema';
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' 
+      ? { rejectUnauthorized: false } 
+      : false
+  });
+
+  export const db = drizzle(pool, { schema });
+
+2b. Run migrations:
+
+Run drizzle-kit push to create all tables from the existing 
+schema. If drizzle-kit push fails, run drizzle-kit generate 
+followed by drizzle-kit migrate.
+
+2c. Add a database health check route:
+
+  GET /healthz
+
+  Response:
+  {
+    "status": "ok",
+    "database": "connected",
+    "timestamp": "<ISO string>"
+  }
+
+  If the DB query fails, return:
+  {
+    "status": "error",
+    "database": "disconnected",
+    "error": "<message>"
+  }
+
+This should be the first thing tested after deployment.
+
+2d. Add connection error handling:
+
+Wrap all DB calls in try/catch. If any DB operation fails,
+return a JSON error response with status 500 and a message.
+Never let an unhandled DB error crash the Express process.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — AUTHENTICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3a. Install required packages:
+
+  npm install passport passport-google-oauth20 
+              express-session connect-pg-simple
+  npm install --save-dev @types/passport 
+              @types/passport-google-oauth20 
+              @types/express-session
+
+3b. Configure express-session with PostgreSQL store:
+
+In server/index.ts, add session middleware BEFORE any routes:
+
+  import session from 'express-session';
+  import connectPgSimple from 'connect-pg-simple';
+
+  const PgSession = connectPgSimple(session);
+
+  app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'session',
+      createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000  // 30 days
+    }
+  }));
+
+3c. Configure Passport Google OAuth:
+
+Create server/auth/passport.ts:
+
+  import passport from 'passport';
+  import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+  import { db } from '../db';
+  import { users } from '../schema';
+  import { eq } from 'drizzle-orm';
+
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    callbackURL: '/auth/google/callback'
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Find existing user by googleId
+      let [user] = await db.select()
+        .from(users)
+        .where(eq(users.googleId, profile.id));
+
+      if (!user) {
+        // Create new user on first Google login
+        [user] = await db.insert(users).values({
+          googleId: profile.id,
+          email: profile.emails?.[0]?.value ?? '',
+          name: profile.displayName,
+          avatarUrl: profile.photos?.[0]?.value ?? ''
+        }).returning();
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err as Error);
+    }
+  }));
+
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.id, id));
+      done(null, user ?? false);
+    } catch (err) {
+      done(err);
+    }
+  });
+
+  export default passport;
+
+3d. Add the users table columns if missing:
+
+The users table needs these columns. Add them to the Drizzle 
+schema if they do not exist:
+  - googleId (text, unique, nullable for email/password users)
+  - name (text)
+  - email (text, unique)
+  - avatarUrl (text, nullable)
+  - createdAt (timestamp, default now())
+
+Run drizzle-kit push after adding columns.
+
+3e. Create auth routes in server/routes/auth/index.ts:
+
+  GET  /auth/google
+    → passport.authenticate('google', { scope: ['profile','email'] })
+
+  GET  /auth/google/callback
+    → passport.authenticate('google', { failureRedirect: '/login' })
+    → On success: redirect to '/'
+
+  POST /auth/logout
+    → req.logout()
+    → req.session.destroy()
+    → res.json({ success: true })
+
+  GET  /auth/me
+    → If req.user exists: return { id, name, email, avatarUrl }
+    → If not: return 401 { error: 'Not authenticated' }
+
+3f. Create requireAuth middleware in server/middleware/auth.ts:
+
+  import { Request, Response, NextFunction } from 'express';
+
+  export function requireAuth(
+    req: Request, 
+    res: Response, 
+    next: NextFunction
+  ) {
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      return next();
+    }
+    return res.status(401).json({ 
+      error: 'Authentication required' 
+    });
+  }
+
+Apply this middleware to ALL routes under /api/* EXCEPT:
+  - /auth/google
+  - /auth/google/callback
+  - /auth/me
+  - /auth/logout
+  - /healthz
+
+3g. Add family ownership enforcement:
+
+Create server/middleware/ownership.ts:
+
+  export async function requireFamilyOwnership(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    const familyId = parseInt(
+      req.params.familyId || req.params.id || req.body.familyId
+    );
+    const userId = (req.user as any)?.id;
+
+    if (!familyId || !userId) {
+      return res.status(400).json({ error: 'Missing familyId or userId' });
+    }
+
+    const [family] = await db.select()
+      .from(families)
+      .where(eq(families.id, familyId));
+
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
+
+    if (family.userId !== userId) {
+      return res.status(403).json({ 
+        error: 'You do not have access to this family' 
+      });
+    }
+
+    next();
+  }
+
+Apply requireFamilyOwnership to:
+  - GET/PUT/DELETE /api/families/:id
+  - ALL /api/families/:familyId/members routes
+  - POST /api/meal-plans/generate (check body.familyId)
+  - GET /api/meal-plans (check query.familyId)
+  - GET /api/grocery-lists (check query.familyId)
+  - POST /api/grocery-lists/generate
+  - GET /api/nutrition-logs
+  - POST /api/nutrition-logs
+  - GET /api/health-logs
+  - POST /api/health-logs
+
+When creating a family, automatically set userId to 
+req.user.id so ownership is established at creation.
+
+3h. Update the frontend:
+
+In client/src/contexts/AppStateContext.tsx:
+
+On app load, call GET /auth/me to check if the user is 
+logged in. If the response is 401, redirect to /login.
+Store the returned user object in context as currentUser.
+
+On the Login page, replace any dummy login form with:
+  - A "Continue with Google" button
+  - href="/auth/google" (simple anchor, not fetch)
+
+On the Register page, do the same — Google handles both
+login and registration automatically.
+
+Add a logout button in the app header that calls 
+POST /auth/logout and then redirects to /login.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — RECIPE DATABASE SEEDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4a. Create a seed script at scripts/seed.ts that:
+
+1. Checks if the recipes table already has rows.
+   If count > 0, skip seeding and log "DB already seeded."
+
+2. If empty, reads from scripts/data/recipes.csv 
+   (we will place our processed CSV here).
+
+3. Inserts all rows using Drizzle ORM batch insert 
+   in chunks of 100 rows at a time to avoid timeouts.
+
+4. Maps CSV columns to DB columns as follows:
+   - RecipeName       → name
+   - Zone             → cuisine  
+   - Is_Foreign       → isForeign (boolean)
+   - Course           → course
+   - Diet             → diet
+   - TotalTimeInMins  → prepTimeInMins (integer, 0 if "Unknown")
+   - Servings         → servings (integer, 4 if "Unknown")
+   - Ingredients      → ingredients
+   - Instructions     → instructions
+   - URL              → sourceUrl
+
+5. After seeding, log how many recipes were inserted 
+   by zone:
+   North Zone: X
+   South Zone: X
+   West Zone: X
+   etc.
+
+4b. Add a seed:run script to package.json:
+
+  "seed": "tsx scripts/seed.ts"
+
+4c. Call the seed function automatically in server/index.ts 
+on startup only if NODE_ENV is not "production":
+
+  if (process.env.NODE_ENV !== 'production') {
+    await seedIfEmpty();
+  }
+
+4d. Create a seed admin route for production seeding:
+
+  POST /api/admin/seed
+  Protected by: requireAuth + check that user email 
+  matches ADMIN_EMAIL env variable
+  Runs the seed function on demand.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — MEAL PLAN GENERATION FIXES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5a. Fix the Gemini token limit:
+
+In the meal plan generation route, change max_tokens 
+from 8192 to 16000. Use gemini-2.5-flash which supports 
+longer outputs.
+
+5b. Add robust JSON parsing with repair:
+
+Replace the raw JSON.parse with this pattern:
+
+  function extractJSON(text: string): any {
+    // Try direct parse first
+    try { return JSON.parse(text); } catch {}
+
+    // Find the first { and last } 
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      try {
+        return JSON.parse(text.slice(start, end + 1));
+      } catch {}
+    }
+
+    throw new Error('Could not extract valid JSON from AI response');
+  }
+
+5c. Add retry logic for Gemini calls:
+
+  async function callGeminiWithRetry(
+    model: any, 
+    prompt: string, 
+    maxRetries = 2
+  ) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        return extractJSON(text);
+      } catch (err) {
+        if (attempt === maxRetries) throw err;
+        console.warn(`Gemini attempt ${attempt + 1} failed, retrying...`);
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+
+Apply this to: meal plan generation, grocery list 
+generation, symptom advisor, and AI chat.
+
+5d. Fix the empty recipe list problem:
+
+Before calling Gemini for meal plan generation, check:
+
+  if (filteredRecipes.length === 0) {
+    // Broaden the search — remove budget filter
+    filteredRecipes = await getFilteredRecipes({
+      cuisine: zone,
+      diet: dietType
+      // no budget constraint
+    });
+  }
+
+  if (filteredRecipes.length === 0) {
+    // Remove cuisine filter too
+    filteredRecipes = await getFilteredRecipes({
+      diet: dietType
+    });
+  }
+
+  if (filteredRecipes.length === 0) {
+    return res.status(422).json({
+      error: 'No recipes found in the database. 
+              Please seed the recipe database first.'
+    });
+  }
+
+5e. Fix the meal plan prompt token size:
+
+The current prompt sends up to 60 full recipes as JSON 
+which is very long. Change it to send only:
+  - Recipe ID
+  - Name
+  - Cuisine/Zone
+  - Course
+  - Calories per serving
+  - Key ingredients (first 5 only)
+  - Cost per serving
+
+This alone will cut the prompt size by ~60%.
+
+5f. Add streaming response for meal plan generation:
+
+The current implementation waits for the full response 
+before returning, which causes frontend timeouts on slow 
+Gemini responses. Add SSE streaming:
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Send progress events
+  res.write('data: {"status":"generating","progress":10}\n\n');
+  
+  // After Gemini call
+  res.write('data: {"status":"processing","progress":70}\n\n');
+  
+  // After DB save
+  res.write(`data: {"status":"complete","planId":${plan.id}}\n\n`);
+  res.end();
+
+Update the frontend MealPlan page to listen for these SSE 
+events and show a progress bar while generating.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — AI CHAT IMPROVEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6a. Fix keyword extraction for recipe context:
+
+Replace the current naive whitespace-split extraction with:
+
+  function extractFoodKeywords(message: string): string[] {
+    // Remove common stop words
+    const stopWords = new Set([
+      'what', 'how', 'can', 'you', 'tell', 'me', 'about',
+      'should', 'for', 'the', 'and', 'with', 'make', 'cook',
+      'recipe', 'food', 'eat', 'good', 'best', 'please',
+      'kya', 'hai', 'aur', 'mein', 'ka', 'ki', 'ke',
+      'kaise', 'banate', 'batao', 'achha', 'kaun'
+    ]);
+
+    // Extract quoted phrases first — "dal makhani"
+    const quoted = [...message.matchAll(/"([^"]+)"/g)]
+      .map(m => m[1]);
+
+    // Common multi-word Indian food names
+    const multiWord = [
+      'dal makhani', 'chole bhature', 'aloo gobi', 'palak paneer',
+      'rajma chawal', 'kadhi chawal', 'pav bhaji', 'vada pav',
+      'biryani', 'khichdi', 'poha', 'upma', 'idli', 'dosa',
+      'roti', 'paratha', 'sabzi', 'dal', 'curry', 'rice',
+      'paneer', 'chicken', 'mutton', 'fish', 'egg',
+      'litti chokha', 'dal baati', 'gatte ki sabzi'
+    ];
+
+    const lowerMsg = message.toLowerCase();
+    const found = multiWord.filter(food => lowerMsg.includes(food));
+
+    // Single words (longer than 3 chars, not stop words)
+    const words = message
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !stopWords.has(w));
+
+    return [...new Set([...quoted, ...found, ...words])].slice(0, 6);
+  }
+
+6b. Trim conversation history to avoid context window overflow:
+
+Before building the Gemini prompt, trim old messages:
+
+  const MAX_HISTORY_MESSAGES = 20;
+  const trimmedHistory = messages.slice(-MAX_HISTORY_MESSAGES);
+
+  // Always keep the system message and the first user 
+  // message (which sets context)
+  const systemMessage = messages[0];
+  const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
+
+6c. Fix SSE streaming on the frontend:
+
+In the chat page component, ensure the EventSource 
+handler correctly parses the streaming format:
+
+  const eventSource = new EventSource(`/api/chat/stream/${conversationId}`);
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.content) {
+        setStreamingMessage(prev => prev + data.content);
+      }
+      if (data.done) {
+        eventSource.close();
+        setIsStreaming(false);
+      }
+    } catch (e) {
+      console.error('SSE parse error:', e);
+    }
+  };
+
+  eventSource.onerror = () => {
+    eventSource.close();
+    setIsStreaming(false);
+  };
+
+  // IMPORTANT: Close EventSource on component unmount
+  return () => eventSource.close();
+
+6d. Add a conversation title auto-generator:
+
+After the first message in a new conversation, call Gemini 
+with a short prompt: "Give this conversation a title in 5 
+words or less based on this first message: [message]".
+Save the result as the conversation's title field.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — GROCERY LIST PERSISTENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7a. Currently, accepted swaps are lost on page refresh 
+because they are stored only in React state. Fix this:
+
+Add a new column to the grocery_lists table:
+  acceptedSwaps JSONB DEFAULT '{}'
+
+When a user accepts a swap on the frontend, immediately 
+call:
+
+  PATCH /api/grocery-lists/:id/swaps
+  Body: { itemName: string, swappedWith: string, newCost: number }
+
+In the handler, update the acceptedSwaps column:
+  
+  UPDATE grocery_lists 
+  SET accepted_swaps = accepted_swaps || '{"<itemName>": {...}}'
+  WHERE id = :id
+
+On page load, fetch the grocery list including 
+acceptedSwaps and restore the swapped state in the 
+frontend from this persisted data.
+
+7b. Fix pantry subtraction string matching:
+
+The current pantry scan uses exact string matching which 
+fails ("rice" vs "basmati rice"). Replace with:
+
+  function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
+    const normalize = (s: string) => s.toLowerCase()
+      .replace(/[^a-z\s]/g, '')
+      .trim();
+    
+    const p = normalize(pantryItem);
+    const g = normalize(groceryItem);
+    
+    // Check if either contains the other
+    return p.includes(g) || g.includes(p) ||
+      // Check word overlap (at least one common word > 3 chars)
+      p.split(' ').some(word => 
+        word.length > 3 && g.split(' ').includes(word)
+      );
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — SCANNER GRACEFUL DEGRADATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8a. In the scanner backend route, add at the very top:
+
+  if (!process.env.YOLOV11_INFERENCE_URL) {
+    return res.status(503).json({
+      error: 'scanner_unavailable',
+      message: 'The food scanner is not configured in this environment.',
+      fallback: 'manual_entry'
+    });
+  }
+
+8b. On the Scanner frontend page, handle the 503 response:
+
+If the response contains error: 'scanner_unavailable',
+instead of showing an error, show:
+
+  - A friendly message: "Camera scanner isn't available. 
+    Add food items manually below."
+  - A manual food search input where the user can type 
+    a food name, search the recipes/food DB, and log it 
+    directly to nutrition_logs without needing the camera.
+
+8c. Add a manual nutrition log entry form:
+
+  POST /api/nutrition-logs/manual
+  Body: {
+    familyMemberId: number,
+    foodName: string,
+    portionGrams: number,
+    mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  }
+
+The handler should look up the food in food_gi_nutrition 
+table first, then the ICMR_FOOD_TABLE fallback, scale 
+the nutrition values by (portionGrams / 100), and 
+insert into nutrition_logs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — GLOBAL STATE & NULL SAFETY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+9a. Fix the AppStateContext null crash:
+
+In AppStateContext.tsx, ensure activeFamily defaults 
+gracefully. On every page that reads from context:
+
+  const { activeFamily } = useAppState();
+  
+  // Add this guard at the top of every page component:
+  if (!activeFamily) {
+    return (
+      <div className="flex flex-col items-center justify-center 
+                      min-h-screen gap-4">
+        <p className="text-muted-foreground">
+          No family set up yet.
+        </p>
+        <Button onClick={() => navigate('/family-setup')}>
+          Set Up Your Family
+        </Button>
+      </div>
+    );
+  }
+
+Apply this guard to: Dashboard, MealPlan, Grocery, 
+Nutrition, Health, Chat, Scanner pages.
+
+9b. Validate family has at least one member before 
+meal plan generation:
+
+In the FamilySetup final step, add a check:
+If membersList.length === 0, show an error:
+"Please add at least one family member before continuing."
+Disable the "Generate Meal Plan" button.
+
+On the backend /meal-plans/generate endpoint, add:
+
+  if (!members || members.length === 0) {
+    return res.status(422).json({
+      error: 'Family must have at least one member 
+              before generating a meal plan.'
+    });
+  }
+
+9c. Fix the state-to-zone mapping:
+
+In lib/icmr-nin.ts, ensure there is a complete mapping 
+of every Indian state to its zone. Use this mapping:
+
+  const STATE_TO_ZONE: Record<string, string> = {
+    // North Zone
+    'Punjab': 'North Zone',
+    'Haryana': 'North Zone',
+    'Himachal Pradesh': 'North Zone',
+    'Jammu and Kashmir': 'North Zone',
+    'Jammu & Kashmir': 'North Zone',
+    'Ladakh': 'North Zone',
+    'Rajasthan': 'North Zone',
+    'Uttarakhand': 'North Zone',
+    'Chandigarh': 'North Zone',
+    // North Central Zone
+    'Uttar Pradesh': 'North Central Zone',
+    'Delhi': 'North Central Zone',
+    'Bihar': 'North Central Zone',
+    // Central Zone
+    'Madhya Pradesh': 'Central Zone',
+    'Chhattisgarh': 'Central Zone',
+    // East Zone
+    'West Bengal': 'East Zone',
+    'Odisha': 'East Zone',
+    'Jharkhand': 'East Zone',
+    'Assam': 'East Zone',
+    'Sikkim': 'East Zone',
+    'Tripura': 'East Zone',
+    'Manipur': 'East Zone',
+    // North East Zone
+    'Arunachal Pradesh': 'North East Zone',
+    'Meghalaya': 'North East Zone',
+    'Mizoram': 'North East Zone',
+    'Nagaland': 'North East Zone',
+    // West Zone
+    'Maharashtra': 'West Zone',
+    'Gujarat': 'West Zone',
+    'Goa': 'West Zone',
+    'Daman and Diu': 'West Zone',
+    'Dadra and Nagar Haveli': 'West Zone',
+    // South Zone
+    'Andhra Pradesh': 'South Zone',
+    'Karnataka': 'South Zone',
+    'Kerala': 'South Zone',
+    'Tamil Nadu': 'South Zone',
+    'Telangana': 'South Zone',
+    'Puducherry': 'South Zone',
+  };
+
+  export function getZoneFromState(state: string): string {
+    return STATE_TO_ZONE[state] ?? 'Pan-Indian / General';
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10 — ERROR HANDLING & UX POLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+10a. Add a global API error handler in Express:
+
+At the very bottom of server/index.ts, AFTER all routes:
+
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('[ERROR]', req.method, req.path, err);
+    
+    const status = err.status || err.statusCode || 500;
+    const message = process.env.NODE_ENV === 'production'
+      ? 'Something went wrong. Please try again.'
+      : err.message || 'Internal server error';
+    
+    res.status(status).json({ error: message });
+  });
+
+10b. Add a global error boundary on the frontend:
+
+Create client/src/components/ErrorBoundary.tsx:
+
+  class ErrorBoundary extends React.Component
+    { children: React.ReactNode },
+    { hasError: boolean; error?: Error }
+  > {
+    state = { hasError: false };
+    
+    static getDerivedStateFromError(error: Error) {
+      return { hasError: true, error };
+    }
+    
+    render() {
+      if (this.state.hasError) {
+        return (
+          <div className="flex flex-col items-center 
+                          justify-center min-h-screen gap-4 p-8">
+            <h2 className="text-xl font-semibold">
+              Something went wrong
+            </h2>
+            <p className="text-muted-foreground text-center">
+              {this.state.error?.message}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Reload Page
+            </Button>
+          </div>
+        );
+      }
+      return this.props.children;
+    }
+  }
+
+Wrap the entire app in this boundary in main.tsx.
+
+10c. Add loading states everywhere:
+
+Every page that fetches data via TanStack Query should 
+show a loading skeleton while isLoading is true.
+Use Shadcn UI Skeleton component for this.
+
+Every form submit button should show a spinner and 
+be disabled while the mutation is pending.
+
+10d. Add toast notifications for key actions:
+
+Using the existing Shadcn UI toast, add success/error 
+toasts for:
+  - Family created successfully
+  - Member added successfully
+  - Meal plan generated
+  - Meal plan generation failed (with reason)
+  - Feedback saved
+  - Grocery list generated
+  - Logout successful
+
+10e. Add a 404 page:
+
+In the router, add a catch-all route at the end:
+
+  <Route default>
+    <div className="flex flex-col items-center 
+                    justify-center min-h-screen gap-4">
+      <h1 className="text-4xl font-bold">404</h1>
+      <p className="text-muted-foreground">Page not found</p>
+      <Button onClick={() => navigate('/')}>Go Home</Button>
+    </div>
+  </Route>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 11 — FINAL CHECKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After completing all sections above, run through 
+this checklist and fix anything that fails:
+
+□ GET /healthz returns { status: "ok", database: "connected" }
+□ GET /auth/google redirects to Google login page
+□ After Google login, GET /auth/me returns user object
+□ POST /api/families without auth returns 401
+□ POST /api/families with auth creates a family and 
+  sets userId to the logged-in user's id
+□ GET /api/families/:id with a different user's session 
+  returns 403
+□ If recipes table is empty, seeding runs and 
+  logs zone breakdown
+□ POST /api/meal-plans/generate with a valid family 
+  and members returns a 7-day plan JSON
+□ Chat sends a message and receives a streaming 
+  response via SSE
+□ Grocery list generates and accepted swaps 
+  persist after page refresh
+□ Scanner route returns 503 with fallback message 
+  if YOLOV11_INFERENCE_URL is not set
+□ Dashboard shows empty state with 
+  "Set Up Your Family" CTA if no family exists
+□ All forms show loading spinner while submitting
+□ All pages show skeleton loader while fetching
+□ Navigating to a nonexistent route shows the 404 page
+□ Logging out redirects to /login
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT RULES FOR REPLIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Do NOT delete any existing working code. 
+  Only add to or fix it.
+- Do NOT change the database schema column names 
+  that already exist — only add new columns.
+- Do NOT change the existing Drizzle schema file 
+  structure — only extend it.
+- After every section, run the app and confirm 
+  it still starts without errors before 
+  moving to the next section.
+- If you are unsure about a file path or import, 
+  check the existing codebase structure first 
+  before creating new files.
+- Use TypeScript throughout. No plain .js files.
+- All new API routes must follow the existing 
+  pattern in the routes/ directory.

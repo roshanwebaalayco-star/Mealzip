@@ -382,7 +382,26 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
       : null
     : null;
 
-  const filteredRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+  if (members.length === 0) {
+    res.status(422).json({ error: "Family must have at least one member before generating a meal plan." });
+    return;
+  }
+
+  let filteredRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+
+  // 5d: Progressive fallback when recipe filter is too restrictive
+  if (filteredRecipes.length < 10) {
+    req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes — relaxing budget constraint");
+    filteredRecipes = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
+  }
+  if (filteredRecipes.length < 10) {
+    req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter");
+    filteredRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+  }
+  if (filteredRecipes.length === 0) {
+    res.status(422).json({ error: "No recipes found in the database. Please seed the recipe database first." });
+    return;
+  }
 
   const previousFeedback = await db.select().from(mealFeedbackTable)
     .where(and(eq(mealFeedbackTable.familyId, familyId)))
@@ -430,17 +449,16 @@ LANGUAGE: ${family.primaryLanguage}
 ${festivalContext}${fastingNote}${feedbackNote}${leftoversNote}
 
 AVAILABLE RECIPES FROM DATABASE (filtered for zone "${zone}" and dietary needs):
-${JSON.stringify(filteredRecipes.slice(0, 60).map(r => ({
+${JSON.stringify(filteredRecipes.slice(0, 80).map(r => ({
   id: r.id,
   name: r.name,
-  nameHindi: r.nameHindi,
   cuisine: r.cuisine,
-  diet: r.diet,
-  calories: r.calories,
-  protein: r.protein,
-  costPerServing: r.costPerServing,
   course: r.course,
-})), null, 2)}
+  cal: r.calories,
+  cost: r.costPerServing,
+  ing: r.ingredients?.split(",").slice(0, 5).join(",").trim(),
+})))}
+
 
 FAMILY MEMBERS LIST (for per-member variations):
 ${JSON.stringify(memberSummaries.map(m => ({ name: m.name, age: m.age, conditions: m.healthConditions, role: m.role })), null, 2)}

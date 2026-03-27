@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import { LanguageProvider } from "@/contexts/language-context";
 import { AppStateProvider } from "@/contexts/app-state-context";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Pages
 import Dashboard from "@/pages/Dashboard";
@@ -58,18 +59,20 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppStateProvider>
-        <LanguageProvider>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
-        </LanguageProvider>
-      </AppStateProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppStateProvider>
+          <LanguageProvider>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router />
+              </WouterRouter>
+              <Toaster />
+            </TooltipProvider>
+          </LanguageProvider>
+        </AppStateProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
