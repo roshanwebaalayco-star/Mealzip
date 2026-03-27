@@ -19,6 +19,42 @@ import { resolveDietPreference } from "../../lib/diet-tag.js";
 
 const router: IRouter = Router();
 
+const MAX_OUTPUT_TOKENS = 16000;
+
+async function callGeminiWithJsonRetry(
+  prompt: string,
+  label: string,
+  log: { info: (obj: Record<string, unknown>, msg: string) => void; error: (obj: Record<string, unknown>, msg: string) => void },
+): Promise<Record<string, unknown>> {
+  async function attempt(): Promise<{ text: string; data: Record<string, unknown> | null }> {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
+    });
+    const text = response.text ?? "{}";
+    try {
+      return { text, data: JSON.parse(text) as Record<string, unknown> };
+    } catch {
+      return { text, data: null };
+    }
+  }
+
+  const first = await attempt();
+  if (first.data !== null) return first.data;
+
+  log.error({ label, rawText: first.text.slice(0, 500) }, `${label}: first JSON parse failed, retrying`);
+
+  const second = await attempt();
+  if (second.data !== null) {
+    log.info({ label }, `${label}: JSON parse succeeded on retry`);
+    return second.data;
+  }
+
+  log.error({ label, rawText: second.text.slice(0, 500) }, `${label}: JSON parse failed on retry`);
+  throw new Error("Meal plan generation failed after retry — please try again");
+}
+
 const ZONE_CUISINE_MAP: Record<string, string[]> = {
   north: ["North Indian", "Punjabi", "Mughlai", "Rajasthani", "UP", "Uttarakhand"],
   south: ["South Indian", "Karnataka", "Kerala", "Tamil Nadu", "Andhra Pradesh", "Telangana"],
@@ -464,19 +500,13 @@ Return ONLY valid JSON:
 
   req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with enhanced engine");
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
-  });
-
-  const planText = response.text ?? "{}";
   let planData: Record<string, unknown>;
   try {
-    planData = JSON.parse(planText);
-  } catch {
-    req.log.error({ planText }, "Failed to parse Gemini meal plan response");
-    planData = { harmonyScore: 70, totalBudgetEstimate: 2000, aiInsights: "Plan generated", days: [] };
+    planData = await callGeminiWithJsonRetry(prompt, "generate-meal-plan", req.log);
+  } catch (err) {
+    req.log.error({ err }, "Meal plan generation failed after retry");
+    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again") });
+    return;
   }
 
   const harmonyScore = Number(planData.harmonyScore ?? 70);
@@ -621,19 +651,13 @@ ${JSON.stringify(finalRecipes.slice(0, 60).map(r => ({
 Return valid JSON with same schema as before (harmonyScore, totalBudgetEstimate, aiInsights, days[]).
 For each dinner include a leftoverChain array (3 steps).`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: regenPrompt }] }],
-    config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
-  });
-
-  const planText = response.text ?? "{}";
   let planData: Record<string, unknown>;
   try {
-    planData = JSON.parse(planText);
-  } catch {
-    req.log.error({ planText }, "Failed to parse Gemini regenerate response");
-    planData = existingPlan.plan as Record<string, unknown> ?? {};
+    planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log);
+  } catch (err) {
+    req.log.error({ err }, "Meal plan regeneration failed after retry");
+    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again") });
+    return;
   }
 
   const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
