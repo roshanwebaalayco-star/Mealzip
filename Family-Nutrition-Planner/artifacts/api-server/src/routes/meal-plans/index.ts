@@ -19,7 +19,7 @@ import { resolveDietPreference } from "../../lib/diet-tag.js";
 
 const router: IRouter = Router();
 
-const MAX_OUTPUT_TOKENS = 16000;
+const MAX_OUTPUT_TOKENS = 65536;
 
 function tryParseJson(text: string): Record<string, unknown> | null {
   try { return JSON.parse(text) as Record<string, unknown>; } catch { /* fall through */ }
@@ -466,103 +466,44 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     allergies: m.allergies,
   }));
 
-  const recipeListForPrompt = filteredRecipes.slice(0, 30).map(r => ({
+  const recipeListForPrompt = filteredRecipes.slice(0, 25).map(r => ({
     id: r.id, name: r.name, course: r.course, diet: r.diet, cal: r.calories, cost: r.costPerServing,
   }));
 
-  const prompt = `You are ParivarSehat AI — India's expert family nutritionist (ICMR-NIN 2024).
+  const prompt = `You are ParivarSehat AI — ICMR-NIN 2024 India family nutritionist.
 
-Generate a 7-day family meal plan for the ${family.name} family from ${family.state} (${zone.toUpperCase()} India zone).
+Generate a COMPACT 7-day meal plan (Mon–Sun) for the ${family.name} family from ${family.state} (${zone.toUpperCase()} zone), ${members.length} members.
 
-FAMILY (${members.length} members):
-${JSON.stringify(memberListForPrompt)}
-
-BUDGET: ₹${weeklyBudget}/week → max ₹${budgetPerMeal * members.length} per meal
+MEMBERS: ${JSON.stringify(memberListForPrompt)}
+BUDGET: ₹${weeklyBudget}/week (≤₹${budgetPerMeal * members.length}/meal)
 CUISINE: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
 ${festivalContext}${fastingNote}${pantryNote}${feedbackNote}
+ONE BASE MANY PLATES: Every dinner/lunch = one dish cooked once, plated differently per member's health need. Saves time and cost.
 
-"ONE BASE, MANY PLATES" PHILOSOPHY (MANDATORY):
-Every dinner = ONE base dish cooked once, plated differently per family member based on their health conditions.
-Example: Base = Dal Tadka + Chapati
-- Papa (Diabetes): smaller rice portion, extra dal, no ghee
-- Dadi (Hypertension): sendha namak or no added salt, light tadka
-- Beti (Anaemia): add lemon squeeze + peanut chutney for iron absorption
-- Baby (3yr): mashed dal + 1 chapati with ghee
-This saves time, money, and effort. Apply to ALL dinners and lunches.
-
-AVAILABLE RECIPES FROM DATABASE (use these recipeIds in your plan):
+RECIPES (prefer these IDs; recipeId:null = AI-invented):
 ${JSON.stringify(recipeListForPrompt)}
 
-RULES:
-1. 7 days (Monday–Sunday), 5 meals each: breakfast, mid_morning, lunch, evening_snack, dinner
-2. Prefer recipe IDs from the list above; use recipeId: null for AI-invented dishes
-3. ICMR-NIN 2024 targets: Protein 10–15% cal, Carbs 60–65%, Fat 20–25%, Fiber ≥25g/day
-4. For EACH health condition: diabetes→low GI; hypertension→low sodium; obesity→reduced portion; anaemia→iron-rich
-5. For EVERY dinner include a 3-step leftover chain (how dinner becomes next-day lunch, then breakfast/snack)
-6. Harmony Score = % of members whose nutritional/preference needs are met
-7. Write aiInsights in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}, under 150 words
+OUTPUT RULES — BE TERSE, minimize text length:
+- 7 days × 5 meals: breakfast, mid_morning, lunch, evening_snack, dinner
+- For DB recipes (recipeId≠null): omit ingredients & instructions (fetched from DB)
+- For AI recipes (recipeId=null): include ingredients (4+ items with quantities) and instructions (3 steps, ≤10 words each)
+- member_plates: only for members with specific health needs; max 2 items per list
+- icmr_rationale: ≤8 words
+- nameHindi: required
+- aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
+- dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
 
-For each meal slot return this exact JSON structure:
-{
-  "recipeId": <number|null>,
-  "recipeName": "<English name>",
-  "nameHindi": "<Hindi name>",
-  "description": "<1-sentence visual description so cook can picture the dish>",
-  "servings": <number>,
-  "estimatedCost": <INR total for family>,
-  "isLeftover": false,
-  "notes": "",
-  "icmr_rationale": "<1-sentence ICMR-NIN 2024 justification>",
-  "ingredients": ["200g poha", "1 tsp mustard seeds", "1 tbsp oil", "salt to taste"],
-  "instructions": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-  "memberVariations": {"<name>": "<short adaptation note>"},
-  "member_plates": {"<name>": {"add": ["<item>"], "reduce": ["<item>"], "avoid": ["<item>"]}}
-}
-CRITICAL: For every meal slot where recipeId is null (AI-invented dish), you MUST include a realistic "ingredients" array with at least 4 items including quantities. For recipeId slots, "ingredients" may be omitted (will be fetched from DB).
-For dinner add: "leftoverChain": [{"step":1,"day":"<nextDay>","meal":"Lunch","dish":"<description>"},{"step":2,"day":"<dayAfterNext>","meal":"Breakfast","dish":"<description>"},{"step":3,"day":"<dayAfterNext>","meal":"Snack","dish":"<description>"}]
+EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
+{"harmonyScore":85,"totalBudgetEstimate":2800,"aiInsights":"<brief>","days":[
+{"day":"Monday","isFastingDay":false,"dailyHarmonyScore":82,"dailyNutrition":{"calories":1900,"protein":65,"carbs":280,"fat":55,"fiber":28},"meals":{
+"breakfast":{"recipeId":123,"recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"icmr_rationale":"Complex carbs, morning energy","member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
+"mid_morning":{"recipeId":null,"recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"icmr_rationale":"Potassium, sustained energy","ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_plates":{}},
+"lunch":{"recipeId":456,"recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"icmr_rationale":"Protein, iron, fiber","member_plates":{}},
+"evening_snack":{"recipeId":null,"recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"icmr_rationale":"Probiotics, calcium","ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_plates":{}},
+"dinner":{"recipeId":789,"recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"icmr_rationale":"Iron, calcium, protein","member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
+}}]}
 
-MANDATORY CONSTRAINTS:
-- Output EXACTLY 7 day objects: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
-- Each day MUST have EXACTLY 5 meal keys: breakfast, mid_morning, lunch, evening_snack, dinner
-- Every meal slot MUST have all required fields: recipeId, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, instructions (array of 3+ strings), member_plates
-- Do NOT omit any day or any meal slot
-- Do NOT use placeholder values like "..." or null for recipeName
-
-Return ONLY raw valid JSON — no markdown fences, no commentary, no trailing text:
-{
-  "harmonyScore": 78,
-  "totalBudgetEstimate": 2800,
-  "aiInsights": "This plan balances protein and iron for the family.",
-  "days": [
-    {
-      "day": "Monday",
-      "isFastingDay": false,
-      "dailyHarmonyScore": 80,
-      "dailyNutrition": {"calories": 1900, "protein": 65, "carbs": 280, "fat": 55, "fiber": 28, "iron": 18},
-      "meals": {
-        "breakfast": {
-          "recipeId": 123,
-          "recipeName": "Poha",
-          "nameHindi": "पोहा",
-          "description": "Flattened rice tempered with mustard seeds and curry leaves.",
-          "servings": 4,
-          "calories": 320,
-          "estimatedCost": 80,
-          "isLeftover": false,
-          "notes": "",
-          "icmr_rationale": "Provides complex carbs meeting ICMR-NIN 2024 morning energy target.",
-          "instructions": ["Step 1: Soak poha for 5 minutes.", "Step 2: Temper mustard seeds in oil.", "Step 3: Add poha, turmeric, salt and mix well."],
-          "memberVariations": {"Ramesh": "Extra protein side"},
-          "member_plates": {"Ramesh": {"add": ["boiled egg"], "reduce": [], "avoid": []}}
-        },
-        "mid_morning": { "recipeId": null, "recipeName": "Banana + Peanut Chikki", "nameHindi": "केला + मूंगफली चिक्की", "description": "Quick mid-morning energy snack.", "servings": 4, "calories": 180, "estimatedCost": 40, "isLeftover": false, "notes": "", "icmr_rationale": "Potassium and protein for sustained energy.", "instructions": ["Step 1: Serve banana.", "Step 2: Pair with peanut chikki."], "memberVariations": {}, "member_plates": {} },
-        "lunch": { "recipeId": 456, "recipeName": "Dal Tadka + Roti", "nameHindi": "दाल तड़का + रोटी", "description": "Yellow dal with ghee tadka served with whole wheat roti.", "servings": 4, "calories": 520, "estimatedCost": 120, "isLeftover": false, "notes": "", "icmr_rationale": "Protein + iron + fiber per ICMR-NIN 2024 midday targets.", "instructions": ["Step 1: Cook dal with turmeric.", "Step 2: Prepare tadka with ghee, cumin, red chilli.", "Step 3: Pour tadka on dal and serve with roti."], "memberVariations": {}, "member_plates": {} },
-        "evening_snack": { "recipeId": null, "recipeName": "Masala Chaas", "nameHindi": "मसाला छाछ", "description": "Spiced buttermilk with roasted cumin.", "servings": 4, "calories": 80, "estimatedCost": 30, "isLeftover": false, "notes": "", "icmr_rationale": "Probiotics and calcium for gut and bone health.", "instructions": ["Step 1: Blend curd with water.", "Step 2: Add cumin powder, salt, coriander."], "memberVariations": {}, "member_plates": {} },
-        "dinner": { "recipeId": 789, "recipeName": "Palak Paneer + Jeera Rice", "nameHindi": "पालक पनीर + जीरा चावल", "description": "Creamy spinach gravy with fresh paneer cubes and fragrant cumin rice.", "servings": 4, "calories": 600, "estimatedCost": 200, "isLeftover": false, "notes": "", "icmr_rationale": "Iron, calcium and protein meeting ICMR-NIN evening dinner quota.", "instructions": ["Step 1: Blanch and puree spinach.", "Step 2: Cook paneer in spinach gravy.", "Step 3: Serve with cumin-tempered basmati rice."], "memberVariations": {}, "member_plates": {}, "leftoverChain": [{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak Paneer paratha wrap"},{"step":2,"day":"Tuesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka from leftover"}] }
-      }
-    }
-  ]
-}`;
+MANDATORY: Output ALL 7 days. Every day MUST have all 5 meal keys. No "..." placeholders. No missing days.`;
 
   req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with enhanced engine");
 
