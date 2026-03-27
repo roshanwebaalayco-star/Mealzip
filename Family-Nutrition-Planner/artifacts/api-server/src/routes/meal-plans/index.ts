@@ -519,18 +519,45 @@ For each meal slot return this exact JSON structure:
 }
 For dinner add: "leftoverChain": [{"step":1,"day":"<nextDay>","meal":"Lunch","dish":"<description>"},{"step":2,"day":"<dayAfterNext>","meal":"Breakfast","dish":"<description>"},{"step":3,"day":"<dayAfterNext>","meal":"Snack","dish":"<description>"}]
 
-Return ONLY valid JSON (no markdown, no explanation):
+MANDATORY CONSTRAINTS:
+- Output EXACTLY 7 day objects: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
+- Each day MUST have EXACTLY 5 meal keys: breakfast, mid_morning, lunch, evening_snack, dinner
+- Every meal slot MUST have all required fields: recipeId, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, instructions (array of 3+ strings), member_plates
+- Do NOT omit any day or any meal slot
+- Do NOT use placeholder values like "..." or null for recipeName
+
+Return ONLY raw valid JSON — no markdown fences, no commentary, no trailing text:
 {
-  "harmonyScore": <0-100>,
-  "totalBudgetEstimate": <weekly INR>,
-  "aiInsights": "<string>",
+  "harmonyScore": 78,
+  "totalBudgetEstimate": 2800,
+  "aiInsights": "This plan balances protein and iron for the family.",
   "days": [
     {
       "day": "Monday",
       "isFastingDay": false,
-      "meals": { "breakfast": {...}, "mid_morning": {...}, "lunch": {...}, "evening_snack": {...}, "dinner": {...} },
-      "dailyHarmonyScore": <0-100>,
-      "dailyNutrition": {"calories": <n>, "protein": <n>, "carbs": <n>, "fat": <n>, "fiber": <n>, "iron": <n>}
+      "dailyHarmonyScore": 80,
+      "dailyNutrition": {"calories": 1900, "protein": 65, "carbs": 280, "fat": 55, "fiber": 28, "iron": 18},
+      "meals": {
+        "breakfast": {
+          "recipeId": 123,
+          "recipeName": "Poha",
+          "nameHindi": "पोहा",
+          "description": "Flattened rice tempered with mustard seeds and curry leaves.",
+          "servings": 4,
+          "calories": 320,
+          "estimatedCost": 80,
+          "isLeftover": false,
+          "notes": "",
+          "icmr_rationale": "Provides complex carbs meeting ICMR-NIN 2024 morning energy target.",
+          "instructions": ["Step 1: Soak poha for 5 minutes.", "Step 2: Temper mustard seeds in oil.", "Step 3: Add poha, turmeric, salt and mix well."],
+          "memberVariations": {"Ramesh": "Extra protein side"},
+          "member_plates": {"Ramesh": {"add": ["boiled egg"], "reduce": [], "avoid": []}}
+        },
+        "mid_morning": { "recipeId": null, "recipeName": "Banana + Peanut Chikki", "nameHindi": "केला + मूंगफली चिक्की", "description": "Quick mid-morning energy snack.", "servings": 4, "calories": 180, "estimatedCost": 40, "isLeftover": false, "notes": "", "icmr_rationale": "Potassium and protein for sustained energy.", "instructions": ["Step 1: Serve banana.", "Step 2: Pair with peanut chikki."], "memberVariations": {}, "member_plates": {} },
+        "lunch": { "recipeId": 456, "recipeName": "Dal Tadka + Roti", "nameHindi": "दाल तड़का + रोटी", "description": "Yellow dal with ghee tadka served with whole wheat roti.", "servings": 4, "calories": 520, "estimatedCost": 120, "isLeftover": false, "notes": "", "icmr_rationale": "Protein + iron + fiber per ICMR-NIN 2024 midday targets.", "instructions": ["Step 1: Cook dal with turmeric.", "Step 2: Prepare tadka with ghee, cumin, red chilli.", "Step 3: Pour tadka on dal and serve with roti."], "memberVariations": {}, "member_plates": {} },
+        "evening_snack": { "recipeId": null, "recipeName": "Masala Chaas", "nameHindi": "मसाला छाछ", "description": "Spiced buttermilk with roasted cumin.", "servings": 4, "calories": 80, "estimatedCost": 30, "isLeftover": false, "notes": "", "icmr_rationale": "Probiotics and calcium for gut and bone health.", "instructions": ["Step 1: Blend curd with water.", "Step 2: Add cumin powder, salt, coriander."], "memberVariations": {}, "member_plates": {} },
+        "dinner": { "recipeId": 789, "recipeName": "Palak Paneer + Jeera Rice", "nameHindi": "पालक पनीर + जीरा चावल", "description": "Creamy spinach gravy with fresh paneer cubes and fragrant cumin rice.", "servings": 4, "calories": 600, "estimatedCost": 200, "isLeftover": false, "notes": "", "icmr_rationale": "Iron, calcium and protein meeting ICMR-NIN evening dinner quota.", "instructions": ["Step 1: Blanch and puree spinach.", "Step 2: Cook paneer in spinach gravy.", "Step 3: Serve with cumin-tempered basmati rice."], "memberVariations": {}, "member_plates": {}, "leftoverChain": [{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak Paneer paratha wrap"},{"step":2,"day":"Tuesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka from leftover"}] }
+      }
     }
   ]
 }`;
