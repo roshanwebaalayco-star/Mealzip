@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, Camera, X } from "lucide-react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -134,9 +134,10 @@ function loadStoredIds(familyId: number): Set<string> {
     const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${familyId}`) ?? "[]");
     return new Set(
       stored.map(entry => {
+        // Try to match to a known pantry item id
         const byLabel = labelToId(entry);
-        return byLabel ?? entry;
-      }).filter(id => ALL_ITEMS.some(i => i.id === id))
+        return byLabel ?? entry; // Keep as raw label (e.g. from pantry scan) if no match
+      })
     );
   } catch {
     return new Set();
@@ -144,7 +145,11 @@ function loadStoredIds(familyId: number): Set<string> {
 }
 
 function saveSelectedIds(familyId: number, selectedIds: Set<string>): void {
-  const labels = Array.from(selectedIds).map(idToLabel);
+  const labels = Array.from(selectedIds).map(id => {
+    // Known catalog items: convert id → "English / Hindi" label
+    const known = ALL_ITEMS.find(i => i.id === id);
+    return known ? `${known.en} / ${known.hi}` : id; // Preserve raw scan labels as-is
+  });
   localStorage.setItem(`pantry_${familyId}`, JSON.stringify(labels));
 }
 
@@ -230,6 +235,9 @@ export default function Pantry() {
 
   const totalSelected = selectedIds.size;
 
+  // Items imported from pantry scan that are not known pantry catalog ids
+  const scannedImports = Array.from(selectedIds).filter(id => !ALL_ITEMS.some(i => i.id === id));
+
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
       <div className="space-y-1">
@@ -300,6 +308,31 @@ export default function Pantry() {
           );
         })}
       </div>
+
+      {/* Scan-imported items from PantryScan */}
+      {scannedImports.length > 0 && (
+        <div className="glass-card rounded-2xl p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Camera className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">Pantry Scan Imports / स्कैन आइटम</span>
+            <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 py-0">{scannedImports.length}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Items detected from your pantry photo — included in meal planning.</p>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {scannedImports.map(label => (
+              <div key={label} className="flex items-center gap-1 bg-primary/5 border border-primary/20 rounded-full px-2.5 py-1">
+                <span className="text-xs text-primary font-medium">{label}</span>
+                <button
+                  onClick={() => setSelectedIds(prev => { const next = new Set(prev); next.delete(label); return next; })}
+                  className="text-muted-foreground hover:text-red-500 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Festival / Fast toggle */}
       <div className="glass-card rounded-2xl p-4 space-y-3">
