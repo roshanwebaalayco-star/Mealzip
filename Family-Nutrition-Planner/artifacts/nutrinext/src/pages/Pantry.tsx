@@ -1,0 +1,362 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useGenerateMealPlan, getListMealPlansQueryKey } from "@workspace/api-client-react";
+import { useAppState } from "@/hooks/use-app-state";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
+interface PantryIngredient {
+  id: string;
+  emoji: string;
+  en: string;
+  hi: string;
+}
+
+interface PantryGroup {
+  label: string;
+  labelHi: string;
+  color: string;
+  items: PantryIngredient[];
+}
+
+const PANTRY_GROUPS: PantryGroup[] = [
+  {
+    label: "Grains",
+    labelHi: "अनाज",
+    color: "bg-yellow-500/10 border-yellow-500/30 text-yellow-800",
+    items: [
+      { id: "rice", emoji: "🌾", en: "Rice", hi: "चावल" },
+      { id: "wheat", emoji: "🌾", en: "Wheat", hi: "गेहूं" },
+      { id: "atta", emoji: "🥖", en: "Atta", hi: "आटा" },
+      { id: "sooji", emoji: "🥣", en: "Sooji", hi: "सूजी" },
+      { id: "poha", emoji: "🍚", en: "Poha", hi: "पोहा" },
+      { id: "bajra", emoji: "🌾", en: "Bajra", hi: "बाजरा" },
+      { id: "maize", emoji: "🌽", en: "Maize", hi: "मक्का" },
+    ],
+  },
+  {
+    label: "Pulses",
+    labelHi: "दालें",
+    color: "bg-amber-500/10 border-amber-500/30 text-amber-800",
+    items: [
+      { id: "chana-dal", emoji: "🫘", en: "Chana Dal", hi: "चना दाल" },
+      { id: "toor-dal", emoji: "🫘", en: "Toor Dal", hi: "तूर दाल" },
+      { id: "moong-dal", emoji: "🟡", en: "Moong Dal", hi: "मूंग दाल" },
+      { id: "masoor-dal", emoji: "🔴", en: "Masoor Dal", hi: "मसूर दाल" },
+      { id: "urad-dal", emoji: "⚪", en: "Urad Dal", hi: "उड़द दाल" },
+      { id: "rajma", emoji: "🫘", en: "Rajma", hi: "राजमा" },
+      { id: "chole", emoji: "🫘", en: "Chole", hi: "छोले" },
+    ],
+  },
+  {
+    label: "Vegetables",
+    labelHi: "सब्जियां",
+    color: "bg-green-500/10 border-green-500/30 text-green-800",
+    items: [
+      { id: "potato", emoji: "🥔", en: "Potato", hi: "आलू" },
+      { id: "onion", emoji: "🧅", en: "Onion", hi: "प्याज" },
+      { id: "tomato", emoji: "🍅", en: "Tomato", hi: "टमाटर" },
+      { id: "spinach", emoji: "🥬", en: "Spinach", hi: "पालक" },
+      { id: "cauliflower", emoji: "🥦", en: "Cauliflower", hi: "गोभी" },
+      { id: "peas", emoji: "🫛", en: "Peas", hi: "मटर" },
+      { id: "carrot", emoji: "🥕", en: "Carrot", hi: "गाजर" },
+      { id: "brinjal", emoji: "🍆", en: "Brinjal", hi: "बैंगन" },
+    ],
+  },
+  {
+    label: "Protein",
+    labelHi: "प्रोटीन",
+    color: "bg-orange-500/10 border-orange-500/30 text-orange-800",
+    items: [
+      { id: "egg", emoji: "🥚", en: "Egg", hi: "अंडा" },
+      { id: "chicken", emoji: "🍗", en: "Chicken", hi: "चिकन" },
+      { id: "paneer", emoji: "🧀", en: "Paneer", hi: "पनीर" },
+      { id: "fish", emoji: "🐟", en: "Fish", hi: "मछली" },
+      { id: "soya", emoji: "🟤", en: "Soya Chunks", hi: "सोया" },
+    ],
+  },
+  {
+    label: "Dairy",
+    labelHi: "डेयरी",
+    color: "bg-blue-500/10 border-blue-500/30 text-blue-800",
+    items: [
+      { id: "milk", emoji: "🥛", en: "Milk", hi: "दूध" },
+      { id: "curd", emoji: "🥛", en: "Curd", hi: "दही" },
+      { id: "ghee", emoji: "🫙", en: "Ghee", hi: "घी" },
+      { id: "butter", emoji: "🧈", en: "Butter", hi: "मक्खन" },
+      { id: "cheese", emoji: "🧀", en: "Cheese", hi: "चीज़" },
+      { id: "buttermilk", emoji: "🥛", en: "Buttermilk", hi: "छाछ" },
+    ],
+  },
+  {
+    label: "Other",
+    labelHi: "अन्य",
+    color: "bg-gray-500/10 border-gray-500/30 text-gray-800",
+    items: [
+      { id: "mustard-oil", emoji: "🫙", en: "Mustard Oil", hi: "सरसों तेल" },
+      { id: "turmeric", emoji: "🟡", en: "Turmeric", hi: "हल्दी" },
+      { id: "cumin", emoji: "🌰", en: "Cumin", hi: "जीरा" },
+      { id: "coriander", emoji: "🌿", en: "Coriander", hi: "धनिया" },
+      { id: "chilli", emoji: "🌶️", en: "Chilli", hi: "मिर्च" },
+      { id: "salt", emoji: "🧂", en: "Salt", hi: "नमक" },
+      { id: "sugar", emoji: "🍬", en: "Sugar", hi: "चीनी" },
+    ],
+  },
+];
+
+const FESTIVAL_OPTIONS = [
+  { value: "navratri", label: "Navratri / नवरात्रि" },
+  { value: "ramadan", label: "Ramadan / रमज़ान" },
+  { id: "ekadashi", value: "ekadashi", label: "Ekadashi / एकादशी" },
+  { value: "janmashtami", label: "Janmashtami / जन्माष्टमी" },
+  { value: "other", label: "Other / अन्य" },
+];
+
+const FASTING_FESTIVALS = new Set(["navratri", "ramadan", "ekadashi", "janmashtami"]);
+
+function pantryItemLabel(item: PantryIngredient): string {
+  return `${item.en} / ${item.hi}`;
+}
+
+export default function Pantry() {
+  const { activeFamily } = useAppState();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const generate = useGenerateMealPlan();
+
+  const pantryKey = activeFamily ? `pantry_${activeFamily.id}` : null;
+
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    if (!activeFamily) return new Set();
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${activeFamily.id}`) ?? "[]");
+      return new Set(stored);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [festivalToggle, setFestivalToggle] = useState(false);
+  const [festival, setFestival] = useState("navratri");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(PANTRY_GROUPS.map(g => g.label))
+  );
+
+  useEffect(() => {
+    if (!pantryKey) return;
+    localStorage.setItem(pantryKey, JSON.stringify(Array.from(selected)));
+  }, [selected, pantryKey]);
+
+  useEffect(() => {
+    if (!activeFamily) { setSelected(new Set()); return; }
+    try {
+      const stored: string[] = JSON.parse(localStorage.getItem(`pantry_${activeFamily.id}`) ?? "[]");
+      setSelected(new Set(stored));
+    } catch {
+      setSelected(new Set());
+    }
+  }, [activeFamily?.id]);
+
+  const toggleItem = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  const handleGenerate = async () => {
+    if (!activeFamily) {
+      toast({ title: "No family selected", description: "Please complete family setup first.", variant: "destructive" });
+      return;
+    }
+    const isFasting = festivalToggle ? FASTING_FESTIVALS.has(festival) : undefined;
+    try {
+      await generate.mutateAsync({
+        data: {
+          familyId: activeFamily.id,
+          weekStartDate: new Date().toISOString(),
+          preferences: isFasting !== undefined ? { isFasting } : undefined,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey() });
+      toast({
+        title: "Meal plan ready!",
+        description: `Generated for ${activeFamily.name}${festivalToggle ? ` (${FESTIVAL_OPTIONS.find(f => f.value === festival)?.label})` : ""}.`,
+      });
+      setLocation("/meal-plan");
+    } catch {
+      toast({ title: "Generation failed", description: "Please try again.", variant: "destructive" });
+    }
+  };
+
+  const totalSelected = selected.size;
+  const allItems = PANTRY_GROUPS.flatMap(g => g.items);
+
+  return (
+    <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-3xl font-display font-bold text-foreground">
+          My Pantry / मेरी पेंट्री
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          Check off ingredients you already have at home. We'll build your meal plan around them.
+        </p>
+        {totalSelected > 0 && (
+          <Badge className="bg-primary/10 text-primary border-primary/30 text-xs">
+            {totalSelected} item{totalSelected === 1 ? "" : "s"} selected
+          </Badge>
+        )}
+      </div>
+
+      {/* Ingredient groups */}
+      <div className="space-y-3">
+        {PANTRY_GROUPS.map(group => {
+          const groupSelected = group.items.filter(i => selected.has(i.id)).length;
+          const isExpanded = expandedGroups.has(group.label);
+          return (
+            <div key={group.label} className="glass-card rounded-2xl overflow-hidden">
+              <button
+                onClick={() => toggleGroup(group.label)}
+                className="w-full flex items-center justify-between p-4 hover:bg-white/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">
+                    {group.label} / {group.labelHi}
+                  </span>
+                  {groupSelected > 0 && (
+                    <Badge className={`text-xs py-0 px-2 h-5 border ${group.color}`}>
+                      {groupSelected}/{group.items.length}
+                    </Badge>
+                  )}
+                </div>
+                {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </button>
+              {isExpanded && (
+                <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {group.items.map(item => {
+                    const checked = selected.has(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => toggleItem(item.id)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-center ${
+                          checked
+                            ? `border-primary bg-primary/10 shadow-sm`
+                            : `border-border bg-muted/30 hover:border-primary/40 hover:bg-primary/5`
+                        }`}
+                      >
+                        <span className="text-2xl">{item.emoji}</span>
+                        <span className={`text-xs font-medium leading-tight ${checked ? "text-primary" : "text-foreground"}`}>
+                          {item.en}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{item.hi}</span>
+                        {checked && (
+                          <span className="text-primary text-xs font-bold">✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Festival / Fast toggle */}
+      <div className="glass-card rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="font-semibold text-sm">Today's Festival / Fast?</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">आज कोई त्योहार या व्रत है?</p>
+          </div>
+          <Switch
+            checked={festivalToggle}
+            onCheckedChange={setFestivalToggle}
+          />
+        </div>
+        {festivalToggle && (
+          <Select value={festival} onValueChange={setFestival}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FESTIVAL_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {festivalToggle && FASTING_FESTIVALS.has(festival) && (
+          <p className="text-xs text-primary font-medium">
+            🙏 Fasting-mode meal plan will be generated (sabudana, kuttu, fruits, etc.)
+          </p>
+        )}
+      </div>
+
+      {/* Selected pantry summary */}
+      {totalSelected > 0 && (
+        <div className="glass-card rounded-2xl p-4">
+          <p className="text-xs text-muted-foreground font-medium mb-2">
+            Items already in your kitchen ({totalSelected}):
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {allItems.filter(i => selected.has(i.id)).map(item => (
+              <span
+                key={item.id}
+                className="text-xs bg-green-500/10 text-green-800 border border-green-500/20 rounded-full px-2.5 py-0.5"
+              >
+                {item.emoji} {item.en}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Generate button */}
+      <Button
+        size="lg"
+        className="w-full text-base gap-2 btn-liquid"
+        onClick={handleGenerate}
+        disabled={generate.isPending}
+      >
+        {generate.isPending ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Generating your family's plan…
+          </>
+        ) : (
+          <>
+            <Sparkles className="w-5 h-5" />
+            Generate My Family's Plan →
+          </>
+        )}
+      </Button>
+      {totalSelected > 0 && !generate.isPending && (
+        <p className="text-center text-xs text-muted-foreground -mt-3">
+          {totalSelected} pantry item{totalSelected === 1 ? "" : "s"} will be used for your meal plan
+        </p>
+      )}
+    </div>
+  );
+}
