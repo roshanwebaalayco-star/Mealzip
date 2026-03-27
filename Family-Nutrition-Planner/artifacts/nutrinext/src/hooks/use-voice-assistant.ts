@@ -50,7 +50,7 @@ const LANG_CODE: Record<string, string> = {
 
 const GREETING: Record<string, string> = {
   hindi:
-    "Namaste! Main ParivarSehat AI hoon. Aapki family ka personalized meal plan banane mein madad karunga. Aapke family ka naam kya hai?",
+    "नमस्ते! मैं ParivarSehat AI हूं। मैं आपके परिवार का personalized meal plan बनाने में मदद करूंगा। आपके परिवार का नाम क्या है?",
   english:
     "Hello! I'm ParivarSehat AI. I'll help set up your family's personalized meal plan. What is your family name?",
 };
@@ -310,7 +310,7 @@ export function useVoiceAssistant() {
           if (!transcript.trim()) {
             nextMsg =
               language === "hindi"
-                ? "Kya aap dobara bol sakte hain? Mujhe suna nahi."
+                ? "क्या आप दोबारा बोल सकते हैं? मुझे सुनाई नहीं दिया।"
                 : "Could you please repeat that? I didn't catch it.";
             msgs = [...msgs, { role: "user", text: "..." }, { role: "assistant", text: nextMsg }];
             setMessages([...msgs]);
@@ -328,7 +328,7 @@ export function useVoiceAssistant() {
             if (abortRef.current) break;
             const fallback =
               language === "hindi"
-                ? "Kuch problem aa gayi. Kya aap dobara bol sakte hain?"
+                ? "कुछ समस्या आ गई। क्या आप दोबारा बोल सकते हैं?"
                 : "Something went wrong. Could you repeat that?";
             msgs = [...msgs, { role: "assistant", text: fallback }];
             setMessages([...msgs]);

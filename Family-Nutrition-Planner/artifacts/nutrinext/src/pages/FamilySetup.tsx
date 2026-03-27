@@ -122,7 +122,7 @@ export default function FamilySetup() {
     }));
   };
 
-  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry") => {
+  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry", minMembers = 2) => {
     if (!fd.name) {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
@@ -141,7 +141,7 @@ export default function FamilySetup() {
     }
     setMemberErrors({});
 
-    if (mems.length < 2) {
+    if (mems.length < minMembers) {
       toast({ title: "At least 2 members required", description: "Please add at least one more family member before saving.", variant: "destructive" });
       return;
     }
@@ -242,7 +242,7 @@ export default function FamilySetup() {
     if (voiceMembers.length > 0) setMembers(voiceMembers);
     setVoiceModalOpen(false);
 
-    await executeSave(mergedFamilyData, finalMembers, "/meal-plan");
+    await executeSave(mergedFamilyData, finalMembers, "/meal-plan", 1);
   };
 
   const handleVoiceClose = (partialData?: VoiceFormData) => {

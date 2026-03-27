@@ -195,7 +195,7 @@ router.post("/voice/chat-turn", async (req, res): Promise<void> => {
 
   const isHindi = language === "hindi";
   const assistantLangNote = isHindi
-    ? "Hinglish (warm Hindi-English mix written entirely in Latin/English script, like a friendly neighbor — e.g. 'Sharma family — bilkul sahi! Aap kis state mein rehte hain?')"
+    ? "Hindi in Devanagari script — warm, friendly, conversational (e.g. 'शर्मा परिवार — बिल्कुल सही! आप किस राज्य में रहते हैं?')"
     : "friendly, clear English";
 
   const prompt = `You are a voice assistant for ParivarSehat AI, an Indian family nutrition planning app.
@@ -280,10 +280,10 @@ Yes/No signals:
 2. The assistantMessage must be in ${assistantLangNote}
 3. assistantMessage = brief warm confirmation of what you heard + the next question
 4. For complete state:
-   Hindi: "Bahut shukriya! Family profile ready hai. Ek second — meal plan ban raha hai!"
+   Hindi: "बहुत शुक्रिया! परिवार की प्रोफाइल तैयार है। एक सेकंड — मील प्लान बन रहा है!"
    English: "Thank you! Your family profile is all set. Generating your meal plan now!"
 5. For ask_member_conditions, if the user said nothing helpful, ask clearly:
-   Hindi: "[Name] ji ko koi health condition hai? Jaise diabetes, BP, ya 'sab theek hai' bolein."
+   Hindi: "[Name] जी को कोई स्वास्थ्य समस्या है? जैसे मधुमेह, BP, या 'सब ठीक है' बोलें।"
    English: "Does [Name] have any health conditions like diabetes or hypertension? Or are they healthy?"
 
 Return ONLY valid JSON, no markdown or extra text:
@@ -304,7 +304,7 @@ Return ONLY valid JSON, no markdown or extra text:
     res.json({
       parsedFields: data.parsedFields ?? {},
       nextState: data.nextState ?? state,
-      assistantMessage: data.assistantMessage ?? (isHindi ? "Kya aap dobara bol sakte hain?" : "Could you repeat that?"),
+      assistantMessage: data.assistantMessage ?? (isHindi ? "क्या आप दोबारा बोल सकते हैं?" : "Could you repeat that?"),
       isComplete: data.isComplete === true,
     });
   } catch (err) {
