@@ -17,6 +17,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _unauthorizedHandler: (() => void) | null = null;
+
+/**
+ * Register a callback that is invoked whenever a 401 Unauthorized response is
+ * received.  Typical use: clear the stored auth token and redirect to /login.
+ * Pass `null` to clear the handler.
+ */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  _unauthorizedHandler = handler;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -361,6 +371,9 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 401 && _unauthorizedHandler) {
+      _unauthorizedHandler();
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { authenticateToken } from "../middlewares/auth.js";
 import authRouter from "./auth/index.js";
 import familiesRouter from "./families/index.js";
 import recipesRouter from "./recipes/index.js";
@@ -13,7 +14,13 @@ import healthRouter from "./health/index.js";
 
 const router: IRouter = Router();
 
-router.use(authRouter);
+// Public routes — no authentication required
+router.use(authRouter);   // /auth/register, /auth/login, /auth/logout, /auth/me
+router.use(healthRouter); // /healthz
+
+// All routes registered after this line require a valid JWT
+router.use(authenticateToken);
+
 router.use(familiesRouter);
 router.use(recipesRouter);
 router.use(mealPlansRouter);
@@ -23,6 +30,5 @@ router.use(voiceRouter);
 router.use(demoRouter);
 router.use(geminiRouter);
 router.use(groceryRouter);
-router.use(healthRouter);
 
 export default router;
