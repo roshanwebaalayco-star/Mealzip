@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ParivarSehat AI - Family Nutrition Planner"
+version = "1.0.0"
+id = "artifacts/nutrinext"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24170
+
+[services.development]
+run = "pnpm --filter @workspace/nutrinext run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nutrinext", "run", "build" ]
+publicDir = "artifacts/nutrinext/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24170"
+BASE_PATH = "/"

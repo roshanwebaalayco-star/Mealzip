@@ -1,0 +1,2450 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: NutriNext / ParivarSehat AI — Family Nutrition Planner API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: families
+    description: Family profile operations
+  - name: recipes
+    description: Recipe search and retrieval
+  - name: meal-plans
+    description: AI-powered meal plan generation
+  - name: meal-feedback
+    description: Meal plan feedback and Week 2 regeneration
+  - name: grocery
+    description: AI grocery list generation with budget optimization
+  - name: health-logs
+    description: Health metrics and vitals tracking
+  - name: nutrition-logs
+    description: Food intake logging and nutrition tracking
+  - name: symptom-check
+    description: AI symptom-to-nutrition advisor
+  - name: fasting-calendar
+    description: Indian festival and fasting calendar
+  - name: nutrition
+    description: Nutrition analysis
+  - name: voice
+    description: Sarvam AI voice operations
+  - name: demo
+    description: Demo and seed operations
+  - name: gemini
+    description: Gemini AI chat and image operations
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ── Family Profiles ────────────────────────────────────────────────────────
+  /families:
+    get:
+      operationId: listFamilies
+      tags: [families]
+      summary: List all family profiles
+      responses:
+        "200":
+          description: List of families
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Family"
+    post:
+      operationId: createFamily
+      tags: [families]
+      summary: Create a new family profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFamilyBody"
+      responses:
+        "201":
+          description: Created family
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Family"
+
+  /families/{id}:
+    get:
+      operationId: getFamily
+      tags: [families]
+      summary: Get family with members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Family with members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyWithMembers"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: updateFamily
+      tags: [families]
+      summary: Update family profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFamilyBody"
+      responses:
+        "200":
+          description: Updated family
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Family"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteFamily
+      tags: [families]
+      summary: Delete a family
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /families/{familyId}/members:
+    get:
+      operationId: listFamilyMembers
+      tags: [families]
+      summary: List all members of a family
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of family members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FamilyMember"
+    post:
+      operationId: addFamilyMember
+      tags: [families]
+      summary: Add a member to a family
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMemberBody"
+      responses:
+        "201":
+          description: Created member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+
+  /families/{familyId}/members/{memberId}:
+    put:
+      operationId: updateFamilyMember
+      tags: [families]
+      summary: Update a family member
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberBody"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyMember"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteFamilyMember
+      tags: [families]
+      summary: Delete a family member
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # ── Recipes ────────────────────────────────────────────────────────────────
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [recipes]
+      summary: Search and list recipes
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search query (name or ingredient)
+        - name: cuisine
+          in: query
+          schema:
+            type: string
+          description: Filter by cuisine (e.g. "North Indian", "South Indian")
+        - name: diet
+          in: query
+          schema:
+            type: string
+          description: Filter by diet type (e.g. "vegetarian", "vegan")
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by category (e.g. "breakfast", "lunch", "dinner", "snack")
+        - name: maxCalories
+          in: query
+          schema:
+            type: integer
+          description: Maximum calories
+        - name: maxCookTime
+          in: query
+          schema:
+            type: integer
+          description: Maximum total cooking time in minutes
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated list of recipes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeListResponse"
+
+  /recipes/{id}:
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      summary: Get recipe details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipe details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # ── Meal Plans ─────────────────────────────────────────────────────────────
+  /meal-plans:
+    get:
+      operationId: listMealPlans
+      tags: [meal-plans]
+      summary: List meal plans for a family
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of meal plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealPlan"
+
+  /meal-plans/generate:
+    post:
+      operationId: generateMealPlan
+      tags: [meal-plans]
+      summary: Generate a 7-day meal plan using Gemini AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateMealPlanBody"
+      responses:
+        "200":
+          description: Generated meal plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlan"
+
+  /meal-plans/{id}:
+    get:
+      operationId: getMealPlan
+      tags: [meal-plans]
+      summary: Get a meal plan with details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meal plan details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlan"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: updateMealPlan
+      tags: [meal-plans]
+      summary: Update / save meal plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMealPlanBody"
+      responses:
+        "200":
+          description: Updated meal plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlan"
+    delete:
+      operationId: deleteMealPlan
+      tags: [meal-plans]
+      summary: Delete a meal plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Nutrition ──────────────────────────────────────────────────────────────
+  /nutrition/analyze:
+    post:
+      operationId: analyzeNutrition
+      tags: [nutrition]
+      summary: Analyze nutrition for a meal plan day
+      description: |
+        Analyzes nutrition for a day's meals using Gemini AI. Returns per-member RDA coverage
+        and Harmony Score impact. Note: per-recipe macros in AI response are synthetic estimates
+        derived from ICMR-NIN RDA reference tables and recipe category heuristics — they are NOT
+        pulled from an authoritative recipe nutrition database. Use /nutrition/lookup for
+        authoritative 3-tier lookup (recipe_db → ICMR NIN → generic estimate).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeNutritionBody"
+      responses:
+        "200":
+          description: Nutrition analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionAnalysis"
+
+  /nutrition/food-scan:
+    post:
+      operationId: scanFood
+      tags: [nutrition]
+      summary: Scan food from image using YOLOv11 proxy (shared endpoint for pantry scanner and food logger)
+      description: |
+        Shared endpoint supporting two usage contexts via the `mode` request field:
+        - **pantry** (mode="pantry"): Caller intends to save detected items to pantry inventory.
+          Frontend should redirect low-confidence items to manual-entry form and call
+          POST /grocery-lists/generate with updateMode="subtract" to remove pantry items from list.
+        - **food-log** (mode="food-log"): Caller intends to log detected items to nutrition diary.
+          Frontend should use detectedFoods for auto-logging and surface lowConfidenceItems for
+          manual confirmation before logging.
+        Both modes return the same FoodScanResponse shape. The `mode` field is currently informational
+        (server does not differentiate routing logic by mode), but should be sent for future routing clarity.
+        When YOLOV11_INFERENCE_URL is not configured and DEMO_MODE=true, returns Sharma-family demo foods.
+        When YOLOV11_INFERENCE_URL is not configured and DEMO_MODE != true, returns 503 YOLO_UNAVAILABLE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoodScanBody"
+      responses:
+        "200":
+          description: Food scan results with server-authoritative confidence filtering
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodScanResponse"
+        "503":
+          description: YOLO_UNAVAILABLE — inference URL not configured and not in demo mode
+
+  /nutrition/lookup:
+    get:
+      operationId: lookupNutrition
+      tags: [nutrition]
+      summary: "Authoritative 3-tier nutrition lookup: recipe DB → ICMR NIN → generic estimate"
+      description: |
+        Returns per-gram nutrition for a named food item using a 3-tier lookup cascade:
+        1. **recipe_db** (source="recipe_db"): exact match from the seeded recipe database (58,711-row source CSV, filtered to complete-nutrition entries) — most accurate
+        2. **icmr_nin** (source="icmr_nin"): ICMR-NIN 2024 food composition table — authoritative reference
+        3. **generic_estimate** (source="generic_estimate"): Gemini AI estimate — use only as fallback
+        Use this endpoint for nutrition logging and display. Do NOT use /nutrition/analyze macro estimates
+        for per-food display as those are heuristic approximations for scoring purposes only.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Food name (e.g. "dal makhani")
+        - name: grams
+          in: query
+          required: true
+          schema:
+            type: number
+          description: Serving weight in grams
+      responses:
+        "200":
+          description: Nutrition info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  grams:
+                    type: number
+                  calories:
+                    type: number
+                  protein:
+                    type: number
+                  carbs:
+                    type: number
+                  fat:
+                    type: number
+                  fiber:
+                    type: number
+                  iron:
+                    type: number
+                  calcium:
+                    type: number
+                  source:
+                    type: string
+                    enum: [recipe_db, icmr_nin, generic_estimate]
+                required:
+                  - query
+                  - grams
+                  - calories
+                  - protein
+                  - source
+        "400":
+          description: q and grams parameters are required
+
+  /nutrition/food-gi:
+    get:
+      operationId: listFoodGi
+      tags: [nutrition]
+      summary: List food GI (glycaemic index) data
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Optional search query
+      responses:
+        "200":
+          description: Food GI data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ── Voice ──────────────────────────────────────────────────────────────────
+  /voice/transcribe:
+    post:
+      operationId: transcribeVoice
+      tags: [voice]
+      summary: Transcribe audio using Sarvam AI (Hindi/English multilingual)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscribeVoiceBody"
+      responses:
+        "200":
+          description: Transcription result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscribeVoiceResponse"
+
+  /voice/parse-profile:
+    post:
+      operationId: parseVoiceProfile
+      tags: [voice]
+      summary: Parse voice transcript into structured family profile fields using Gemini AI
+      description: |
+        Takes a Sarvam AI transcription (Hindi/English/regional) and uses Gemini to extract
+        structured family data: name, state, budget, members with roles/ages/health conditions.
+        This enables voice-driven onboarding for rural users.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseVoiceProfileBody"
+      responses:
+        "200":
+          description: Structured family profile extracted from voice transcript
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParsedVoiceProfile"
+
+  # ── Demo ───────────────────────────────────────────────────────────────────
+  /demo/sharma-family:
+    get:
+      operationId: getSharmaFamilyDemo
+      tags: [demo]
+      summary: Get Sharma family demo data (pre-seeded)
+      responses:
+        "200":
+          description: Sharma family demo data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoFamilyResponse"
+
+  /demo/seed:
+    post:
+      operationId: seedDemoData
+      tags: [demo]
+      summary: Seed Sharma family demo data
+      responses:
+        "200":
+          description: Demo data seeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoSeedResponse"
+
+  # ── Gemini AI ──────────────────────────────────────────────────────────────
+  /gemini/conversations:
+    get:
+      operationId: listGeminiConversations
+      tags: [gemini]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiConversation"
+    post:
+      operationId: createGeminiConversation
+      tags: [gemini]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGeminiConversationBody"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversation"
+
+  /gemini/conversations/{id}:
+    get:
+      operationId: getGeminiConversation
+      tags: [gemini]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+    delete:
+      operationId: deleteGeminiConversation
+      tags: [gemini]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeminiError"
+
+  /gemini/conversations/{id}/messages:
+    get:
+      operationId: listGeminiMessages
+      tags: [gemini]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeminiMessage"
+    post:
+      operationId: sendGeminiMessage
+      tags: [gemini]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendGeminiMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+
+  # ── Meal Feedback & Week 2 Regeneration ──────────────────────────────────
+  /meal-plans/{mealPlanId}/feedback:
+    get:
+      operationId: listMealFeedback
+      tags: [meal-feedback]
+      summary: Get all feedback for a meal plan
+      parameters:
+        - name: mealPlanId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of feedback entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealFeedback"
+    post:
+      operationId: createMealFeedback
+      tags: [meal-feedback]
+      summary: Submit thumbs-up/down feedback for a meal
+      parameters:
+        - name: mealPlanId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealFeedbackBody"
+      responses:
+        "201":
+          description: Created feedback
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealFeedback"
+
+  /meal-plans/{mealPlanId}/regenerate:
+    post:
+      operationId: regenerateMealPlan
+      tags: [meal-feedback]
+      summary: Regenerate meal plan for Week 2 using feedback from Week 1
+      parameters:
+        - name: mealPlanId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated meal plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlan"
+
+  # ── Grocery Lists ─────────────────────────────────────────────────────────
+  /grocery-lists:
+    get:
+      operationId: listGroceryLists
+      tags: [grocery]
+      summary: Get grocery lists for a family
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of grocery lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroceryList"
+
+  /grocery-lists/generate:
+    post:
+      operationId: generateGroceryList
+      tags: [grocery]
+      summary: AI-generate a weekly grocery list with budget-optimized substitutions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateGroceryListBody"
+      responses:
+        "200":
+          description: Generated grocery list with cheaper swaps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+
+  /grocery/cheaper-alternative:
+    get:
+      operationId: getCheaperAlternative
+      tags: [grocery]
+      summary: DB-backed cheaper ingredient alternative lookup
+      parameters:
+        - name: item
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Ingredient name to find cheaper alternatives for
+        - name: budget
+          in: query
+          schema:
+            type: number
+          description: Max cost per serving in INR (default 100)
+        - name: diet
+          in: query
+          schema:
+            type: string
+            enum: [vegetarian, "non vegetarian", vegan, eggetarian]
+          description: Filter by diet type
+      responses:
+        "200":
+          description: Cheaper alternatives from recipe DB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheaperAlternativeResponse"
+        "400":
+          description: item query parameter is required
+
+  # ── Health Logs ──────────────────────────────────────────────────────────
+  /health-logs:
+    get:
+      operationId: listHealthLogs
+      tags: [health-logs]
+      summary: Get health vitals logs for a family/member
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of health log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthLog"
+    post:
+      operationId: createHealthLog
+      tags: [health-logs]
+      summary: Log health vitals (weight, blood sugar, blood pressure, symptoms)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHealthLogBody"
+      responses:
+        "201":
+          description: Created health log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLog"
+
+  # ── Nutrition Logs ────────────────────────────────────────────────────────
+  /nutrition-logs:
+    get:
+      operationId: listNutritionLogs
+      tags: [nutrition-logs]
+      summary: Get food intake logs for a family/member
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: query
+          schema:
+            type: integer
+        - name: logDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of nutrition log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NutritionLog"
+    post:
+      operationId: createNutritionLog
+      tags: [nutrition-logs]
+      summary: Log a food intake entry (from scanner, manual, or AI)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNutritionLogBody"
+      responses:
+        "201":
+          description: Created nutrition log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionLog"
+
+  /nutrition-summary/{memberId}:
+    get:
+      operationId: getNutritionSummary
+      tags: [nutrition-logs]
+      summary: Get today's nutrition vs ICMR-NIN RDA targets for a member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Nutrition summary with actual vs target breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionSummary"
+
+  # ── Symptom Check ─────────────────────────────────────────────────────────
+  /symptom-check:
+    post:
+      operationId: symptomCheck
+      tags: [symptom-check]
+      summary: AI nutritional advisor for reported symptoms (not medical diagnosis)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SymptomCheckBody"
+      responses:
+        "200":
+          description: Nutritional insights and dietary suggestions for the reported symptoms
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SymptomCheckResult"
+
+  # ── Fasting Calendar ──────────────────────────────────────────────────────
+  /fasting-calendar:
+    get:
+      operationId: getFastingCalendar
+      tags: [fasting-calendar]
+      summary: Get Indian festival/fasting days for a given month
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Fasting calendar with recommended foods per day
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FastingCalendar"
+
+  /gemini/generate-image:
+    post:
+      operationId: generateGeminiImage
+      tags: [gemini]
+      summary: Generate an image from a text prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateGeminiImageBody"
+      responses:
+        "200":
+          description: Generated image data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateGeminiImageResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ── Family ────────────────────────────────────────────────────────────────
+    Family:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        state:
+          type: string
+          description: Indian state (e.g. "Jharkhand")
+        city:
+          type: string
+        monthlyBudget:
+          type: number
+          description: Monthly food budget in INR
+        primaryLanguage:
+          type: string
+          description: Primary language (e.g. "hindi", "english", "bengali")
+        cuisinePreferences:
+          type: array
+          items:
+            type: string
+          description: Preferred cuisines
+        isDemo:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - state
+        - monthlyBudget
+        - primaryLanguage
+        - createdAt
+
+    FamilyWithMembers:
+      allOf:
+        - $ref: "#/components/schemas/Family"
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/FamilyMember"
+          required:
+            - members
+
+    CreateFamilyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+        city:
+          type: string
+        monthlyBudget:
+          type: number
+        primaryLanguage:
+          type: string
+        cuisinePreferences:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - state
+        - monthlyBudget
+        - primaryLanguage
+
+    UpdateFamilyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+        city:
+          type: string
+        monthlyBudget:
+          type: number
+        primaryLanguage:
+          type: string
+        cuisinePreferences:
+          type: array
+          items:
+            type: string
+
+    FamilyMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+          description: "Family role: father, mother, child, grandparent, other"
+        age:
+          type: integer
+        gender:
+          type: string
+          description: "male, female, other"
+        weightKg:
+          type: number
+        heightCm:
+          type: number
+        activityLevel:
+          type: string
+          description: "sedentary, light, moderate, active, very_active"
+        healthConditions:
+          type: array
+          items:
+            type: string
+          description: Health conditions (e.g. "diabetes", "hypertension", "obesity")
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+          description: Dietary restrictions (e.g. "vegetarian", "vegan", "gluten_free")
+        allergies:
+          type: array
+          items:
+            type: string
+        calorieTarget:
+          type: integer
+          description: Daily calorie target (ICMR-NIN 2024 based)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - name
+        - role
+        - age
+        - gender
+        - activityLevel
+        - createdAt
+
+    CreateMemberBody:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        weightKg:
+          type: number
+        heightCm:
+          type: number
+        activityLevel:
+          type: string
+        healthConditions:
+          type: array
+          items:
+            type: string
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        calorieTarget:
+          type: integer
+      required:
+        - name
+        - role
+        - age
+        - gender
+        - activityLevel
+
+    UpdateMemberBody:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        weightKg:
+          type: number
+        heightCm:
+          type: number
+        activityLevel:
+          type: string
+        healthConditions:
+          type: array
+          items:
+            type: string
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        calorieTarget:
+          type: integer
+
+    # ── Recipes ────────────────────────────────────────────────────────────────
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameHindi:
+          type: string
+        cuisine:
+          type: string
+        category:
+          type: string
+          description: "breakfast, lunch, dinner, snack, dessert"
+        diet:
+          type: string
+          description: "vegetarian, vegan, non-vegetarian"
+        ingredients:
+          type: string
+        instructions:
+          type: string
+        calories:
+          type: number
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        iron:
+          type: number
+        calcium:
+          type: number
+        vitaminC:
+          type: number
+        prepTimeMin:
+          type: integer
+        cookTimeMin:
+          type: integer
+        servings:
+          type: integer
+        costPerServing:
+          type: number
+          description: Estimated cost per serving in INR
+        tags:
+          type: array
+          items:
+            type: string
+        imageUrl:
+          type: string
+      required:
+        - id
+        - name
+        - cuisine
+        - category
+        - diet
+        - calories
+
+    RecipeListResponse:
+      type: object
+      properties:
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recipe"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - recipes
+        - total
+        - page
+        - limit
+        - totalPages
+
+    # ── Meal Plans ─────────────────────────────────────────────────────────────
+    MealPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        name:
+          type: string
+        weekStartDate:
+          type: string
+          format: date
+        harmonyScore:
+          type: number
+          description: Family Harmony Score 0-100
+        totalBudgetEstimate:
+          type: number
+          description: Estimated weekly cost in INR
+        plan:
+          description: JSON plan data - 7-day meal structure
+        nutritionSummary:
+          description: Per-member nutrition summary JSON
+        aiInsights:
+          type: string
+          description: Gemini AI insights in the family's primary language
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - name
+        - weekStartDate
+        - harmonyScore
+        - plan
+        - createdAt
+
+    GenerateMealPlanBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        weekStartDate:
+          type: string
+          description: "ISO 8601 date-time string (e.g. 2026-03-23T00:00:00.000Z). Accepted as string from JSON body."
+          example: "2026-03-23T00:00:00.000Z"
+        preferences:
+          type: object
+          properties:
+            avoidRecipeIds:
+              type: array
+              items:
+                type: integer
+            focusCuisines:
+              type: array
+              items:
+                type: string
+            maxBudget:
+              type: number
+            isFasting:
+              type: boolean
+              description: Generate a fasting-mode plan (Navratri, Ekadashi, etc.)
+      required:
+        - familyId
+        - weekStartDate
+
+    UpdateMealPlanBody:
+      type: object
+      properties:
+        name:
+          type: string
+        plan:
+          description: Updated plan JSON
+        harmonyScore:
+          type: number
+
+    # ── Nutrition ──────────────────────────────────────────────────────────────
+    AnalyzeNutritionBody:
+      type: object
+      properties:
+        recipeIds:
+          type: array
+          items:
+            type: integer
+          description: IDs of recipes to analyze
+        memberId:
+          type: integer
+          description: Family member ID to compare against ICMR-NIN targets
+      required:
+        - recipeIds
+
+    NutritionAnalysis:
+      type: object
+      properties:
+        totals:
+          $ref: "#/components/schemas/NutritionTotals"
+        icmrTargets:
+          $ref: "#/components/schemas/NutritionTotals"
+        percentages:
+          $ref: "#/components/schemas/NutritionTotals"
+        warnings:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - totals
+        - icmrTargets
+        - percentages
+        - warnings
+        - recommendations
+
+    NutritionTotals:
+      type: object
+      properties:
+        calories:
+          type: number
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        iron:
+          type: number
+        calcium:
+          type: number
+        vitaminC:
+          type: number
+          nullable: true
+          description: Optional — present in ICMR-NIN lookup results and food-scan enriched items; may be absent in recipe-DB-only results
+      required:
+        - calories
+        - protein
+        - carbs
+        - fat
+        - fiber
+        - iron
+        - calcium
+
+    FoodScanBody:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          description: Base64 encoded image
+        mode:
+          type: string
+          enum: [pantry, food-log]
+          default: food-log
+          description: |
+            Usage context. "pantry" = caller will save detected items to pantry inventory (pair with
+            updateMode="subtract" in grocery-list generation). "food-log" = caller will log items to
+            nutrition diary. Server returns same FoodScanResponse shape for both modes; mode is informational
+            for client routing to pantry-save or nutrition-log flow.
+      required:
+        - imageBase64
+
+    FoodScanResponse:
+      type: object
+      properties:
+        detectedFoods:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectedFood"
+          description: Foods detected above confidence threshold
+        lowConfidenceItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectedFood"
+          description: Foods detected below confidence threshold (server-authoritative, shown as warnings)
+        totalNutrition:
+          $ref: "#/components/schemas/NutritionTotals"
+        confidenceThreshold:
+          type: number
+          description: YOLOv11 confidence threshold used for this scan (e.g. 0.65)
+        scanMode:
+          type: string
+          enum: [pantry, food-log]
+          description: Mode echoed back from request — pantry returns raw ingredient items (bulk quantities), food-log returns plated dish items with per-serving nutrition
+        demoMode:
+          type: boolean
+          description: true when real YOLO model unavailable and demo data is returned
+          nullable: true
+      required:
+        - detectedFoods
+        - lowConfidenceItems
+        - totalNutrition
+        - confidenceThreshold
+
+    DetectedFood:
+      type: object
+      properties:
+        name:
+          type: string
+        confidence:
+          type: number
+        estimatedGrams:
+          type: number
+        nutrition:
+          $ref: "#/components/schemas/NutritionTotals"
+      required:
+        - name
+        - confidence
+        - estimatedGrams
+        - nutrition
+
+    # ── Voice ──────────────────────────────────────────────────────────────────
+    TranscribeVoiceBody:
+      type: object
+      properties:
+        audioBase64:
+          type: string
+          description: Base64 encoded audio (WAV/MP3)
+        languageCode:
+          type: string
+          description: "BCP-47 code: hi-IN, en-IN, bn-IN, ta-IN, te-IN"
+      required:
+        - audioBase64
+        - languageCode
+
+    TranscribeVoiceResponse:
+      type: object
+      properties:
+        transcript:
+          type: string
+        confidence:
+          type: number
+        detectedLanguage:
+          type: string
+      required:
+        - transcript
+        - confidence
+
+    # ── Demo ───────────────────────────────────────────────────────────────────
+    DemoFamilyResponse:
+      type: object
+      properties:
+        family:
+          $ref: "#/components/schemas/FamilyWithMembers"
+        mealPlan:
+          $ref: "#/components/schemas/MealPlan"
+        harmonyScore:
+          type: number
+      required:
+        - family
+        - mealPlan
+        - harmonyScore
+
+    DemoSeedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        familyId:
+          type: integer
+      required:
+        - success
+        - message
+        - familyId
+
+    # ── Gemini ─────────────────────────────────────────────────────────────────
+    GeminiConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+
+    GeminiMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+
+    CreateGeminiConversationBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+
+    SendGeminiMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    GeminiConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeminiMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+
+    GenerateGeminiImageBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+      required:
+        - prompt
+
+    GenerateGeminiImageResponse:
+      type: object
+      properties:
+        b64_json:
+          type: string
+        mimeType:
+          type: string
+      required:
+        - b64_json
+        - mimeType
+
+    GeminiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ── Meal Feedback ─────────────────────────────────────────────────────────
+    MealFeedback:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        mealPlanId:
+          type: integer
+        dayIndex:
+          type: integer
+          minimum: 0
+          maximum: 6
+        mealType:
+          type: string
+        liked:
+          type: boolean
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        skipReason:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - mealPlanId
+        - dayIndex
+        - mealType
+        - liked
+
+    CreateMealFeedbackBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        dayIndex:
+          type: integer
+          minimum: 0
+          maximum: 6
+        mealType:
+          type: string
+        liked:
+          type: boolean
+          default: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        skipReason:
+          type: string
+        notes:
+          type: string
+      required:
+        - familyId
+        - dayIndex
+        - mealType
+
+    # ── Grocery Lists ─────────────────────────────────────────────────────────
+    GroceryItem:
+      type: object
+      properties:
+        category:
+          type: string
+          description: "Vegetables|Fruits|Grains|Pulses|Dairy|Spices|Oil|Other"
+        name:
+          type: string
+        nameHindi:
+          type: string
+        quantity:
+          type: string
+        estimatedCost:
+          type: number
+        cheaperAlternative:
+          type: string
+          nullable: true
+        alternativeCost:
+          type: number
+          nullable: true
+        priority:
+          type: string
+          enum: [essential, optional]
+      required:
+        - category
+        - name
+        - quantity
+        - estimatedCost
+        - priority
+
+    GroceryListData:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroceryItem"
+        totalEstimatedCost:
+          type: number
+        budgetStatus:
+          type: string
+          enum: [within, over, under]
+        savingsTips:
+          type: array
+          items:
+            type: string
+        seasonalSuggestions:
+          type: array
+          items:
+            type: string
+
+    GroceryList:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        mealPlanId:
+          type: integer
+          nullable: true
+        weekOf:
+          type: string
+          format: date
+        items:
+          $ref: "#/components/schemas/GroceryListData"
+        totalEstimatedCost:
+          type: number
+        budgetStatus:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - weekOf
+        - items
+        - totalEstimatedCost
+        - budgetStatus
+
+    GenerateGroceryListBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        mealPlanId:
+          type: integer
+        pantryIngredients:
+          type: array
+          items:
+            type: string
+          description: List of ingredients already in pantry
+        updateMode:
+          type: string
+          enum: [add, subtract]
+          default: add
+          description: subtract removes pantry items from grocery list server-side (deterministic)
+      required:
+        - familyId
+
+    CheaperAlternativeResponse:
+      type: object
+      properties:
+        item:
+          type: string
+        budget:
+          type: number
+        isFallbackYear:
+          type: boolean
+        alternatives:
+          type: array
+          items:
+            type: object
+            properties:
+              recipeId:
+                type: integer
+              name:
+                type: string
+              nameHindi:
+                type: string
+                nullable: true
+              cuisine:
+                type: string
+              diet:
+                type: string
+              costPerServing:
+                type: number
+              calories:
+                type: number
+              protein:
+                type: number
+              totalTimeMin:
+                type: integer
+              source:
+                type: string
+                enum: [recipe_db]
+            required:
+              - recipeId
+              - name
+              - costPerServing
+              - source
+        message:
+          type: string
+          nullable: true
+      required:
+        - item
+        - alternatives
+
+    # ── Health Logs ──────────────────────────────────────────────────────────
+    HealthLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        memberId:
+          type: integer
+          nullable: true
+        logDate:
+          type: string
+          format: date
+        weightKg:
+          type: number
+          nullable: true
+        heightCm:
+          type: number
+          nullable: true
+        bmi:
+          type: number
+          nullable: true
+        bloodSugar:
+          type: number
+          nullable: true
+          description: Blood sugar in mg/dL
+        bloodPressureSystolic:
+          type: integer
+          nullable: true
+        bloodPressureDiastolic:
+          type: integer
+          nullable: true
+        symptoms:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - logDate
+
+    CreateHealthLogBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        memberId:
+          type: integer
+        logDate:
+          type: string
+          format: date
+        weightKg:
+          type: number
+        heightCm:
+          type: number
+        bloodSugar:
+          type: number
+        bloodPressureSystolic:
+          type: integer
+        bloodPressureDiastolic:
+          type: integer
+        symptoms:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+      required:
+        - familyId
+        - logDate
+
+    # ── Nutrition Logs ────────────────────────────────────────────────────────
+    NutritionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        memberId:
+          type: integer
+          nullable: true
+        logDate:
+          type: string
+          format: date
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        foodDescription:
+          type: string
+          nullable: true
+        calories:
+          type: number
+          nullable: true
+        proteinG:
+          type: number
+          nullable: true
+        carbsG:
+          type: number
+          nullable: true
+        fatG:
+          type: number
+          nullable: true
+        fiberG:
+          type: number
+          nullable: true
+        ironMg:
+          type: number
+          nullable: true
+        calciumMg:
+          type: number
+          nullable: true
+        vitaminCMg:
+          type: number
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [manual, scanner, ai]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - familyId
+        - logDate
+        - mealType
+
+    CreateNutritionLogBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        memberId:
+          type: integer
+        logDate:
+          type: string
+          format: date
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        foodDescription:
+          type: string
+        calories:
+          type: number
+        proteinG:
+          type: number
+        carbsG:
+          type: number
+        fatG:
+          type: number
+        fiberG:
+          type: number
+        ironMg:
+          type: number
+        calciumMg:
+          type: number
+        vitaminCMg:
+          type: number
+        imageUrl:
+          type: string
+        source:
+          type: string
+          enum: [manual, scanner, ai]
+      required:
+        - familyId
+        - logDate
+
+    NutrientValues:
+      type: object
+      properties:
+        calories:
+          type: number
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        iron:
+          type: number
+        calcium:
+          type: number
+        vitaminC:
+          type: number
+      required:
+        - calories
+        - protein
+        - carbs
+        - fat
+        - fiber
+        - iron
+        - calcium
+        - vitaminC
+
+    NutritionSummary:
+      type: object
+      properties:
+        member:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            age:
+              type: integer
+            gender:
+              type: string
+          required:
+            - id
+            - name
+            - age
+            - gender
+        actual:
+          $ref: "#/components/schemas/NutrientValues"
+        target:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/NutrientValues"
+        date:
+          type: string
+          format: date
+      required:
+        - member
+        - actual
+        - date
+
+    # ── Symptom Check ─────────────────────────────────────────────────────────
+    SymptomCheckBody:
+      type: object
+      properties:
+        symptoms:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other]
+        existingConditions:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+          enum: [english, hindi]
+      required:
+        - symptoms
+
+    SymptomCheckResult:
+      type: object
+      properties:
+        disclaimer:
+          type: string
+          description: Required medical disclaimer
+        nutritionalInsight:
+          type: string
+        dietarySuggestions:
+          type: array
+          items:
+            type: string
+        recommendedFoods:
+          type: array
+          items:
+            type: string
+        avoidFoods:
+          type: array
+          items:
+            type: string
+        seeDoctor:
+          type: string
+          description: When to seek medical attention
+        urgency:
+          type: string
+          enum: [routine, soon, urgent]
+      required:
+        - disclaimer
+        - nutritionalInsight
+        - dietarySuggestions
+        - recommendedFoods
+        - avoidFoods
+        - seeDoctor
+        - urgency
+
+    # ── Fasting Calendar ──────────────────────────────────────────────────────
+    FastingDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        nameHindi:
+          type: string
+        fastingType:
+          type: string
+          enum: [full, partial, none]
+        recommendedFoods:
+          type: array
+          items:
+            type: string
+      required:
+        - date
+        - name
+        - nameHindi
+        - fastingType
+        - recommendedFoods
+
+    FastingCalendar:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        fastingDays:
+          type: array
+          items:
+            $ref: "#/components/schemas/FastingDay"
+        note:
+          type: string
+      required:
+        - year
+        - month
+        - fastingDays
+        - note
+
+    # ── Voice Profile Parsing ──────────────────────────────────────────────────
+    ParseVoiceProfileBody:
+      type: object
+      properties:
+        transcript:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          enum: [hindi, english, bengali, tamil, telugu]
+      required:
+        - transcript
+
+    ParsedVoiceMember:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [father, mother, child, grandparent, other]
+        age:
+          type: integer
+          nullable: true
+        gender:
+          type: string
+          enum: [male, female, other]
+        healthConditions:
+          type: array
+          items:
+            type: string
+        dietaryRestrictions:
+          type: array
+          items:
+            type: string
+      required:
+        - role
+        - gender
+        - healthConditions
+        - dietaryRestrictions
+
+    ParsedVoiceProfile:
+      type: object
+      properties:
+        familyName:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        monthlyBudget:
+          type: number
+          nullable: true
+        primaryLanguage:
+          type: string
+          nullable: true
+        cuisinePreferences:
+          type: array
+          items:
+            type: string
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParsedVoiceMember"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        unparsedInfo:
+          type: string
+          nullable: true
+      required:
+        - cuisinePreferences
+        - members
+        - confidence
+
+    # ── Food Scan (updated with confidence filtering) ─────────────────────────
+    FoodScanDetectedItem:
+      type: object
+      properties:
+        name:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        estimatedGrams:
+          type: number
+        nutrition:
+          type: object
+          properties:
+            calories:
+              type: number
+            protein:
+              type: number
+            carbs:
+              type: number
+            fat:
+              type: number
+            fiber:
+              type: number
+            iron:
+              type: number
+            calcium:
+              type: number
+          required:
+            - calories
+            - protein
+            - carbs
+            - fat
+      required:
+        - name
+        - confidence
+        - estimatedGrams
+        - nutrition

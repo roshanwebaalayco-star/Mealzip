@@ -1,0 +1,12 @@
+{
+  "name": "@workspace/api-spec",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "codegen": "orval --config ./orval.config.ts",
+    "postcodegen": "node -e \"require('fs').writeFileSync('../api-zod/src/index.ts', \\\"export * from './generated/api';\\\\n\\\")\" && echo 'Fixed api-zod/src/index.ts (removed duplicate types export)'"
+  },
+  "devDependencies": {
+    "orval": "^8.5.2"
+  }
+}
