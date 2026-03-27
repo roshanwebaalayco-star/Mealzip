@@ -541,4 +541,92 @@ Return ONLY a valid JSON object — no markdown, no explanation:
   }
 });
 
+/**
+ * POST /nutrition/scan
+ * Canonical mode-based scan endpoint.
+ *   mode: "pantry" → Gemini Vision ingredient recognition with quantity/weight estimation
+ *   mode: "meal"   → Gemini Vision meal-plate nutrition analysis
+ */
+router.post("/nutrition/scan", async (req, res): Promise<void> => {
+  const { imageBase64, mode } = req.body as { imageBase64?: string; mode?: "pantry" | "meal" };
+  if (!imageBase64) { res.status(400).json({ error: "imageBase64 required" }); return; }
+  if (!mode || (mode !== "pantry" && mode !== "meal")) {
+    res.status(400).json({ error: "mode must be 'pantry' or 'meal'" }); return;
+  }
+
+  if (mode === "pantry") {
+    const PANTRY_PROMPT = `You are an expert Indian pantry analyst. Look at this image and identify ALL visible food ingredients.
+
+For each item return:
+- name: English name (e.g. "Tomatoes", "Atta", "Toor Dal")
+- nameHindi: Hindi name (e.g. "टमाटर", "आटा", "तुअर दाल")
+- quantity: numeric amount (e.g. 4, 0.5, 1, 500)
+- unit: kg | g | pieces | litre | ml | bunch | packet | bag
+- weightGrams: total estimated weight in grams
+- confidence: 0.0 to 1.0
+
+Return ONLY a valid JSON array:
+[{ "name": "Tomatoes", "nameHindi": "टमाटर", "quantity": 4, "unit": "pieces", "weightGrams": 320, "confidence": 0.92 }]`;
+
+    try {
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: PANTRY_PROMPT }, { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }] }],
+        config: { maxOutputTokens: 2048 },
+      });
+      const text = result.text ?? "";
+      let items: PantryVisionItem[] = [];
+      try {
+        const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+        const jsonStr = fenceMatch ? fenceMatch[1] : text;
+        const s = jsonStr.indexOf("["); const e = jsonStr.lastIndexOf("]");
+        if (s !== -1 && e !== -1) items = JSON.parse(jsonStr.slice(s, e + 1)) as PantryVisionItem[];
+      } catch { items = []; }
+      res.json({ mode: "pantry", items });
+    } catch (err) {
+      req.log.error({ err }, "Gemini Vision pantry scan failed");
+      res.status(500).json({ error: "Pantry scan failed", mode: "pantry", items: [] });
+    }
+    return;
+  }
+
+  // mode === "meal"
+  const MEAL_PROMPT = `You are an expert Indian nutrition analyst. Examine this meal photo.
+
+For each visible food item return:
+- name: English name (e.g. "Dal Tadka", "Whole Wheat Roti")
+- nameHindi: Hindi name
+- estimatedGrams: estimated weight in grams
+- nutrition: { calories, protein, carbs, fat, fiber, iron } for the estimated grams
+- confidence: 0.0 to 1.0
+
+Return ONLY a valid JSON object:
+{
+  "items": [{ "name": "Dal Tadka", "nameHindi": "दाल तड़का", "estimatedGrams": 200, "nutrition": { "calories": 180, "protein": 10, "carbs": 25, "fat": 5, "fiber": 6, "iron": 2.5 }, "confidence": 0.90 }],
+  "totalNutrition": { "calories": 180, "protein": 10, "carbs": 25, "fat": 5, "fiber": 6, "iron": 2.5 },
+  "mealDescription": "...",
+  "icmrNote": "..."
+}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: MEAL_PROMPT }, { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }] }],
+      config: { maxOutputTokens: 2048, responseMimeType: "application/json" },
+    });
+    const text = result.text ?? "";
+    let parsed: { items?: unknown[]; totalNutrition?: unknown; mealDescription?: string; icmrNote?: string } = {};
+    try {
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = fenceMatch ? fenceMatch[1] : text;
+      const s = jsonStr.indexOf("{"); const e = jsonStr.lastIndexOf("}");
+      if (s !== -1 && e !== -1) parsed = JSON.parse(jsonStr.slice(s, e + 1)) as typeof parsed;
+    } catch { parsed = { items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } }; }
+    res.json({ mode: "meal", ...parsed });
+  } catch (err) {
+    req.log.error({ err }, "Gemini Vision meal scan failed");
+    res.status(500).json({ error: "Meal scan failed", mode: "meal", items: [], totalNutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, iron: 0 } });
+  }
+});
+
 export default router;

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useToast } from "@/hooks/use-toast";
-import { useScanFood } from "@workspace/api-client-react";
+import { useGenerateMealPlan } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Loader2, CheckCircle2, Circle, ArrowRight, SkipForward, Package, Edit2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,12 @@ export default function PantryScan() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scanMutation = useScanFood();
+  const generateMealPlan = useGenerateMealPlan();
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editUnit, setEditUnit] = useState("");
@@ -51,20 +52,22 @@ export default function PantryScan() {
       setPantryItems([]);
 
       try {
-        const res = await fetch("/api/nutrition/pantry-vision", {
+        // Canonical mode-based scan endpoint
+        const res = await fetch("/api/nutrition/scan", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
           },
-          body: JSON.stringify({ imageBase64: base64 }),
+          body: JSON.stringify({ imageBase64: base64, mode: "pantry" }),
         });
         if (res.ok) {
-          const visionData = await res.json() as {
+          const scanData = await res.json() as {
+            mode: "pantry";
             items?: Array<{ name: string; nameHindi?: string; quantity: number; unit: string; weightGrams: number; confidence: number }>;
           };
-          if (visionData.items && visionData.items.length > 0) {
-            setPantryItems(visionData.items.map(item => ({
+          if (scanData.items && scanData.items.length > 0) {
+            setPantryItems(scanData.items.map(item => ({
               ...item,
               checked: item.confidence >= CONFIDENCE_THRESHOLD,
               source: "vision" as const,
@@ -73,20 +76,35 @@ export default function PantryScan() {
             return;
           }
         }
-      } catch { /* fall through to YOLO */ }
+      } catch { /* fall through to legacy YOLO */ }
 
       try {
-        const data = await scanMutation.mutateAsync({ data: { imageBase64: base64, mode: "pantry" } });
-        const allDetected = [...(data.detectedFoods ?? []), ...(data.lowConfidenceItems ?? [])];
-        setPantryItems(allDetected.map((f: { name: string; confidence: number; estimatedGrams: number }) => ({
-          name: f.name,
-          quantity: 1,
-          unit: "serving",
-          weightGrams: f.estimatedGrams,
-          confidence: f.confidence,
-          checked: f.confidence >= CONFIDENCE_THRESHOLD,
-          source: "yolo" as const,
-        })));
+        const legacyRes = await fetch("/api/nutrition/food-scan", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
+          },
+          body: JSON.stringify({ imageBase64: base64, mode: "pantry" }),
+        });
+        if (legacyRes.ok) {
+          const data = await legacyRes.json() as {
+            detectedFoods?: Array<{ name: string; confidence: number; estimatedGrams: number }>;
+            lowConfidenceItems?: Array<{ name: string; confidence: number; estimatedGrams: number }>;
+          };
+          const allDetected = [...(data.detectedFoods ?? []), ...(data.lowConfidenceItems ?? [])];
+          setPantryItems(allDetected.map((f) => ({
+            name: f.name,
+            quantity: 1,
+            unit: "serving",
+            weightGrams: f.estimatedGrams,
+            confidence: f.confidence,
+            checked: f.confidence >= CONFIDENCE_THRESHOLD,
+            source: "yolo" as const,
+          })));
+        } else {
+          throw new Error("YOLO scan failed");
+        }
       } catch {
         toast({ title: t("Scan failed — try a clearer photo", "स्कैन विफल — साफ फोटो लें"), variant: "destructive" });
       } finally {
@@ -124,20 +142,19 @@ export default function PantryScan() {
     setEditingIdx(null);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!activeFamily) return;
+
     const checkedItems = pantryItems
       .filter(i => i.checked)
-      .map(i => {
-        const qtyStr = `${i.quantity} ${i.unit}`;
-        return `${i.name}${i.nameHindi ? ` / ${i.nameHindi}` : ""} (${qtyStr})`;
-      });
+      .map(i => `${i.name}${i.nameHindi ? ` / ${i.nameHindi}` : ""} (${i.quantity} ${i.unit})`);
 
     if (checkedItems.length === 0) {
       toast({ title: t("Select at least one item", "कम से कम एक आइटम चुनें"), variant: "destructive" });
       return;
     }
 
+    // Persist to localStorage so Pantry page also reflects the scan
     try {
       const existingRaw = localStorage.getItem(`pantry_${activeFamily.id}`) ?? "[]";
       const existing: string[] = JSON.parse(existingRaw) as string[];
@@ -147,14 +164,44 @@ export default function PantryScan() {
       localStorage.setItem(`pantry_${activeFamily.id}`, JSON.stringify(checkedItems));
     }
 
+    // Directly pass quantities into meal plan generation
+    setIsGenerating(true);
     toast({
-      title: t("Pantry saved!", "पेंट्री सहेजी गई!"),
+      title: t("Generating your meal plan…", "भोजन योजना बन रही है…"),
       description: t(
-        `${checkedItems.length} ingredients saved. Generating your meal plan now…`,
-        `${checkedItems.length} सामग्री सहेजी गई। भोजन योजना बन रही है…`
+        `Using ${checkedItems.length} pantry ingredient${checkedItems.length === 1 ? "" : "s"}`,
+        `${checkedItems.length} पेंट्री सामग्री उपयोग हो रही है`
       ),
     });
-    setLocation("/meal-plan");
+
+    try {
+      await generateMealPlan.mutateAsync({
+        data: {
+          familyId: activeFamily.id,
+          weekStartDate: new Date().toISOString(),
+          preferences: {
+            pantryIngredients: checkedItems,
+          },
+        },
+      });
+      toast({
+        title: t("Meal plan ready!", "भोजन योजना तैयार है!"),
+        description: t(
+          `${checkedItems.length} pantry items incorporated`,
+          `${checkedItems.length} पेंट्री सामग्री शामिल की गई`
+        ),
+      });
+      setLocation("/meal-plan");
+    } catch {
+      toast({
+        title: t("Generation failed", "भोजन योजना नहीं बनी"),
+        description: t("Pantry saved. Please generate from the meal plan page.", "पेंट्री सहेजी गई। कृपया भोजन योजना पृष्ठ से जनरेट करें।"),
+        variant: "destructive",
+      });
+      setLocation("/meal-plan");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const checkedCount = pantryItems.filter(i => i.checked).length;
@@ -340,14 +387,23 @@ export default function PantryScan() {
             size="lg"
             className="w-full gap-2"
             onClick={handleConfirm}
-            disabled={checkedCount === 0}
+            disabled={checkedCount === 0 || isGenerating || isScanning}
           >
-            <CheckCircle2 className="w-5 h-5" />
-            {t(
-              `Use ${checkedCount} Ingredient${checkedCount === 1 ? "" : "s"} → Generate Meal Plan`,
-              `${checkedCount} सामग्री उपयोग करें → भोजन योजना बनाएं`
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {t("Generating meal plan…", "भोजन योजना बन रही है…")}
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-5 h-5" />
+                {t(
+                  `Use ${checkedCount} Ingredient${checkedCount === 1 ? "" : "s"} → Generate Meal Plan`,
+                  `${checkedCount} सामग्री उपयोग करें → भोजन योजना बनाएं`
+                )}
+                <ArrowRight className="w-4 h-4 ml-auto" />
+              </>
             )}
-            <ArrowRight className="w-4 h-4 ml-auto" />
           </Button>
         )}
         <Button

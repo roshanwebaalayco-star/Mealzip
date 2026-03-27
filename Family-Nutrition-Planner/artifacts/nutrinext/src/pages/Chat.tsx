@@ -210,17 +210,18 @@ export default function Chat() {
       }]);
 
       try {
-        const res = await fetch("/api/nutrition/meal-vision", {
+        // Canonical mode-based scan endpoint (mode: "meal")
+        const res = await fetch("/api/nutrition/scan", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${localStorage.getItem("auth_token") ?? ""}`,
           },
-          body: JSON.stringify({ imageBase64: base64 }),
+          body: JSON.stringify({ imageBase64: base64, mode: "meal" }),
         });
 
         if (!res.ok) throw new Error("Vision scan failed");
-        const result = await res.json() as MealVisionResult;
+        const result = await res.json() as MealVisionResult & { mode?: string };
 
         setMessages(prev => [...prev, {
           role: "food-scan",
