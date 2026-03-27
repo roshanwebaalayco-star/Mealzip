@@ -117,39 +117,43 @@ router.post("/voice/parse-profile", async (req, res): Promise<void> => {
   const { transcript, language } = parsed.data;
 
   const prompt = `You are an AI assistant helping set up a family nutrition profile for an Indian household.
-Extract structured information from this voice transcript (spoken in ${language}) and return a JSON profile.
+The user has spoken in ${language}. The speech was transcribed by Sarvam AI.
+Extract structured information from the transcript and return a JSON object that maps directly to the form fields below.
 
 Transcript: "${transcript}"
 
-Extract whatever information is present and return ONLY a JSON object with this structure (use null for missing fields):
+Return ONLY valid JSON (no markdown, no explanation) matching this exact structure (use null for missing fields):
 {
-  "familyName": "string or null",
-  "state": "Indian state name or null",
-  "city": "city name or null",
+  "familyName": "string or null — the family's surname or name e.g. 'Sharma Family'",
+  "state": "exact Indian state name or null — e.g. 'Uttar Pradesh', 'Maharashtra', 'Jharkhand'",
   "monthlyBudget": number_in_INR_or_null,
-  "primaryLanguage": "hindi|english|bengali|tamil|telugu|marathi|gujarati or null",
-  "cuisinePreferences": ["veg", "non-veg", "jain", etc. - array may be empty],
+  "language": "hindi|english|bengali|tamil|telugu|marathi|gujarati|kannada|malayalam|punjabi|odia or null",
+  "dietaryType": "vegetarian|non-vegetarian|vegan|jain or null — the overall family diet type",
+  "healthGoal": "general_wellness|weight_loss|muscle_gain|manage_diabetes|heart_health|manage_thyroid or null",
   "members": [
     {
       "name": "string or null",
-      "role": "father|mother|child|grandparent|other",
+      "role": "father|mother|spouse|child|grandparent|other",
       "age": number_or_null,
       "gender": "male|female|other",
-      "healthConditions": ["diabetes", "hypertension", "obesity", etc. - may be empty],
-      "dietaryRestrictions": ["vegetarian", "vegan", "jain", "gluten_free", etc. - may be empty]
+      "healthConditions": ["diabetes","hypertension","obesity","anemia","thyroid","high_cholesterol","pcod","growing_child","elderly"] — only matching values, may be empty,
+      "healthGoal": "general_wellness|weight_loss|manage_diabetes|anemia_recovery|child_growth|heart_health|muscle_gain or null"
     }
-  ],
-  "confidence": 0.0_to_1.0,
-  "unparsedInfo": "any information mentioned but not captured in the structure above"
+  ]
 }
 
-Rules:
-- Extract family member count from mentions like "hum paanch log hain" (we are 5 people) 
-- Map Hindi terms: "Pitaji/Papa" → father, "Maa/Amma" → mother, "beta/beti" → child, "dada/dadi/nana/nani" → grandparent
-- For budget, convert phrases like "hamaara mahine ka kharcha panch hazaar hai" → 5000
-- Common Indian health conditions: "madhumeh/sugar ki bimari" → diabetes, "BP" → hypertension, "thyroid" → thyroid
-- Dietary: "shakahari" → vegetarian, "maansahari" → non-vegetarian, "jain khana" → jain
-- Set confidence based on how much useful info was extracted (0.3 = very little, 0.9 = very detailed)`;
+Mapping rules for Indian languages (especially Hindi):
+Family terms: "Pitaji/Papa/Pita" → father, "Maa/Amma/Mata" → mother, "beta/putra" → child (male), "beti/putri" → child (female), "dada/dadi/nana/nani/dadaji" → grandparent
+Numbers: "paanch" → 5, "chaar" → 4, "teen/tin" → 3, "do" → 2, "ek" → 1, "hajar/hazar" → 1000
+Budget: "panch hazaar" → 5000, "das hazaar" → 10000, "teen hazaar" → 3000
+Health: "madhumeh/sugar/diabetes" → diabetes, "BP/blood pressure/raktchaap" → hypertension, "thyroid" → thyroid, "khoon ki kami/anemia" → anemia, "motapa/mota" → obesity
+Diet: "shakahari/vegetarian" → vegetarian, "maansahari/non-veg" → non-vegetarian, "jain khana/jain" → jain
+States: Map regional names e.g. "UP" → "UP", "Dilli/Delhi" → "Delhi", "Bambai/Mumbai wala" → "Maharashtra"
+Goals: "vajan ghatana/weight loss" → weight_loss, "diabetes control" → manage_diabetes, "heart" → heart_health
+
+If a number of family members is mentioned without names, generate placeholder entries (name: null) for each.
+Set dietaryType at family level from the dominant pattern.`;
+
 
   try {
     const response = await ai.models.generateContent({

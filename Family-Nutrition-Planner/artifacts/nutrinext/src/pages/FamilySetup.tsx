@@ -49,6 +49,7 @@ interface ParsedVoiceProfile {
   monthlyBudget?: number;
   dietaryType?: string;
   language?: string;
+  healthGoal?: string;
   members?: ParsedVoiceMember[];
 }
 
@@ -150,6 +151,7 @@ export default function FamilySetup() {
         if (parsed.monthlyBudget) setFamilyData(fd => ({ ...fd, monthlyBudget: parsed.monthlyBudget ?? fd.monthlyBudget }));
         if (parsed.dietaryType) setFamilyData(fd => ({ ...fd, dietaryType: (parsed.dietaryType ?? fd.dietaryType) as typeof fd.dietaryType }));
         if (parsed.language) setFamilyData(fd => ({ ...fd, primaryLanguage: parsed.language ?? fd.primaryLanguage }));
+        if (parsed.healthGoal) setFamilyData(fd => ({ ...fd, healthGoal: (parsed.healthGoal ?? fd.healthGoal) as typeof fd.healthGoal }));
         if (parsed.members && parsed.members.length > 0) {
           const parsedMembers: MemberDraft[] = parsed.members.map(m => ({
             _id: ++_memberIdCounter,
