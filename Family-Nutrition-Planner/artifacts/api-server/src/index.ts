@@ -16,8 +16,8 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const MIN_RECIPES = 100;
-const MIN_ICMR_ROWS = 10;
+const MIN_RECIPES = 1000;
+const MIN_ICMR_ROWS = 20;
 
 async function checkDbHealth(): Promise<void> {
   try {
@@ -28,8 +28,6 @@ async function checkDbHealth(): Promise<void> {
 
     const recipeCount = parseInt(recipeResult.rows[0].count, 10);
     const icmrCount = parseInt(icmrResult.rows[0].count, 10);
-
-    logger.info(`DB OK — ${recipeCount} recipes loaded, ${icmrCount} ICMR-NIN RDA rows`);
 
     if (recipeCount < MIN_RECIPES) {
       logger.error(
@@ -46,18 +44,23 @@ async function checkDbHealth(): Promise<void> {
       );
       process.exit(1);
     }
+
+    logger.info(`DB OK — ${recipeCount} recipes loaded, ${icmrCount} ICMR-NIN RDA rows`);
   } catch (err) {
     logger.error({ err }, "DB health check failed — cannot connect to database. Set DATABASE_URL environment variable.");
     process.exit(1);
   }
 }
 
-app.listen(port, async (err) => {
+// Run DB health check before accepting traffic so the server never starts
+// in a degraded state with an open port.
+await checkDbHealth();
+
+app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
-  await checkDbHealth();
 });
