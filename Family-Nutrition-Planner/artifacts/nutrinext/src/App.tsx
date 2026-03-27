@@ -17,6 +17,7 @@ import Scanner from "@/pages/Scanner";
 import Grocery from "@/pages/Grocery";
 import Nutrition from "@/pages/Nutrition";
 import HealthLog from "@/pages/HealthLog";
+import Pantry from "@/pages/Pantry";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/chat" component={() => <ProtectedRoute component={Chat} />} />
         <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
         <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
+        <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/nutrition" component={() => <ProtectedRoute component={Nutrition} />} />
         <Route path="/health" component={() => <ProtectedRoute component={HealthLog} />} />
         <Route component={NotFound} />

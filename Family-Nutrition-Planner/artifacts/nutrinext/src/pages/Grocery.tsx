@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages } from "lucide-react";
+import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,7 @@ export default function Grocery() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"list" | "pantry">("list");
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [pantryAlreadyHaveExpanded, setPantryAlreadyHaveExpanded] = useState(false);
   const [swappedItems, setSwappedItems] = useState<Record<string, { name: string; estimatedCost?: number }>>({});
   const [dbSwaps, setDbSwaps] = useState<Record<string, SavedSwap | null>>({});
   const [swapLoading, setSwapLoading] = useState<Record<string, boolean>>({});
@@ -532,6 +533,47 @@ export default function Grocery() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Already in Your Kitchen */}
+          {pantryItems.length > 0 && (
+            <div className="glass-card rounded-2xl overflow-hidden border border-muted">
+              <button
+                onClick={() => setPantryAlreadyHaveExpanded(prev => !prev)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {t("Items Already in Your Kitchen", "आपकी रसोई में पहले से मौजूद चीजें")}
+                  </span>
+                  <Badge variant="secondary" className="text-xs">{pantryItems.length}</Badge>
+                </div>
+                {pantryAlreadyHaveExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+              {pantryAlreadyHaveExpanded && (
+                <div className="px-4 pb-4 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("These items are already in your pantry and were excluded from the grocery list above.", "ये चीजें आपकी पेंट्री में हैं और ऊपर की सूची से हटाई गई हैं।")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {pantryItems.map(item => (
+                      <span
+                        key={item}
+                        className="flex items-center gap-1.5 text-xs bg-muted text-muted-foreground border border-border rounded-full px-3 py-1"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

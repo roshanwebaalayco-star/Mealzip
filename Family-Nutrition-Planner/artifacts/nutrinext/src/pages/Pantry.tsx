@@ -113,7 +113,7 @@ const PANTRY_GROUPS: PantryGroup[] = [
 const FESTIVAL_OPTIONS = [
   { value: "navratri", label: "Navratri / नवरात्रि" },
   { value: "ramadan", label: "Ramadan / रमज़ान" },
-  { id: "ekadashi", value: "ekadashi", label: "Ekadashi / एकादशी" },
+  { value: "ekadashi", label: "Ekadashi / एकादशी" },
   { value: "janmashtami", label: "Janmashtami / जन्माष्टमी" },
   { value: "other", label: "Other / अन्य" },
 ];

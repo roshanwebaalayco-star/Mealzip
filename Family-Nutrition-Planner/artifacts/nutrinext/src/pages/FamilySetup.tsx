@@ -302,8 +302,8 @@ export default function FamilySetup() {
       }
       
       await queryClient.invalidateQueries({ queryKey: ["/api/families"] });
-      toast({ title: "Success!", description: "Family profile created." });
-      setLocation("/");
+      toast({ title: "Success!", description: "Family profile created. Now select what's in your pantry." });
+      setLocation("/pantry");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Please try again.";
       toast({ title: "Error saving profile", description: msg, variant: "destructive" });
