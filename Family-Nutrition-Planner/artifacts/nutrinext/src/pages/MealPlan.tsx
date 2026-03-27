@@ -7,7 +7,7 @@ import { useListMealPlans, useGenerateMealPlan, getListMealPlansQueryKey } from 
 import {
   Loader2, Sparkles, Utensils, Info, RefreshCw, ThumbsUp, ThumbsDown,
   CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown, ChevronUp,
-  CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle
+  CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle, ExternalLink
 } from "lucide-react";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
 import { HarmonyScore } from "@/components/HarmonyScore";
@@ -16,6 +16,31 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import RecipeDetailModal from "@/components/RecipeDetailModal";
+
+interface RecipeDetail {
+  id: number;
+  name: string;
+  nameHindi?: string | null;
+  cuisine?: string | null;
+  diet?: string | null;
+  course?: string | null;
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+  fiber?: number | null;
+  iron?: number | null;
+  prepTimeMin?: number | null;
+  cookTimeMin?: number | null;
+  totalTimeMin?: number | null;
+  servings?: number | null;
+  costPerServing?: number | null;
+  ingredients?: string | null;
+  instructions?: string | null;
+  imageUrl?: string | null;
+  icmr_rationale?: string;
+}
 
 interface LeftoverStep {
   step: number;
@@ -137,6 +162,8 @@ export default function MealPlan() {
   const [rationaleExpanded, setRationaleExpanded] = useState<Record<string, boolean>>({});
   const [instructionsExpanded, setInstructionsExpanded] = useState<Record<string, boolean>>({});
   const [activeMealTab, setActiveMealTab] = useState("lunch");
+  const [detailRecipe, setDetailRecipe] = useState<RecipeDetail | null>(null);
+  const [loadingRecipeId, setLoadingRecipeId] = useState<string | null>(null);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -373,6 +400,33 @@ export default function MealPlan() {
     }
     setLoggingMeal(logKey);
     logMealMutation.mutate({ memberId: firstMember.id, meal, mealType });
+  };
+
+  const openMealDetail = async (cell: MealCell, cellKey: string) => {
+    const name = cell.recipeName ?? cell.name ?? "Unknown";
+    const basic: RecipeDetail = {
+      id: cell.recipeId ?? -1,
+      name,
+      nameHindi: cell.nameHindi,
+      calories: cell.calories,
+      costPerServing: cell.estimatedCost,
+      instructions: cell.instructions ? cell.instructions.join("\n") : null,
+      icmr_rationale: cell.icmr_rationale,
+    };
+    setDetailRecipe(basic);
+    if (cell.recipeId && cell.recipeId > 0) {
+      setLoadingRecipeId(cellKey);
+      try {
+        const res = await apiFetch(`/api/recipes/${cell.recipeId}`);
+        if (res.ok) {
+          const detail = await res.json() as RecipeDetail;
+          setDetailRecipe({ ...detail, icmr_rationale: detail.icmr_rationale ?? cell.icmr_rationale });
+        }
+      } catch {
+      } finally {
+        setLoadingRecipeId(null);
+      }
+    }
   };
 
   const mealColors = ["bg-orange-50/60", "bg-amber-50/50", "bg-emerald-50/50", "bg-violet-50/40", "bg-blue-50/40"];
@@ -663,14 +717,28 @@ export default function MealPlan() {
                     const hasInstructions = !!(cell.instructions && cell.instructions.length > 0);
                     const hasPlates = !!(cell.member_plates && Object.keys(cell.member_plates).length > 0);
 
+                    const cellKey = `${di}-${meal}`;
+                    const isLoadingThisRecipe = loadingRecipeId === cellKey;
+                    const displayMealName = lang === "hi" && cell.nameHindi ? cell.nameHindi : (cell.recipeName || cell.name || "—");
+
                     return (
                       <div key={meal} className={`p-3 space-y-1.5 ${mealColors[mi]}`}>
                         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                           {t(meal, mealTranslations[meal] ?? meal)}
                         </p>
-                        <p className="text-sm font-medium leading-snug text-foreground">
-                          {lang === "hi" && cell.nameHindi ? cell.nameHindi : (cell.recipeName || cell.name || "—")}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => displayMealName !== "—" && openMealDetail(cell, cellKey)}
+                          className="text-left text-sm font-medium leading-snug text-foreground hover:text-primary transition-colors group flex items-start gap-1 w-full"
+                          title={t("View recipe details", "रेसिपी विवरण देखें")}
+                        >
+                          <span className="flex-1">{displayMealName}</span>
+                          {displayMealName !== "—" && (
+                            isLoadingThisRecipe
+                              ? <Loader2 className="w-3 h-3 animate-spin shrink-0 mt-0.5 text-primary" />
+                              : <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                          )}
+                        </button>
 
                         <div className="flex flex-wrap gap-1">
                           {cell.isLeftover && (
@@ -989,6 +1057,9 @@ export default function MealPlan() {
           </div>
         </div>
       </div>
+
+      {/* Recipe Detail Modal */}
+      <RecipeDetailModal recipe={detailRecipe} onClose={() => setDetailRecipe(null)} />
     </motion.div>
   );
 }

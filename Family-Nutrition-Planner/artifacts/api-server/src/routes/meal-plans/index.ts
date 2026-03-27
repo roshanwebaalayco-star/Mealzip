@@ -40,30 +40,41 @@ async function callGeminiWithJsonRetry(
   label: string,
   log: { info: (obj: Record<string, unknown>, msg: string) => void; error: (obj: Record<string, unknown>, msg: string) => void },
 ): Promise<Record<string, unknown>> {
-  async function attempt(): Promise<{ text: string; data: Record<string, unknown> | null }> {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
-    });
-    const text = response.text ?? "{}";
-    return { text, data: tryParseJson(text) };
+  const MAX_RETRIES = 3;
+  const BACKOFF_MS = [1000, 2000, 4000];
+
+  let lastErr: unknown = null;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
+      });
+      const text = response.text ?? "{}";
+      const data = tryParseJson(text);
+      if (data !== null) {
+        if (attempt > 0) log.info({ label, attempt: attempt + 1 }, `${label}: JSON parse succeeded on attempt ${attempt + 1}`);
+        return data;
+      }
+      lastErr = new Error(`JSON parse failed — raw: ${text.slice(0, 200)}`);
+      log.error({ label, attempt: attempt + 1, rawText: text.slice(0, 500) }, `${label}: JSON parse failed on attempt ${attempt + 1}`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      lastErr = err;
+      log.error({ label, attempt: attempt + 1, err: errMsg }, `${label}: API error on attempt ${attempt + 1}: ${errMsg}`);
+    }
+
+    if (attempt < MAX_RETRIES - 1) {
+      const delay = BACKOFF_MS[attempt];
+      log.info({ label, nextRetryMs: delay }, `${label}: retrying in ${delay}ms (attempt ${attempt + 2}/${MAX_RETRIES})`);
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
 
-  const first = await attempt();
-  if (first.data !== null) return first.data;
-
-  log.error({ label, rawText: first.text.slice(0, 500) }, `${label}: first JSON parse failed, retrying`);
-
-  await new Promise(r => setTimeout(r, 2000));
-  const second = await attempt();
-  if (second.data !== null) {
-    log.info({ label }, `${label}: JSON parse succeeded on retry`);
-    return second.data;
-  }
-
-  log.error({ label, rawText: second.text.slice(0, 500) }, `${label}: JSON parse failed on retry`);
-  throw new Error("Meal plan generation failed after retry — please try again");
+  const errMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new Error(`Meal plan generation failed after ${MAX_RETRIES} attempts — ${errMsg}`);
 }
 
 const ZONE_CUISINE_MAP: Record<string, string[]> = {
