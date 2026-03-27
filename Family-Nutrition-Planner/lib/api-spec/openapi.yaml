@@ -1357,9 +1357,14 @@ components:
           type: number
         vitaminC:
           type: number
+        course:
+          type: string
+          description: "breakfast, brunch, lunch, snack, dinner, dessert, beverage"
         prepTimeMin:
           type: integer
         cookTimeMin:
+          type: integer
+        totalTimeMin:
           type: integer
         servings:
           type: integer
