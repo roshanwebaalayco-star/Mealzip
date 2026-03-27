@@ -255,3 +255,22 @@
 .harmony-glow {
   filter: drop-shadow(0 0 10px hsla(152,60%,40%,0.35));
 }
+
+
+/* ─── Print styles (grocery list PDF/print) ─── */
+@media print {
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .glass-card,
+  .glass-sidebar {
+    box-shadow: none !important;
+    background: white !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}

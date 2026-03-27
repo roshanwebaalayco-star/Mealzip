@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic, MicOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/language-context";
 
 type MemberDraft = {
   _id: number;
@@ -54,6 +55,7 @@ interface ParsedVoiceProfile {
 export default function FamilySetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const createFamily = useCreateFamily();
   const addMember = useAddFamilyMember();
@@ -316,7 +318,7 @@ export default function FamilySetup() {
     <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-display font-bold text-foreground">
-          {step === 1 ? "Family Details / परिवार का विवरण" : "Family Members / सदस्य"}
+          {step === 1 ? t("Family Details", "परिवार का विवरण") : t("Family Members", "सदस्य")}
         </h1>
         <div className="flex gap-2 mt-4">
           <div className={`h-2 flex-1 rounded-full ${step >= 1 ? "bg-primary" : "bg-muted"}`} />
@@ -337,8 +339,8 @@ export default function FamilySetup() {
               {/* Voice profile setup */}
               <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/20">
                 <div>
-                  <p className="font-semibold text-sm">Speak Your Family Profile / अपनी प्रोफ़ाइल बोलें</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Say family name, members, health goals in your language</p>
+                  <p className="font-semibold text-sm">{t("Speak Your Family Profile", "अपनी प्रोफ़ाइल बोलें")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("Say family name, members, health goals in your language", "परिवार का नाम, सदस्य, स्वास्थ्य लक्ष्य बोलें")}</p>
                 </div>
                 <Button
                   type="button"
@@ -348,12 +350,12 @@ export default function FamilySetup() {
                   className="gap-2 shrink-0"
                 >
                   {voiceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isListening ? <MicOff className="w-4 h-4 text-red-500" /> : <Mic className="w-4 h-4" />}
-                  {voiceLoading ? "Parsing…" : isListening ? "Listening…" : "Speak Profile"}
+                  {voiceLoading ? t("Parsing…", "समझ रहा है…") : isListening ? t("Listening…", "सुन रहा है…") : t("Speak Profile", "प्रोफ़ाइल बोलें")}
                 </Button>
               </div>
 
               <div>
-                <Label className="text-base">Family Name / परिवार का नाम</Label>
+                <Label className="text-base">{t("Family Name", "परिवार का नाम")}</Label>
                 <Input 
                   value={familyData.name}
                   onChange={(e) => setFamilyData({...familyData, name: e.target.value})}
@@ -364,7 +366,7 @@ export default function FamilySetup() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label>State / राज्य</Label>
+                  <Label>{t("State", "राज्य")}</Label>
                   <Select value={familyData.state} onValueChange={v => setFamilyData({...familyData, state: v})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Select State" />
@@ -403,7 +405,7 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Monthly Food Budget (₹) / मासिक बजट</Label>
+                  <Label>{t("Monthly Food Budget (₹)", "मासिक खाद्य बजट (₹)")}</Label>
                   <Input 
                     type="number" 
                     value={familyData.monthlyBudget}
@@ -412,7 +414,7 @@ export default function FamilySetup() {
                   />
                 </div>
                 <div>
-                  <Label>Primary Language / मुख्य भाषा</Label>
+                  <Label>{t("Primary Language", "मुख्य भाषा")}</Label>
                   <Select value={familyData.primaryLanguage} onValueChange={v => setFamilyData({...familyData, primaryLanguage: v})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Language" />
@@ -433,7 +435,7 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Dietary Type / आहार प्रकार</Label>
+                  <Label>{t("Dietary Type", "आहार प्रकार")}</Label>
                   <Select value={familyData.dietaryType} onValueChange={v => setFamilyData({...familyData, dietaryType: v as typeof familyData.dietaryType})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Dietary preference" />
@@ -447,7 +449,7 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Cooking Time Available / खाना पकाने का समय</Label>
+                  <Label>{t("Cooking Time Available", "खाना पकाने का समय")}</Label>
                   <Select value={familyData.cookingTimePreference} onValueChange={v => setFamilyData({...familyData, cookingTimePreference: v as typeof familyData.cookingTimePreference})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Cooking time" />
@@ -460,7 +462,7 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Health Goal / स्वास्थ्य लक्ष्य</Label>
+                  <Label>{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
                   <Select value={familyData.healthGoal} onValueChange={v => setFamilyData({...familyData, healthGoal: v as typeof familyData.healthGoal})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Health goal" />
@@ -478,19 +480,19 @@ export default function FamilySetup() {
               </div>
 
               <div>
-                <Label className="text-base">Fasting Days / व्रत के दिन <span className="text-muted-foreground text-sm font-normal">(optional)</span></Label>
-                <p className="text-sm text-muted-foreground mb-3">Select days your family regularly fasts / परिवार किन दिनों उपवास रखता है</p>
+                <Label className="text-base">{t("Fasting Days", "व्रत के दिन")} <span className="text-muted-foreground text-sm font-normal">({t("optional", "वैकल्पिक")})</span></Label>
+                <p className="text-sm text-muted-foreground mb-3">{t("Select days your family regularly fasts", "परिवार किन दिनों उपवास रखता है")}</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { key: "monday", label: "Monday / सोमवार" },
-                    { key: "tuesday", label: "Tuesday / मंगलवार" },
-                    { key: "thursday", label: "Thursday / गुरुवार" },
-                    { key: "saturday", label: "Saturday / शनिवार" },
-                    { key: "ekadashi", label: "Ekadashi / एकादशी" },
-                    { key: "navratri", label: "Navratri / नवरात्रि" },
-                    { key: "shravan", label: "Shravan Mondays / सावन सोमवार" },
-                    { key: "karva_chauth", label: "Karva Chauth" },
-                  ].map(({ key, label }) => (
+                    { key: "monday", en: "Monday", hi: "सोमवार" },
+                    { key: "tuesday", en: "Tuesday", hi: "मंगलवार" },
+                    { key: "thursday", en: "Thursday", hi: "गुरुवार" },
+                    { key: "saturday", en: "Saturday", hi: "शनिवार" },
+                    { key: "ekadashi", en: "Ekadashi", hi: "एकादशी" },
+                    { key: "navratri", en: "Navratri", hi: "नवरात्रि" },
+                    { key: "shravan", en: "Shravan Mondays", hi: "सावन सोमवार" },
+                    { key: "karva_chauth", en: "Karva Chauth", hi: "करवा चौथ" },
+                  ].map(({ key, en, hi }) => (
                     <button
                       key={key}
                       type="button"
@@ -501,7 +503,7 @@ export default function FamilySetup() {
                           : "bg-background border-border hover:border-primary"
                       }`}
                     >
-                      {label}
+                      {t(en, hi)}
                     </button>
                   ))}
                 </div>
@@ -514,7 +516,7 @@ export default function FamilySetup() {
                   onClick={() => setStep(2)}
                   disabled={!familyData.name}
                 >
-                  Next Step <ArrowRight className="w-5 h-5 ml-2" />
+                  {t("Next Step", "अगला कदम")} <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
             </div>
@@ -537,11 +539,11 @@ export default function FamilySetup() {
                   </button>
                 )}
                 
-                <h3 className="font-display font-bold text-lg mb-4">Member #{idx + 1}</h3>
+                <h3 className="font-display font-bold text-lg mb-4">{t("Member", "सदस्य")} #{idx + 1}</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <Label>Name / नाम <span className="text-destructive">*</span></Label>
+                    <Label>{t("Name", "नाम")} <span className="text-destructive">*</span></Label>
                     <Input 
                       value={member.name} 
                       onChange={e => {
@@ -553,22 +555,22 @@ export default function FamilySetup() {
                     {memberErrors[member._id]?.name && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].name}</p>}
                   </div>
                   <div>
-                    <Label>Role / संबंध</Label>
+                    <Label>{t("Role", "संबंध")}</Label>
                     <Select value={member.role} onValueChange={v => handleUpdateMember(idx, "role", v)}>
                       <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="father">Father / पिता</SelectItem>
-                        <SelectItem value="mother">Mother / माँ</SelectItem>
-                        <SelectItem value="spouse">Spouse / जीवनसाथी</SelectItem>
-                        <SelectItem value="child">Child / बच्चा</SelectItem>
-                        <SelectItem value="grandparent">Grandparent / दादा-दादी</SelectItem>
-                        <SelectItem value="other">Other / अन्य</SelectItem>
+                        <SelectItem value="father">{t("Father", "पिता")}</SelectItem>
+                        <SelectItem value="mother">{t("Mother", "माँ")}</SelectItem>
+                        <SelectItem value="spouse">{t("Spouse", "जीवनसाथी")}</SelectItem>
+                        <SelectItem value="child">{t("Child", "बच्चा")}</SelectItem>
+                        <SelectItem value="grandparent">{t("Grandparent", "दादा-दादी")}</SelectItem>
+                        <SelectItem value="other">{t("Other", "अन्य")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div>
-                    <Label>Age / आयु <span className="text-destructive">*</span></Label>
+                    <Label>{t("Age", "आयु")} <span className="text-destructive">*</span></Label>
                     <Input
                       type="number"
                       value={member.age}
@@ -582,41 +584,41 @@ export default function FamilySetup() {
                     {memberErrors[member._id]?.age && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].age}</p>}
                   </div>
                   <div>
-                    <Label>Weight (kg) / वजन</Label>
+                    <Label>{t("Weight (kg)", "वजन (किग्रा)")}</Label>
                     <Input type="number" value={member.weightKg} onChange={e => handleUpdateMember(idx, "weightKg", parseInt(e.target.value) || 60)} className="mt-1" />
                   </div>
                   <div>
-                    <Label>Height (cm) / ऊंचाई</Label>
+                    <Label>{t("Height (cm)", "ऊंचाई (सेमी)")}</Label>
                     <Input type="number" value={member.heightCm} onChange={e => handleUpdateMember(idx, "heightCm", parseInt(e.target.value) || 160)} className="mt-1" />
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-semibold">Health Goal / स्वास्थ्य लक्ष्य</Label>
+                    <Label className="text-sm font-semibold">{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
                     <Select value={member.healthGoal} onValueChange={v => handleUpdateMember(idx, "healthGoal", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="general_wellness">General Wellness / सामान्य स्वास्थ्य</SelectItem>
-                        <SelectItem value="weight_loss">Weight Loss / वजन घटाना</SelectItem>
-                        <SelectItem value="manage_diabetes">Manage Diabetes / मधुमेह नियंत्रण</SelectItem>
-                        <SelectItem value="anemia_recovery">Anemia Recovery / रक्ताल्पता</SelectItem>
-                        <SelectItem value="child_growth">Child Growth / बच्चे का विकास</SelectItem>
-                        <SelectItem value="heart_health">Heart Health / हृदय स्वास्थ्य</SelectItem>
-                        <SelectItem value="muscle_gain">Muscle Gain / मांसपेशी वृद्धि</SelectItem>
+                        <SelectItem value="general_wellness">{t("General Wellness", "सामान्य स्वास्थ्य")}</SelectItem>
+                        <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>
+                        <SelectItem value="manage_diabetes">{t("Manage Diabetes", "मधुमेह नियंत्रण")}</SelectItem>
+                        <SelectItem value="anemia_recovery">{t("Anemia Recovery", "रक्ताल्पता")}</SelectItem>
+                        <SelectItem value="child_growth">{t("Child Growth", "बच्चे का विकास")}</SelectItem>
+                        <SelectItem value="heart_health">{t("Heart Health", "हृदय स्वास्थ्य")}</SelectItem>
+                        <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-sm font-semibold">Dietary Type / आहार प्रकार</Label>
+                    <Label className="text-sm font-semibold">{t("Dietary Type", "आहार प्रकार")}</Label>
                     <Select value={member.dietaryType} onValueChange={v => handleUpdateMember(idx, "dietaryType", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="vegetarian">Vegetarian / शाकाहारी</SelectItem>
-                        <SelectItem value="non-vegetarian">Non-Vegetarian / मांसाहारी</SelectItem>
-                        <SelectItem value="vegan">Vegan / शुद्ध शाकाहारी</SelectItem>
-                        <SelectItem value="jain">Jain / जैन</SelectItem>
-                        <SelectItem value="eggetarian">Eggetarian / अंडाहारी</SelectItem>
+                        <SelectItem value="vegetarian">{t("Vegetarian", "शाकाहारी")}</SelectItem>
+                        <SelectItem value="non-vegetarian">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
+                        <SelectItem value="vegan">{t("Vegan", "शुद्ध शाकाहारी")}</SelectItem>
+                        <SelectItem value="jain">{t("Jain", "जैन")}</SelectItem>
+                        <SelectItem value="eggetarian">{t("Eggetarian", "अंडाहारी")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -624,60 +626,60 @@ export default function FamilySetup() {
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Health Conditions / स्वास्थ्य स्थितियां</Label>
+                    <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")}</Label>
                     {[
-                      { id: 'diabetes', label: 'Diabetes / मधुमेह' },
-                      { id: 'hypertension', label: 'Hypertension / उच्च रक्तचाप' },
-                      { id: 'obesity', label: 'Obesity / मोटापा' },
-                      { id: 'anemia', label: 'Anemia / रक्ताल्पता' },
-                      { id: 'thyroid', label: 'Thyroid / थायरॉइड' },
-                      { id: 'high_cholesterol', label: 'High Cholesterol / उच्च कोलेस्ट्रॉल' },
-                      { id: 'pcod', label: 'PCOD / पीसीओडी' },
-                      { id: 'growing_child', label: 'Growing Child / बढ़ता बच्चा' },
-                      { id: 'elderly', label: 'Elderly (60+) / बुजुर्ग' },
-                      { id: 'none', label: 'None / कोई नहीं' },
-                    ].map(({ id: cond, label }) => (
+                      { id: 'diabetes', en: 'Diabetes', hi: 'मधुमेह' },
+                      { id: 'hypertension', en: 'Hypertension', hi: 'उच्च रक्तचाप' },
+                      { id: 'obesity', en: 'Obesity', hi: 'मोटापा' },
+                      { id: 'anemia', en: 'Anemia', hi: 'रक्ताल्पता' },
+                      { id: 'thyroid', en: 'Thyroid', hi: 'थायरॉइड' },
+                      { id: 'high_cholesterol', en: 'High Cholesterol', hi: 'उच्च कोलेस्ट्रॉल' },
+                      { id: 'pcod', en: 'PCOD', hi: 'पीसीओडी' },
+                      { id: 'growing_child', en: 'Growing Child', hi: 'बढ़ता बच्चा' },
+                      { id: 'elderly', en: 'Elderly (60+)', hi: 'बुजुर्ग (60+)' },
+                      { id: 'none', en: 'None', hi: 'कोई नहीं' },
+                    ].map(({ id: cond, en, hi }) => (
                       <div key={cond} className="flex items-center space-x-2">
                         <Checkbox 
                           id={`${member._id}-${cond}`}
                           checked={member.healthConditions.includes(cond)}
                           onCheckedChange={() => toggleMemberCondition(idx, cond)}
                         />
-                        <Label htmlFor={`${member._id}-${cond}`}>{label}</Label>
+                        <Label htmlFor={`${member._id}-${cond}`}>{t(en, hi)}</Label>
                       </div>
                     ))}
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Fasting Days / उपवास के दिन</Label>
+                    <Label className="text-sm font-semibold">{t("Fasting Days", "उपवास के दिन")}</Label>
                     {[
-                      { id: "monday", label: "Monday / सोमवार" },
-                      { id: "tuesday", label: "Tuesday / मंगलवार" },
-                      { id: "thursday", label: "Thursday / गुरुवार" },
-                      { id: "friday", label: "Friday / शुक्रवार" },
-                      { id: "saturday", label: "Saturday / शनिवार" },
-                      { id: "ekadashi", label: "Ekadashi / एकादशी" },
-                      { id: "ramadan", label: "Ramadan / रमजान" },
-                      { id: "none", label: "None / कोई नहीं" },
-                    ].map(({ id: day, label }) => (
+                      { id: "monday", en: "Monday", hi: "सोमवार" },
+                      { id: "tuesday", en: "Tuesday", hi: "मंगलवार" },
+                      { id: "thursday", en: "Thursday", hi: "गुरुवार" },
+                      { id: "friday", en: "Friday", hi: "शुक्रवार" },
+                      { id: "saturday", en: "Saturday", hi: "शनिवार" },
+                      { id: "ekadashi", en: "Ekadashi", hi: "एकादशी" },
+                      { id: "ramadan", en: "Ramadan", hi: "रमजान" },
+                      { id: "none", en: "None", hi: "कोई नहीं" },
+                    ].map(({ id: day, en, hi }) => (
                       <div key={day} className="flex items-center space-x-2">
                         <Checkbox
                           id={`${member._id}-fasting-${day}`}
                           checked={member.memberFastingDays.includes(day)}
                           onCheckedChange={() => toggleMemberFasting(idx, day)}
                         />
-                        <Label htmlFor={`${member._id}-fasting-${day}`} className="text-xs">{label}</Label>
+                        <Label htmlFor={`${member._id}-fasting-${day}`} className="text-xs">{t(en, hi)}</Label>
                       </div>
                     ))}
 
                     <div className="pt-2">
-                      <Label className="text-sm font-semibold">Food Allergies / खाद्य एलर्जी <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Label className="text-sm font-semibold">{t("Food Allergies", "खाद्य एलर्जी")} <span className="font-normal text-muted-foreground">({t("optional", "वैकल्पिक")})</span></Label>
                       <Input
                         value={member.foodAllergies}
                         onChange={e => handleUpdateMember(idx, "foodAllergies", e.target.value)}
-                        placeholder="e.g. peanuts, milk, gluten"
+                        placeholder={t("e.g. peanuts, milk, gluten", "जैसे मूंगफली, दूध, ग्लूटन")}
                         className="mt-1 text-sm"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">Separate multiple with commas</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t("Separate multiple with commas", "कई एलर्जी को कॉमा से अलग करें")}</p>
                     </div>
                   </div>
                 </div>
@@ -692,16 +694,16 @@ export default function FamilySetup() {
               className="w-full h-14 rounded-2xl border-dashed border-2 text-muted-foreground hover:text-primary hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5 mr-2" />
-              {members.length >= 5 ? "Maximum 5 members reached" : "Add Another Member"}
+              {members.length >= 5 ? t("Maximum 5 members reached", "अधिकतम 5 सदस्य") : t("Add Another Member", "एक और सदस्य जोड़ें")}
             </Button>
 
             <div className="flex justify-between pt-6">
               <Button variant="ghost" size="lg" className="rounded-xl" onClick={() => setStep(1)}>
-                <ArrowLeft className="w-5 h-5 mr-2" /> Back
+                <ArrowLeft className="w-5 h-5 mr-2" /> {t("Back", "वापस")}
               </Button>
               <Button size="lg" className="rounded-xl px-8" onClick={handleSave} disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                Save Family Profile
+                {t("Save Family Profile", "परिवार प्रोफ़ाइल सेव करें")}
               </Button>
             </div>
           </motion.div>
