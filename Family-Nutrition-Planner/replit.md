@@ -131,6 +131,7 @@ All packages use `composite: true`. Build order:
 - Supabase project ref: `kpwgbmubunfwvelkntsw` (Singapore AP region)
 - Schema pushed to Supabase via `pnpm --filter @workspace/db run push-supabase-force`
 - Note: direct DB host (`db.[ref].supabase.co`) is IPv6-only; use the pooler URL (`aws-1-ap-southeast-1.pooler.supabase.com`) for IPv4 connectivity
+- Note: `ssl.rejectUnauthorized: false` is required for Supabase's Supavisor pooler — the pooler presents a self-signed intermediary cert not in Node.js trust store. Traffic is encrypted; only chain validation is relaxed. This is the documented approach for Supabase pooler connections.
 
 ## Authentication
 
