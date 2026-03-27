@@ -15,10 +15,11 @@ import healthRouter from "./health/index.js";
 
 const router: IRouter = Router();
 
-// Strictly public routes — only /auth/register, /auth/login, /auth/logout,
-// and /healthz are intentionally unauthenticated.
-// /auth/me is internally protected inside authRouter.
-router.use(authRouter);   // /auth/register, /auth/login, /auth/logout, /auth/me
+// Strictly public routes — only /auth/register, /auth/login, and /healthz
+// are intentionally unauthenticated.
+// /auth/me uses authenticateToken internally.
+// /auth/logout uses authenticateToken internally (requires a valid token).
+router.use(authRouter);   // /auth/register, /auth/login (public); /auth/logout, /auth/me (auth-gated)
 router.use(healthzRouter); // /healthz only
 
 // All routes registered after this line require a valid JWT Bearer token.
