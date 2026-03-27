@@ -1,4 +1,3 @@
-import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic, MicOff } from "lucide-react";
+import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
+import VoiceAssistantModal from "@/components/VoiceAssistantModal";
+import type { VoiceFormData } from "@/hooks/use-voice-assistant";
 
 type MemberDraft = {
   _id: number;
@@ -34,24 +35,6 @@ type MemberErrors = { name?: string; age?: string };
 
 let _memberIdCounter = 0;
 
-interface ParsedVoiceMember {
-  name?: string;
-  role?: string;
-  age?: number;
-  gender?: string;
-  healthConditions?: string[];
-  healthGoal?: string;
-}
-
-interface ParsedVoiceProfile {
-  familyName?: string;
-  state?: string;
-  monthlyBudget?: number;
-  dietaryType?: string;
-  language?: string;
-  healthGoal?: string;
-  members?: ParsedVoiceMember[];
-}
 
 export default function FamilySetup() {
   const [, setLocation] = useLocation();
@@ -86,100 +69,7 @@ export default function FamilySetup() {
     }
   ]);
 
-  const [isListening, setIsListening] = useState(false);
-  const [voiceLoading, setVoiceLoading] = useState(false);
-
-  const handleVoiceInput = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      toast({ title: "Not supported", description: "Microphone access is not available.", variant: "destructive" });
-      return;
-    }
-    setIsListening(true);
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setIsListening(false);
-      toast({ title: "Mic denied", description: "Please allow microphone access.", variant: "destructive" });
-      return;
-    }
-
-    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.start();
-
-    // Record 5 seconds then stop
-    setTimeout(() => recorder.stop(), 5000);
-
-    recorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      setIsListening(false);
-      setVoiceLoading(true);
-
-      const langCode = familyData.primaryLanguage === "hindi" ? "hi-IN"
-        : familyData.primaryLanguage === "tamil" ? "ta-IN"
-        : familyData.primaryLanguage === "bengali" ? "bn-IN"
-        : familyData.primaryLanguage === "telugu" ? "te-IN"
-        : "en-IN";
-
-      try {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        const arrayBuf = await blob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
-
-        const transcribeRes = await apiFetch("/api/voice/transcribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioBase64: base64, languageCode: langCode }),
-        });
-        if (!transcribeRes.ok) {
-          const errBody = await transcribeRes.json() as { error?: string; detail?: string };
-          throw new Error(errBody.detail ?? errBody.error ?? "Transcription service unavailable");
-        }
-        const { transcript } = await transcribeRes.json() as { transcript: string };
-        if (!transcript) throw new Error("Empty transcript received");
-
-        const parseRes = await apiFetch("/api/voice/parse-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript, language: familyData.primaryLanguage }),
-        });
-        const parsed = await parseRes.json() as ParsedVoiceProfile;
-        if (parsed.familyName) setFamilyData(fd => ({ ...fd, name: parsed.familyName ?? fd.name }));
-        if (parsed.state) setFamilyData(fd => ({ ...fd, state: parsed.state ?? fd.state }));
-        if (parsed.monthlyBudget) setFamilyData(fd => ({ ...fd, monthlyBudget: parsed.monthlyBudget ?? fd.monthlyBudget }));
-        if (parsed.dietaryType) setFamilyData(fd => ({ ...fd, dietaryType: (parsed.dietaryType ?? fd.dietaryType) as typeof fd.dietaryType }));
-        if (parsed.language) setFamilyData(fd => ({ ...fd, primaryLanguage: parsed.language ?? fd.primaryLanguage }));
-        if (parsed.healthGoal) setFamilyData(fd => ({ ...fd, healthGoal: (parsed.healthGoal ?? fd.healthGoal) as typeof fd.healthGoal }));
-        if (parsed.members && parsed.members.length > 0) {
-          const parsedMembers: MemberDraft[] = parsed.members.map(m => ({
-            _id: ++_memberIdCounter,
-            name: m.name ?? "",
-            role: m.role ?? "other",
-            age: m.age ?? 25,
-            gender: m.gender ?? "male",
-            weightKg: 65,
-            heightCm: 165,
-            activityLevel: "moderate",
-            healthConditions: m.healthConditions ?? [],
-            dietaryRestrictions: [],
-            healthGoal: m.healthGoal ?? "general_wellness",
-            dietaryType: "vegetarian",
-            memberFastingDays: [],
-            foodAllergies: "",
-          }));
-          setMembers(parsedMembers);
-        }
-        toast({ title: "Profile filled!", description: "Voice data parsed and form populated." });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Could not parse voice input. Please try again.";
-        toast({ title: "Voice input failed", description: msg, variant: "destructive" });
-      } finally {
-        setVoiceLoading(false);
-      }
-    };
-  };
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
@@ -232,15 +122,14 @@ export default function FamilySetup() {
     }));
   };
 
-  const handleSave = async () => {
-    if (!familyData.name) {
+  const executeSave = async (fd: typeof familyData, mems: MemberDraft[]) => {
+    if (!fd.name) {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
     }
 
-    // Inline validation — collect errors per member keyed by stable _id
     const errors: Record<number, MemberErrors> = {};
-    members.forEach((m) => {
+    mems.forEach((m) => {
       const e: MemberErrors = {};
       if (!m.name.trim()) e.name = "Name is required";
       if (m.age === "" || m.age <= 0 || !Number.isFinite(Number(m.age))) e.age = "Enter a valid age";
@@ -252,11 +141,11 @@ export default function FamilySetup() {
     }
     setMemberErrors({});
 
-    if (members.length < 2) {
+    if (mems.length < 2) {
       toast({ title: "At least 2 members required", description: "Please add at least one more family member before saving.", variant: "destructive" });
       return;
     }
-    if (members.length > 5) {
+    if (mems.length > 5) {
       toast({ title: "Maximum 5 members", description: "Please remove some members to continue (family limit: 5).", variant: "destructive" });
       return;
     }
@@ -264,18 +153,17 @@ export default function FamilySetup() {
     setIsSubmitting(true);
     try {
       const enrichedPreferences = [
-        ...familyData.cuisinePreferences,
-        familyData.dietaryType,
-        `cooking_time:${familyData.cookingTimePreference}`,
-        `health_goal:${familyData.healthGoal}`,
-        ...familyData.fastingDays.map(d => `fasting:${d}`),
+        ...fd.cuisinePreferences,
+        fd.dietaryType,
+        `cooking_time:${fd.cookingTimePreference}`,
+        `health_goal:${fd.healthGoal}`,
+        ...fd.fastingDays.map(d => `fasting:${d}`),
       ];
       const fam = await createFamily.mutateAsync({
-        data: { ...familyData, cuisinePreferences: enrichedPreferences },
+        data: { ...fd, cuisinePreferences: enrichedPreferences },
       });
-      
-      // Save all members — encode per-member healthGoal, dietaryType, fastingDays into dietaryRestrictions array
-      for (const member of members) {
+
+      for (const member of mems) {
         if (member.name) {
           const enrichedDietaryRestrictions = [
             ...member.dietaryRestrictions,
@@ -304,7 +192,7 @@ export default function FamilySetup() {
           });
         }
       }
-      
+
       await queryClient.invalidateQueries({ queryKey: ["/api/families"] });
       toast({ title: "Success!", description: "Family profile created. Now select what's in your pantry." });
       setLocation("/pantry");
@@ -314,6 +202,47 @@ export default function FamilySetup() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSave = () => executeSave(familyData, members);
+
+  const handleVoiceComplete = async (voiceData: VoiceFormData) => {
+    const mergedFamilyData = {
+      ...familyData,
+      ...(voiceData.familyName ? { name: voiceData.familyName } : {}),
+      ...(voiceData.state ? { state: voiceData.state } : {}),
+      ...(voiceData.monthlyBudget ? { monthlyBudget: voiceData.monthlyBudget } : {}),
+      ...(voiceData.dietaryType
+        ? { dietaryType: voiceData.dietaryType as typeof familyData.dietaryType }
+        : {}),
+    };
+
+    const voiceMembers: MemberDraft[] = (voiceData.members ?? [])
+      .filter(m => m.name)
+      .map(m => ({
+        _id: ++_memberIdCounter,
+        name: m.name ?? "",
+        role: m.role ?? "other",
+        age: m.age ?? 25,
+        gender: m.gender ?? "male",
+        weightKg: 65,
+        heightCm: 165,
+        activityLevel: "moderate",
+        healthConditions: m.healthConditions ?? [],
+        dietaryRestrictions: [],
+        healthGoal: m.healthGoal ?? "general_wellness",
+        dietaryType: mergedFamilyData.dietaryType,
+        memberFastingDays: [],
+        foodAllergies: "",
+      }));
+
+    const finalMembers = voiceMembers.length > 0 ? voiceMembers : members;
+
+    setFamilyData(mergedFamilyData);
+    if (voiceMembers.length > 0) setMembers(voiceMembers);
+    setVoiceModalOpen(false);
+
+    await executeSave(mergedFamilyData, finalMembers);
   };
 
   return (
@@ -338,21 +267,21 @@ export default function FamilySetup() {
             className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-border"
           >
             <div className="space-y-6">
-              {/* Voice profile setup */}
+              {/* Conversational voice setup */}
               <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/20">
                 <div>
-                  <p className="font-semibold text-sm">{t("Speak Your Family Profile", "अपनी प्रोफ़ाइल बोलें")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("Say family name, members, health goals in your language", "परिवार का नाम, सदस्य, स्वास्थ्य लक्ष्य बोलें")}</p>
+                  <p className="font-semibold text-sm">{t("Voice Setup", "वॉइस सेटअप")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("Set up your entire family profile by speaking — the AI will guide you", "AI आपसे बात करके पूरी प्रोफाइल भरेगा")}
+                  </p>
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleVoiceInput}
-                  disabled={isListening || voiceLoading}
-                  className="gap-2 shrink-0"
+                  onClick={() => setVoiceModalOpen(true)}
+                  className="gap-2 shrink-0 bg-primary text-white hover:bg-primary/90"
                 >
-                  {voiceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isListening ? <MicOff className="w-4 h-4 text-red-500" /> : <Mic className="w-4 h-4" />}
-                  {voiceLoading ? t("Parsing…", "समझ रहा है…") : isListening ? t("Listening…", "सुन रहा है…") : t("Speak Profile", "प्रोफ़ाइल बोलें")}
+                  <Mic className="w-4 h-4" />
+                  {t("Start Voice Setup", "वॉइस शुरू करें")}
                 </Button>
               </div>
 
@@ -711,6 +640,13 @@ export default function FamilySetup() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <VoiceAssistantModal
+        open={voiceModalOpen}
+        language={familyData.primaryLanguage}
+        onClose={() => setVoiceModalOpen(false)}
+        onComplete={handleVoiceComplete}
+      />
     </div>
   );
 }

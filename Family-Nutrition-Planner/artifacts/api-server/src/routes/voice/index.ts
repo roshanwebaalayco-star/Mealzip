@@ -169,4 +169,148 @@ Set dietaryType at family level from the dominant pattern.`;
   }
 });
 
+const ChatTurnBody = z.object({
+  state: z.string(),
+  userTranscript: z.string().min(1),
+  partialFormData: z.record(z.unknown()).optional().default({}),
+  conversationHistory: z.array(z.object({
+    role: z.enum(["assistant", "user"]),
+    text: z.string(),
+  })).optional().default([]),
+  language: z.enum(["hindi", "english", "bengali", "tamil", "telugu", "marathi", "gujarati", "kannada", "malayalam", "punjabi", "odia"]).optional().default("hindi"),
+});
+
+router.post("/voice/chat-turn", async (req, res): Promise<void> => {
+  const parsed = ChatTurnBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+
+  const { state, userTranscript, partialFormData, conversationHistory, language } = parsed.data;
+
+  const historyText = conversationHistory.map(m =>
+    `[${m.role.toUpperCase()}]: ${m.text}`
+  ).join("\n");
+
+  const isHindi = language === "hindi";
+  const assistantLangNote = isHindi
+    ? "Hinglish (warm Hindi-English mix written entirely in Latin/English script, like a friendly neighbor — e.g. 'Sharma family — bilkul sahi! Aap kis state mein rehte hain?')"
+    : "friendly, clear English";
+
+  const prompt = `You are a voice assistant for ParivarSehat AI, an Indian family nutrition planning app.
+You are having a turn-by-turn voice conversation to collect family profile data.
+
+CURRENT STATE: ${state}
+CONVERSATION LANGUAGE: ${language}
+DATA COLLECTED SO FAR: ${JSON.stringify(partialFormData, null, 2)}
+
+CONVERSATION HISTORY (before this turn):
+${historyText || "(none yet)"}
+
+USER JUST SAID: "${userTranscript}"
+
+=== WHAT TO EXTRACT BY STATE ===
+
+ask_family_name:
+  → parsedFields: { "familyName": "Sharma Family" }  (add " Family" suffix if not present)
+  → nextState: "ask_state"
+
+ask_state:
+  → parsedFields: { "state": "Jharkhand" }  (exact Indian state name)
+  → nextState: "ask_budget"
+
+ask_budget:
+  → parsedFields: { "monthlyBudget": 5000 }  (number in INR, convert spoken Hindi)
+  → nextState: "ask_dietary_type"
+
+ask_dietary_type:
+  → parsedFields: { "dietaryType": "vegetarian|non-vegetarian|vegan|jain" }
+  → nextState: "ask_member_start"
+
+ask_member_start:
+  → parsedFields: { "currentMember": { "name": "Rahul", "role": "father", "age": 42, "gender": "male", "healthConditions": ["diabetes"], "healthGoal": "manage_diabetes" } }
+  → nextState: "ask_more_members"  if conditions were mentioned in this turn
+  → nextState: "ask_member_conditions"  if NO conditions were mentioned (need to ask)
+
+ask_member_conditions:
+  → parsedFields: { "currentMemberConditions": ["diabetes", "hypertension"] }  OR  { "currentMemberConditions": [] }  if healthy
+  → nextState: "ask_more_members"
+
+ask_more_members:
+  → User says yes with new member info → parsedFields: { "currentMember": { ... } }, nextState: "ask_more_members" or "ask_member_conditions"
+  → User says yes, no details yet → parsedFields: { "addMore": true }, nextState: "ask_member_start"
+  → User says no / done / ho gaya / bas → nextState: "complete", isComplete: true
+
+=== HINDI LANGUAGE MAPPINGS ===
+Family roles:
+  pitaji/papa/pita → father | maa/amma/mata/mummy → mother
+  pati/husband → father (if no other male) | patni/wife → mother (if no other female)
+  beta/putra/son/ladka → child (male) | beti/putri/daughter/ladki → child (female)
+  dada/dadaji/nana → grandparent (male) | dadi/nani → grandparent (female)
+  main/hum → use "self" role → map to father if male, mother if female
+
+Numbers (Hindi):
+  ek=1 do=2 teen/tin=3 chaar=4 paanch=5 das=10 bees=20 pachees=25 tees=30
+  hazaar=1000 → "panch hazaar"=5000 "das hazaar"=10000 "teen hazaar"=3000
+
+Health conditions:
+  madhumeh/sugar ki bimari/diabetes → diabetes
+  BP/blood pressure/raktchaap/uchch raktachap → hypertension
+  motapa/mota/weight problem → obesity
+  khoon ki kami/anemia/raktalpata → anemia
+  thyroid → thyroid | cholesterol → high_cholesterol | PCOD/PCOS → pcod
+  growing child/badhta bachha → growing_child | elderly/budhapa → elderly
+  sab theek/koi bimari nahi/healthy/theek hain → [] (empty, no conditions)
+
+Dietary type:
+  shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain | vegan → vegan
+
+Indian states (colloquial → official):
+  UP/Uttar Pradesh/yoopi → Uttar Pradesh | Dilli/Delhi → Delhi
+  Bambai/Mumbai wala → Maharashtra | Madras/Chennai → Tamil Nadu
+  Bengaluru/Bangalore → Karnataka | Hyderabad → Telangana
+
+Yes/No signals:
+  haan/ji haan/bilkul/zaroor/aur hain/yes → addMore: true
+  nahi/nahi ji/bas/ho gaya/sirf itne/done/theek hai/no more → isComplete: true
+
+=== RULES ===
+1. Only set isComplete: true if nextState is "complete" AND at least familyName and one member have been collected
+2. The assistantMessage must be in ${assistantLangNote}
+3. assistantMessage = brief warm confirmation of what you heard + the next question
+4. For complete state:
+   Hindi: "Bahut shukriya! Family profile ready hai. Ek second — meal plan ban raha hai!"
+   English: "Thank you! Your family profile is all set. Generating your meal plan now!"
+5. For ask_member_conditions, if the user said nothing helpful, ask clearly:
+   Hindi: "[Name] ji ko koi health condition hai? Jaise diabetes, BP, ya 'sab theek hai' bolein."
+   English: "Does [Name] have any health conditions like diabetes or hypertension? Or are they healthy?"
+
+Return ONLY valid JSON, no markdown or extra text:
+{
+  "parsedFields": {},
+  "nextState": "ask_state",
+  "assistantMessage": "...",
+  "isComplete": false
+}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" },
+    });
+    const data = JSON.parse(response.text ?? "{}");
+    res.json({
+      parsedFields: data.parsedFields ?? {},
+      nextState: data.nextState ?? state,
+      assistantMessage: data.assistantMessage ?? (isHindi ? "Kya aap dobara bol sakte hain?" : "Could you repeat that?"),
+      isComplete: data.isComplete === true,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Voice chat-turn failed");
+    res.status(500).json({ error: "Chat turn failed", details: String(err) });
+  }
+});
+
 export default router;
