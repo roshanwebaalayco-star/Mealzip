@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList } from "lucide-react";
+import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList, Camera, ScanLine, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,49 @@ export default function Grocery() {
   });
   const [pantryInput, setPantryInput] = useState("");
   const pantryInputRef = useRef<HTMLInputElement>(null);
+
+  // Pantry scan state
+  const [isScanningPantry, setIsScanningPantry] = useState(false);
+  const [scannedPantryItems, setScannedPantryItems] = useState<Array<{ name: string; quantity: string; emoji: string }>>([]);
+  const [selectedScanItems, setSelectedScanItems] = useState<Set<number>>(new Set());
+  const pantryScanInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePantryScan = async (file: File) => {
+    setIsScanningPantry(true);
+    setScannedPantryItems([]);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await apiFetch("/api/pantry/scan-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+      });
+      const data = await res.json() as { items: Array<{ name: string; quantity: string; emoji: string }> };
+      const items = data.items ?? [];
+      setScannedPantryItems(items);
+      setSelectedScanItems(new Set(items.map((_, i) => i)));
+      if (items.length === 0) toast({ title: t("No items detected", "कोई चीज़ नहीं मिली"), description: t("Try a clearer photo of your pantry.", "अपनी पेंट्री की साफ़ फ़ोटो लें।") });
+    } catch {
+      toast({ title: t("Scan failed", "स्कैन विफल"), description: t("Could not scan image. Please try again.", "फ़ोटो स्कैन नहीं हो सकी।"), variant: "destructive" });
+    } finally {
+      setIsScanningPantry(false);
+    }
+  };
+
+  const confirmScannedItems = () => {
+    const toAdd = scannedPantryItems
+      .filter((_, i) => selectedScanItems.has(i))
+      .map(item => `${item.emoji} ${item.name}${item.quantity ? ` (${item.quantity})` : ""}`);
+    toAdd.forEach(name => addPantryItem(name));
+    toast({ title: t(`Added ${toAdd.length} items to pantry`, `${toAdd.length} चीजें पेंट्री में जोड़ी`) });
+    setScannedPantryItems([]);
+    setSelectedScanItems(new Set());
+  };
 
   useEffect(() => {
     if (!pantryKey) return;
@@ -292,14 +335,24 @@ export default function Grocery() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
+      {/* Hidden scan file input */}
+      <input
+        ref={pantryScanInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handlePantryScan(f); e.target.value = ""; }}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground">
-            {t("Grocery & Pantry", "खरीदारी व पेंट्री")}
+            {t("Kitchen Inventory", "रसोई इन्वेंटरी")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {t("AI-curated shopping with budget-smart swaps", "AI द्वारा बजट-स्मार्ट विकल्पों के साथ खरीदारी")}
+            {t("Track your pantry & generate smart shopping lists", "पेंट्री ट्रैक करें और स्मार्ट खरीदारी सूची बनाएं")}
           </p>
         </div>
         <Button
@@ -327,7 +380,7 @@ export default function Grocery() {
           }`}
         >
           <ShoppingCart className="w-4 h-4" />
-          {t("Grocery List", "खरीदारी")}
+          {t("Shopping List", "खरीदारी")}
         </button>
         <button
           onClick={() => setActiveTab("pantry")}
@@ -338,7 +391,7 @@ export default function Grocery() {
           }`}
         >
           <Package className="w-4 h-4" />
-          {t("My Pantry", "मेरी पेंट्री")}
+          {t("Pantry Inventory", "पेंट्री इन्वेंटरी")}
           {pantryItems.length > 0 && (
             <span className="ml-1 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {pantryItems.length}
@@ -359,9 +412,78 @@ export default function Grocery() {
             </div>
           </div>
 
+          {/* Scan Button */}
+          <div className="glass-card rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm">{t("Scan Your Kitchen", "रसोई स्कैन करें")}</h3>
+              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">{t("AI-powered", "AI संचालित")}</span>
+            </div>
+            <button
+              onClick={() => pantryScanInputRef.current?.click()}
+              disabled={isScanningPantry}
+              className="w-full flex items-center justify-center gap-3 py-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all text-primary disabled:opacity-60"
+            >
+              {isScanningPantry ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="font-medium text-sm">{t("Scanning your kitchen…", "रसोई स्कैन हो रही है…")}</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5" />
+                  <span className="font-medium text-sm">{t("Take / Upload a photo to detect pantry items", "पेंट्री चीज़ें पहचानने के लिए फ़ोटो लें या अपलोड करें")}</span>
+                </>
+              )}
+            </button>
+
+            {/* Scanned results */}
+            {scannedPantryItems.length > 0 && (
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    <ScanLine className="w-4 h-4 inline mr-1.5 text-primary" />
+                    {t(`Detected ${scannedPantryItems.length} items — select to add:`, `${scannedPantryItems.length} चीजें मिलीं — चुनें:`)}
+                  </p>
+                  <button onClick={() => { setScannedPantryItems([]); setSelectedScanItems(new Set()); }} className="text-xs text-muted-foreground hover:text-foreground">
+                    {t("Dismiss", "बंद करें")}
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {scannedPantryItems.map((item, i) => (
+                    <label key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all ${selectedScanItems.has(i) ? "bg-green-500/10 border border-green-500/20" : "bg-muted/50 border border-transparent"}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedScanItems.has(i)}
+                        onChange={() => setSelectedScanItems(prev => {
+                          const next = new Set(prev);
+                          next.has(i) ? next.delete(i) : next.add(i);
+                          return next;
+                        })}
+                        className="accent-primary"
+                      />
+                      <span className="text-lg leading-none">{item.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{item.quantity}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <Button
+                  onClick={confirmScannedItems}
+                  disabled={selectedScanItems.size === 0}
+                  className="w-full gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t(`Add ${selectedScanItems.size} Selected to Pantry`, `${selectedScanItems.size} चीजें पेंट्री में जोड़ें`)}
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Add item input */}
           <div className="glass-card rounded-2xl p-4 space-y-3">
-            <h3 className="font-semibold text-sm">{t("Add Item to Pantry", "पेंट्री में जोड़ें")}</h3>
+            <h3 className="font-semibold text-sm">{t("Add Item Manually", "मैन्युअल रूप से जोड़ें")}</h3>
             <div className="flex gap-2">
               <Input
                 ref={pantryInputRef}
@@ -402,11 +524,14 @@ export default function Grocery() {
             </div>
           </div>
 
-          {/* Pantry items list */}
+          {/* Pantry inventory grid */}
           {pantryItems.length > 0 ? (
             <div className="glass-card rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">{t(`${pantryItems.length} item${pantryItems.length === 1 ? "" : "s"} in pantry`, `पेंट्री में ${pantryItems.length} चीजें`)}</h3>
+                <div>
+                  <h3 className="font-semibold text-sm">{t("In Stock", "स्टॉक में है")}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t(`${pantryItems.length} item${pantryItems.length === 1 ? "" : "s"} available`, `${pantryItems.length} चीजें उपलब्ध`)}</p>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -416,21 +541,27 @@ export default function Grocery() {
                   {t("Clear All", "सब हटाएं")}
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {pantryItems.map(item => (
-                  <div key={item} className="flex items-center gap-1.5 bg-green-500/10 text-green-800 border border-green-500/20 rounded-full px-3 py-1 text-sm">
-                    <span>{item}</span>
-                    <button onClick={() => removePantryItem(item)} className="text-green-600 hover:text-green-900 ml-0.5">
-                      <X className="w-3 h-3" />
+                  <div key={item} className="flex items-center gap-2 bg-green-500/8 border border-green-500/15 rounded-xl px-3 py-2.5 group">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-sm font-medium text-foreground flex-1 truncate">{item}</span>
+                    <button onClick={() => removePantryItem(item)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all ml-0.5 shrink-0">
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="glass-card rounded-2xl p-6 text-center space-y-2">
-              <Package className="w-10 h-10 text-muted-foreground/40 mx-auto" />
-              <p className="text-sm text-muted-foreground">{t("Your pantry is empty. Add items above.", "पेंट्री खाली है। ऊपर से जोड़ें।")}</p>
+            <div className="glass-card rounded-2xl p-8 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                <Package className="w-7 h-7 text-primary/50" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">{t("Pantry is empty", "पेंट्री खाली है")}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t("Scan your kitchen or add items manually above.", "ऊपर स्कैन करें या मैन्युअल रूप से जोड़ें।")}</p>
+              </div>
             </div>
           )}
 

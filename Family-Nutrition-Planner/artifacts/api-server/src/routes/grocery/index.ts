@@ -247,4 +247,51 @@ router.get("/grocery/cheaper-alternative", async (req, res): Promise<void> => {
   });
 });
 
+const ScanPantrySchema = z.object({
+  imageBase64: z.string(),
+  mimeType: z.string().default("image/jpeg"),
+});
+
+router.post("/pantry/scan-image", async (req, res): Promise<void> => {
+  const parsed = ScanPantrySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed" });
+    return;
+  }
+  const { imageBase64, mimeType } = parsed.data;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { mimeType, data: imageBase64 } },
+          {
+            text: `You are a kitchen pantry scanner for Indian households. Look at this image and identify ALL visible food items, ingredients, groceries, spices, and condiments.
+For each item return:
+- name: simple English name
+- quantity: estimated quantity (e.g. "500g", "1 kg", "2 cups", "half packet", "few pieces")
+- emoji: single relevant emoji
+
+Return ONLY a valid JSON array, no markdown:
+[{"name":"Rice","quantity":"2 kg","emoji":"🍚"},{"name":"Onions","quantity":"4-5 pieces","emoji":"🧅"}]
+
+If no food items are visible, return [].`,
+          }
+        ],
+      }],
+      config: { maxOutputTokens: 1024, responseMimeType: "application/json" },
+    });
+
+    const text = result.text?.trim() ?? "[]";
+    let items: Array<{ name: string; quantity: string; emoji: string }> = [];
+    try { items = JSON.parse(text); } catch { items = []; }
+    res.json({ items });
+  } catch (err) {
+    console.error("Pantry scan error:", err);
+    res.status(500).json({ error: "Scan failed", items: [] });
+  }
+});
+
 export default router;
