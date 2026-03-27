@@ -114,11 +114,22 @@ All packages use `composite: true`. Build order:
 3. `artifacts/api-server` (depends on db, api-zod, integrations-gemini-ai)
 4. `artifacts/nutrinext` (depends on api-client-react)
 
+## Authentication
+
+JWT-based auth system added (`/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/logout`).
+- JWT tokens stored in `localStorage` with key `parivarsehat_token`
+- `setAuthTokenGetter()` is called in `main.tsx` to auto-attach bearer token to all API requests
+- Frontend pages: `/login`, `/register` with language selector
+- Layout sidebar shows user name/email with logout button when logged in
+- Families have an optional `userId` foreign key for future per-user scoping
+
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection (Replit-managed)
-- `GEMINI_API_KEY` — via Replit Gemini integration (auto-injected)
-- `SARVAM_API_KEY` — Sarvam AI voice (set as secret)
+- `AI_INTEGRATIONS_GEMINI_BASE_URL` — Gemini AI endpoint (auto-set by Replit AI Integration)
+- `AI_INTEGRATIONS_GEMINI_API_KEY` — Gemini AI key (auto-set by Replit AI Integration, dummy value)
+- `JWT_SECRET` — JWT signing secret (auto-generated, stored in shared env)
+- `SARVAM_API_KEY` — Sarvam AI voice (set as secret; voice/transcribe returns 503 if missing)
 - `YOLOV11_INFERENCE_URL` — YOLOv11 service URL (optional; 503 if missing in production)
 - `DEMO_MODE=true` — **development only** — enables mock scanner data when YOLO URL missing
 - `PORT` — set by Replit per artifact
