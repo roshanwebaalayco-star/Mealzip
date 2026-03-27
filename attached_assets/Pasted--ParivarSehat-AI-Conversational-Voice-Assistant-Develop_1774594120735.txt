@@ -1,0 +1,396 @@
+# ParivarSehat AI — Conversational Voice Assistant
+## Development Prompt
+
+---
+
+## WHAT TO BUILD
+
+Replace the current "Speak Profile" one-shot button with a **fully conversational voice assistant** that behaves exactly like Siri or Google Assistant — asking one question at a time, listening for the answer, confirming what it heard, then moving to the next question. The form fills itself silently in the background as the conversation progresses.
+
+---
+
+## THE CONVERSATION FLOW
+
+The assistant speaks first. User replies by voice. Assistant confirms + moves forward.
+
+```
+ASSISTANT: "Namaste! Main aapki family ka profile set karne mein madad karunga.
+            Sabse pehle — aapke family ka naam kya hai?"
+
+USER: "Sharma family"
+
+ASSISTANT: "Sharma family — bilkul sahi. 
+            Aap kis state mein rehte hain?"
+
+USER: "Jharkhand mein"
+
+ASSISTANT: "Jharkhand. Perfect.
+            Aapka monthly food budget kitna hai?"
+
+USER: "Paanch hazaar rupaye"
+
+ASSISTANT: "5000 rupaye per month — note kar liya.
+            Ab family members ke baare mein batayein. 
+            Pehle member kaun hain?"
+
+USER: "Main hoon, Rahul, 42 saal, mujhe diabetes hai"
+
+ASSISTANT: "Rahul ji, 42 saal, diabetes — saved.
+            Aur koi family member hai?"
+
+USER: "Haan, meri wife Priya, 38 saal"
+
+ASSISTANT: "Priya ji, 38 saal. Unhe koi health condition hai?"
+
+USER: "Nahi, sab theek hai"
+
+ASSISTANT: "Perfect. Aur koi?"
+
+USER: "Mera beta Arjun, 14 saal"
+
+ASSISTANT: "Arjun, 14 saal — growing child.
+            Aur koi member? Ya ab plan banana shuru karein?"
+
+USER: "Plan banana shuru karo"
+
+ASSISTANT: "Ek second — aapka family plan taiyaar ho raha hai!"
+            [FORM SUBMITS + NAVIGATES TO MEAL PLAN]
+```
+
+---
+
+## TECHNICAL ARCHITECTURE
+
+### State Machine (Conversation States)
+
+```javascript
+const CONVERSATION_STATES = {
+  GREETING: 'greeting',
+  ASK_FAMILY_NAME: 'ask_family_name',
+  ASK_STATE: 'ask_state',
+  ASK_BUDGET: 'ask_budget',
+  ASK_LANGUAGE: 'ask_language',
+  ASK_DIETARY_TYPE: 'ask_dietary_type',
+  ASK_MEMBER_START: 'ask_member_start',
+  ASK_MEMBER_NAME: 'ask_member_name',
+  ASK_MEMBER_AGE: 'ask_member_age',
+  ASK_MEMBER_ROLE: 'ask_member_role',
+  ASK_MEMBER_CONDITION: 'ask_member_condition',
+  ASK_MEMBER_GOAL: 'ask_member_goal',
+  ASK_MORE_MEMBERS: 'ask_more_members',
+  CONFIRM_ALL: 'confirm_all',
+  COMPLETE: 'complete',
+  ERROR: 'error'
+}
+```
+
+### Core Hook: useVoiceAssistant
+
+```javascript
+const useVoiceAssistant = () => {
+  const [state, setState] = useState(CONVERSATION_STATES.GREETING);
+  const [transcript, setTranscript] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [formData, setFormData] = useState(initialFormData);
+  const [currentMember, setCurrentMember] = useState({});
+  const [conversationHistory, setConversationHistory] = useState([]);
+
+  // Main conversation engine
+  const processUserResponse = async (userText) => {
+    // Add to history
+    addToHistory('user', userText);
+    
+    // Send to Gemini with current state context
+    const parsed = await parseWithGemini(userText, state, formData);
+    
+    // Update form data silently
+    updateFormData(parsed);
+    
+    // Determine next state
+    const nextState = getNextState(state, parsed);
+    setState(nextState);
+    
+    // Generate and speak assistant response
+    const response = generateResponse(nextState, parsed, formData);
+    await speak(response);
+    addToHistory('assistant', response);
+    
+    // If complete, submit form
+    if (nextState === CONVERSATION_STATES.COMPLETE) {
+      submitForm(formData);
+    }
+  };
+  
+  return { state, isListening, isSpeaking, 
+           conversationHistory, formData, startListening };
+};
+```
+
+### Sarvam STT Integration (Speech → Text)
+
+```javascript
+const startListening = async () => {
+  setIsListening(true);
+  
+  // Start recording audio
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const recorder = new MediaRecorder(stream);
+  const chunks = [];
+  
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = async () => {
+    const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+    const transcript = await transcribeWithSarvam(audioBlob);
+    setTranscript(transcript);
+    await processUserResponse(transcript);
+  };
+  
+  // Auto-stop after silence (2.5 seconds)
+  recorder.start();
+  setTimeout(() => {
+    recorder.stop();
+    stream.getTracks().forEach(t => t.stop());
+    setIsListening(false);
+  }, 6000); // max 6 seconds per response
+};
+
+const transcribeWithSarvam = async (audioBlob) => {
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.wav');
+  formData.append('model', 'saarika:v2.5');
+  formData.append('language_code', 'hi-IN'); // auto-detect
+  
+  const response = await fetch('https://api.sarvam.ai/speech-to-text', {
+    method: 'POST',
+    headers: { 'api-subscription-key': process.env.SARVAM_API_KEY },
+    body: formData
+  });
+  
+  const data = await response.json();
+  return data.transcript;
+};
+```
+
+### Gemini Parsing — Maps Speech to Form Fields
+
+```javascript
+const GEMINI_PARSE_PROMPT = `
+You are a form-filling assistant for an Indian family health app.
+Current conversation state: {STATE}
+Current partial form data: {FORM_DATA}
+
+The user just said: "{USER_TEXT}"
+
+Extract ONLY what the user said in this turn. Return strict JSON:
+{
+  "family_name": null or "string",
+  "state": null or "Jharkhand|Bihar|UP|...",
+  "monthly_budget": null or number,
+  "language": null or "Hindi|English|Bengali|...",
+  "dietary_type": null or "vegetarian|non-vegetarian|vegan|jain|eggetarian",
+  "member": {
+    "name": null or "string",
+    "role": null or "self|spouse|father|mother|son|daughter|grandparent",
+    "age": null or number,
+    "gender": null or "male|female",
+    "conditions": null or ["diabetes","hypertension","anemia","obesity","thyroid","pcod","none"],
+    "health_goal": null or "weight_loss|diabetes_management|general_wellness|child_growth|muscle_gain"
+  },
+  "add_more_members": null or true or false,
+  "ready_to_generate": null or true or false
+}
+
+MAPPING RULES (Hindi → English):
+- paanch hazaar / 5000 → 5000
+- madhumeh / sugar ki bimari → diabetes
+- BP / blood pressure / uchch raktachap → hypertension
+- khoon ki kami / anemia / raktalpata → anemia
+- shakahari → vegetarian
+- maansahari → non-vegetarian
+- pitaji / papa / dad → father
+- maa / mummy / mom → mother  
+- beta / ladka / putra → son
+- beti / ladki / putri → daughter
+- dada / dadi / nana / nani → grandparent
+- pati / husband → spouse
+- patni / wife → spouse
+- haan / ji haan / yes → true
+- nahi / no / bas → false
+- aur nahi / sirf itne / ho gaya → ready_to_generate: true
+`;
+
+const parseWithGemini = async (userText, currentState, formData) => {
+  const prompt = GEMINI_PARSE_PROMPT
+    .replace('{STATE}', currentState)
+    .replace('{FORM_DATA}', JSON.stringify(formData))
+    .replace('{USER_TEXT}', userText);
+    
+  const response = await callGemini(prompt);
+  return JSON.parse(response);
+};
+```
+
+### Text-to-Speech (Browser Native — Free)
+
+```javascript
+const speak = (text) => {
+  return new Promise((resolve) => {
+    window.speechSynthesis.cancel(); // stop any current speech
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = formData.language === 'Hindi' ? 'hi-IN' : 'en-IN';
+    utterance.rate = 0.9;  // slightly slower = clearer
+    utterance.pitch = 1.1; // friendly tone
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Auto-start listening after assistant finishes speaking
+      setTimeout(() => startListening(), 300);
+      resolve();
+    };
+    
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  });
+};
+```
+
+---
+
+## UI DESIGN
+
+### Visual Layout During Conversation
+
+```
+┌─────────────────────────────────┐
+│  🟠 NutriNext    PARIVARSEHAT   │
+├─────────────────────────────────┤
+│                                 │
+│    ┌─────────────────────────┐  │
+│    │  💬 Conversation Area   │  │
+│    │                         │  │
+│    │  🤖 Namaste! Aapke      │  │
+│    │     family ka naam?     │  │
+│    │                         │  │
+│    │  👤 "Sharma family"     │  │
+│    │                         │  │
+│    │  🤖 Sharma family —     │  │
+│    │     bilkul sahi. Aap    │  │
+│    │     kis state mein...   │  │
+│    └─────────────────────────┘  │
+│                                 │
+│    ┌─────────────────────────┐  │
+│    │  FORM FILLING SILENTLY  │  │
+│    │  ✅ Family: Sharma       │  │
+│    │  ✅ State: Jharkhand     │  │
+│    │  ⏳ Budget: ...          │  │
+│    └─────────────────────────┘  │
+│                                 │
+│         🎤 [LISTENING...]       │
+│    ●●●●●●●○○○○  (audio wave)    │
+│                                 │
+│    [Type instead] [Skip voice]  │
+└─────────────────────────────────┘
+```
+
+### Visual States of the Mic Button
+
+```javascript
+// 4 states, 4 visual appearances
+IDLE     → grey mic icon, "Tap to start"
+LISTENING → pulsing orange ring animation, "Listening..."
+PROCESSING → spinning orange ring, "Understanding..."
+SPEAKING  → sound wave animation, "Speaking..."
+```
+
+### Conversation Bubble Styling
+- Assistant messages: left-aligned, light orange background, robot emoji
+- User messages: right-aligned, white background, person emoji
+- Auto-scroll to latest message
+- Typing indicator (3 dots) while Gemini processes
+
+---
+
+## FALLBACK HANDLING
+
+```javascript
+// If STT fails or user is confused
+const handleFallback = (state) => {
+  const fallbacks = {
+    ask_family_name: "Koi baat nahi — sirf apna family naam bolein, jaise 'Sharma' ya 'Gupta'",
+    ask_budget: "Mahine mein khane par kitne rupaye kharch karte hain? Jaise '3000' ya 'paanch hazaar'",
+    ask_member_condition: "Koi bimari hai toh batayein — jaise diabetes, BP, ya 'sab theek hai' bolein"
+  };
+  speak(fallbacks[state] || "Kya aap dobara bol sakte hain?");
+};
+
+// If user wants to type instead
+const switchToTyping = () => {
+  setVoiceMode(false);
+  // Show standard form with data already filled
+};
+```
+
+---
+
+## COMPLETE QUESTION SCRIPT
+
+```javascript
+const QUESTIONS = {
+  greeting: {
+    hi: "Namaste! Main ParivarSehat AI hoon. Aapki family ka meal plan banane mein madad karunga. Kya hum shuru karein?",
+    en: "Hello! I'm ParivarSehat AI. I'll help create your family's personalized meal plan. Shall we begin?"
+  },
+  ask_family_name: {
+    hi: "Aapke family ka naam kya hai?",
+    en: "What is your family name?"
+  },
+  ask_state: {
+    hi: "Aap kis state mein rehte hain?",
+    en: "Which state do you live in?"
+  },
+  ask_budget: {
+    hi: "Mahine mein khane par aapka budget kitna hai?",
+    en: "What is your monthly food budget?"
+  },
+  ask_dietary: {
+    hi: "Aapki family shakahari hai ya maansahari?",
+    en: "Is your family vegetarian or non-vegetarian?"
+  },
+  ask_member_start: {
+    hi: "Ab family members ke baare mein batayein. Pehle aap khud ke baare mein batayein — aapka naam, umar, aur koi health condition?",
+    en: "Now tell me about family members. Start with yourself — your name, age, and any health conditions?"
+  },
+  ask_more_members: {
+    hi: "Aur koi family member hai jinka meal plan banana hai?",
+    en: "Are there more family members to add?"
+  },
+  confirm_generate: {
+    hi: "Shukriya! Main ab aapki family ka personalized meal plan bana raha hoon. Ek minute...",
+    en: "Thank you! Generating your family's personalized meal plan now. One moment..."
+  }
+};
+```
+
+---
+
+## SUCCESS CRITERIA
+
+The assistant must:
+- Ask questions naturally, one at a time
+- Understand Hindi + English + mixed (Hinglish)
+- Confirm each answer before moving on
+- Fill the form silently in background
+- Handle "wait" / "ruko" / corrections gracefully
+- Complete full family profile in under 3 minutes
+- Auto-navigate to meal plan when complete
+- Always offer "type instead" escape hatch
+
+---
+
+## WHAT NOT TO BUILD
+- Do NOT require internet for TTS (use browser Web Speech API)
+- Do NOT make user repeat themselves (confirm before moving on)
+- Do NOT ask more than 2 questions at once
+- Do NOT show raw JSON or error logs to user ever
