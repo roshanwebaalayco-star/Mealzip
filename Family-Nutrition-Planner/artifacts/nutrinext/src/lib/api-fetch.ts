@@ -1,10 +1,15 @@
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
 
+const PUBLIC_PATHS = ["/login", "/register"];
+
 function handleUnauthorized(): void {
+  if (PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p))) {
+    return;
+  }
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  window.location.href = "/login";
+  window.dispatchEvent(new Event("auth:unauthorized"));
 }
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {

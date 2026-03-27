@@ -1,5 +1,11 @@
-import { createContext, useState, type ReactNode } from "react";
+import { createContext, useState, useEffect, type ReactNode } from "react";
 import { useListFamilies, type Family } from "@workspace/api-client-react";
+
+const TOKEN_KEY = "auth_token";
+
+function isAuthenticated(): boolean {
+  return !!localStorage.getItem(TOKEN_KEY);
+}
 
 export interface AppStateContextValue {
   activeFamily: Family | undefined;
@@ -11,7 +17,21 @@ export interface AppStateContextValue {
 export const AppStateContext = createContext<AppStateContextValue | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const { data: families, isLoading } = useListFamilies();
+  const [authenticated, setAuthenticated] = useState(isAuthenticated);
+
+  useEffect(() => {
+    const onUnauthorized = () => setAuthenticated(false);
+    const onLogin = () => setAuthenticated(isAuthenticated());
+
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    window.addEventListener("auth:login", onLogin);
+    return () => {
+      window.removeEventListener("auth:unauthorized", onUnauthorized);
+      window.removeEventListener("auth:login", onLogin);
+    };
+  }, []);
+
+  const { data: families, isLoading } = useListFamilies({ query: { enabled: authenticated } });
   const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
 
   const activeFamily = families?.find(f => f.id === selectedFamilyId) || families?.[0];

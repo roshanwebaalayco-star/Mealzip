@@ -45,6 +45,7 @@ export function useAuth() {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     setUser(authUser);
+    window.dispatchEvent(new Event("auth:login"));
   }, []);
 
   const clearAuth = useCallback(() => {

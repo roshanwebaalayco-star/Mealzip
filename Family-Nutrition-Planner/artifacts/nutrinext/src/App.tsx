@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +6,7 @@ import { Layout } from "@/components/Layout";
 import { LanguageProvider } from "@/contexts/language-context";
 import { AppStateProvider } from "@/contexts/app-state-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useEffect } from "react";
 
 // Pages
 import Dashboard from "@/pages/Dashboard";
@@ -38,9 +39,23 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
 const queryClient = new QueryClient();
 
+function AuthGuard() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    const handler = () => {
+      queryClient.clear();
+      setLocation("/login");
+    };
+    window.addEventListener("auth:unauthorized", handler);
+    return () => window.removeEventListener("auth:unauthorized", handler);
+  }, [setLocation]);
+  return null;
+}
+
 function Router() {
   return (
     <Layout>
+      <AuthGuard />
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
