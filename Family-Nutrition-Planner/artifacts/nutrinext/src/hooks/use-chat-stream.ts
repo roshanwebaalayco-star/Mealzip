@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 
 export function useChatStream() {
@@ -9,7 +10,7 @@ export function useChatStream() {
     setCurrentMessage("");
 
     try {
-      const res = await fetch(`/api/gemini/conversations/${conversationId}/messages`, {
+      const res = await apiFetch(`/api/gemini/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content })

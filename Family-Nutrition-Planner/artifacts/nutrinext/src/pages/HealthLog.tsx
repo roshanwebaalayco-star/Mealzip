@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
@@ -50,7 +51,7 @@ export default function HealthLog() {
   const { data: members } = useQuery({
     queryKey: ["family-members", activeFamily?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/families/${activeFamily?.id}/members`);
+      const res = await apiFetch(`/api/families/${activeFamily?.id}/members`);
       return res.json() as Promise<Array<{ id: number; name: string; age: number; gender: string; healthConditions?: string[]; activityLevel?: string }>>;
     },
     enabled: !!activeFamily?.id,
@@ -63,7 +64,7 @@ export default function HealthLog() {
     queryKey: ["health-logs", activeFamily?.id, activeMemberId],
     queryFn: async () => {
       const url = `/api/health-logs?familyId=${activeFamily?.id}${activeMemberId ? `&memberId=${activeMemberId}` : ""}`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       return res.json() as Promise<HealthLogEntry[]>;
     },
     enabled: !!activeFamily?.id,
@@ -71,7 +72,7 @@ export default function HealthLog() {
 
   const logMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/health-logs", {
+      const res = await apiFetch("/api/health-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -101,7 +102,7 @@ export default function HealthLog() {
     if (selectedSymptoms.length === 0) return;
     setCheckingSymptoms(true);
     try {
-      const res = await fetch("/api/symptom-check", {
+      const res = await apiFetch("/api/symptom-check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

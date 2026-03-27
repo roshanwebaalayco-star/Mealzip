@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
@@ -36,7 +37,7 @@ export default function Nutrition() {
   const { data: members } = useQuery({
     queryKey: ["family-members", activeFamily?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/families/${activeFamily?.id}/members`);
+      const res = await apiFetch(`/api/families/${activeFamily?.id}/members`);
       return res.json() as Promise<Array<{ id: number; name: string; age: number; gender: string; healthConditions?: string[] }>>;
     },
     enabled: !!activeFamily?.id,
@@ -47,7 +48,7 @@ export default function Nutrition() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["nutrition-summary", activeMemberId],
     queryFn: async () => {
-      const res = await fetch(`/api/nutrition-summary/${activeMemberId}`);
+      const res = await apiFetch(`/api/nutrition-summary/${activeMemberId}`);
       return res.json() as Promise<NutritionSummary>;
     },
     enabled: !!activeMemberId,
@@ -56,7 +57,7 @@ export default function Nutrition() {
   const { data: nutritionLogs } = useQuery({
     queryKey: ["nutrition-logs-30d", activeFamily?.id, activeMemberId],
     queryFn: async () => {
-      const res = await fetch(`/api/nutrition-logs?familyId=${activeFamily?.id}&memberId=${activeMemberId}&limit=90`);
+      const res = await apiFetch(`/api/nutrition-logs?familyId=${activeFamily?.id}&memberId=${activeMemberId}&limit=90`);
       const rows = await res.json() as Array<{
         logDate: string;
         calories?: number;

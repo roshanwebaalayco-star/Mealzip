@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
@@ -64,7 +65,7 @@ export default function Grocery() {
     setSwapLoading(prev => ({ ...prev, [key]: true }));
     try {
       const budget = item.estimatedCost ? Math.round(item.estimatedCost * 0.8) : 50;
-      const res = await fetch(`/api/grocery/cheaper-alternative?item=${encodeURIComponent(item.name)}&budget=${budget}`);
+      const res = await apiFetch(`/api/grocery/cheaper-alternative?item=${encodeURIComponent(item.name)}&budget=${budget}`);
       const data = await res.json() as { alternatives?: Array<{ name: string; costPerServing?: number }>; item?: string };
       const dbAlt = data.alternatives?.[0];
       const swapDisplay = dbAlt
@@ -97,7 +98,7 @@ export default function Grocery() {
     queryKey: ["grocery-lists", activeFamily?.id],
     queryFn: async () => {
       if (!activeFamily?.id) return [];
-      const res = await fetch(`/api/grocery-lists?familyId=${activeFamily.id}`);
+      const res = await apiFetch(`/api/grocery-lists?familyId=${activeFamily.id}`);
       return res.json() as Promise<GroceryList[]>;
     },
     enabled: !!activeFamily?.id,
@@ -105,7 +106,7 @@ export default function Grocery() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/grocery-lists/generate", {
+      const res = await apiFetch("/api/grocery-lists/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ familyId: activeFamily?.id }),

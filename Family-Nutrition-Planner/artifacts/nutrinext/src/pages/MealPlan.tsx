@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useAppState } from "@/hooks/use-app-state";
@@ -130,7 +131,7 @@ export default function MealPlan() {
   const { data: familyMembers } = useQuery<FamilyMember[]>({
     queryKey: ["family-members", familyId],
     queryFn: async () => {
-      const res = await fetch(`/api/families/${familyId}/members`);
+      const res = await apiFetch(`/api/families/${familyId}/members`);
       return res.json() as Promise<FamilyMember[]>;
     },
     enabled: !!familyId,
@@ -140,7 +141,7 @@ export default function MealPlan() {
     queryKey: ["fasting-calendar"],
     queryFn: async () => {
       const now = new Date();
-      const res = await fetch(`/api/fasting-calendar?year=${now.getFullYear()}&month=${now.getMonth() + 1}`);
+      const res = await apiFetch(`/api/fasting-calendar?year=${now.getFullYear()}&month=${now.getMonth() + 1}`);
       return res.json() as Promise<FastingCalendar>;
     },
   });
@@ -150,7 +151,7 @@ export default function MealPlan() {
     queryKey: ["meal-feedback", currentPlanId],
     queryFn: async () => {
       if (!currentPlanId) return [];
-      const res = await fetch(`/api/meal-plans/${currentPlanId}/feedback`);
+      const res = await apiFetch(`/api/meal-plans/${currentPlanId}/feedback`);
       return res.json() as Promise<{ liked: boolean }[]>;
     },
     enabled: !!currentPlanId,
@@ -163,7 +164,7 @@ export default function MealPlan() {
 
   const feedbackMutation = useMutation({
     mutationFn: async ({ dayIndex, mealType, liked, mealPlanId }: { dayIndex: number; mealType: string; liked: boolean; mealPlanId: number }) => {
-      const res = await fetch(`/api/meal-plans/${mealPlanId}/feedback`, {
+      const res = await apiFetch(`/api/meal-plans/${mealPlanId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ familyId, dayIndex, mealType, liked }),
@@ -182,7 +183,7 @@ export default function MealPlan() {
     mutationFn: async ({ memberId, meal, mealType }: { memberId: number; meal: MealCell; mealType: string }) => {
       const mealName = meal.recipeName ?? meal.name ?? "Unknown meal";
       const todayStr = new Date().toISOString().split("T")[0];
-      const res = await fetch("/api/nutrition-logs", {
+      const res = await apiFetch("/api/nutrition-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -212,7 +213,7 @@ export default function MealPlan() {
 
   const regenerateMutation = useMutation({
     mutationFn: async (mealPlanId: number) => {
-      const res = await fetch(`/api/meal-plans/${mealPlanId}/regenerate`, {
+      const res = await apiFetch(`/api/meal-plans/${mealPlanId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

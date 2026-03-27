@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -116,7 +117,7 @@ export default function FamilySetup() {
         const arrayBuf = await blob.arrayBuffer();
         const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
 
-        const transcribeRes = await fetch("/api/voice/transcribe", {
+        const transcribeRes = await apiFetch("/api/voice/transcribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ audioBase64: base64, languageCode: langCode }),
@@ -128,7 +129,7 @@ export default function FamilySetup() {
         const { transcript } = await transcribeRes.json() as { transcript: string };
         if (!transcript) throw new Error("Empty transcript received");
 
-        const parseRes = await fetch("/api/voice/parse-profile", {
+        const parseRes = await apiFetch("/api/voice/parse-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ transcript, language: familyData.primaryLanguage }),

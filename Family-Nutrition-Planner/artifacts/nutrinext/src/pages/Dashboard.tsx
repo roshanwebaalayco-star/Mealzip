@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -119,7 +120,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
         reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
           try {
-            const res = await fetch("/api/voice/transcribe", {
+            const res = await apiFetch("/api/voice/transcribe", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ audioBase64: base64, languageCode: "hi-IN" }),
@@ -155,7 +156,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
 
   const getOrCreateConversation = useCallback(async (): Promise<number> => {
     if (convIdRef.current !== null) return convIdRef.current;
-    const res = await fetch("/api/gemini/conversations", {
+    const res = await apiFetch("/api/gemini/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Kal Kya Banayein — Home Chat" }),
@@ -171,7 +172,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
     setReply(null);
     try {
       const convId = await getOrCreateConversation();
-      const res = await fetch(`/api/gemini/conversations/${convId}/messages`, {
+      const res = await apiFetch(`/api/gemini/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: message }),

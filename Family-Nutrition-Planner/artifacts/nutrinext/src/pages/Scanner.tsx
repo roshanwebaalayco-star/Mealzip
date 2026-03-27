@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/api-fetch";
 import { useState, useRef } from "react";
 import { useScanFood } from "@workspace/api-client-react";
 import { useAppState } from "@/hooks/use-app-state";
@@ -86,7 +87,7 @@ function PantryScanner({ familyId }: { familyId: number }) {
 
   const savePantryMutation = useMutation({
     mutationFn: async (items: string[]) => {
-      const res = await fetch("/api/grocery-lists/generate", {
+      const res = await apiFetch("/api/grocery-lists/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -288,7 +289,7 @@ export default function Scanner() {
       carbsG: number;
       fatG: number;
     }) => {
-      const res = await fetch("/api/nutrition-logs", {
+      const res = await apiFetch("/api/nutrition-logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -327,7 +328,7 @@ export default function Scanner() {
     const grams = parseFloat(manualEntry.grams) || 100;
     let calories = 0, proteinG = 0, carbsG = 0, fatG = 0;
     try {
-      const lookup = await fetch(`/api/nutrition/lookup?q=${encodeURIComponent(manualEntry.foodName)}&grams=${grams}`);
+      const lookup = await apiFetch(`/api/nutrition/lookup?q=${encodeURIComponent(manualEntry.foodName)}&grams=${grams}`);
       if (lookup.ok) {
         const data = await lookup.json() as { calories: number; protein: number; carbs: number; fat: number; source?: string };
         calories = data.calories;
