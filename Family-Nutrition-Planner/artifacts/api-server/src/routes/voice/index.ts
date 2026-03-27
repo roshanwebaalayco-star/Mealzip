@@ -294,18 +294,63 @@ Return ONLY valid JSON, no markdown or extra text:
   "isComplete": false
 }`;
 
+  const ChatTurnResponseSchema = z.object({
+    parsedFields: z.record(z.unknown()).default({}),
+    nextState: z.string().default(state),
+    assistantMessage: z.string().min(1),
+    isComplete: z.boolean().default(false),
+  });
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: { responseMimeType: "application/json" },
     });
-    const data = JSON.parse(response.text ?? "{}");
+
+    let rawData: unknown;
+    try {
+      rawData = JSON.parse(response.text ?? "{}");
+    } catch {
+      rawData = {};
+    }
+
+    const schemaResult = ChatTurnResponseSchema.safeParse(rawData);
+    const fallbackMsg = isHindi ? "क्या आप दोबारा बोल सकते हैं?" : "Could you repeat that?";
+
+    if (!schemaResult.success) {
+      req.log.warn({ issues: schemaResult.error.flatten() }, "Gemini chat-turn output failed schema validation — using fallback");
+      res.json({ parsedFields: {}, nextState: state, assistantMessage: fallbackMsg, isComplete: false });
+      return;
+    }
+
+    const data = schemaResult.data;
+
+    let isComplete = data.isComplete;
+    let nextState = data.nextState;
+
+    if (isComplete) {
+      const existingName = (partialFormData as Record<string, unknown>).familyName;
+      const parsedName = data.parsedFields.familyName;
+      const hasFamilyName = !!existingName || !!parsedName;
+      const existingMembers = Array.isArray((partialFormData as Record<string, unknown>).members)
+        ? ((partialFormData as Record<string, unknown>).members as unknown[]).length
+        : 0;
+      const hasNewMember = !!data.parsedFields.currentMember;
+      const atLeastOneMember = existingMembers > 0 || hasNewMember;
+
+      if (!hasFamilyName || !atLeastOneMember) {
+        isComplete = false;
+        nextState = !hasFamilyName ? "ask_family_name" : "ask_member_start";
+        req.log.info({ hasFamilyName, atLeastOneMember }, "Premature complete blocked — missing required fields");
+      }
+    }
+
     res.json({
-      parsedFields: data.parsedFields ?? {},
-      nextState: data.nextState ?? state,
-      assistantMessage: data.assistantMessage ?? (isHindi ? "क्या आप दोबारा बोल सकते हैं?" : "Could you repeat that?"),
-      isComplete: data.isComplete === true,
+      parsedFields: data.parsedFields,
+      nextState,
+      assistantMessage: data.assistantMessage,
+      isComplete,
     });
   } catch (err) {
     req.log.error({ err }, "Voice chat-turn failed");
