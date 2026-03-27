@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, inArray, lte, sql, desc, ilike } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, localDb } from "@workspace/db";
 import {
   familiesTable, familyMembersTable, mealPlansTable, recipesTable, mealFeedbackTable,
 } from "@workspace/db";
@@ -148,7 +148,7 @@ async function getFilteredRecipes(
     ingredients: recipesTable.ingredients,
   } as const;
 
-  let recipes = await db.select(RECIPE_SELECT)
+  let recipes = await localDb.select(RECIPE_SELECT)
     .from(recipesTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .limit(limit * 3);
@@ -161,7 +161,7 @@ async function getFilteredRecipes(
     if (dietPref) baseConditions.push(eq(recipesTable.diet, dietPref));
     if (budgetPerServing > 0) baseConditions.push(lte(recipesTable.costPerServing, budgetPerServing * 1.5));
 
-    const ingredientFastingRecipes = await db.select(RECIPE_SELECT)
+    const ingredientFastingRecipes = await localDb.select(RECIPE_SELECT)
       .from(recipesTable)
       .where(and(
         ...baseConditions,
@@ -212,7 +212,7 @@ async function buildDbLeftoverChain(
     return (aiChain ?? []).map(c => ({ ...c, recipeId: null, source: "ai_generated" as const }));
   }
 
-  const [dinnerRecipe] = await db.select({
+  const [dinnerRecipe] = await localDb.select({
     id: recipesTable.id,
     name: recipesTable.name,
     ingredients: recipesTable.ingredients,
@@ -236,7 +236,7 @@ async function buildDbLeftoverChain(
   }
 
   // Find related recipes that share ingredients with the dinner
-  const relatedRecipes = await db.select({
+  const relatedRecipes = await localDb.select({
     id: recipesTable.id,
     name: recipesTable.name,
     course: recipesTable.course,

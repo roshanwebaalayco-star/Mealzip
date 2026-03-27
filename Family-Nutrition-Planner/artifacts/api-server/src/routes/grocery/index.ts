@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, ilike, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@workspace/db";
+import { db, localDb } from "@workspace/db";
 import { groceryListsTable, mealPlansTable, familiesTable, recipesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 
@@ -208,7 +208,7 @@ router.get("/grocery/cheaper-alternative", async (req, res): Promise<void> => {
     conditions.push(eq(recipesTable.diet, diet));
   }
 
-  const alternatives = await db.select({
+  const alternatives = await localDb.select({
     id: recipesTable.id,
     name: recipesTable.name,
     nameHindi: recipesTable.nameHindi,

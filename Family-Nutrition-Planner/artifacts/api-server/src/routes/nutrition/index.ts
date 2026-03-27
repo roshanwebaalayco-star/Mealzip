@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, inArray, ilike, or, sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, localDb } from "@workspace/db";
 import { recipesTable, familyMembersTable, foodGiNutritionTable } from "@workspace/db";
 import { AnalyzeNutritionBody, ScanFoodBody } from "@workspace/api-zod";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
@@ -17,7 +17,7 @@ router.post("/nutrition/analyze", async (req, res): Promise<void> => {
 
   const { recipeIds, memberId } = parsed.data;
 
-  const recipes = await db.select().from(recipesTable).where(inArray(recipesTable.id, recipeIds));
+  const recipes = await localDb.select().from(recipesTable).where(inArray(recipesTable.id, recipeIds));
 
   const totals = recipes.reduce((acc, r) => ({
     calories: acc.calories + Number(r.calories ?? 0),
@@ -97,7 +97,7 @@ async function enrichFromICMRDB(detectedFoods: DetectedFoodRaw[]): Promise<Detec
       const conditions = terms.map(term =>
         ilike(recipesTable.name, `%${term}%`)
       );
-      const dbRecipes = await db.select({
+      const dbRecipes = await localDb.select({
         id: recipesTable.id,
         name: recipesTable.name,
         calories: recipesTable.calories,
@@ -192,7 +192,7 @@ router.get("/nutrition/lookup", async (req, res): Promise<void> => {
   let source = "icmr";
 
   if (safeQuery) {
-    const [recipe] = await db.select({
+    const [recipe] = await localDb.select({
       calories: recipesTable.calories,
       protein: recipesTable.protein,
       carbs: recipesTable.carbs,

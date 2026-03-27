@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, localDb } from "@workspace/db";
 import { conversations as conversationsTable, messages as messagesTable, recipesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
@@ -151,7 +151,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   if (tsTokens.length > 0) {
     try {
       const tsQuery = tsTokens.join(":* & ") + ":*";
-      const matchedRecipes = await db.select({
+      const matchedRecipes = await localDb.select({
         name: recipesTable.name,
         nameHindi: recipesTable.nameHindi,
         calories: recipesTable.calories,

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@workspace/db";
+import { db, localDb } from "@workspace/db";
 import { healthLogsTable, nutritionLogsTable, familyMembersTable, icmrNinRdaTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { FASTING_CALENDAR, type FastingEntry } from "../../lib/festival-fasting.js";
@@ -174,7 +174,7 @@ router.get("/nutrition-summary/:memberId", async (req, res): Promise<void> => {
   const gender = member.gender === "female" ? "female" : "male";
   const activityLevel = member.activityLevel || "moderate";
 
-  const rdaRows = await db.select().from(icmrNinRdaTable)
+  const rdaRows = await localDb.select().from(icmrNinRdaTable)
     .where(and(eq(icmrNinRdaTable.gender, gender), eq(icmrNinRdaTable.activityLevel, activityLevel)));
 
   const rda = rdaRows.find(r => member.age >= r.ageMin && member.age <= r.ageMax)

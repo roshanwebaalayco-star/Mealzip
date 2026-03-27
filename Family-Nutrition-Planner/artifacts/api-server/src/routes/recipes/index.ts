@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, ilike, and, lte, sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { localDb } from "@workspace/db";
 import { recipesTable } from "@workspace/db";
 import { ListRecipesQueryParams, GetRecipeParams } from "@workspace/api-zod";
 
@@ -36,12 +36,12 @@ router.get("/recipes", async (req, res): Promise<void> => {
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [recipes, countResult] = await Promise.all([
-    db.select().from(recipesTable)
+    localDb.select().from(recipesTable)
       .where(whereClause)
       .limit(limit)
       .offset(offset)
       .orderBy(recipesTable.name),
-    db.select({ count: sql<number>`count(*)` }).from(recipesTable).where(whereClause)
+    localDb.select({ count: sql<number>`count(*)` }).from(recipesTable).where(whereClause)
   ]);
 
   const total = Number(countResult[0]?.count ?? 0);
@@ -73,7 +73,7 @@ router.get("/recipes/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [recipe] = await db.select().from(recipesTable).where(eq(recipesTable.id, params.data.id));
+  const [recipe] = await localDb.select().from(recipesTable).where(eq(recipesTable.id, params.data.id));
   if (!recipe) {
     res.status(404).json({ error: "Recipe not found" });
     return;
