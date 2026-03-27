@@ -193,10 +193,136 @@ router.post("/voice/chat-turn", async (req, res): Promise<void> => {
     `[${m.role.toUpperCase()}]: ${m.text}`
   ).join("\n");
 
-  const isHindi = language === "hindi";
-  const assistantLangNote = isHindi
-    ? "Hindi in Devanagari script — warm, friendly, conversational (e.g. 'शर्मा परिवार — बिल्कुल सही! आप किस राज्य में रहते हैं?')"
-    : "friendly, clear English";
+  // Per-language config: native script instructions, completion/retry messages, condition prompt.
+  // Keeps Gemini responding in the correct script with zero extra API calls.
+  const LANG_CFG: Record<string, {
+    note: string;
+    completeMsg: string;
+    retryMsg: string;
+    conditionsPrompt: string;
+    mappings: string;
+  }> = {
+    hindi: {
+      note: "Hindi in Devanagari script — warm, friendly (e.g. 'शर्मा परिवार — बिल्कुल सही! आप किस राज्य में रहते हैं?')",
+      completeMsg: "बहुत शुक्रिया! परिवार की प्रोफाइल तैयार है। एक सेकंड — मील प्लान बन रहा है!",
+      retryMsg: "क्षमा करें, समझ नहीं आया। क्या आप दोबारा बोल सकते हैं?",
+      conditionsPrompt: "[Name] जी को कोई स्वास्थ्य समस्या है? जैसे मधुमेह, BP, या 'सब ठीक है' बोलें।",
+      mappings: `Family: pitaji/papa → father | maa/amma/mummy → mother | beta/son → child(M) | beti/daughter → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
+Numbers: ek=1 do=2 teen=3 chaar=4 paanch=5 das=10 hazaar=1000
+Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | motapa → obesity | khoon ki kami → anemia | sab theek/healthy → []
+Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Yes/No: haan/bilkul/zaroor → addMore:true | nahi/bas/ho gaya → isComplete:true`,
+    },
+    english: {
+      note: "friendly, clear English",
+      completeMsg: "Thank you! Your family profile is all set. Generating your meal plan now!",
+      retryMsg: "Sorry, I didn't catch that. Could you please repeat?",
+      conditionsPrompt: "Does [Name] have any health conditions like diabetes or hypertension? Or are they healthy?",
+      mappings: `Family: father/dad/husband | mother/mom/wife | son/boy/child | daughter/girl | grandpa/grandma → grandparent
+Yes/No: yes/sure/more → addMore:true | no/done/that's all → isComplete:true`,
+    },
+    bengali: {
+      note: "Bengali in Bengali script (বাংলা) — warm, friendly (e.g. 'শর্মা পরিবার — দারুণ! আপনি কোন রাজ্যে থাকেন?')",
+      completeMsg: "অনেক ধন্যবাদ! পরিবারের প্রোফাইল তৈরি হয়েছে। মিল প্ল্যান তৈরি হচ্ছে!",
+      retryMsg: "দুঃখিত, বুঝতে পারিনি। আবার বলবেন?",
+      conditionsPrompt: "[Name]-এর কোনো স্বাস্থ্য সমস্যা আছে? যেমন ডায়াবেটিস, BP, বা 'সব ঠিক আছে' বলুন।",
+      mappings: `Family: baba/bapi → father | maa/dida → mother | chele/putra → child(M) | meye/putri → child(F) | thakurda/dadu → grandparent(M) | thakurma/dida → grandparent(F)
+Numbers: ek=1 dui=2 tin=3 char=4 panch=5 das=10 hazar=1000
+Health: madhumeh/sugar → diabetes | raktochaap/BP → hypertension | motaa → obesity | roktoshonyo → anemia | sab thik → []
+Diet: niramish/veg → vegetarian | aamishahari/non-veg → non-vegetarian | jain → jain
+Yes/No: haa/bolun/aar ache → addMore:true | na/shesh/bas → isComplete:true`,
+    },
+    tamil: {
+      note: "Tamil in Tamil script (தமிழ்) — warm, friendly (e.g. 'சர்மா குடும்பம் — அருமை! நீங்கள் எந்த மாநிலத்தில் இருக்கிறீர்கள்?')",
+      completeMsg: "மிக்க நன்றி! குடும்ப சுயவிவரம் தயாராகிவிட்டது. உணவுத் திட்டம் தயாரிக்கிறோம்!",
+      retryMsg: "மன்னிக்கவும், புரியவில்லை. மீண்டும் சொல்ல முடியுமா?",
+      conditionsPrompt: "[Name]-க்கு நீரிழிவு, BP போன்ற உடல்நலப் பிரச்சனை ஏதும் இருக்கிறதா? இல்லை என்றால் 'நலமாக இருக்கிறார்கள்' என்று சொல்லுங்கள்.",
+      mappings: `Family: appa/thandai → father | amma/thaai → mother | magan/payyan → child(M) | magal/ponnu → child(F) | thatha → grandparent(M) | paati → grandparent(F)
+Numbers: onnu=1 rendu=2 moonu=3 naalu=4 anju=5 pathu=10 aayiram=1000
+Health: neerizivvu/sugar → diabetes | BP/ratthaatthupam → hypertension | paruvanam/adipai → obesity | irattha kunaippu → anemia | nalama → []
+Diet: saiva/veg → vegetarian | asamia/non-veg → non-vegetarian | jain → jain
+Yes/No: aama/seri/innum irukka → addMore:true | illai/mudindhachu/போதும் → isComplete:true`,
+    },
+    telugu: {
+      note: "Telugu in Telugu script (తెలుగు) — warm, friendly (e.g. 'శర్మ కుటుంబం — చాలా బాగుంది! మీరు ఏ రాష్ట్రంలో ఉంటున్నారు?')",
+      completeMsg: "చాలా ధన్యవాదాలు! కుటుంబ ప్రొఫైల్ సిద్ధంగా ఉంది. మీల్ ప్లాన్ తయారవుతోంది!",
+      retryMsg: "క్షమించండి, అర్థం కాలేదు. మళ్ళీ చెప్పగలరా?",
+      conditionsPrompt: "[Name]కి మధుమేహం, BP వంటి ఆరోగ్య సమస్యలు ఏమైనా ఉన్నాయా? లేదా 'ఆరోగ్యంగా ఉన్నారు' అని చెప్పండి.",
+      mappings: `Family: nanna/thandri → father | amma/talli → mother | abbayi/koduku → child(M) | ammayi/kuthuru → child(F) | thatha → grandparent(M) | naana/avva → grandparent(F)
+Numbers: okati=1 rendu=2 mudu=3 nalugu=4 aidu=5 padi=10 veyyi=1000
+Health: madhumehamu/sugar → diabetes | BP/raktapeetam → hypertension | boddu → obesity | anemia/raktaheenam → anemia | arogyganga → []
+Diet: sakahari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Yes/No: avunu/inka/sure → addMore:true | ledu/ayyindi/chaalu → isComplete:true`,
+    },
+    marathi: {
+      note: "Marathi in Devanagari script (मराठी) — warm, friendly (e.g. 'शर्मा कुटुंब — छान! तुम्ही कोणत्या राज्यात राहता?')",
+      completeMsg: "खूप आभारी आहोत! कुटुंबाची प्रोफाइल तयार आहे. जेवणाची योजना तयार होत आहे!",
+      retryMsg: "माफ करा, समजले नाही. पुन्हा सांगाल का?",
+      conditionsPrompt: "[Name] यांना मधुमेह, रक्तदाब यासारख्या आरोग्य समस्या आहेत का? किंवा 'सगळे ठीक आहे' सांगा.",
+      mappings: `Family: baba/pappa/vaDil → father | aai/mummy → mother | mulga/putra → child(M) | mulgi/kanya → child(F) | aajoba → grandparent(M) | aaji → grandparent(F)
+Numbers: ek=1 don=2 teen=3 chaar=4 paach=5 daha=10 hazaar=1000
+Health: madhumeh/sugar → diabetes | raktadaab/BP → hypertension | ladacha/staulya → obesity | raktaheenataa → anemia | sab theek/nirogi → []
+Diet: shakahari/veg → vegetarian | mansahari/non-veg → non-vegetarian | jain → jain
+Yes/No: ho/haa/aahe/aadhik → addMore:true | nahi/bas/zaala → isComplete:true`,
+    },
+    gujarati: {
+      note: "Gujarati in Gujarati script (ગુજરાતી) — warm, friendly (e.g. 'શર્મા પરિવાર — ખૂબ સુંદર! તમે ક્યા રાજ્યમાં રહો છો?')",
+      completeMsg: "ખૂબ ખૂબ આભાર! પરિવારની પ્રોફાઈલ તૈયાર છે. ભોજન યોજના બની રહી છે!",
+      retryMsg: "માફ કરજો, સમજાઈ નહીં. ફરી કહેશો?",
+      conditionsPrompt: "[Name]ને ડાયાબિટીઝ, BP જેવી કોઈ સ્વાસ્થ્ય સમસ્યા છે? અથવા 'સ્વસ્થ છે' કહો.",
+      mappings: `Family: bapuji/papa → father | mummy/baa → mother | dikro/putra → child(M) | dikri/putri → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
+Numbers: ek=1 be=2 tran=3 char=4 paanch=5 das=10 hazar=1000
+Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | jaadat vajan/motaapaa → obesity | ochu lohee → anemia | swasth/theek → []
+Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Yes/No: haa/bijo/vahu → addMore:true | nahi/bas/thai gayu → isComplete:true`,
+    },
+    kannada: {
+      note: "Kannada in Kannada script (ಕನ್ನಡ) — warm, friendly (e.g. 'ಶರ್ಮ ಕುಟುಂಬ — ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! ನೀವು ಯಾವ ರಾಜ್ಯದಲ್ಲಿ ವಾಸಿಸುತ್ತೀರಿ?')",
+      completeMsg: "ತುಂಬಾ ಧನ್ಯವಾದಗಳು! ಕುಟುಂಬದ ಪ್ರೊಫೈಲ್ ಸಿದ್ಧವಾಗಿದೆ. ಊಟದ ಯೋಜನೆ ತಯಾರಾಗುತ್ತಿದೆ!",
+      retryMsg: "ಕ್ಷಮಿಸಿ, ಅರ್ಥವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಹೇಳಬಹುದೇ?",
+      conditionsPrompt: "[Name]ಗೆ ಮಧುಮೇಹ, ರಕ್ತದೊತ್ತಡ ಮುಂತಾದ ಆರೋಗ್ಯ ಸಮಸ್ಯೆಗಳಿವೆಯೇ? ಇಲ್ಲವಾದರೆ 'ಆರೋಗ್ಯವಾಗಿದ್ದಾರೆ' ಎನ್ನಿ.",
+      mappings: `Family: appa/tande → father | amma/taayi → mother | maga/huchcha → child(M) | magalu/hennu → child(F) | ajja/thatha → grandparent(M) | ajji/avva → grandparent(F)
+Numbers: ondu=1 eradu=2 mooru=3 naalku=4 aidu=5 hattu=10 saavira=1000
+Health: madhumEha/sugar → diabetes | BP/raktadoTTa → hypertension | adipai/staulya → obesity | anemia → anemia | arogya/theek → []
+Diet: saahivari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Yes/No: houdhu/aukka/inka → addMore:true | illa/aaytu/saakaratthu → isComplete:true`,
+    },
+    malayalam: {
+      note: "Malayalam in Malayalam script (മലയാളം) — warm, friendly (e.g. 'ശർമ്മ കുടുംബം — വളരെ നന്നായി! നിങ്ങൾ ഏത് സംസ്ഥാനത്താണ് താമസിക്കുന്നത്?')",
+      completeMsg: "വളരെ നന്ദി! കുടുംബ പ്രൊഫൈൽ തയ്യാറായി. ഭക്ഷണ പദ്ധതി തയ്യാറാക്കുന്നു!",
+      retryMsg: "ക്ഷമിക്കൂ, മനസ്സിലായില്ല. വീണ്ടും പറയാമോ?",
+      conditionsPrompt: "[Name]-ന് പ്രമേഹം, BP തുടങ്ങിയ ആരോഗ്യ പ്രശ്നങ്ങൾ ഉണ്ടോ? ഇല്ലെങ്കിൽ 'ആരോഗ്യമുള്ളവർ' എന്ന് പറയൂ.",
+      mappings: `Family: achan/appan/chettan → father | amma/kochamma → mother | makan/cherukkan → child(M) | maal/pennu → child(F) | appooppan/thatha → grandparent(M) | ammumma/paatti → grandparent(F)
+Numbers: onnu=1 randu=2 moonu=3 naalu=4 anchu=5 pathu=10 aayiram=1000
+Health: pramEham/sugar → diabetes | BP/raktasamma → hypertension | thadich → obesity | anemia/choru kuravv → anemia | arogya/kshemam → []
+Diet: sakahari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Yes/No: athe/undu/koodi → addMore:true | illa/ayi/maathi → isComplete:true`,
+    },
+    punjabi: {
+      note: "Punjabi in Gurmukhi script (ਪੰਜਾਬੀ) — warm, friendly (e.g. 'ਸ਼ਰਮਾ ਪਰਿਵਾਰ — ਬਹੁਤ ਵਧੀਆ! ਤੁਸੀਂ ਕਿਸ ਰਾਜ ਵਿੱਚ ਰਹਿੰਦੇ ਹੋ?')",
+      completeMsg: "ਬਹੁਤ ਬਹੁਤ ਧੰਨਵਾਦ! ਪਰਿਵਾਰ ਦੀ ਪ੍ਰੋਫਾਈਲ ਤਿਆਰ ਹੈ। ਭੋਜਨ ਯੋਜਨਾ ਬਣ ਰਹੀ ਹੈ!",
+      retryMsg: "ਮਾਫ਼ ਕਰਨਾ, ਸਮਝ ਨਹੀਂ ਆਇਆ। ਦੁਬਾਰਾ ਕਹਿ ਸਕਦੇ ਹੋ?",
+      conditionsPrompt: "[Name] ਨੂੰ ਸ਼ੂਗਰ, ਬੀਪੀ ਵਰਗੀ ਕੋਈ ਸਿਹਤ ਸਮੱਸਿਆ ਹੈ? ਜਾਂ 'ਸਿਹਤਮੰਦ ਹੈ' ਕਹੋ।",
+      mappings: `Family: paji/pita/bapu → father | maa/bibi → mother | munda/putra → child(M) | kudi/dhee → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
+Numbers: ik=1 do=2 tinn=3 chaar=4 panj=5 das=10 hazaar=1000
+Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | motaapa → obesity | khoon di kami → anemia | theek/sehatmand → []
+Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Yes/No: haan/bilkul/hor → addMore:true | nahi/bas/ho gaya → isComplete:true`,
+    },
+    odia: {
+      note: "Odia in Odia script (ଓଡ଼ିଆ) — warm, friendly (e.g. 'ଶର୍ମା ପରିବାର — ବହୁତ ଭଲ! ଆପଣ କେଉଁ ରାଜ୍ୟରେ ଥାଆନ୍ତି?')",
+      completeMsg: "ବହୁତ ଧନ୍ୟବାଦ! ପରିବାରର ପ୍ରୋଫାଇଲ ପ୍ରସ୍ତୁତ। ଖାଦ୍ୟ ଯୋଜନା ତିଆରି ହେଉଛି!",
+      retryMsg: "କ୍ଷମା କରନ୍ତୁ, ବୁଝି ପାରିଲି ନାହିଁ। ପୁଣି କହିବେ?",
+      conditionsPrompt: "[Name]ଙ୍କର ମଧୁମେହ, ରକ୍ତଚାପ ଭଳି କୌଣସି ସ୍ୱାସ୍ଥ୍ୟ ସମସ୍ୟା ଅଛି? ନଚେତ 'ସୁସ୍ଥ ଅଛନ୍ତି' ବୋଲନ୍ତୁ।",
+      mappings: `Family: bapa/pita → father | maa/maata → mother | pua/putra → child(M) | jhi/kanya → child(F) | dada/nana → grandparent(M) | aai/nani → grandparent(F)
+Numbers: gote=1 dui=2 tini=3 chhari=4 pancha=5 dasha=10 hajara=1000
+Health: madhumeha/sugar → diabetes | raktachap/BP → hypertension | mota → obesity | raktaheen → anemia | sustha/theek → []
+Diet: niramisha/veg → vegetarian | saamishya/non-veg → non-vegetarian | jain → jain
+Yes/No: haa/achhi/aaru → addMore:true | naa/shesh/bas → isComplete:true`,
+    },
+  };
+
+  const cfg = LANG_CFG[language] ?? LANG_CFG.english;
 
   const prompt = `You are a voice assistant for ParivarSehat AI, an Indian family nutrition planning app.
 You are having a turn-by-turn voice conversation to collect family profile data.
@@ -213,7 +339,7 @@ USER JUST SAID: "${userTranscript}"
 === WHAT TO EXTRACT BY STATE ===
 
 ask_family_name:
-  → parsedFields: { "familyName": "Sharma Family" }  (add " Family" suffix if not present)
+  → parsedFields: { "familyName": "Sharma Family" }  (add " Family" if not present)
   → nextState: "ask_state"
 
 ask_state:
@@ -221,7 +347,7 @@ ask_state:
   → nextState: "ask_budget"
 
 ask_budget:
-  → parsedFields: { "monthlyBudget": 5000 }  (number in INR, convert spoken Hindi)
+  → parsedFields: { "monthlyBudget": 5000 }  (number in INR, convert spoken numbers)
   → nextState: "ask_dietary_type"
 
 ask_dietary_type:
@@ -229,64 +355,34 @@ ask_dietary_type:
   → nextState: "ask_member_start"
 
 ask_member_start:
-  → parsedFields: { "currentMember": { "name": "Rahul", "role": "father", "age": 42, "gender": "male", "healthConditions": ["diabetes"], "healthGoal": "manage_diabetes" } }
-  → nextState: "ask_more_members"  if conditions were mentioned in this turn
-  → nextState: "ask_member_conditions"  if NO conditions were mentioned (need to ask)
+  → parsedFields: { "currentMember": { "name": "...", "role": "father|mother|child|grandparent|other", "age": 42, "gender": "male|female|other", "healthConditions": [], "healthGoal": "general_wellness" } }
+  → nextState: "ask_more_members"  if conditions were mentioned
+  → nextState: "ask_member_conditions"  if conditions NOT mentioned
 
 ask_member_conditions:
-  → parsedFields: { "currentMemberConditions": ["diabetes", "hypertension"] }  OR  { "currentMemberConditions": [] }  if healthy
+  → parsedFields: { "currentMemberConditions": ["diabetes","hypertension"] }  OR  { "currentMemberConditions": [] }
   → nextState: "ask_more_members"
 
 ask_more_members:
-  → User says yes with new member info → parsedFields: { "currentMember": { ... } }, nextState: "ask_more_members" or "ask_member_conditions"
-  → User says yes, no details yet → parsedFields: { "addMore": true }, nextState: "ask_member_start"
-  → User says no / done / ho gaya / bas → nextState: "complete", isComplete: true
+  → Another member given → parsedFields: { "currentMember": { ... } }, nextState: "ask_more_members" or "ask_member_conditions"
+  → Yes but no details → parsedFields: { "addMore": true }, nextState: "ask_member_start"
+  → No/done → nextState: "complete", isComplete: true
 
-=== HINDI LANGUAGE MAPPINGS ===
-Family roles:
-  pitaji/papa/pita → father | maa/amma/mata/mummy → mother
-  pati/husband → father (if no other male) | patni/wife → mother (if no other female)
-  beta/putra/son/ladka → child (male) | beti/putri/daughter/ladki → child (female)
-  dada/dadaji/nana → grandparent (male) | dadi/nani → grandparent (female)
-  main/hum → use "self" role → map to father if male, mother if female
-
-Numbers (Hindi):
-  ek=1 do=2 teen/tin=3 chaar=4 paanch=5 das=10 bees=20 pachees=25 tees=30
-  hazaar=1000 → "panch hazaar"=5000 "das hazaar"=10000 "teen hazaar"=3000
-
-Health conditions:
-  madhumeh/sugar ki bimari/diabetes → diabetes
-  BP/blood pressure/raktchaap/uchch raktachap → hypertension
-  motapa/mota/weight problem → obesity
-  khoon ki kami/anemia/raktalpata → anemia
-  thyroid → thyroid | cholesterol → high_cholesterol | PCOD/PCOS → pcod
-  growing child/badhta bachha → growing_child | elderly/budhapa → elderly
-  sab theek/koi bimari nahi/healthy/theek hain → [] (empty, no conditions)
-
-Dietary type:
-  shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain | vegan → vegan
+=== LANGUAGE MAPPINGS for ${language.toUpperCase()} ===
+${cfg.mappings}
 
 Indian states (colloquial → official):
-  UP/Uttar Pradesh/yoopi → Uttar Pradesh | Dilli/Delhi → Delhi
-  Bambai/Mumbai wala → Maharashtra | Madras/Chennai → Tamil Nadu
-  Bengaluru/Bangalore → Karnataka | Hyderabad → Telangana
-
-Yes/No signals:
-  haan/ji haan/bilkul/zaroor/aur hain/yes → addMore: true
-  nahi/nahi ji/bas/ho gaya/sirf itne/done/theek hai/no more → isComplete: true
+  UP/Uttar Pradesh → Uttar Pradesh | Dilli/Delhi → Delhi | Bambai/Mumbai → Maharashtra
+  Madras/Chennai → Tamil Nadu | Bengaluru/Bangalore → Karnataka | Hyderabad → Telangana
 
 === RULES ===
-1. Only set isComplete: true if nextState is "complete" AND at least familyName and one member have been collected
-2. The assistantMessage must be in ${assistantLangNote}
-3. assistantMessage = brief warm confirmation of what you heard + the next question
-4. For complete state:
-   Hindi: "बहुत शुक्रिया! परिवार की प्रोफाइल तैयार है। एक सेकंड — मील प्लान बन रहा है!"
-   English: "Thank you! Your family profile is all set. Generating your meal plan now!"
-5. For ask_member_conditions, if the user said nothing helpful, ask clearly:
-   Hindi: "[Name] जी को कोई स्वास्थ्य समस्या है? जैसे मधुमेह, BP, या 'सब ठीक है' बोलें।"
-   English: "Does [Name] have any health conditions like diabetes or hypertension? Or are they healthy?"
+1. isComplete:true ONLY when nextState is "complete" AND familyName AND at least one member collected
+2. assistantMessage MUST be in ${cfg.note}
+3. assistantMessage = brief warm confirmation of what you heard + next question
+4. Completion message: "${cfg.completeMsg}"
+5. For ask_member_conditions with no useful input: "${cfg.conditionsPrompt}"
 
-Return ONLY valid JSON, no markdown or extra text:
+Return ONLY valid JSON, no markdown:
 {
   "parsedFields": {},
   "nextState": "ask_state",
@@ -316,7 +412,7 @@ Return ONLY valid JSON, no markdown or extra text:
     }
 
     const schemaResult = ChatTurnResponseSchema.safeParse(rawData);
-    const fallbackMsg = isHindi ? "क्या आप दोबारा बोल सकते हैं?" : "Could you repeat that?";
+    const fallbackMsg = cfg.retryMsg;
 
     if (!schemaResult.success) {
       req.log.warn({ issues: schemaResult.error.flatten() }, "Gemini chat-turn output failed schema validation — using fallback");

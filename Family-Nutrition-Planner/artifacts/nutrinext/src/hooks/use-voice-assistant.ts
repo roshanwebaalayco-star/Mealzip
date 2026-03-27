@@ -49,10 +49,46 @@ const LANG_CODE: Record<string, string> = {
 };
 
 const GREETING: Record<string, string> = {
-  hindi:
-    "नमस्ते! मैं ParivarSehat AI हूं। मैं आपके परिवार का personalized meal plan बनाने में मदद करूंगा। आपके परिवार का नाम क्या है?",
-  english:
-    "Hello! I'm ParivarSehat AI. I'll help set up your family's personalized meal plan. What is your family name?",
+  hindi: "नमस्ते! मैं ParivarSehat AI हूं। मैं आपके परिवार का personalized meal plan बनाने में मदद करूंगा। आपके परिवार का नाम क्या है?",
+  english: "Hello! I'm ParivarSehat AI. I'll help set up your family's personalised meal plan. What is your family name?",
+  bengali: "নমস্কার! আমি ParivarSehat AI। আপনার পরিবারের জন্য meal plan তৈরি করতে সাহায্য করব। আপনার পরিবারের নাম কী?",
+  tamil: "வணக்கம்! நான் ParivarSehat AI. உங்கள் குடும்பத்திற்கான உணவுத் திட்டம் தயாரிக்க உதவுவேன். உங்கள் குடும்பப் பெயர் என்ன?",
+  telugu: "నమస్కారం! నేను ParivarSehat AI. మీ కుటుంబానికి meal plan తయారు చేయడంలో సహాయం చేస్తాను. మీ కుటుంబం పేరు ఏమిటి?",
+  marathi: "नमस्कार! मी ParivarSehat AI आहे. मी तुमच्या कुटुंबाची meal plan तयार करण्यात मदत करेन. तुमच्या कुटुंबाचे नाव काय आहे?",
+  gujarati: "નમસ્તે! હું ParivarSehat AI છું. તમારા પરિવાર માટે meal plan બનાવવામાં મદદ કરીશ. તમારા પરિવારનું નામ શું છે?",
+  kannada: "ನಮಸ್ಕಾರ! ನಾನು ParivarSehat AI. ನಿಮ್ಮ ಕುಟುಂಬಕ್ಕಾಗಿ meal plan ತಯಾರಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನಿಮ್ಮ ಕುಟುಂಬದ ಹೆಸರು ಏನು?",
+  malayalam: "നമസ്കാരം! ഞാൻ ParivarSehat AI ആണ്. നിങ്ങളുടെ കുടുംബത്തിനായി meal plan തയ്യാറാക്കാൻ സഹായിക്കും. നിങ്ങളുടെ കുടുംബത്തിന്റെ പേര് എന്താണ്?",
+  punjabi: "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ParivarSehat AI ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ meal plan ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰਾਂਗਾ। ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ ਨਾਮ ਕੀ ਹੈ?",
+  odia: "ନମସ୍କାର! ମୁଁ ParivarSehat AI। ଆପଣଙ୍କ ପରିବାର ପାଇଁ meal plan ତିଆରି କରିବାରେ ସାହାଯ୍ୟ କରିବି। ଆପଣଙ୍କ ପରିବାରର ନାମ କ'ଣ?",
+};
+
+// Localised "didn't catch" and "error" prompts — shown as chat bubbles and spoken aloud
+const RETRY_MSG: Record<string, string> = {
+  hindi: "क्या आप दोबारा बोल सकते हैं? मुझे सुनाई नहीं दिया।",
+  english: "Could you please repeat that? I didn't catch it.",
+  bengali: "আবার বলবেন? আমি বুঝতে পারিনি।",
+  tamil: "மன்னிக்கவும், மீண்டும் சொல்ல முடியுமா? கேட்கவில்லை.",
+  telugu: "క్షమించండి, మళ్ళీ చెప్పగలరా? వినిపించలేదు.",
+  marathi: "पुन्हा सांगाल का? मला ऐकू आले नाही.",
+  gujarati: "ફરી કહેશો? મને સંભળાઈ નહીં.",
+  kannada: "ದಯವಿಟ್ಟು ಮತ್ತೆ ಹೇಳಬಹುದೇ? ಕೇಳಿಸಲಿಲ್ಲ.",
+  malayalam: "ഒന്നു കൂടി പറയാമോ? കേൾക്കാൻ കഴിഞ്ഞില്ല.",
+  punjabi: "ਕੀ ਤੁਸੀਂ ਦੁਬਾਰਾ ਕਹਿ ਸਕਦੇ ਹੋ? ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤਾ।",
+  odia: "ଦୟାକରି ପୁଣି ଥରେ କହିବେ? ଶୁଣିପାରିଲି ନାହିଁ।",
+};
+
+const ERROR_MSG: Record<string, string> = {
+  hindi: "कुछ समस्या आ गई। क्या आप दोबारा बोल सकते हैं?",
+  english: "Something went wrong. Could you repeat that?",
+  bengali: "কিছু সমস্যা হয়েছে। আবার বলবেন?",
+  tamil: "சிக்கல் ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+  telugu: "ఏదో సమస్య వచ్చింది. మళ్ళీ ప్రయత్నించండి.",
+  marathi: "काहीतरी चूक झाली. पुन्हा प्रयत्न करा.",
+  gujarati: "કઈક ગરબડ થઈ. ફરી કહેશો?",
+  kannada: "ಏನೋ ಸಮಸ್ಯೆ ಆಯಿತು. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  malayalam: "എന്തോ പ്രശ്നം ഉണ്ടായി. വീണ്ടും ശ്രമിക്കൂ.",
+  punjabi: "ਕੁਝ ਗਲਤ ਹੋ ਗਿਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  odia: "କିଛି ଅସୁବିଧା ହେଲା। ପୁଣି ଥରେ ଚେଷ୍ଟା କରନ୍ତୁ।",
 };
 
 function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceFormData {
@@ -126,9 +162,9 @@ export function useVoiceAssistant() {
       setConvState("ask_family_name");
 
       const langCode = LANG_CODE[language] ?? "hi-IN";
-      // TTS locale must match the script used in assistant messages.
-      // Backend currently produces Devanagari Hindi or English — never other scripts.
-      const ttsLang = language === "hindi" ? "hi-IN" : "en-IN";
+      // TTS locale matches the script produced by the backend for each language.
+      // Backend now generates native script for all 11 Sarvam languages.
+      const ttsLang = LANG_CODE[language] ?? "hi-IN";
       let currentState: ConvState = "ask_family_name";
       let fd: VoiceFormData = {};
       let msgs: ConvMessage[] = [...initialMsgs];
@@ -311,10 +347,7 @@ export function useVoiceAssistant() {
           if (abortRef.current) break;
 
           if (!transcript.trim()) {
-            nextMsg =
-              language === "hindi"
-                ? "क्या आप दोबारा बोल सकते हैं? मुझे सुनाई नहीं दिया।"
-                : "Could you please repeat that? I didn't catch it.";
+            nextMsg = RETRY_MSG[language] ?? RETRY_MSG.english;
             msgs = [...msgs, { role: "user", text: "..." }, { role: "assistant", text: nextMsg }];
             setMessages([...msgs]);
             continue;
@@ -329,10 +362,7 @@ export function useVoiceAssistant() {
             result = await callChatTurn(currentState, transcript, msgs, fd);
           } catch (e) {
             if (abortRef.current) break;
-            const fallback =
-              language === "hindi"
-                ? "कुछ समस्या आ गई। क्या आप दोबारा बोल सकते हैं?"
-                : "Something went wrong. Could you repeat that?";
+            const fallback = ERROR_MSG[language] ?? ERROR_MSG.english;
             msgs = [...msgs, { role: "assistant", text: fallback }];
             setMessages([...msgs]);
             nextMsg = fallback;
