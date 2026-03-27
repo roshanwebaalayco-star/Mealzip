@@ -123,6 +123,14 @@ JWT-based auth system added (`/api/auth/register`, `/api/auth/login`, `/api/auth
 - Layout sidebar shows user name/email with logout button when logged in
 - Families have an optional `userId` foreign key for future per-user scoping
 
+## Dev Server Architecture
+
+In development, the Express API server (port 8080 / external port 80) acts as a unified entry point:
+- Requests to `/api/*` → handled directly by Express
+- All other requests → proxied to the Vite dev server (port 24170 / external 3000)
+
+This means the Replit preview (which uses external port 80) correctly serves the React frontend while API calls work natively. The Vite dev server also has its own `/api` proxy (→ port 8080) for direct access via port 24170/3000.
+
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection (Replit-managed)
