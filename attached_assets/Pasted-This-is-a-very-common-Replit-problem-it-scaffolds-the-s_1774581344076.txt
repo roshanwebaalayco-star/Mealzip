@@ -1,0 +1,108 @@
+This is a very common Replit problem — it scaffolds the structure but leaves all the critical connections unwired. Let me break down exactly what is broken and what to fix, in the order that will unblock everything else.Here is the full picture of what's broken, then the exact fix order.Now here is the exact fix order — do these in sequence, because each one unblocks the next:
+
+---
+
+## Fix 1 — Gemini API key (30 minutes)
+
+Everything AI-related is dead without this. In Replit, go to **Secrets** (the padlock icon) and add:
+
+```
+GEMINI_API_KEY = your_key_from_aistudio.google.com
+```
+
+Then in your backend wherever Gemini is initialized, make sure it reads:
+
+```javascript
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+```
+
+Tell Replit: *"Connect the Gemini API key from the Secrets into the GoogleGenerativeAI initialization in the backend. Make sure every route that calls Gemini reads from `process.env.GEMINI_API_KEY` and throws a clear error if it's missing."*
+
+---
+
+## Fix 2 — PostgreSQL connection (1 hour)
+
+The schema exists but the database is not connected. In Replit Secrets add:
+
+```
+DATABASE_URL = postgresql://user:password@host:5432/dbname
+```
+
+Replit provides a free PostgreSQL database. Go to **Tools → Database** in Replit and it will generate this URL automatically. Then tell Replit:
+
+*"Connect the DATABASE_URL secret to the Drizzle ORM configuration. Run `drizzle-kit push` to create all tables from the schema. Confirm the connection works by adding a health check that queries `SELECT 1` from the DB on server start."*
+
+---
+
+## Fix 3 — Seed the recipes table (critical)
+
+Without recipe data the meal planner, chat, grocery, and recipe explorer all return nothing. This is where your processed CSV data from Gemini becomes essential. Once you have your cleaned chunks, tell Replit:
+
+*"Write a seed script at `scripts/seed-recipes.ts` that reads from `processed_recipes.csv` and inserts all rows into the `recipes` table using Drizzle ORM. Map the CSV columns: RecipeName → name, Zone → cuisine, Ingredients → ingredients, TotalTimeInMins → prepTimeInMins, etc. Run the seed script once on startup if the recipes table is empty."*
+
+---
+
+## Fix 4 — Google OAuth login (2 hours)
+
+Currently the login page exists but connects to nothing. Tell Replit:
+
+*"Implement Google OAuth login using `passport-google-oauth20`. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Secrets. Create routes `GET /auth/google` and `GET /auth/google/callback`. On successful login, store the user's Google ID and email in the `users` table and create a session using `express-session`. Redirect to `/` after login. Add a `requireAuth` middleware that checks `req.session.userId` and returns 401 if missing. Apply this middleware to all `/api` routes except `/auth/*`."*
+
+---
+
+## Fix 5 — Add auth guard to all API routes (1 hour)
+
+Right now anyone who knows a `familyId` can read any family's data. After Fix 4 is done, tell Replit:
+
+*"Add the `requireAuth` middleware to every Express route in `routes/`. Also add ownership checks: when a request comes in for `/families/:id`, verify that `req.session.userId` matches the `userId` column on that family record. If it doesn't match, return 403 Forbidden."*
+
+---
+
+## Fix 6 — Increase Gemini token limit for meal plans (30 minutes)
+
+The 8192 token limit causes the meal plan JSON to get cut off mid-response and crash. Tell Replit:
+
+*"In the meal plan generation route, change `max_tokens: 8192` to `max_tokens: 16000`. Also wrap the `JSON.parse` of the Gemini response in a try/catch that returns a meaningful error message to the frontend instead of crashing the server. Add a retry — if parsing fails, call Gemini once more before giving up."*
+
+---
+
+## Fix 7 — Skip the YOLOv11 scanner for now
+
+This requires a separate running server which you don't have. Rather than breaking the whole app over it, tell Replit:
+
+*"Add a check at the top of the scanner route: if `process.env.YOLOV11_INFERENCE_URL` is not set, return a 503 response with the message 'Food scanner is not available in this environment. Please add food items manually.' Display this message gracefully on the scanner page instead of crashing."*
+
+---
+
+## What to tell Replit in one go
+
+If you want to give Replit a single instruction covering the most critical fixes:
+
+```
+Do the following in order:
+
+1. Read GEMINI_API_KEY from process.env.GEMINI_API_KEY and 
+   use it in all Gemini API calls. Throw a startup error if missing.
+
+2. Connect DATABASE_URL from environment to Drizzle ORM. 
+   Run drizzle-kit push to create all tables. Add a DB health 
+   check on server start.
+
+3. Implement Google OAuth with passport-google-oauth20 using 
+   GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from environment. 
+   Store user in DB on first login. Create session on success.
+
+4. Add requireAuth middleware that checks req.session.userId 
+   and apply it to all /api/* routes except /auth/*.
+
+5. Add family ownership check: every /families/:id endpoint 
+   must verify the session user owns that family.
+
+6. Increase Gemini max_tokens to 16000 for meal plan generation. 
+   Wrap JSON.parse in try/catch with a retry.
+
+7. If YOLOV11_INFERENCE_URL is not set, return 503 on scanner 
+   endpoints with a friendly message.
+```
+
+Do not move on to grocery persistence, chat improvements, or nutrition tracking until Fixes 1–3 are confirmed working — they are the foundation everything else depends on.
