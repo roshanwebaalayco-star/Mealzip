@@ -123,8 +123,8 @@ export default function FamilySetup() {
           body: JSON.stringify({ audioBase64: base64, languageCode: langCode }),
         });
         if (!transcribeRes.ok) {
-          const errBody = await transcribeRes.json() as { error?: string };
-          throw new Error(errBody.error ?? "Transcription service unavailable");
+          const errBody = await transcribeRes.json() as { error?: string; detail?: string };
+          throw new Error(errBody.detail ?? errBody.error ?? "Transcription service unavailable");
         }
         const { transcript } = await transcribeRes.json() as { transcript: string };
         if (!transcript) throw new Error("Empty transcript received");
@@ -158,8 +158,9 @@ export default function FamilySetup() {
           setMembers(parsedMembers);
         }
         toast({ title: "Profile filled!", description: "Voice data parsed and form populated." });
-      } catch {
-        toast({ title: "Parse failed", description: "Could not parse voice input. Please try again.", variant: "destructive" });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Could not parse voice input. Please try again.";
+        toast({ title: "Voice input failed", description: msg, variant: "destructive" });
       } finally {
         setVoiceLoading(false);
       }

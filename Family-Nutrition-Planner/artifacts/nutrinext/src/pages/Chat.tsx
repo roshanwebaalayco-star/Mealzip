@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAppState, useVoiceRecorder } from "@/hooks/use-app-state";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import { useListGeminiConversations, useCreateGeminiConversation, useTranscribeVoice } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,6 +21,7 @@ const VOICE_LANGUAGES = [
 ];
 
 export default function Chat() {
+  const { toast } = useToast();
   const { data: convos } = useListGeminiConversations();
   const createConvo = useCreateGeminiConversation();
   const { streamMessage, isStreaming, currentMessage } = useChatStream();
@@ -75,7 +77,10 @@ export default function Chat() {
           const res = await transcribe.mutateAsync({ data: { audioBase64: base64, languageCode: voiceLang } });
           if (res.transcript) setInput(res.transcript);
         } catch (e) {
-          console.error(e);
+          const detail = (e as { detail?: string; message?: string })?.detail
+            ?? (e instanceof Error ? e.message : null)
+            ?? "Voice transcription failed. Please try typing instead.";
+          toast({ title: "Voice input failed", description: detail, variant: "destructive" });
         }
       }
     } else {
