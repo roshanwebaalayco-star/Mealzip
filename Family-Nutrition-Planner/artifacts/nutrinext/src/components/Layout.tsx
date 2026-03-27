@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, ScanLine, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle } from "lucide-react";
+import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,7 +19,6 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
     { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
-    { icon: ScanLine, label: "Scan", labelHi: "स्कैन", href: "/scanner" },
   ];
 
   const mobileNavItems = navItems.slice(0, 5);

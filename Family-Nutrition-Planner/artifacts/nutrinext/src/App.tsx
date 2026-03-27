@@ -14,7 +14,6 @@ import FamilySetup from "@/pages/FamilySetup";
 import MealPlan from "@/pages/MealPlan";
 import RecipeExplorer from "@/pages/RecipeExplorer";
 import Chat from "@/pages/Chat";
-import Scanner from "@/pages/Scanner";
 import Grocery from "@/pages/Grocery";
 import Nutrition from "@/pages/Nutrition";
 import HealthLog from "@/pages/HealthLog";
@@ -64,7 +63,6 @@ function Router() {
         <Route path="/meal-plan" component={() => <ProtectedRoute component={MealPlan} />} />
         <Route path="/recipes" component={() => <ProtectedRoute component={RecipeExplorer} />} />
         <Route path="/chat" component={() => <ProtectedRoute component={Chat} />} />
-        <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
         <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
         <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
