@@ -5,7 +5,7 @@ import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Image as ImageIcon, Loader2, Info, RefreshCw, Flame, AlertTriangle, CheckCircle2, PenLine, Utensils, ShoppingBag, Package } from "lucide-react";
+import { Camera, Image as ImageIcon, Loader2, Info, RefreshCw, Flame, AlertTriangle, CheckCircle2, PenLine, Utensils, ShoppingBag, Package, WifiOff, FlaskConical } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const CONFIDENCE_THRESHOLD = 0.65;
+
+function isYoloUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as Record<string, unknown>;
+  if (e.status === 503) return true;
+  const data = e.data as Record<string, unknown> | null | undefined;
+  if (data?.code === "YOLO_UNAVAILABLE") return true;
+  return false;
+}
 
 interface DetectedFood {
   name: string;
@@ -78,8 +87,10 @@ function PantryScanner({ familyId }: { familyId: number }) {
           ...(data.lowConfidenceItems ?? []),
         ];
         setPantryItems(allDetected.map((f: DetectedFood) => ({ name: f.name, confidence: f.confidence, checked: f.confidence >= CONFIDENCE_THRESHOLD })));
-      } catch {
-        toast({ title: t("Scan failed", "स्कैन विफल"), variant: "destructive" });
+      } catch (err) {
+        if (!isYoloUnavailable(err)) {
+          toast({ title: t("Scan failed", "स्कैन विफल"), variant: "destructive" });
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -174,6 +185,40 @@ function PantryScanner({ familyId }: { familyId: number }) {
           </Button>
         </div>
       </div>
+
+      {/* YOLO unavailable error */}
+      {isYoloUnavailable(scanMutation.error) && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-3xl p-5 border border-amber-400/40 bg-amber-50/60"
+        >
+          <div className="flex gap-3 items-start">
+            <WifiOff className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-amber-800">
+                {t("Scanner Not Available", "स्कैनर उपलब्ध नहीं है")}
+              </p>
+              <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                {t(
+                  "The AI food scanner service is not configured on this server. You can still select ingredients manually from the common pantry list below.",
+                  "इस सर्वर पर AI फूड स्कैनर सेवा कॉन्फ़िगर नहीं है। आप नीचे दी गई सामान्य सूची से सामग्री चुन सकते हैं।"
+                )}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Demo mode badge */}
+      {scanMutation.data?.demoMode && (
+        <div className="flex items-center gap-2 px-1">
+          <Badge className="bg-violet-100 text-violet-700 border border-violet-300 gap-1.5 text-[11px]">
+            <FlaskConical className="w-3 h-3" />
+            {t("Demo Mode — Simulated Data", "डेमो मोड — अनुकरण डेटा")}
+          </Badge>
+        </div>
+      )}
 
       {/* Detected ingredients from scan */}
       {pantryItems.length > 0 && (
@@ -275,7 +320,9 @@ export default function Scanner() {
       try {
         await scanMutation.mutateAsync({ data: { imageBase64: base64 } });
       } catch (err) {
-        console.error("Scan failed", err);
+        if (!isYoloUnavailable(err)) {
+          console.error("Scan failed", err);
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -586,6 +633,47 @@ export default function Scanner() {
                   {t("Manual Entry", "मैन्युअल दर्ज करें")}
                 </button>
               </div>
+
+              {/* YOLO unavailable error */}
+              {scanMutation.isError && isYoloUnavailable(scanMutation.error) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-4 mt-4 rounded-2xl p-4 border border-amber-400/40 bg-amber-50/70 flex gap-3"
+                >
+                  <WifiOff className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-sm text-amber-800">
+                      {t("Scanner Not Available", "स्कैनर उपलब्ध नहीं है")}
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                      {t(
+                        "The AI food scanner service is not configured on this server. Use manual entry below to log your meal.",
+                        "इस सर्वर पर AI फूड स्कैनर सेवा कॉन्फ़िगर नहीं है। भोजन लॉग करने के लिए नीचे मैन्युअल दर्ज करें।"
+                      )}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 text-xs border-amber-400 text-amber-700 hover:bg-amber-50"
+                      onClick={() => setShowManualEntry(true)}
+                    >
+                      <PenLine className="w-3 h-3 mr-1" />
+                      {t("Log manually", "मैन्युअल दर्ज करें")}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Demo mode badge */}
+              {scanMutation.isSuccess && scanMutation.data?.demoMode && (
+                <div className="mx-4 mt-4 flex items-center gap-2">
+                  <Badge className="bg-violet-100 text-violet-700 border border-violet-300 gap-1.5 text-[11px]">
+                    <FlaskConical className="w-3 h-3" />
+                    {t("Demo Mode — Simulated Data", "डेमो मोड — अनुकरण डेटा")}
+                  </Badge>
+                </div>
+              )}
 
               {/* Low-confidence warning */}
               {scanMutation.isSuccess && hasLowConfidence && (
