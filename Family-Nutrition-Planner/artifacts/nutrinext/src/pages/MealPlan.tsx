@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-fetch";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
@@ -122,6 +122,13 @@ export default function MealPlan() {
   const [showFasting, setShowFasting] = useState(false);
   const [loggingMeal, setLoggingMeal] = useState<string | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  // Determine today's day name (e.g., "Monday")
+  const todayDayName = useMemo(() => {
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    return dayNames[new Date().getDay()];
+  }, []);
 
   const { data: plans, isLoading, refetch } = useListMealPlans(
     { familyId },
@@ -516,42 +523,73 @@ export default function MealPlan() {
         </div>
       )}
 
-      {/* Per-Member Variations Legend */}
-      {familyMembers && familyMembers.length > 0 && (
-        <div className="glass-card rounded-2xl p-3 flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-bold text-muted-foreground mr-1">{t("Plate variations:", "थाली बदलाव:")}</span>
-          {familyMembers.map((member, idx) => (
-            <span key={member.id} className={`text-[0.65rem] font-semibold px-2 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
-              {member.name.split(" ")[0]}
-            </span>
-          ))}
-          <span className="text-[0.6rem] text-muted-foreground">{t("— Tap a day to expand meals", "— दिन टैप करें")}</span>
-        </div>
-      )}
+      {/* Per-Member Variations Legend + Expand/Collapse All */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {familyMembers && familyMembers.length > 0 && (
+          <div className="glass-card rounded-2xl p-3 flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-bold text-muted-foreground mr-1">{t("Plate variations:", "थाली बदलाव:")}</span>
+            {familyMembers.map((member, idx) => (
+              <span key={member.id} className={`text-[0.65rem] font-semibold px-2 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                {member.name.split(" ")[0]}
+              </span>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => {
+            if (allExpanded) {
+              setAllExpanded(false);
+              setExpandedDay(null);
+            } else {
+              setAllExpanded(true);
+              setExpandedDay(null);
+            }
+          }}
+          className="text-xs font-medium text-primary glass-card px-3 py-2 rounded-xl hover:bg-white/80 transition-colors shrink-0 flex items-center gap-1"
+        >
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${allExpanded ? "rotate-180" : ""}`} />
+          {allExpanded ? t("Collapse All", "सब बंद करें") : t("Expand All", "सब खोलें")}
+        </button>
+      </div>
 
       {/* 7-Day Horizontal Day-Cards with tap-to-expand */}
       <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-1 px-1">
         {days.map((day, di) => {
           const dayObj = getDayData(day);
           const dn = dayObj?.dailyNutrition;
-          const isExpanded = expandedDay === day;
+          const isToday = day === todayDayName;
+          const isExpanded = allExpanded || expandedDay === day;
           const mealTranslations: Record<string, string> = { Breakfast: "नाश्ता", Lunch: "दोपहर", Dinner: "रात", Snack: "नाश्ता" };
+          const breakfastCell = getDayMeal(day, "Breakfast");
+          const breakfastPreview = lang === "hi" && breakfastCell.nameHindi
+            ? breakfastCell.nameHindi
+            : (breakfastCell.recipeName ?? breakfastCell.name ?? "");
 
           return (
             <motion.div
               key={day}
               layout
-              className={`snap-start shrink-0 glass-card rounded-2xl overflow-hidden transition-all ${isExpanded ? "w-[300px] md:w-[340px]" : "w-[120px] md:w-[140px]"}`}
+              className={`snap-start shrink-0 glass-card rounded-2xl overflow-hidden transition-all ${isExpanded ? "w-[300px] md:w-[340px]" : "w-[120px] md:w-[140px]"} ${isToday ? "ring-2 ring-primary/50" : ""}`}
             >
               {/* Day header — always visible, tap to expand */}
               <button
                 type="button"
-                onClick={() => setExpandedDay(isExpanded ? null : day)}
-                className={`w-full p-3 text-left flex flex-col gap-1 transition-colors ${dayObj?.isFastingDay ? "bg-purple-500/10" : ""}`}
+                onClick={() => {
+                  if (allExpanded) {
+                    setAllExpanded(false);
+                    setExpandedDay(expandedDay === day ? null : day);
+                  } else {
+                    setExpandedDay(isExpanded ? null : day);
+                  }
+                }}
+                className={`w-full p-3 text-left flex flex-col gap-1 transition-colors ${dayObj?.isFastingDay ? "bg-purple-500/10" : isToday ? "bg-primary/5" : ""}`}
               >
                 <div className="flex items-center justify-between gap-1">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{day.slice(0, 3)}</p>
+                    <div className="flex items-center gap-1">
+                      <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? "text-primary" : "text-muted-foreground"}`}>{day.slice(0, 3)}</p>
+                      {isToday && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                    </div>
                     {dayObj?.dailyHarmonyScore && (
                       <p className="text-[10px] font-semibold text-primary">{dayObj.dailyHarmonyScore}% ✦</p>
                     )}
@@ -561,6 +599,11 @@ export default function MealPlan() {
                     <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
                   </div>
                 </div>
+                {!isExpanded && breakfastPreview && breakfastPreview !== "—" && (
+                  <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2 mt-0.5">
+                    {breakfastPreview}
+                  </p>
+                )}
                 {dn && (
                   <div className="flex flex-col gap-0.5">
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${dn.calories < 1600 ? "text-red-700 bg-red-50" : dn.calories > 2400 ? "text-amber-700 bg-amber-50" : "text-green-700 bg-green-50"}`}>
@@ -569,6 +612,11 @@ export default function MealPlan() {
                     <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${dn.protein < 45 ? "text-red-700 bg-red-50" : "text-green-700 bg-green-50"}`}>
                       {dn.protein}g P
                     </span>
+                    {dn.carbs && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-blue-700 bg-blue-50">
+                        {dn.carbs}g C
+                      </span>
+                    )}
                   </div>
                 )}
               </button>

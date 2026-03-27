@@ -13,9 +13,10 @@ import { ArrowRight, ArrowLeft, Save, Plus, Trash2, Loader2, Mic, MicOff } from 
 import { useToast } from "@/hooks/use-toast";
 
 type MemberDraft = {
+  _id: number;
   name: string;
   role: string;
-  age: number;
+  age: number | "";
   gender: string;
   weightKg: number;
   heightCm: number;
@@ -25,7 +26,12 @@ type MemberDraft = {
   healthGoal: string;
   dietaryType: string;
   memberFastingDays: string[];
+  foodAllergies: string;
 };
+
+type MemberErrors = { name?: string; age?: string };
+
+let _memberIdCounter = 0;
 
 interface ParsedVoiceMember {
   name?: string;
@@ -54,6 +60,7 @@ export default function FamilySetup() {
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [memberErrors, setMemberErrors] = useState<Record<number, MemberErrors>>({});
 
   const [familyData, setFamilyData] = useState({
     name: "",
@@ -70,8 +77,9 @@ export default function FamilySetup() {
 
   const [members, setMembers] = useState<MemberDraft[]>([
     {
-      name: "", role: "father", age: 35, gender: "male", weightKg: 70, heightCm: 170, activityLevel: "moderate",
-      healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness", dietaryType: "vegetarian", memberFastingDays: []
+      _id: ++_memberIdCounter, name: "", role: "father", age: 35, gender: "male", weightKg: 70, heightCm: 170,
+      activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
     }
   ]);
 
@@ -142,6 +150,7 @@ export default function FamilySetup() {
         if (parsed.language) setFamilyData(fd => ({ ...fd, primaryLanguage: parsed.language ?? fd.primaryLanguage }));
         if (parsed.members && parsed.members.length > 0) {
           const parsedMembers: MemberDraft[] = parsed.members.map(m => ({
+            _id: ++_memberIdCounter,
             name: m.name ?? "",
             role: m.role ?? "other",
             age: m.age ?? 25,
@@ -154,6 +163,7 @@ export default function FamilySetup() {
             healthGoal: m.healthGoal ?? "general_wellness",
             dietaryType: "vegetarian",
             memberFastingDays: [],
+            foodAllergies: "",
           }));
           setMembers(parsedMembers);
         }
@@ -168,10 +178,35 @@ export default function FamilySetup() {
   };
 
   const handleAddMember = () => {
-    setMembers([...members, {
-      name: "", role: "other", age: 25, gender: "female", weightKg: 60, heightCm: 160, activityLevel: "moderate",
-      healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness", dietaryType: "vegetarian", memberFastingDays: []
+    setMembers(prev => [...prev, {
+      _id: ++_memberIdCounter, name: "", role: "other", age: 25, gender: "female", weightKg: 60, heightCm: 160,
+      activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
     }]);
+  };
+
+  const toggleMemberCondition = (idx: number, cond: string) => {
+    const current = members[idx].healthConditions;
+    let next: string[];
+    if (cond === "none") {
+      next = current.includes("none") ? [] : ["none"];
+    } else {
+      const without = current.filter(c => c !== "none");
+      next = without.includes(cond) ? without.filter(c => c !== cond) : [...without, cond];
+    }
+    handleUpdateMember(idx, "healthConditions", next);
+  };
+
+  const toggleMemberFasting = (idx: number, day: string) => {
+    const current = members[idx].memberFastingDays;
+    let next: string[];
+    if (day === "none") {
+      next = current.includes("none") ? [] : ["none"];
+    } else {
+      const without = current.filter(d => d !== "none");
+      next = without.includes(day) ? without.filter(d => d !== day) : [...without, day];
+    }
+    handleUpdateMember(idx, "memberFastingDays", next);
   };
 
   const handleUpdateMember = <K extends keyof MemberDraft>(index: number, field: K, value: MemberDraft[K]) => {
@@ -198,6 +233,21 @@ export default function FamilySetup() {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
     }
+
+    // Inline validation — collect errors per member
+    const errors: Record<number, MemberErrors> = {};
+    members.forEach((m, i) => {
+      const e: MemberErrors = {};
+      if (!m.name.trim()) e.name = "Name is required";
+      if (m.age === "" || m.age <= 0 || !Number.isFinite(Number(m.age))) e.age = "Enter a valid age";
+      if (Object.keys(e).length > 0) errors[i] = e;
+    });
+    if (Object.keys(errors).length > 0) {
+      setMemberErrors(errors);
+      return;
+    }
+    setMemberErrors({});
+
     if (members.length < 2) {
       toast({ title: "At least 2 members required", description: "Please add at least one more family member before saving.", variant: "destructive" });
       return;
@@ -227,20 +277,25 @@ export default function FamilySetup() {
             ...member.dietaryRestrictions,
             ...(member.dietaryType ? [`diet_type:${member.dietaryType}`] : []),
             ...(member.healthGoal && member.healthGoal !== "general_wellness" ? [`health_goal:${member.healthGoal}`] : []),
-            ...member.memberFastingDays.map(d => `fasting:${d}`),
+            ...member.memberFastingDays.filter(d => d !== "none").map(d => `fasting:${d}`),
           ];
+          const allergyList = member.foodAllergies
+            .split(",")
+            .map(s => s.trim())
+            .filter(Boolean);
           await addMember.mutateAsync({
             familyId: fam.id,
             data: {
               name: member.name,
               role: member.role,
-              age: member.age,
+              age: Number(member.age),
               gender: member.gender,
               weightKg: member.weightKg,
               heightCm: member.heightCm,
               activityLevel: member.activityLevel,
-              healthConditions: member.healthConditions,
+              healthConditions: member.healthConditions.filter(c => c !== "none"),
               dietaryRestrictions: enrichedDietaryRestrictions,
+              allergies: allergyList,
             }
           });
         }
@@ -250,7 +305,8 @@ export default function FamilySetup() {
       toast({ title: "Success!", description: "Family profile created." });
       setLocation("/");
     } catch (err) {
-      toast({ title: "Error saving profile", variant: "destructive" });
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      toast({ title: "Error saving profile", description: msg, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -474,7 +530,7 @@ export default function FamilySetup() {
             className="space-y-6"
           >
             {members.map((member, idx) => (
-              <div key={idx} className="bg-white rounded-3xl p-6 shadow-sm border border-border relative">
+              <div key={member._id} className="bg-white rounded-3xl p-6 shadow-sm border border-border relative">
                 {members.length > 1 && (
                   <button onClick={() => handleRemoveMember(idx)} className="absolute top-4 right-4 text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-5 h-5" />
@@ -485,38 +541,53 @@ export default function FamilySetup() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <Label>Name</Label>
+                    <Label>Name / नाम <span className="text-destructive">*</span></Label>
                     <Input 
                       value={member.name} 
-                      onChange={e => handleUpdateMember(idx, "name", e.target.value)} 
-                      className="mt-1" 
+                      onChange={e => {
+                        handleUpdateMember(idx, "name", e.target.value);
+                        if (memberErrors[idx]?.name) setMemberErrors(prev => ({ ...prev, [idx]: { ...prev[idx], name: undefined } }));
+                      }}
+                      className={`mt-1 ${memberErrors[idx]?.name ? "border-destructive" : ""}`}
                     />
+                    {memberErrors[idx]?.name && <p className="text-xs text-destructive mt-1">{memberErrors[idx].name}</p>}
                   </div>
                   <div>
-                    <Label>Role</Label>
+                    <Label>Role / संबंध</Label>
                     <Select value={member.role} onValueChange={v => handleUpdateMember(idx, "role", v)}>
                       <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="father">Father</SelectItem>
-                        <SelectItem value="mother">Mother</SelectItem>
-                        <SelectItem value="child">Child</SelectItem>
-                        <SelectItem value="grandparent">Grandparent</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="father">Father / पिता</SelectItem>
+                        <SelectItem value="mother">Mother / माँ</SelectItem>
+                        <SelectItem value="spouse">Spouse / जीवनसाथी</SelectItem>
+                        <SelectItem value="child">Child / बच्चा</SelectItem>
+                        <SelectItem value="grandparent">Grandparent / दादा-दादी</SelectItem>
+                        <SelectItem value="other">Other / अन्य</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
                   <div>
-                    <Label>Age</Label>
-                    <Input type="number" value={member.age} onChange={e => handleUpdateMember(idx, "age", parseInt(e.target.value))} className="mt-1" />
+                    <Label>Age / आयु <span className="text-destructive">*</span></Label>
+                    <Input
+                      type="number"
+                      value={member.age}
+                      onChange={e => {
+                        const val = e.target.value === "" ? "" : parseInt(e.target.value);
+                        handleUpdateMember(idx, "age", val as number | "");
+                        if (memberErrors[idx]?.age) setMemberErrors(prev => ({ ...prev, [idx]: { ...prev[idx], age: undefined } }));
+                      }}
+                      className={`mt-1 ${memberErrors[idx]?.age ? "border-destructive" : ""}`}
+                    />
+                    {memberErrors[idx]?.age && <p className="text-xs text-destructive mt-1">{memberErrors[idx].age}</p>}
                   </div>
                   <div>
-                    <Label>Weight (kg)</Label>
-                    <Input type="number" value={member.weightKg} onChange={e => handleUpdateMember(idx, "weightKg", parseInt(e.target.value))} className="mt-1" />
+                    <Label>Weight (kg) / वजन</Label>
+                    <Input type="number" value={member.weightKg} onChange={e => handleUpdateMember(idx, "weightKg", parseInt(e.target.value) || 60)} className="mt-1" />
                   </div>
                   <div>
-                    <Label>Height (cm)</Label>
-                    <Input type="number" value={member.heightCm} onChange={e => handleUpdateMember(idx, "heightCm", parseInt(e.target.value))} className="mt-1" />
+                    <Label>Height (cm) / ऊंचाई</Label>
+                    <Input type="number" value={member.heightCm} onChange={e => handleUpdateMember(idx, "heightCm", parseInt(e.target.value) || 160)} className="mt-1" />
                   </div>
                 </div>
 
@@ -560,19 +631,19 @@ export default function FamilySetup() {
                       { id: 'obesity', label: 'Obesity / मोटापा' },
                       { id: 'anemia', label: 'Anemia / रक्ताल्पता' },
                       { id: 'thyroid', label: 'Thyroid / थायरॉइड' },
+                      { id: 'high_cholesterol', label: 'High Cholesterol / उच्च कोलेस्ट्रॉल' },
+                      { id: 'pcod', label: 'PCOD / पीसीओडी' },
+                      { id: 'growing_child', label: 'Growing Child / बढ़ता बच्चा' },
+                      { id: 'elderly', label: 'Elderly (60+) / बुजुर्ग' },
+                      { id: 'none', label: 'None / कोई नहीं' },
                     ].map(({ id: cond, label }) => (
                       <div key={cond} className="flex items-center space-x-2">
                         <Checkbox 
-                          id={`${idx}-${cond}`} 
+                          id={`${member._id}-${cond}`}
                           checked={member.healthConditions.includes(cond)}
-                          onCheckedChange={(checked) => {
-                            const newConds = checked 
-                              ? [...member.healthConditions, cond]
-                              : member.healthConditions.filter(c => c !== cond);
-                            handleUpdateMember(idx, "healthConditions", newConds);
-                          }}
+                          onCheckedChange={() => toggleMemberCondition(idx, cond)}
                         />
-                        <Label htmlFor={`${idx}-${cond}`}>{label}</Label>
+                        <Label htmlFor={`${member._id}-${cond}`}>{label}</Label>
                       </div>
                     ))}
                   </div>
@@ -582,23 +653,32 @@ export default function FamilySetup() {
                       { id: "monday", label: "Monday / सोमवार" },
                       { id: "tuesday", label: "Tuesday / मंगलवार" },
                       { id: "thursday", label: "Thursday / गुरुवार" },
-                      { id: "ekadashi", label: "Ekadashi / एकादशी" },
+                      { id: "friday", label: "Friday / शुक्रवार" },
                       { id: "saturday", label: "Saturday / शनिवार" },
+                      { id: "ekadashi", label: "Ekadashi / एकादशी" },
+                      { id: "ramadan", label: "Ramadan / रमजान" },
+                      { id: "none", label: "None / कोई नहीं" },
                     ].map(({ id: day, label }) => (
                       <div key={day} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`${idx}-fasting-${day}`}
+                          id={`${member._id}-fasting-${day}`}
                           checked={member.memberFastingDays.includes(day)}
-                          onCheckedChange={(checked) => {
-                            const newDays = checked
-                              ? [...member.memberFastingDays, day]
-                              : member.memberFastingDays.filter(d => d !== day);
-                            handleUpdateMember(idx, "memberFastingDays", newDays);
-                          }}
+                          onCheckedChange={() => toggleMemberFasting(idx, day)}
                         />
-                        <Label htmlFor={`${idx}-fasting-${day}`} className="text-xs">{label}</Label>
+                        <Label htmlFor={`${member._id}-fasting-${day}`} className="text-xs">{label}</Label>
                       </div>
                     ))}
+
+                    <div className="pt-2">
+                      <Label className="text-sm font-semibold">Food Allergies / खाद्य एलर्जी <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <Input
+                        value={member.foodAllergies}
+                        onChange={e => handleUpdateMember(idx, "foodAllergies", e.target.value)}
+                        placeholder="e.g. peanuts, milk, gluten"
+                        className="mt-1 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Separate multiple with commas</p>
+                    </div>
                   </div>
                 </div>
               </div>

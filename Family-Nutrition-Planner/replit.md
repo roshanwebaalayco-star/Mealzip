@@ -182,6 +182,37 @@ Liquid Glass 2025+ (`artifacts/nutrinext/src/index.css`):
 - `nav-active` — active navigation state
 - Framer Motion stagger animations (use string names like `"easeOut" as const` in Variants)
 
+## Recent Feature Additions (Tasks #6–#9)
+
+### Family Member Form (Task #6)
+- Expanded health conditions to 10 options: Diabetes, Hypertension, Obesity, Anemia, Thyroid, High Cholesterol, PCOD, Growing Child, Elderly (60+), None — with mutual exclusion for "None"
+- Expanded fasting days to 8 options: Monday–Saturday + Ekadashi + Ramadan + Friday + None — with mutual exclusion for "None"
+- Added Food Allergies text input (comma-separated, sent as `allergies[]` to API)
+- Inline validation for required Name and Age fields (red error text, no toast)
+- Stable React keys via `_id` counter (prevents component reuse on member removal)
+- Added Spouse role option
+
+### Pantry Screen (Task #7)
+- New "My Pantry" tab in the Grocery page (tabbed UI: Grocery List | My Pantry)
+- 20 quick-add common Indian pantry staples (chips UI)
+- Text input for custom items (Enter key + Add button)
+- Items stored in `localStorage` keyed by `pantry_${familyId}` — persists across sessions
+- Grocery list generation automatically passes `pantryIngredients` + `updateMode: "subtract"` when pantry is non-empty
+- Generate button shows pantry item count, success toast includes exclusion note
+
+### Meal Plan Card UX (Task #8)
+- Today's day card highlighted with a primary-colored ring and dot indicator
+- Breakfast name preview shown on collapsed day cards
+- Carbs badge added alongside calories and protein badges
+- "Expand All" / "Collapse All" button to open all 7 day cards at once
+- Clicking any card when Expand All is active collapses all and shows only that card
+
+### Grocery Sharing & Language Toggle (Task #9)
+- Share button in grocery list header: uses Web Share API (mobile/WhatsApp-native) with clipboard fallback
+- Shared text is formatted with categories, item names, quantities, and prices
+- Language toggle button (English ↔ हिंदी) in grocery list header — switches all item names to Hindi when available
+- Language toggle uses the existing app-wide LanguageContext (`toggleLang`)
+
 ## Known Limitations
 
 - **Fasting calendar is 2026-centric**: Festival/fasting dates are hardcoded for 2026 (Gregorian). For other years, the API falls back to 2026 data and sets `isFallbackYear: true` in the response; the UI shows an amber note when this happens. A dynamic Indian calendar calculation engine would be needed for multi-year correctness.
