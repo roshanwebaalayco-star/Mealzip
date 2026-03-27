@@ -126,6 +126,9 @@ export function useVoiceAssistant() {
       setConvState("ask_family_name");
 
       const langCode = LANG_CODE[language] ?? "hi-IN";
+      // TTS locale must match the script used in assistant messages.
+      // Backend currently produces Devanagari Hindi or English — never other scripts.
+      const ttsLang = language === "hindi" ? "hi-IN" : "en-IN";
       let currentState: ConvState = "ask_family_name";
       let fd: VoiceFormData = {};
       let msgs: ConvMessage[] = [...initialMsgs];
@@ -139,7 +142,7 @@ export function useVoiceAssistant() {
           }
           window.speechSynthesis.cancel();
           const utt = new SpeechSynthesisUtterance(text);
-          utt.lang = LANG_CODE[language] ?? "hi-IN";
+          utt.lang = ttsLang;
           utt.rate = 0.9;
           utt.pitch = 1.1;
           utt.onend = () => resolve();
