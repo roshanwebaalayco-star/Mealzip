@@ -536,47 +536,6 @@ export default function Grocery() {
             </div>
           )}
 
-          {/* Already in Your Kitchen */}
-          {pantryItems.length > 0 && (
-            <div className="glass-card rounded-2xl overflow-hidden border border-muted">
-              <button
-                onClick={() => setPantryAlreadyHaveExpanded(prev => !prev)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-semibold text-muted-foreground">
-                    {t("Items Already in Your Kitchen", "आपकी रसोई में पहले से मौजूद चीजें")}
-                  </span>
-                  <Badge variant="secondary" className="text-xs">{pantryItems.length}</Badge>
-                </div>
-                {pantryAlreadyHaveExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-              {pantryAlreadyHaveExpanded && (
-                <div className="px-4 pb-4 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {t("These items are already in your pantry and were excluded from the grocery list above.", "ये चीजें आपकी पेंट्री में हैं और ऊपर की सूची से हटाई गई हैं।")}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {pantryItems.map(item => (
-                      <span
-                        key={item}
-                        className="flex items-center gap-1.5 text-xs bg-muted text-muted-foreground border border-border rounded-full px-3 py-1"
-                      >
-                        <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Grouped Items */}
           {Object.entries(grouped).map(([category, catItems]) => (
             <div key={category} className="glass-card rounded-2xl p-4 space-y-3">
@@ -646,6 +605,47 @@ export default function Grocery() {
               </div>
             </div>
           ))}
+
+          {/* Already in Your Kitchen — bottom of list */}
+          {pantryItems.length > 0 && (
+            <div className="glass-card rounded-2xl overflow-hidden border border-muted">
+              <button
+                onClick={() => setPantryAlreadyHaveExpanded(prev => !prev)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {t("Items Already in Your Kitchen", "आपकी रसोई में पहले से मौजूद चीजें")}
+                  </span>
+                  <Badge variant="secondary" className="text-xs">{pantryItems.length}</Badge>
+                </div>
+                {pantryAlreadyHaveExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+              {pantryAlreadyHaveExpanded && (
+                <div className="px-4 pb-4 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("These items are already in your pantry and were excluded from the list above.", "ये चीजें आपकी पेंट्री में हैं और ऊपर की सूची से हटाई गई हैं।")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {pantryItems.map(item => (
+                      <span
+                        key={item}
+                        className="flex items-center gap-1.5 text-xs bg-muted text-muted-foreground border border-border rounded-full px-3 py-1"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

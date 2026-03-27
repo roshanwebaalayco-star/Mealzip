@@ -162,6 +162,10 @@ export type GenerateMealPlanBodyPreferences = {
   maxBudget?: number;
   /** Generate a fasting-mode plan (Navratri, Ekadashi, etc.) */
   isFasting?: boolean;
+  /** Ingredients already available at home; prefer recipes that use these. */
+  pantryIngredients?: string[];
+  /** Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning. */
+  festivalType?: string;
 };
 
 export interface GenerateMealPlanBody {
