@@ -6,6 +6,8 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed-recipes": "tsx ./seed-recipes.ts",
+    "seed-icmr-nin": "tsx ./seed-icmr-nin.ts",
+    "verify-db": "tsx ./verify-db.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
