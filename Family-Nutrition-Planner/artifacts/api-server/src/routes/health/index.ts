@@ -8,10 +8,6 @@ import { FASTING_CALENDAR, type FastingEntry } from "../../lib/festival-fasting.
 
 const router: IRouter = Router();
 
-router.get("/healthz", (_req, res) => {
-  res.json({ status: "ok" });
-});
-
 const HealthLogSchema = z.object({
   familyId: z.number({ required_error: "familyId is required" }).int().positive(),
   memberId: z.number().int().positive().optional(),

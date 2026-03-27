@@ -9,8 +9,8 @@ export interface AuthUser {
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
-const TOKEN_KEY = "parivarsehat_token";
-const USER_KEY = "parivarsehat_user";
+const TOKEN_KEY = "auth_token";
+const USER_KEY = "auth_user";
 
 async function apiRequest(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem(TOKEN_KEY);

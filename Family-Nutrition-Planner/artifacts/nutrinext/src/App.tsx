@@ -20,7 +20,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
 
-const TOKEN_KEY = "parivarsehat_token";
+const TOKEN_KEY = "auth_token";
 
 function isAuthenticated(): boolean {
   return !!localStorage.getItem(TOKEN_KEY);

@@ -3,8 +3,8 @@ import App from "./App";
 import "./index.css";
 import { setAuthTokenGetter, setUnauthorizedHandler } from "@workspace/api-client-react";
 
-const TOKEN_KEY = "parivarsehat_token";
-const USER_KEY = "parivarsehat_user";
+const TOKEN_KEY = "auth_token";
+const USER_KEY = "auth_user";
 
 setAuthTokenGetter(() => localStorage.getItem(TOKEN_KEY));
 

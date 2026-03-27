@@ -51,7 +51,7 @@ export default function Register() {
     setIsLoading(true);
     try {
       await register(email, password, name, primaryLanguage);
-      navigate("/");
+      navigate("/family-setup");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
       toast({ variant: "destructive", title: "Registration Failed", description: msg });
