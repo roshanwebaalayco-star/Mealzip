@@ -120,7 +120,7 @@ router.get("/auth/me", authenticateToken, async (req, res): Promise<void> => {
   res.json(user);
 });
 
-router.post("/auth/logout", (_req, res): void => {
+router.post("/auth/logout", authenticateToken, (_req, res): void => {
   res.json({ message: "Logged out successfully" });
 });
 
