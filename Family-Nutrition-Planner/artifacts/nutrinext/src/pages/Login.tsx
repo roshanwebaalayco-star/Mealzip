@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Eye, EyeOff, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
+const TOKEN_KEY = "auth_token";
+const USER_KEY = "auth_user";
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,14 +18,37 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const { toast } = useToast();
-  const { login, demoLogin } = useAuth();
+  const { login } = useAuth();
   const [, navigate] = useLocation();
 
-  const handleDemoLogin = async () => {
+  const handleInstantDemo = async () => {
     setIsDemoLoading(true);
     try {
-      await demoLogin();
-      navigate("/");
+      const res = await fetch("/api/demo/instant");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? `Demo failed (${res.status})`);
+      }
+      const data = await res.json() as {
+        token: string;
+        user: { id: number; email: string; name: string; primaryLanguage: string; createdAt: string };
+        family: unknown;
+        mealPlan: unknown;
+        message?: string;
+      };
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      if (data.family) {
+        try { localStorage.setItem("demo_family_cache", JSON.stringify(data.family)); } catch { /* ignore */ }
+      }
+      if (data.mealPlan && data.family && typeof data.family === "object" && data.family !== null) {
+        const fam = data.family as { id?: number };
+        if (fam.id) {
+          try { localStorage.setItem(`meal_plan_cache_${fam.id}`, JSON.stringify(data.mealPlan)); } catch { /* ignore */ }
+        }
+      }
+      window.dispatchEvent(new Event("auth:login"));
+      navigate("/meal-plan");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Demo login failed.";
       toast({ variant: "destructive", title: "Demo Login Failed", description: msg });
@@ -115,7 +141,7 @@ export default function Login() {
           </Button>
         </form>
 
-        {/* Demo login for hackathon judges */}
+        {/* Judge Demo — instant one-tap access */}
         <div className="mt-3">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex-1 h-px bg-border" />
@@ -124,18 +150,18 @@ export default function Login() {
           </div>
           <button
             type="button"
-            onClick={handleDemoLogin}
+            onClick={handleInstantDemo}
             disabled={isDemoLoading}
-            className="w-full h-11 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+            className="w-full h-12 rounded-xl border-2 border-dashed border-primary/50 bg-gradient-to-r from-primary/8 to-orange-500/8 hover:from-primary/14 hover:to-orange-500/14 text-primary font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-sm"
           >
             {isDemoLoading
               ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Zap className="w-4 h-4" />
+              : <Zap className="w-4 h-4 text-orange-500" />
             }
-            Try Demo — No signup needed
+            🎯 Try with Demo Family (60 seconds)
           </button>
           <p className="text-center text-[10px] text-muted-foreground mt-1.5">
-            Loads Sharma family demo with a full AI-generated meal plan
+            Loads Sharma family demo with a full 7-day AI meal plan — no signup needed
           </p>
         </div>
 

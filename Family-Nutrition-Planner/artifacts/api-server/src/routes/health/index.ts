@@ -239,6 +239,37 @@ Return JSON:
 
 // FASTING_CALENDAR now imported from ../../lib/festival-fasting.js (single source of truth)
 
+/**
+ * Approximate Ekadashi dates for a given Gregorian month/year.
+ * Uses mean lunar cycle (29.53 days) anchored to Jan 29 2026 new moon.
+ */
+function computeEkadashiDates(year: number, month: number): { day: number; name: string; nameHindi: string }[] {
+  const LUNAR_CYCLE = 29.53058867;
+  const TITHI = LUNAR_CYCLE / 30;
+  const anchorNewMoon = new Date("2026-01-29T00:00:00Z").getTime();
+  const targetStart = new Date(Date.UTC(year, month - 1, 1)).getTime();
+  const targetEnd   = new Date(Date.UTC(year, month, 1)).getTime();
+
+  const results: { day: number; name: string; nameHindi: string }[] = [];
+
+  for (let i = -2; i <= 14; i++) {
+    const newMoonMs = anchorNewMoon + i * LUNAR_CYCLE * 86400_000;
+    const pairs = [
+      { ms: newMoonMs + 11 * TITHI * 86400_000, name: "Ekadashi (Shukla Paksha, estimated)", nameHindi: "एकादशी (शुक्ल पक्ष, अनुमानित)" },
+      { ms: newMoonMs + 26 * TITHI * 86400_000, name: "Ekadashi (Krishna Paksha, estimated)", nameHindi: "एकादशी (कृष्ण पक्ष, अनुमानित)" },
+    ];
+    for (const p of pairs) {
+      if (p.ms >= targetStart && p.ms < targetEnd) {
+        const day = new Date(p.ms).getUTCDate();
+        if (!results.some(r => Math.abs(r.day - day) <= 1)) {
+          results.push({ day, name: p.name, nameHindi: p.nameHindi });
+        }
+      }
+    }
+  }
+
+  return results.sort((a, b) => a.day - b.day);
+}
 
 router.get("/fasting-calendar", async (req, res): Promise<void> => {
   const year = parseInt(req.query.year as string) || new Date().getFullYear();
@@ -246,8 +277,38 @@ router.get("/fasting-calendar", async (req, res): Promise<void> => {
   const memberId = req.query.memberId as string | undefined;
 
   const SUPPORTED_YEARS = Object.keys(FASTING_CALENDAR).map(Number);
-  const calendarDataYear = SUPPORTED_YEARS.includes(year) ? year : 2026;
-  const yearData = FASTING_CALENDAR[calendarDataYear] ?? {};
+  const isFallbackYear = !SUPPORTED_YEARS.includes(year);
+
+  if (isFallbackYear) {
+    const generalFastingDays = computeEkadashiDates(year, month).map(e => ({
+      date: `${year}-${String(month).padStart(2, "0")}-${String(e.day).padStart(2, "0")}`,
+      day: e.day,
+      name: e.name,
+      nameHindi: e.nameHindi,
+      fastingType: "partial" as const,
+      recommendedFoods: ["Fruits", "Milk", "Sabudana Khichdi", "Makhane ki Kheer", "Nuts"],
+      traditions: ["Hindu"],
+      isEstimated: true,
+      memberId: memberId ?? null,
+    }));
+
+    res.json({
+      year,
+      month,
+      dataYear: null,
+      isFallbackYear: true,
+      isFestivalFasting: false,
+      festivals: [],
+      fastingDays: [],
+      generalFastingDays,
+      totalFestivalsInMonth: 0,
+      message: `Exact festival dates for ${year} are not yet in our dataset. Showing approximate Ekadashi dates computed from the lunar calendar. Actual dates may vary by 1–2 days by regional tradition.`,
+      note: `Festival data unavailable for ${year}. Ekadashi dates are mathematically estimated.`,
+    });
+    return;
+  }
+
+  const yearData = FASTING_CALENDAR[year] ?? {};
   const monthEntries = yearData[month] ?? [];
 
   const fastingDays = monthEntries.map((entry) => ({
@@ -264,13 +325,15 @@ router.get("/fasting-calendar", async (req, res): Promise<void> => {
   res.json({
     year,
     month,
-    dataYear: calendarDataYear,
-    isFallbackYear: calendarDataYear !== year,
+    dataYear: year,
+    isFallbackYear: false,
+    isFestivalFasting: fastingDays.some(d => d.fastingType !== "none"),
+    festivals: fastingDays,
     fastingDays,
+    generalFastingDays: [],
     totalFestivalsInMonth: fastingDays.length,
-    note: calendarDataYear !== year
-      ? `Fasting dates shown are from ${calendarDataYear} calendar data (2026-only coverage). Actual ${year} dates may differ by 1–2 days. Exact dates vary by regional tradition.`
-      : "Dates are based on the Gregorian calendar equivalent of the 2026 Vikram Samvat panchang. Ekadashi tithis use the 11th lunar day of each paksha. Exact dates may vary by regional tradition.",
+    message: null,
+    note: "Dates are based on the Gregorian calendar equivalent of the 2026 Vikram Samvat panchang. Ekadashi tithis use the 11th lunar day of each paksha. Exact dates may vary by regional tradition.",
   });
 });
 

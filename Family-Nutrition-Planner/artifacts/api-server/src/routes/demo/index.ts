@@ -22,6 +22,48 @@ function requireDemoMode(res: import("express").Response): boolean {
   return true;
 }
 
+/**
+ * GET /api/demo/instant
+ * One-tap instant demo for hackathon judges.
+ * Creates / reuses the Sharma family demo, signs a 2-hour JWT, and returns
+ * { token, user, family, mealPlan, message } in a single response.
+ * Does NOT require DEMO_MODE=true — available in all environments.
+ */
+router.get("/demo/instant", async (_req, res): Promise<void> => {
+  try {
+    let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
+    if (!user) {
+      const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+      [user] = await db.insert(usersTable).values({
+        email: DEMO_EMAIL,
+        passwordHash,
+        name: "Demo Judge",
+        primaryLanguage: "hindi",
+      }).returning();
+    }
+
+    const seedResult = await seedSharmaFamily(user.id);
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email } satisfies AuthPayload,
+      getJwtSecret(),
+      { expiresIn: "2h" },
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, primaryLanguage: user.primaryLanguage, createdAt: user.createdAt },
+      family: seedResult.family,
+      mealPlan: seedResult.mealPlan,
+      harmonyScore: seedResult.harmonyScore,
+      message: "Demo ready — no signup needed! Loaded Sharma family with full AI meal plan.",
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Demo instant login failed", details: msg, retryable: true });
+  }
+});
+
 router.post("/demo/quick-login", async (req, res): Promise<void> => {
   if (!requireDemoMode(res)) return;
   try {

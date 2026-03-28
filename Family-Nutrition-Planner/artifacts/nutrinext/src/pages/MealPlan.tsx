@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-fetch";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
@@ -93,10 +93,14 @@ interface FastingDay {
 interface FastingCalendar {
   year: number;
   month: number;
-  dataYear: number;
+  dataYear: number | null;
   isFallbackYear: boolean;
+  isFestivalFasting?: boolean;
+  festivals?: FastingDay[];
   fastingDays: FastingDay[];
+  generalFastingDays?: FastingDay[];
   totalFestivalsInMonth?: number;
+  message?: string | null;
   note: string;
 }
 
@@ -180,6 +184,8 @@ export default function MealPlan() {
   const [detailRecipe, setDetailRecipe] = useState<RecipeDetail | null>(null);
   const [loadingRecipeId, setLoadingRecipeId] = useState<string | null>(null);
   const [leftoverPanelOpen, setLeftoverPanelOpen] = useState(true);
+  const [cachedPlan, setCachedPlan] = useState<Record<string, unknown> | null>(null);
+  const [showOfflineBanner, setShowOfflineBanner] = useState(false);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -187,10 +193,34 @@ export default function MealPlan() {
     return dayNames[new Date().getDay()];
   }, []);
 
-  const { data: plans, isLoading, refetch } = useListMealPlans(
+  const MEAL_PLAN_CACHE_KEY = `meal_plan_cache_${familyId}`;
+
+  const { data: plans, isLoading, isError, refetch } = useListMealPlans(
     { familyId },
     { query: { enabled: !!activeFamily, queryKey: getListMealPlansQueryKey({ familyId }) } }
   );
+
+  // Write successful plans to localStorage; fall back to cache on error
+  useEffect(() => {
+    if (plans && plans.length > 0) {
+      try { localStorage.setItem(MEAL_PLAN_CACHE_KEY, JSON.stringify(plans[0])); } catch { /* ignore */ }
+      setShowOfflineBanner(false);
+    }
+  }, [plans, MEAL_PLAN_CACHE_KEY]);
+
+  useEffect(() => {
+    if (isError && familyId) {
+      try {
+        const raw = localStorage.getItem(MEAL_PLAN_CACHE_KEY);
+        if (raw) {
+          setCachedPlan(JSON.parse(raw) as Record<string, unknown>);
+          setShowOfflineBanner(true);
+        }
+      } catch { /* ignore */ }
+    } else if (!isError) {
+      setShowOfflineBanner(false);
+    }
+  }, [isError, familyId, MEAL_PLAN_CACHE_KEY]);
 
   const { data: familyMembers } = useQuery<FamilyMember[]>({
     queryKey: ["family-members", familyId],
@@ -305,7 +335,7 @@ export default function MealPlan() {
     );
   }
 
-  const currentPlan = plans?.[0];
+  const currentPlan = plans?.[0] ?? (showOfflineBanner ? cachedPlan as typeof plans[0] : undefined);
 
   const handleGenerate = async (isFasting = false) => {
     try {
@@ -455,6 +485,24 @@ export default function MealPlan() {
       transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
       className="p-4 md:p-8 space-y-5"
     >
+      {/* Offline cached plan banner */}
+      {showOfflineBanner && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+          <span className="flex-1">
+            {t(
+              "📱 Showing cached plan — connect to internet to refresh",
+              "📱 कैश प्लान दिखाया जा रहा है — ताज़ा करने के लिए इंटरनेट से जुड़ें"
+            )}
+          </span>
+          <button
+            onClick={() => refetch()}
+            className="text-xs font-semibold underline underline-offset-2 shrink-0"
+          >
+            {t("Retry", "पुनः प्रयास")}
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="glass-panel rounded-3xl p-5 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
         <div className="relative z-10">
@@ -572,7 +620,10 @@ export default function MealPlan() {
               {t("Fasting Calendar", "व्रत कैलेंडर")} — {format(new Date(fastingData.year, fastingData.month - 1, 1), "MMMM yyyy")}
             </h3>
             <Badge variant="secondary" className="text-[10px]">
-              {fastingData.totalFestivalsInMonth ?? fastingData.fastingDays?.length ?? 0} {t("events", "कार्यक्रम")}
+              {fastingData.isFallbackYear
+                ? `${fastingData.generalFastingDays?.length ?? 0} ${t("estimated", "अनुमानित")}`
+                : `${fastingData.totalFestivalsInMonth ?? fastingData.fastingDays?.length ?? 0} ${t("events", "कार्यक्रम")}`
+              }
             </Badge>
           </div>
 
@@ -594,8 +645,11 @@ export default function MealPlan() {
             return (
               <div className="grid grid-cols-7 gap-1">
                 {cells.map((cell, i) => {
+                  const activeDays = fastingData.isFallbackYear
+                    ? (fastingData.generalFastingDays ?? [])
+                    : (fastingData.fastingDays ?? []);
                   const fastDay = cell
-                    ? fastingData.fastingDays?.find(fd => fd.date === format(cell, "yyyy-MM-dd"))
+                    ? activeDays.find((fd: FastingDay) => fd.date === format(cell, "yyyy-MM-dd"))
                     : null;
                   return (
                     <div
@@ -621,7 +675,18 @@ export default function MealPlan() {
             );
           })()}
 
-          {/* Festival detail list */}
+          {/* Fallback year warning badge */}
+          {fastingData.isFallbackYear && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold mb-3">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              {t(
+                "⚠️ Using estimated fasting dates — exact festival calendar for this year not yet available.",
+                "⚠️ अनुमानित व्रत तिथियां — इस वर्ष का सटीक त्योहार कैलेंडर अभी उपलब्ध नहीं है।"
+              )}
+            </div>
+          )}
+
+          {/* Festival detail list (known data) */}
           {(fastingData.fastingDays?.length ?? 0) > 0 && (
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
               {fastingData.fastingDays?.map((day: FastingDay) => (
@@ -640,15 +705,33 @@ export default function MealPlan() {
               ))}
             </div>
           )}
-          <p className="text-[10px] text-muted-foreground mt-3">{fastingData.note}</p>
-          {fastingData.isFallbackYear && (
-            <p className="text-[10px] text-amber-600/80 mt-1">
-              {t(
-                `Calendar data is for ${fastingData.dataYear} (exact dates for ${fastingData.year} not yet available — approximate patterns shown).`,
-                `कैलेंडर डेटा ${fastingData.dataYear} का है (${fastingData.year} की सटीक तिथियां अभी उपलब्ध नहीं हैं — अनुमानित पैटर्न दिखाया गया है)।`
-              )}
-            </p>
+
+          {/* Estimated Ekadashi dates for fallback years */}
+          {fastingData.isFallbackYear && (fastingData.generalFastingDays?.length ?? 0) > 0 && (
+            <div className="mt-3">
+              <p className="text-[11px] font-semibold text-amber-700 mb-2">
+                {t("Estimated Ekadashi Dates (lunar calculation)", "अनुमानित एकादशी तिथियां (चंद्र गणना)")}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {fastingData.generalFastingDays?.map((day: FastingDay) => (
+                  <div key={day.date} className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-400/30">
+                    <Moon className="w-3 h-3 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold truncate">{lang === "hi" ? day.nameHindi : day.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{day.date} · partial fast</p>
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {day.recommendedFoods.slice(0, 3).map((f: string) => (
+                          <span key={f} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border">{f}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
+
+          <p className="text-[10px] text-muted-foreground mt-3">{fastingData.note}</p>
         </div>
       )}
 
