@@ -196,10 +196,10 @@ export interface WeeklyContextMemberOverride {
 export interface WeeklyContext {
   budget_inr?: number;
   dining_out_freq?: number;
-  /** Weekday cook-time budget: "15min" | "30min" | "45min" | "60min+" */
-  weekday_prep_time?: "15min" | "30min" | "45min" | "60min+";
-  /** Weekend cook-time budget: "30min" | "60min" | "90min" | "elaborate" */
-  weekend_prep_time?: "30min" | "60min" | "90min" | "elaborate";
+  /** Weekday cook-time budget: "<20" | "20-40" | "nolimit" */
+  weekday_prep_time?: "<20" | "20-40" | "nolimit";
+  /** Weekend cook-time budget: "quick" | "elaborate" | "nopref" */
+  weekend_prep_time?: "quick" | "elaborate" | "nopref";
   special_request?: string;
   /** Keys are memberId as string (e.g. "42") */
   member_overrides?: Record<string, WeeklyContextMemberOverride>;

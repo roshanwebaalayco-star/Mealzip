@@ -18,8 +18,8 @@ export interface MemberContextOverride {
 export interface WeeklyContext {
   budget_inr?: number;
   dining_out_freq?: number;
-  weekday_prep_time?: string;
-  weekend_prep_time?: string;
+  weekday_prep_time?: "<20" | "20-40" | "nolimit";
+  weekend_prep_time?: "quick" | "elaborate" | "nopref";
   special_request?: string;
   member_overrides?: Record<string, MemberContextOverride>;
 }
@@ -187,13 +187,12 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                     <Clock className="w-3.5 h-3.5 text-primary" />
                     {t("Weekday Cook Time", "सप्ताह में समय")}
                   </Label>
-                  <Select value={ctx.weekday_prep_time ?? ""} onValueChange={v => updateField("weekday_prep_time", v)}>
+                  <Select value={ctx.weekday_prep_time ?? ""} onValueChange={v => updateField("weekday_prep_time", v as "<20" | "20-40" | "nolimit")}>
                     <SelectTrigger className="mt-1.5 h-10 rounded-xl text-sm"><SelectValue placeholder={t("Select", "चुनें")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="15min">15 min</SelectItem>
-                      <SelectItem value="30min">30 min</SelectItem>
-                      <SelectItem value="45min">45 min</SelectItem>
-                      <SelectItem value="60min+">60 min+</SelectItem>
+                      <SelectItem value="<20">&lt;20 min / 20 मिनट से कम</SelectItem>
+                      <SelectItem value="20-40">20–40 min</SelectItem>
+                      <SelectItem value="nolimit">No limit / कोई सीमा नहीं</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -202,13 +201,12 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                     <Clock className="w-3.5 h-3.5 text-orange-500" />
                     {t("Weekend Cook Time", "सप्ताहांत में समय")}
                   </Label>
-                  <Select value={ctx.weekend_prep_time ?? ""} onValueChange={v => updateField("weekend_prep_time", v)}>
+                  <Select value={ctx.weekend_prep_time ?? ""} onValueChange={v => updateField("weekend_prep_time", v as "quick" | "elaborate" | "nopref")}>
                     <SelectTrigger className="mt-1.5 h-10 rounded-xl text-sm"><SelectValue placeholder={t("Select", "चुनें")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="30min">30 min</SelectItem>
-                      <SelectItem value="60min">60 min</SelectItem>
-                      <SelectItem value="90min">90 min</SelectItem>
+                      <SelectItem value="quick">Quick / जल्दी</SelectItem>
                       <SelectItem value="elaborate">Elaborate / विस्तृत</SelectItem>
+                      <SelectItem value="nopref">No preference / कोई प्राथमिकता नहीं</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

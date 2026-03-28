@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api-fetch";
 
 const FOOD_LOG_PATTERNS = [/\b(ate|had|eaten|drank|consumed|just ate|just had|eating|drinking|finished)\b/i];
-const HFSS_KEYWORDS_CLIENT = ["chips","namkeen","biscuit","cookie","cake","burger","pizza","fried","samosa","cola","coke","pepsi","soda","chocolate","candy","sweet","mithai","ice cream","maggi","noodles"];
 const HFSS_LS_KEY = "nutrinext_hfss_log";
 
 function getWeeklyHFSSCount(): number {
@@ -89,11 +88,10 @@ export default function Chat() {
     setInput("");
 
     const isFoodLog = FOOD_LOG_PATTERNS.some(p => p.test(userMsg));
-    const hasHFSS = HFSS_KEYWORDS_CLIENT.some(k => userMsg.toLowerCase().includes(k));
 
     setMessages((prev) => {
       const nextIdx = prev.length + 1; // +1 because AI response will be at this index
-      if (isFoodLog && hasHFSS) {
+      if (isFoodLog) {
         pendingHFSSMsg.current = { msgIndex: nextIdx, text: userMsg };
       }
       return [...prev, { role: "user", content: userMsg }];
