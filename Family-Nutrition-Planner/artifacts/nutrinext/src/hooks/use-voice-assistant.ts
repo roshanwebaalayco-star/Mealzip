@@ -133,18 +133,38 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
   return next;
 }
 
-// Multilingual correction/undo detection — keeps same state and re-asks
-const CORRECTION_PATTERNS = [
-  "nahi", "nahin", "galat", "wapas", "phirse", "ruk", "dobara", "cancel",
-  "wrong", "correction", "no wait", "not that", "redo", "back",
-  "illa", "illai", "ledu", "illa", "naa", "athe alla", "illa bidi",
-  "nahi jana", "nahi chahiye", "mistake", "bhul gaya",
-];
+// Per-language correction/undo triggers — user says one of these to go back to previous question
+const CORRECTION_TRIGGERS: Record<string, string[]> = {
+  hi: ["nahi", "nahin", "galat", "wapas", "change karo", "phirse", "ruk", "dobara", "redo", "cancel", "bhul gaya", "mistake", "galat hua", "nahi chahiye"],
+  en: ["no", "wrong", "go back", "change", "cancel", "not that", "redo", "back", "no wait", "correction", "undo"],
+  ta: ["illai", "thappu", "vendam", "maarunga", "thirumba po", "cancel", "illa bidi", "athe alla"],
+  te: ["ledu", "thappu", "cancel", "veyyi", "wapas", "back"],
+  bn: ["naa", "bhul", "cancel", "wapas", "phire jao", "na"],
+  mr: ["nahi", "chukle", "cancel", "wapas", "phir", "nko"],
+  gu: ["nahi", "bhul", "cancel", "paachhu", "nahi joi"],
+  kn: ["illa", "tappu", "cancel", "hinge beda", "back"],
+  ml: ["illa", "thettanu", "cancel", "thiriche", "venam"],
+  pa: ["nahi", "galat", "cancel", "wapas", "nahi chahida", "phir"],
+  or: ["naa", "bhul", "cancel", "pheri", "bhul hela"],
+};
 
-function isCorrectionIntent(transcript: string): boolean {
+function detectCorrection(transcript: string, language: string): boolean {
   if (transcript.length > 80) return false;
   const lower = transcript.toLowerCase().trim();
-  return CORRECTION_PATTERNS.some(p => lower.startsWith(p) || lower === p);
+  const langKey = language === "hindi" ? "hi"
+    : language === "english" ? "en"
+    : language === "tamil" ? "ta"
+    : language === "telugu" ? "te"
+    : language === "bengali" ? "bn"
+    : language === "marathi" ? "mr"
+    : language === "gujarati" ? "gu"
+    : language === "kannada" ? "kn"
+    : language === "malayalam" ? "ml"
+    : language === "punjabi" ? "pa"
+    : language === "odia" ? "or"
+    : "en";
+  const triggers = [...(CORRECTION_TRIGGERS[langKey] ?? []), ...(CORRECTION_TRIGGERS.en ?? [])];
+  return triggers.some(p => lower === p || lower.startsWith(p + " ") || lower.startsWith(p + ","));
 }
 
 const CORRECTION_MSG: Record<string, string> = {
@@ -176,6 +196,8 @@ export function useVoiceAssistant() {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceRafRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // State history stack for correction/undo: tracks { state, question } pairs
+  const stateHistoryRef = useRef<Array<{ state: ConvState; msg: string }>>([]);
 
   const start = useCallback(
     async (language: string = "hindi", onComplete: (data: VoiceFormData) => void) => {
@@ -198,6 +220,7 @@ export function useVoiceAssistant() {
       let fd: VoiceFormData = {};
       let msgs: ConvMessage[] = [...initialMsgs];
       let nextMsg = greeting;
+      stateHistoryRef.current = [];
 
       const speakText = (text: string): Promise<void> =>
         new Promise((resolve) => {
@@ -387,12 +410,19 @@ export function useVoiceAssistant() {
             continue;
           }
 
-          // Correction intent: user said "nahi", "galat", "wrong" etc. — re-ask same question
-          if (isCorrectionIntent(transcript)) {
+          // Correction intent: user said "nahi", "galat", "wrong" etc. — go back to previous question
+          if (detectCorrection(transcript, language)) {
             const correctionReply = CORRECTION_MSG[language] ?? CORRECTION_MSG.english;
-            msgs = [...msgs, { role: "user", text: transcript }, { role: "assistant", text: `${correctionReply} ${nextMsg}` }];
+            const prev = stateHistoryRef.current.pop();
+            if (prev) {
+              currentState = prev.state;
+              setConvState(currentState);
+              nextMsg = `${correctionReply} ${prev.msg}`;
+            } else {
+              nextMsg = `${correctionReply} ${nextMsg}`;
+            }
+            msgs = [...msgs, { role: "user", text: transcript }, { role: "assistant", text: nextMsg }];
             setMessages([...msgs]);
-            nextMsg = `${correctionReply} ${nextMsg}`;
             continue;
           }
 
@@ -418,6 +448,11 @@ export function useVoiceAssistant() {
           msgs = [...msgs, { role: "assistant", text: result.assistantMessage }];
           setMessages([...msgs]);
 
+          // Push current state to history before advancing (enables correction to pop back)
+          if (result.nextState !== currentState && result.nextState !== "complete") {
+            stateHistoryRef.current.push({ state: currentState, msg: nextMsg });
+          }
+
           currentState = result.nextState as ConvState;
           setConvState(currentState);
           nextMsg = result.assistantMessage;
@@ -440,6 +475,7 @@ export function useVoiceAssistant() {
   const stop = useCallback(() => {
     abortRef.current = true;
     isRunningRef.current = false;
+    stateHistoryRef.current = [];
     try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     if (silenceRafRef.current) {

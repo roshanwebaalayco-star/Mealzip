@@ -32,22 +32,30 @@ function ProgressItem({ label, value }: { label: string; value?: string | number
   );
 }
 
-function WaveAnimation({ volume = 0 }: { volume?: number }) {
-  const bars = [0.4, 0.7, 1.0, 0.7, 0.4, 0.55, 0.85];
-  const scaledVolume = Math.max(0.15, volume / 100);
+function AudioWaveform({ active, volume = 0 }: { active: boolean; volume?: number }) {
+  const count = 20;
   return (
-    <div className="flex items-end gap-0.5 h-6">
-      {bars.map((base, i) => (
-        <div
-          key={i}
-          className="w-1 rounded-full bg-primary transition-all duration-75"
-          style={{
-            height: `${Math.round(base * scaledVolume * 100)}%`,
-            animation: volume > 5 ? `waveBar 0.5s ease-in-out ${i * 0.07}s infinite alternate` : undefined,
-            minHeight: "3px",
-          }}
-        />
-      ))}
+    <div className="flex items-end gap-px h-8">
+      {Array.from({ length: count }, (_, i) => {
+        const baseHeight = 15 + Math.abs(Math.sin(i * 0.9 + 1)) * 55;
+        const liveHeight = active
+          ? Math.max(10, baseHeight * Math.max(0.25, volume / 80))
+          : 12;
+        return (
+          <div
+            key={i}
+            className="w-1 rounded-full transition-all duration-100"
+            style={{
+              height: `${Math.round(liveHeight)}%`,
+              backgroundColor: active ? "#f97316" : "#fdba74",
+              animation: active
+                ? `waveBar ${0.35 + (i % 6) * 0.07}s ease-in-out ${i * 0.04}s infinite alternate`
+                : undefined,
+              minHeight: "3px",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -88,6 +96,15 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
       el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
+
+  // 8-second safety timeout: if still listening after 8s, stop the recorder
+  useEffect(() => {
+    if (micState !== "listening") return;
+    const t = setTimeout(() => {
+      stopListeningEarly();
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [micState, stopListeningEarly]);
 
   const handleClose = () => {
     const partial = Object.keys(formData).length > 0 ? { ...formData } : undefined;
@@ -275,11 +292,11 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
               </div>
 
               {/* Status text / waveform */}
-              <div className="flex items-center gap-2 h-6">
+              <div className="flex items-center gap-2 h-8">
                 {micState === "listening" ? (
-                  <WaveAnimation volume={volume} />
+                  <AudioWaveform active={true} volume={volume} />
                 ) : micState === "speaking" ? (
-                  <WaveAnimation volume={60} />
+                  <AudioWaveform active={true} volume={60} />
                 ) : (
                   <p className="text-xs text-muted-foreground text-center">{micLabel}</p>
                 )}

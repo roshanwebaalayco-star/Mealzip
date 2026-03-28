@@ -99,10 +99,12 @@ router.post("/voice/transcribe", async (req, res): Promise<void> => {
     const transcript = (data.transcript ?? "").trim();
 
     if (!transcript) {
-      res.status(422).json({
-        error: "Empty transcript — no speech detected",
-        code: "EMPTY_TRANSCRIPT",
-        audioFormat: mimeType,
+      // Return 200 so the frontend conversation loop handles it gracefully with a retry
+      // message instead of an error state that freezes the mic.
+      res.json({
+        transcript: "",
+        retry: true,
+        detectedLanguage: data.language_code ?? languageCode,
       });
       return;
     }
@@ -182,7 +184,7 @@ Set dietaryType at family level from the dominant pattern.`;
 
 const ChatTurnBody = z.object({
   state: z.string(),
-  userTranscript: z.string().min(1),
+  userTranscript: z.string().default(""),
   partialFormData: z.record(z.unknown()).optional().default({}),
   conversationHistory: z.array(z.object({
     role: z.enum(["assistant", "user"]),
@@ -334,6 +336,19 @@ Yes/No: haa/achhi/aaru → addMore:true | naa/shesh/bas → isComplete:true`,
   };
 
   const cfg = LANG_CFG[language] ?? LANG_CFG.english;
+
+  // Guard: empty or very short transcript (< 2 chars) — return friendly retry without calling Gemini
+  if (userTranscript.trim().length < 2) {
+    req.log.info({ state, language, transcriptLen: userTranscript.length }, "Short/empty transcript — returning retry");
+    res.json({
+      retry: true,
+      parsedFields: {},
+      nextState: state,
+      assistantMessage: cfg.retryMsg,
+      isComplete: false,
+    });
+    return;
+  }
 
   const prompt = `You are a voice assistant for ParivarSehat AI, an Indian family nutrition planning app.
 You are having a turn-by-turn voice conversation to collect family profile data.
