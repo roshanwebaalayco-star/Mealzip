@@ -120,7 +120,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
   };
 
   const handleSkip = () => {
-    onGenerate(false, { budget_inr: Math.round(defaultBudget / 4) });
+    onGenerate(false, buildFirstTimeDefaults());
   };
 
   return (

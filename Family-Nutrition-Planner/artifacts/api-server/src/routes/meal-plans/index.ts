@@ -112,9 +112,11 @@ const DayPlanSchema = z.object({
   day: z.string(),
   meals: z.object({
     breakfast: MealSlotSchema,
+    mid_morning: MealSlotSchema,
     lunch: MealSlotSchema,
+    evening_snack: MealSlotSchema,
     dinner: MealSlotSchema,
-  }).passthrough(),
+  }),
 }).passthrough();
 
 const WeekPlanSchema = z.object({

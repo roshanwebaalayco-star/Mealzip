@@ -100,6 +100,7 @@ export default function FamilySetup() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatComplete, setChatComplete] = useState(false);
+  const [dislikeInputs, setDislikeInputs] = useState<Record<number, string>>({});
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -933,6 +934,7 @@ export default function FamilySetup() {
                 <div className="mt-4 pt-4 border-t border-dashed border-border">
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Advanced Profile", "विस्तृत प्रोफाइल")}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(member.healthGoal === "weight_loss" || member.healthGoal === "muscle_gain") && (
                     <div>
                       <Label className="text-sm font-semibold">{t("Goal Pace", "लक्ष्य गति")} <span className="text-muted-foreground font-normal text-xs">({t("AI auto-assigns for minors", "बच्चों के लिए AI स्वतः")})</span></Label>
                       <Select value={member.goalPace} onValueChange={v => handleUpdateMember(idx, "goalPace", v)}>
@@ -944,6 +946,7 @@ export default function FamilySetup() {
                         </SelectContent>
                       </Select>
                     </div>
+                    )}
                     <div>
                       <Label className="text-sm font-semibold">{t("Tiffin Type", "टिफिन प्रकार")}</Label>
                       <Select value={member.tiffinType} onValueChange={v => handleUpdateMember(idx, "tiffinType", v)}>
@@ -968,14 +971,38 @@ export default function FamilySetup() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label className="text-sm font-semibold">{t("Ingredient Dislikes", "पसंद न आने वाली चीजें")}</Label>
-                      <Input
-                        value={member.ingredientDislikes.join(", ")}
-                        onChange={e => handleUpdateMember(idx, "ingredientDislikes", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                        placeholder={t("e.g. karela, fish, broccoli", "जैसे करेला, मछली, ब्रोकोली")}
-                        className="mt-1 text-sm"
-                      />
+                    <div className="sm:col-span-2">
+                      <Label className="text-sm font-semibold">
+                        {t("Ingredient Dislikes", "पसंद न आने वाली चीजें")}
+                        <span className="text-muted-foreground font-normal text-xs ml-1">({t("max 5", "अधिकतम 5")})</span>
+                      </Label>
+                      <div className="mt-1 flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl border border-input bg-background">
+                        {member.ingredientDislikes.map((d, di) => (
+                          <span key={di} className="flex items-center gap-1 bg-orange-100 text-orange-800 text-[11px] font-medium px-2 py-0.5 rounded-full border border-orange-200">
+                            {d}
+                            <button type="button" onClick={() => handleUpdateMember(idx, "ingredientDislikes", member.ingredientDislikes.filter((_, i) => i !== di))} className="text-orange-500 hover:text-orange-800 ml-0.5 font-bold leading-none">×</button>
+                          </span>
+                        ))}
+                        {member.ingredientDislikes.length < 5 && (
+                          <input
+                            type="text"
+                            value={dislikeInputs[idx] ?? ""}
+                            onChange={e => setDislikeInputs(prev => ({ ...prev, [idx]: e.target.value }))}
+                            onKeyDown={e => {
+                              if ((e.key === "Enter" || e.key === ",") && (dislikeInputs[idx] ?? "").trim()) {
+                                e.preventDefault();
+                                const val = (dislikeInputs[idx] ?? "").trim().replace(/,$/, "");
+                                if (val && !member.ingredientDislikes.includes(val)) {
+                                  handleUpdateMember(idx, "ingredientDislikes", [...member.ingredientDislikes, val]);
+                                }
+                                setDislikeInputs(prev => ({ ...prev, [idx]: "" }));
+                              }
+                            }}
+                            placeholder={member.ingredientDislikes.length === 0 ? t("e.g. karela, fish", "जैसे करेला, मछली") : t("Add more...", "और जोड़ें...")}
+                            className="flex-1 min-w-[120px] text-[12px] bg-transparent outline-none placeholder:text-muted-foreground/50"
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                   {/* Non-veg days (only show if non-vegetarian) */}
