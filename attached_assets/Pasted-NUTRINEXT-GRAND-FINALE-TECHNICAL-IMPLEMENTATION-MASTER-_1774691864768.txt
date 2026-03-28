@@ -1,0 +1,319 @@
+NUTRINEXT: GRAND FINALE TECHNICAL IMPLEMENTATION MASTER PLAN
+
+Version: 2.0.0 - "Hackathon Final Build"
+Objective: Deliver the 4 core interlinked features (Profile Spine, Weekly Context, Mandi Arbitrage, Biochemical Pre-processing) as a seamless, demo-ready application for BIC 2025.
+
+TABLE OF CONTENTS
+
+Database Schema Expansion (Supabase)
+
+Profile Spine & Responsible AI Auto-Assignment
+
+The Weekly Context Engine (UI & State)
+
+Hyper-Local Mandi Simulator & Ingredient Arbitrage
+
+Biochemical Pre-Processing & HFSS Chat Logger
+
+Gemini 2.0 Master Prompt Architecture
+
+1. DATABASE SCHEMA EXPANSION (SUPABASE)
+
+To support the hyper-personalized ICMR logic, the PostgreSQL schema requires immediate expansion.
+
+1.1 SQL Migration: family_members Table Update
+
+-- Add new strict-typed columns to existing family_members table
+ALTER TABLE public.family_members
+ADD COLUMN goal_pace VARCHAR(10) CHECK (goal_pace IN ('0.25', '0.5', 'none')) DEFAULT 'none',
+ADD COLUMN tiffin_type VARCHAR(15) CHECK (tiffin_type IN ('none', 'school', 'office')) DEFAULT 'none',
+ADD COLUMN religious_rules VARCHAR(20) CHECK (religious_rules IN ('none', 'no_beef', 'no_pork', 'sattvic', 'jain')) DEFAULT 'none',
+ADD COLUMN ingredient_dislikes TEXT[] DEFAULT '{}', -- Array of strings
+ADD COLUMN non_veg_days TEXT[] DEFAULT '{}', -- E.g., ['Wednesday', 'Sunday']
+ADD COLUMN non_veg_types TEXT[] DEFAULT '{}', -- E.g., ['chicken', 'fish']
+ADD COLUMN icmr_caloric_target INTEGER DEFAULT NULL;
+
+
+1.2 TypeScript Interfaces (src/types/database.ts)
+
+export interface IMemberProfile {
+  id: string;
+  family_id: string;
+  name: string;
+  age: number;
+  gender: 'M' | 'F' | 'O';
+  weight_kg?: number;
+  height_cm?: number;
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active';
+  primary_goal: 'weight_loss' | 'weight_gain' | 'maintain' | 'build_muscle' | 'manage_condition' | 'childhood_nutrition' | 'healthy_growth' | 'senior_nutrition';
+  goal_pace: '0.25' | '0.5' | 'none';
+  health_conditions: string[]; // Max 2
+  dietary_type: string;
+  religious_rules: string;
+  ingredient_dislikes: string[]; // Max 5
+  non_veg_days: string[];
+  non_veg_types: string[];
+  tiffin_type: 'none' | 'school' | 'office';
+  icmr_caloric_target?: number;
+}
+
+
+2. PROFILE SPINE & RESPONSIBLE AI AUTO-ASSIGNMENT
+
+This section enforces the Quantiphi Responsible AI (RAI) Hook to protect minors from toxic diet culture, and calculates the ICMR baselines.
+
+2.1 The Auto-Assignment Logic Hook (src/utils/profileRules.ts)
+
+This function must intercept the payload before it is saved to Supabase.
+
+export const applyResponsibleAIRules = (member: Partial<IMemberProfile>): Partial<IMemberProfile> => {
+  const processed = { ...member };
+
+  // Rule A: Pediatric (<5)
+  if (processed.age! < 5) {
+    processed.primary_goal = 'childhood_nutrition';
+    processed.goal_pace = 'none';
+  } 
+  // Rule B: Growth (5-12)
+  else if (processed.age! >= 5 && processed.age! <= 12) {
+    processed.primary_goal = 'healthy_growth';
+    processed.goal_pace = 'none';
+  } 
+  // Rule C: Teen Anti-Dysmorphia (13-17)
+  else if (processed.age! >= 13 && processed.age! <= 17) {
+    // If user selected weight_loss, override it silently
+    if (processed.primary_goal === 'weight_loss') {
+      processed.primary_goal = 'maintain'; 
+    }
+    processed.goal_pace = 'none'; // Disable deficit tracking
+  }
+  // Rule D: Geriatric (60+)
+  else if (processed.age! >= 60 && !processed.primary_goal) {
+    processed.primary_goal = 'senior_nutrition';
+  }
+
+  // ICMR-NIN Daily Caloric Calculation (Mifflin-St Jeor + Activity Multiplier)
+  if (processed.weight_kg && processed.height_cm && processed.age && processed.gender) {
+    let bmr = (10 * processed.weight_kg) + (6.25 * processed.height_cm) - (5 * processed.age);
+    bmr += (processed.gender === 'M') ? 5 : -161;
+    
+    const multipliers = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
+    let tdee = bmr * multipliers[processed.activity_level || 'sedentary'];
+
+    if (processed.primary_goal === 'weight_loss') tdee -= (processed.goal_pace === '0.5' ? 500 : 250);
+    if (processed.primary_goal === 'weight_gain') tdee += (processed.goal_pace === '0.5' ? 500 : 250);
+
+    processed.icmr_caloric_target = Math.round(tdee);
+  }
+
+  return processed;
+};
+
+
+Implementation Note: In FamilySetup.tsx, conditionally hide the goal_pace UI if age < 18. Display the calculated icmr_caloric_target on the member's summary card as a green badge: "🎯 ICMR Target: ~1850 kcal/day".
+
+3. THE WEEKLY CONTEXT ENGINE (UI & STATE)
+
+The goal is zero-friction. The user taps "Generate," a modal appears, pre-filled with last week's context.
+
+3.1 Weekly Context State Management
+
+Store this in localStorage under nutrinext_weekly_context.
+
+interface IWeeklyContext {
+  budget_inr: number;
+  dining_out_freq: number;
+  weekday_prep_time: '<20' | '20-40' | 'nolimit';
+  weekend_prep_time: 'quick' | 'elaborate' | 'nopref';
+  special_request: string;
+  member_overrides: {
+    [memberId: string]: {
+      feeling_this_week: string; // e.g., "Heavy cold"
+      fasting_days: string[];
+      tiffin_override: boolean;
+      spice_override: 'default' | 'mild' | 'spicy';
+    }
+  }
+}
+
+
+3.2 Modal Flow (WeeklyContextModal.tsx)
+
+Mount: Load from localStorage. If empty, pull defaults from Static Profile.
+
+UI Render: - Global Settings (Budget slider, Time pills).
+
+Horizontal scroll of "Member Cards" for quick overrides (Tiffin toggle, Feeling text box).
+
+Prominent text area: "Special Requests (e.g., 'Use up the spinach', 'Light meals Thursday')"
+
+Action: Two buttons.
+
+Primary (Huge, Green): "Generate Plan (Use these settings) ✓"
+
+Secondary (Text link): "Skip & use defaults"
+
+4. HYPER-LOCAL MANDI SIMULATOR & INGREDIENT ARBITRAGE
+
+This is the Swiggy/Google Executive Wow Factor. We simulate a live supply chain.
+
+4.1 Mock Database (src/lib/mandi-data.ts)
+
+[
+  { "id": "ing_01", "name": "Paneer", "category": "Dairy", "wholesale_price": 280, "retail_price": 340, "trend": "surging", "surge_percentage": 42, "arbitrage_target": "Tofu" },
+  { "id": "ing_02", "name": "Tomato", "category": "Vegetable", "wholesale_price": 30, "retail_price": 45, "trend": "stable", "surge_percentage": 0, "arbitrage_target": "Tamarind" },
+  { "id": "ing_03", "name": "Tofu", "category": "Soy", "wholesale_price": 180, "retail_price": 220, "trend": "stable", "surge_percentage": 0, "arbitrage_target": null }
+]
+
+
+4.2 Arbitrage Detection Logic (src/services/arbitrageEngine.ts)
+
+Run this immediately after Gemini generates the meal plan, but before displaying it to the user.
+
+export const applyIngredientArbitrage = (generatedPlan: MealPlan, mandiPrices: any[]) => {
+  let totalSaved = 0;
+  const planModifications = [];
+
+  generatedPlan.meals.forEach(meal => {
+    meal.ingredients.forEach(ing => {
+      const marketData = mandiPrices.find(m => m.name.toLowerCase() === ing.name.toLowerCase());
+      
+      if (marketData && marketData.trend === 'surging' && marketData.surge_percentage > 30) {
+        // Find equivalent
+        const swapTarget = mandiPrices.find(m => m.name === marketData.arbitrage_target);
+        
+        if (swapTarget) {
+          ing.original_name = ing.name;
+          ing.name = swapTarget.name;
+          ing.is_swapped = true;
+          
+          const saving = marketData.retail_price - swapTarget.retail_price;
+          totalSaved += saving;
+          
+          planModifications.push({
+            original: marketData.name,
+            new: swapTarget.name,
+            saving: saving
+          });
+        }
+      }
+    });
+  });
+
+  return { optimizedPlan: generatedPlan, totalSaved, planModifications };
+};
+
+
+4.3 The Pitch Demo Trigger (POST /api/market/trigger-surge)
+
+A hidden button in the settings creates a simulated price spike.
+
+Pitch Script: "Let's see what happens when Paneer prices spike in Bokaro..." (Click button).
+
+The UI instantly updates the Grocery List, striking through Paneer, adding Tofu in green, and showing a banner: ⚠️ Paneer up 42% in Bokaro Mandi. Auto-swapped to Tofu. ₹120 Saved. 3:1 Amino Ratio Maintained.
+
+5. BIOCHEMICAL PRE-PROCESSING & HFSS CHAT LOGGER
+
+The Unfair Advantage that proves you understand actual Indian clinical nutrition, not just recipe APIs.
+
+5.1 "Tonight's Prep" Scanner (src/lib/biochem-scanner.ts)
+
+Scans the meal plan generated for Day N+1 to display alerts on Day N.
+
+const BIOCHEM_DB = {
+  "rajma": { action: "Soak", duration: "8h", text: "reduces phytates 40%, unlocking iron for anemia goals." },
+  "chole": { action: "Soak", duration: "8h", text: "improves digestibility and nutrient bioavailability." },
+  "moong": { action: "Germinate", duration: "24h", text: "increases Vitamin C by 300% and unlocks complex proteins." },
+  "dosa batter": { action: "Ferment", duration: "12h", text: "increases Vitamin B12 and creates gut-friendly probiotics." }
+};
+
+export const generatePrepAlerts = (tomorrowPlan: MealPlan) => {
+  const alerts = [];
+  tomorrowPlan.meals.forEach(meal => {
+    meal.ingredients.forEach(ing => {
+      const biochemMatch = BIOCHEM_DB[ing.name.toLowerCase()];
+      if (biochemMatch) {
+        alerts.push({
+          ingredient: ing.name,
+          ...biochemMatch,
+          meal_context: meal.type // e.g., "Lunch"
+        });
+      }
+    });
+  });
+  return alerts;
+};
+
+
+UI Rendering: Render a sticky card at the top of the MealPlan.tsx page: `"🌙 Tonight's Prep: Soak Rajma (8h) - reduces phytates 40%..."*
+
+5.2 HFSS Cheat Logger via AI Chat (POST /api/gemini/chat-hfss)
+
+When a user says "I ate 2 samosas today."
+
+System Prompt to Gemini for Chat:
+
+"Extract the food item and quantity. Estimate kcal and sodium (mg). Classify as 'HFSS' if kcal > 250 per 100g OR total sodium > 2000mg. Return JSON: { food: string, kcal: number, sodium_mg: number, is_hfss: boolean, rebalance_strategy: string }"
+
+App Logic:
+If is_hfss === true, the backend patches the next day's database entry to swap high-sodium gravies with low-sodium, potassium-rich alternatives.
+UI Update: Add a rotating 🔄 Rebalanced badge to tomorrow's Dinner slot.
+
+6. GEMINI 2.0 MASTER PROMPT ARCHITECTURE
+
+Standard prompts will fail to process this much data without hallucinating. You must use a highly structured, JSON-enforced prompt template.
+
+src/services/geminiPromptBuilder.ts
+
+export const buildMasterPrompt = (familyProfile, weeklyContext) => {
+  return `
+    You are 'NutriNext', an enterprise-grade Indian Clinical Nutrition AI grounded strictly in ICMR-NIN 2024 Dietary Guidelines.
+    
+    TASK: Generate a 7-day family meal plan based on the "One Kitchen, Many Plates" philosophy. You will output ONE base dish per meal, with micro-adjustment instructions for specific family members to hit their clinical goals.
+
+    --- STATIC PROFILE (Do not deviate) ---
+    Total Members: ${familyProfile.family_count}
+    Dietary Baseline: ${familyProfile.dietary_baseline}
+    Members: ${JSON.stringify(familyProfile.members)}
+    
+    --- WEEKLY CONTEXT OVERRIDES ---
+    Budget Constraint: ₹${weeklyContext.budget_inr}/month
+    Special Instructions: "${weeklyContext.special_request || 'None'}"
+    Member Deviations: ${JSON.stringify(weeklyContext.member_overrides)}
+
+    --- ICMR-NIN 2024 CLINICAL GUARDRAILS (MANDATORY) ---
+    1. Bioavailable Complementarity: Cereal to Pulse ratio MUST be 3:1 by raw weight to maximize lysine/methionine.
+    2. HFSS Limits: No meal can exceed 250 kcal/100g or 5g sodium/day.
+    3. Vegetables: Guarantee 400g of total vegetables/adult/day (including 100g GLV for anemia profiles).
+
+    OUTPUT FORMAT: You must return a strict JSON structure matching this exact schema:
+    {
+      "week_plan": [
+        {
+          "day": "Monday",
+          "meals": [
+            {
+              "type": "Lunch",
+              "base_dish_name": "Palak Dal Khichdi",
+              "base_ingredients": [{"name": "Rice", "qty_grams": 200}, {"name": "Moong Dal", "qty_grams": 70}],
+              "member_adjustments": [
+                {
+                  "member_name": "Papa",
+                  "reason": "Diabetes Management",
+                  "instruction": "Swap 50% of rice portion with Foxtail Millet."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    
+    FAILURE TO ADHERE TO JSON FORMAT OR ICMR GUARDRAILS WILL RESULT IN SYSTEM REJECTION.
+  `;
+};
+
+
+EXECUTIVE SUMMARY FOR EXECUTION
+
+By strictly following this document, you are building an interlinked state-machine. The Profile feeds the Weekly Context, which feeds the Gemini API. The output is caught by the Mandi Arbitrage Engine (to save money) and scanned by the Biochemical Module (to ensure health). This proves architectural maturity far beyond a standard hackathon project, ensuring maximum points in the "Innovation & Uniqueness" and "Feasibility & Practicality" judging parameters.
