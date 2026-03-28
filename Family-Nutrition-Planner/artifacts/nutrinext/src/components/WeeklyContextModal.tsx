@@ -266,12 +266,12 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                   <div className="pt-3">
                                     <Label className="text-xs font-semibold text-muted-foreground">{t("Feeling this week", "इस हफ्ते कैसा महसूस हो रहा है")}</Label>
                                     <Select
-                                      value={memberOv.feeling_this_week ?? ""}
-                                      onValueChange={v => updateMemberOverride(member.name, "feeling_this_week", v || undefined)}
+                                      value={memberOv.feeling_this_week ?? "not_set"}
+                                      onValueChange={v => updateMemberOverride(member.name, "feeling_this_week", v === "not_set" ? undefined : v)}
                                     >
                                       <SelectTrigger className="mt-1 h-9 rounded-xl text-xs"><SelectValue placeholder={t("How are they feeling?", "कैसा महसूस हो रहा है?")} /></SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="">{t("Not set", "नहीं")}</SelectItem>
+                                        <SelectItem value="not_set">{t("Not set", "नहीं")}</SelectItem>
                                         {FEELING_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{lang === "hi" ? f.label.split(" / ")[1] ?? f.label : f.label.split(" / ")[0]}</SelectItem>)}
                                       </SelectContent>
                                     </Select>
@@ -307,12 +307,12 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                     </label>
                                     <div>
                                       <Select
-                                        value={memberOv.spice_override ?? ""}
-                                        onValueChange={v => updateMemberOverride(member.name, "spice_override", v || undefined)}
+                                        value={memberOv.spice_override ?? "normal"}
+                                        onValueChange={v => updateMemberOverride(member.name, "spice_override", v === "normal" ? undefined : v)}
                                       >
-                                        <SelectTrigger className="h-8 rounded-xl text-xs border-border"><SelectValue placeholder={t("Spice level", "मसाले का स्तर")} /></SelectTrigger>
+                                        <SelectTrigger className="h-8 rounded-xl text-xs border-border"><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="">{t("Normal", "सामान्य")}</SelectItem>
+                                          <SelectItem value="normal">{t("Normal", "सामान्य")}</SelectItem>
                                           <SelectItem value="mild">{t("Mild", "हल्का")}</SelectItem>
                                           <SelectItem value="medium">{t("Medium", "मध्यम")}</SelectItem>
                                           <SelectItem value="spicy">{t("Spicy", "तीखा")}</SelectItem>

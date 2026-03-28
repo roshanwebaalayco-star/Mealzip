@@ -86,6 +86,12 @@ export interface CreateMemberBody {
   dietaryRestrictions?: string[];
   allergies?: string[];
   calorieTarget?: number;
+  primaryGoal?: string;
+  goalPace?: string;
+  needsTiffin?: boolean;
+  religiousRestriction?: string;
+  dislikedIngredients?: string[];
+  nonVegDays?: string[];
 }
 
 export interface UpdateMemberBody {
@@ -100,6 +106,12 @@ export interface UpdateMemberBody {
   dietaryRestrictions?: string[];
   allergies?: string[];
   calorieTarget?: number;
+  primaryGoal?: string;
+  goalPace?: string;
+  needsTiffin?: boolean;
+  religiousRestriction?: string;
+  dislikedIngredients?: string[];
+  nonVegDays?: string[];
 }
 
 export interface Recipe {
@@ -171,11 +183,29 @@ export type GenerateMealPlanBodyPreferences = {
   festivalType?: string;
 };
 
+export interface WeeklyContextMemberOverride {
+  feeling_this_week?: string;
+  fasting_days?: string[];
+  tiffin_override?: boolean;
+  spice_override?: string;
+}
+
+export interface WeeklyContext {
+  budget_inr?: number;
+  dining_out_freq?: number;
+  weekday_prep_time?: string;
+  weekend_prep_time?: string;
+  special_request?: string;
+  member_overrides?: Record<string, WeeklyContextMemberOverride>;
+}
+
 export interface GenerateMealPlanBody {
   familyId: number;
   /** ISO 8601 date-time string (e.g. 2026-03-23T00:00:00.000Z). Accepted as string from JSON body. */
   weekStartDate: string;
   preferences?: GenerateMealPlanBodyPreferences;
+  /** Per-week context overrides: budget, prep time, member check-ins */
+  weeklyContext?: WeeklyContext;
 }
 
 export interface UpdateMealPlanBody {

@@ -16,6 +16,7 @@ import { ai } from "@workspace/integrations-gemini-ai";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
 import { resolveDietPreference } from "../../lib/diet-tag.js";
+import { applyIngredientArbitrage } from "../../lib/arbitrage-engine.js";
 
 const router: IRouter = Router();
 
@@ -613,14 +614,38 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     const days2 = Array.isArray(half2.days) ? half2.days as Array<Record<string, unknown>> : [];
     const allDays = [...days1, ...days2];
 
+    // Extract all unique ingredient names from AI-invented meals (recipeId=null) for arbitrage check
+    const extractedIngredients = new Set<string>();
+    for (const day of allDays) {
+      const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
+      if (!meals) continue;
+      for (const meal of Object.values(meals)) {
+        const m = meal as Record<string, unknown>;
+        if (m.recipeId === null && Array.isArray(m.ingredients)) {
+          for (const ing of m.ingredients as string[]) {
+            const cleaned = String(ing).replace(/^\d+[\w.]*\s*/, "").split(" ")[0];
+            if (cleaned.length > 2) extractedIngredients.add(cleaned);
+          }
+        }
+        if (typeof m.recipeName === "string") {
+          m.recipeName.split(/\s+/).forEach(w => { if (w.length > 3) extractedIngredients.add(w); });
+        }
+      }
+    }
+    const arbitrageResult = applyIngredientArbitrage([...extractedIngredients]);
+    const arbitrageNote = arbitrageResult.hasArbitrage && arbitrageResult.alertMessage
+      ? ` 💡 ${arbitrageResult.alertMessage}`
+      : "";
+
     planData = {
       harmonyScore: Math.round((Number(half1.harmonyScore ?? 70) + Number(half2.harmonyScore ?? 70)) / 2),
       totalBudgetEstimate: Number(half1.totalBudgetEstimate ?? 0) + Number(half2.totalBudgetEstimate ?? 0),
-      aiInsights: half1.aiInsights ?? half2.aiInsights ?? "",
+      aiInsights: (half1.aiInsights ?? half2.aiInsights ?? "") + arbitrageNote,
       days: allDays,
+      ...(arbitrageResult.hasArbitrage ? { arbitrageSwaps: arbitrageResult.swaps, arbitrageSaving: arbitrageResult.totalSaved } : {}),
     };
 
-    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length }, "Parallel meal plan generation succeeded");
+    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: arbitrageResult.swaps.length }, "Parallel meal plan generation succeeded");
   } catch (err) {
     clearTimeout(timeoutHandle);
     req.log.error({ err }, "Meal plan generation failed after retry");
