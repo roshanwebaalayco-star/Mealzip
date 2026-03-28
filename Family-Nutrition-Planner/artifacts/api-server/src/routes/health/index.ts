@@ -240,27 +240,35 @@ Return JSON:
 // FASTING_CALENDAR now imported from ../../lib/festival-fasting.js (single source of truth)
 
 /**
- * Approximate Ekadashi dates for a given Gregorian month/year.
- * Uses mean lunar cycle (29.53 days) anchored to Jan 29 2026 new moon.
+ * Approximate Ekadashi dates for any Gregorian month/year.
+ * Uses mean lunar cycle (29.53058867 days) anchored to 2026-01-29 UTC new moon.
+ * Derives a cycle-index window from the target month so it works for any year.
  */
 function computeEkadashiDates(year: number, month: number): { day: number; name: string; nameHindi: string }[] {
-  const LUNAR_CYCLE = 29.53058867;
-  const TITHI = LUNAR_CYCLE / 30;
+  const LUNAR_CYCLE_DAYS = 29.53058867;
+  const LUNAR_CYCLE_MS = LUNAR_CYCLE_DAYS * 86400_000;
+  const TITHI_MS = (LUNAR_CYCLE_DAYS / 30) * 86400_000;
+
   const anchorNewMoon = new Date("2026-01-29T00:00:00Z").getTime();
   const targetStart = new Date(Date.UTC(year, month - 1, 1)).getTime();
   const targetEnd   = new Date(Date.UTC(year, month, 1)).getTime();
 
+  // Compute the approximate index of the nearest new moon to targetStart
+  const centerIndex = Math.round((targetStart - anchorNewMoon) / LUNAR_CYCLE_MS);
+
   const results: { day: number; name: string; nameHindi: string }[] = [];
 
-  for (let i = -2; i <= 14; i++) {
-    const newMoonMs = anchorNewMoon + i * LUNAR_CYCLE * 86400_000;
+  // Scan 3 cycles around the center to catch all Ekadashis in the target month
+  for (let i = centerIndex - 2; i <= centerIndex + 2; i++) {
+    const newMoonMs = anchorNewMoon + i * LUNAR_CYCLE_MS;
     const pairs = [
-      { ms: newMoonMs + 11 * TITHI * 86400_000, name: "Ekadashi (Shukla Paksha, estimated)", nameHindi: "एकादशी (शुक्ल पक्ष, अनुमानित)" },
-      { ms: newMoonMs + 26 * TITHI * 86400_000, name: "Ekadashi (Krishna Paksha, estimated)", nameHindi: "एकादशी (कृष्ण पक्ष, अनुमानित)" },
+      { ms: newMoonMs + 11 * TITHI_MS, name: "Ekadashi (Shukla Paksha, estimated)", nameHindi: "एकादशी (शुक्ल पक्ष, अनुमानित)" },
+      { ms: newMoonMs + 26 * TITHI_MS, name: "Ekadashi (Krishna Paksha, estimated)", nameHindi: "एकादशी (कृष्ण पक्ष, अनुमानित)" },
     ];
     for (const p of pairs) {
       if (p.ms >= targetStart && p.ms < targetEnd) {
         const day = new Date(p.ms).getUTCDate();
+        // De-duplicate dates within 1-day tolerance (tithi drift)
         if (!results.some(r => Math.abs(r.day - day) <= 1)) {
           results.push({ day, name: p.name, nameHindi: p.nameHindi });
         }
