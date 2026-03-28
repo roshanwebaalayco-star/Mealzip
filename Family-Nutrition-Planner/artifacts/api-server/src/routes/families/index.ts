@@ -15,7 +15,7 @@ import {
   DeleteFamilyMemberParams,
 } from "@workspace/api-zod";
 import { ai } from "@workspace/integrations-gemini-ai";
-import { applyResponsibleAIRules } from "../../lib/profile-rules.js";
+import { applyResponsibleAIRules, normalizeGoal } from "../../lib/profile-rules.js";
 
 const router: IRouter = Router();
 
@@ -169,20 +169,21 @@ router.post("/families/:familyId/members", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const canonicalGoal = normalizeGoal(parsed.data.primaryGoal);
   const raiResult = applyResponsibleAIRules({
     age: parsed.data.age,
     gender: parsed.data.gender,
     weightKg: parsed.data.weightKg,
     heightCm: parsed.data.heightCm,
     activityLevel: parsed.data.activityLevel,
-    primary_goal: parsed.data.primaryGoal,
+    primary_goal: canonicalGoal,
     goalPace: parsed.data.goalPace,
     healthConditions: parsed.data.healthConditions,
   });
   const memberData = {
     ...parsed.data,
     familyId: params.data.familyId,
-    primaryGoal: raiResult.primary_goal ?? parsed.data.primaryGoal,
+    primaryGoal: raiResult.primary_goal ?? canonicalGoal,
     goalPace: raiResult.goalPace,
     calorieTarget: parsed.data.calorieTarget ?? raiResult.icmrCaloricTarget,
     icmrCaloricTarget: raiResult.icmrCaloricTarget,
@@ -240,7 +241,7 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     weightKg: parsed.data.weightKg ?? existing.weightKg,
     heightCm: parsed.data.heightCm ?? existing.heightCm,
     activityLevel: parsed.data.activityLevel ?? existing.activityLevel,
-    primaryGoal: parsed.data.primaryGoal ?? existing.primaryGoal,
+    primaryGoal: normalizeGoal(parsed.data.primaryGoal) ?? normalizeGoal(existing.primaryGoal),
     goalPace: parsed.data.goalPace ?? existing.goalPace,
     healthConditions: parsed.data.healthConditions ?? existing.healthConditions,
   };

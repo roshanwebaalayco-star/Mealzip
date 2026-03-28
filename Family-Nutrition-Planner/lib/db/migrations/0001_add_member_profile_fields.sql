@@ -9,7 +9,7 @@ ALTER TABLE family_members
     CHECK (primary_goal_override IS NULL OR primary_goal_override IN (
       'weight_loss','weight_gain','build_muscle',
       'manage_diabetes','heart_health','manage_thyroid',
-      'childhood_nutrition','general_wellness',
+      'childhood_nutrition','general_wellness','anemia_recovery',
       'maintain','healthy_growth','senior_nutrition'
     )),
   ADD COLUMN IF NOT EXISTS icmr_caloric_target integer

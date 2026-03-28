@@ -25,6 +25,20 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   very_active: 1.9,
 };
 
+// Normalize UI-facing goal aliases to canonical DB / RAI values.
+// This is the single source of truth for goal taxonomy. Any new UI value
+// must be mapped here to prevent CHECK constraint failures on DB write.
+const GOAL_ALIAS_MAP: Record<string, string> = {
+  muscle_gain:      "build_muscle",     // UI label → DB canonical
+  child_growth:     "healthy_growth",   // UI label → DB canonical
+  anemia_recovery:  "anemia_recovery",  // already in DB CHECK — pass through
+};
+
+export function normalizeGoal(goal: string | undefined | null): string | undefined {
+  if (!goal) return undefined;
+  return GOAL_ALIAS_MAP[goal] ?? goal;
+}
+
 export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfileOutput {
   const result: MemberProfileOutput = {
     primary_goal: member.primary_goal,
