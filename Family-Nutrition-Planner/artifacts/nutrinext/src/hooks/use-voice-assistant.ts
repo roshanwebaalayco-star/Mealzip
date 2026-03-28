@@ -133,12 +133,41 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
   return next;
 }
 
+// Multilingual correction/undo detection — keeps same state and re-asks
+const CORRECTION_PATTERNS = [
+  "nahi", "nahin", "galat", "wapas", "phirse", "ruk", "dobara", "cancel",
+  "wrong", "correction", "no wait", "not that", "redo", "back",
+  "illa", "illai", "ledu", "illa", "naa", "athe alla", "illa bidi",
+  "nahi jana", "nahi chahiye", "mistake", "bhul gaya",
+];
+
+function isCorrectionIntent(transcript: string): boolean {
+  if (transcript.length > 80) return false;
+  const lower = transcript.toLowerCase().trim();
+  return CORRECTION_PATTERNS.some(p => lower.startsWith(p) || lower === p);
+}
+
+const CORRECTION_MSG: Record<string, string> = {
+  hindi: "ठीक है, कोई बात नहीं। दोबारा बताइए।",
+  english: "No problem! Let me ask again.",
+  bengali: "ঠিক আছে, কোনো চিন্তা নেই। আবার বলুন।",
+  tamil: "பரவாயில்லை! மீண்டும் கேட்கிறேன்.",
+  telugu: "సరే, మళ్ళీ చెప్పండి.",
+  marathi: "ठीक आहे, पुन्हा सांगा.",
+  gujarati: "ઠીક છે, ફરી કહો.",
+  kannada: "ಪರವಾಗಿಲ್ಲ, ಮತ್ತೆ ಹೇಳಿ.",
+  malayalam: "കുഴപ്പമില്ല, ഒന്നു കൂടി പറയൂ.",
+  punjabi: "ਕੋਈ ਗੱਲ ਨਹੀਂ, ਦੁਬਾਰਾ ਦੱਸੋ।",
+  odia: "ଠିକ ଅଛି, ପୁଣି ଥρ कहé.",
+};
+
 export function useVoiceAssistant() {
   const [micState, setMicState] = useState<MicState>("idle");
   const [convState, setConvState] = useState<ConvState>("idle");
   const [messages, setMessages] = useState<ConvMessage[]>([]);
   const [formData, setFormData] = useState<VoiceFormData>({});
   const [error, setError] = useState<string | null>(null);
+  const [volume, setVolume] = useState<number>(0);
 
   const abortRef = useRef(false);
   const isRunningRef = useRef(false);
@@ -278,6 +307,9 @@ export function useVoiceAssistant() {
               for (const v of data) sum += (v - 128) ** 2;
               const rms = Math.sqrt(sum / bufLen);
 
+              // Expose real-time volume (0-100) to the UI
+              setVolume(Math.min(100, Math.round((rms / 30) * 100)));
+
               if (rms >= SILENCE_THRESHOLD) {
                 hasSpoken = true;
                 silenceStart = null;
@@ -346,10 +378,21 @@ export function useVoiceAssistant() {
 
           if (abortRef.current) break;
 
+          setVolume(0);
+
           if (!transcript.trim()) {
             nextMsg = RETRY_MSG[language] ?? RETRY_MSG.english;
             msgs = [...msgs, { role: "user", text: "..." }, { role: "assistant", text: nextMsg }];
             setMessages([...msgs]);
+            continue;
+          }
+
+          // Correction intent: user said "nahi", "galat", "wrong" etc. — re-ask same question
+          if (isCorrectionIntent(transcript)) {
+            const correctionReply = CORRECTION_MSG[language] ?? CORRECTION_MSG.english;
+            msgs = [...msgs, { role: "user", text: transcript }, { role: "assistant", text: `${correctionReply} ${nextMsg}` }];
+            setMessages([...msgs]);
+            nextMsg = `${correctionReply} ${nextMsg}`;
             continue;
           }
 
@@ -437,6 +480,7 @@ export function useVoiceAssistant() {
     messages,
     formData,
     error,
+    volume,
     start,
     stop,
     stopListeningEarly,

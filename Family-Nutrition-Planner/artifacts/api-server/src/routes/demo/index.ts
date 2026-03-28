@@ -1,12 +1,51 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { familiesTable, familyMembersTable, mealPlansTable, recipesTable } from "@workspace/db";
+import { familiesTable, familyMembersTable, mealPlansTable, usersTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
+import { getJwtSecret, type AuthPayload } from "../../middlewares/auth.js";
 
 const router: IRouter = Router();
 
 const SHARMA_FAMILY_NAME = "Sharma Family (Demo)";
+const DEMO_EMAIL = "demo@parivarsehat.ai";
+const DEMO_PASSWORD = "DemoJudge2025!";
+const TOKEN_EXPIRY = "7d";
+
+router.post("/demo/quick-login", async (req, res): Promise<void> => {
+  try {
+    let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
+    if (!user) {
+      const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+      [user] = await db.insert(usersTable).values({
+        email: DEMO_EMAIL,
+        passwordHash,
+        name: "Demo Judge",
+        primaryLanguage: "hindi",
+      }).returning();
+    }
+
+    const seedResult = await seedSharmaFamily(user.id);
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email } satisfies AuthPayload,
+      getJwtSecret(),
+      { expiresIn: TOKEN_EXPIRY }
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, primaryLanguage: user.primaryLanguage, createdAt: user.createdAt },
+      family: seedResult.family,
+      mealPlan: seedResult.mealPlan,
+      harmonyScore: seedResult.harmonyScore,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Demo login failed", details: String(err) });
+  }
+});
 
 router.get("/demo/sharma-family", async (req, res): Promise<void> => {
   const [family] = await db.select().from(familiesTable)
@@ -41,11 +80,14 @@ router.post("/demo/seed", async (req, res): Promise<void> => {
   });
 });
 
-async function seedSharmaFamily() {
+async function seedSharmaFamily(userId?: number) {
   const existing = await db.select().from(familiesTable).where(eq(familiesTable.name, SHARMA_FAMILY_NAME));
   
   if (existing.length > 0) {
     const family = existing[0];
+    if (userId && family.userId !== userId) {
+      await db.update(familiesTable).set({ userId }).where(eq(familiesTable.id, family.id));
+    }
     const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, family.id));
     const [mealPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.familyId, family.id));
     return {
@@ -57,6 +99,7 @@ async function seedSharmaFamily() {
 
   const [family] = await db.insert(familiesTable).values({
     name: SHARMA_FAMILY_NAME,
+    userId: userId ?? null,
     state: "Jharkhand",
     city: "Bokaro Steel City",
     monthlyBudget: 5000,

@@ -15,12 +15,11 @@ import healthRouter from "./health/index.js";
 
 const router: IRouter = Router();
 
-// Strictly public routes — only /auth/register, /auth/login, and /healthz
-// are intentionally unauthenticated.
-// /auth/me uses authenticateToken internally.
-// /auth/logout uses authenticateToken internally (requires a valid token).
+// Strictly public routes — only /auth/register, /auth/login, /healthz, and
+// /demo/quick-login are intentionally unauthenticated.
 router.use(authRouter);   // /auth/register, /auth/login (public); /auth/logout, /auth/me (auth-gated)
 router.use(healthzRouter); // /healthz only
+router.use(demoRouter);  // /demo/quick-login (public) + /demo/sharma-family + /demo/seed (public)
 
 // All routes registered after this line require a valid JWT Bearer token.
 router.use(authenticateToken);
@@ -31,7 +30,6 @@ router.use(mealPlansRouter);
 router.use(mealFeedbackRouter);
 router.use(nutritionRouter);
 router.use(voiceRouter);
-router.use(demoRouter);
 router.use(geminiRouter);
 router.use(groceryRouter);
 router.use(healthRouter); // /health-logs, /nutrition-logs, /symptom-check, /fasting-calendar

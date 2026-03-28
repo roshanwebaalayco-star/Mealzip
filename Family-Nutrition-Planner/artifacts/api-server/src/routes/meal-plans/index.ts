@@ -22,34 +22,56 @@ const router: IRouter = Router();
 const MAX_OUTPUT_TOKENS = 65536;
 
 function tryParseJson(text: string): Record<string, unknown> | null {
+  // Strategy 1: Direct parse
   try { return JSON.parse(text) as Record<string, unknown>; } catch { /* fall through */ }
+
+  // Strategy 2: Extract from markdown fences
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) {
     try { return JSON.parse(fenced[1].trim()) as Record<string, unknown>; } catch { /* fall through */ }
   }
+
+  // Strategy 3: Find outermost braces
   const braceStart = text.indexOf("{");
   const braceEnd = text.lastIndexOf("}");
   if (braceStart !== -1 && braceEnd > braceStart) {
     try { return JSON.parse(text.slice(braceStart, braceEnd + 1)) as Record<string, unknown>; } catch { /* fall through */ }
   }
+
+  // Strategy 4: Fix common Gemini JSON formatting errors
+  const slice = braceStart !== -1 && braceEnd > braceStart
+    ? text.slice(braceStart, braceEnd + 1)
+    : text;
+  const cleaned = slice
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
+    .replace(/:\s*'([^']*)'/g, ': "$1"');
+  try { return JSON.parse(cleaned) as Record<string, unknown>; } catch { /* fall through */ }
+
   return null;
 }
+
+const GEMINI_JSON_CRITICAL_SUFFIX = `
+
+CRITICAL REMINDER: Return ONLY raw valid JSON. No markdown fences, no backticks, no prose before or after. The response must start with { and end with }.`;
 
 async function callGeminiWithJsonRetry(
   prompt: string,
   label: string,
   log: { info: (obj: Record<string, unknown>, msg: string) => void; error: (obj: Record<string, unknown>, msg: string) => void },
 ): Promise<Record<string, unknown>> {
-  const MAX_RETRIES = 3;
-  const BACKOFF_MS = [1000, 2000, 4000];
+  const MAX_RETRIES = 5;
+  const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000];
 
   let lastErr: unknown = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const activePrompt = attempt >= 2 ? prompt + GEMINI_JSON_CRITICAL_SUFFIX : prompt;
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [{ text: activePrompt }] }],
         config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
       });
       const text = response.text ?? "{}";
@@ -58,7 +80,7 @@ async function callGeminiWithJsonRetry(
         if (attempt > 0) log.info({ label, attempt: attempt + 1 }, `${label}: JSON parse succeeded on attempt ${attempt + 1}`);
         return data;
       }
-      lastErr = new Error(`JSON parse failed — raw: ${text.slice(0, 200)}`);
+      lastErr = new Error(`JSON parse failed after 4 strategies — raw length: ${text.length}, preview: ${text.slice(0, 200)}`);
       log.error({ label, attempt: attempt + 1, rawText: text.slice(0, 500) }, `${label}: JSON parse failed on attempt ${attempt + 1}`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -470,9 +492,9 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     id: r.id, name: r.name, course: r.course, diet: r.diet, cal: r.calories, cost: r.costPerServing,
   }));
 
-  const prompt = `You are ParivarSehat AI — ICMR-NIN 2024 India family nutritionist.
+  const promptPreamble = `You are ParivarSehat AI — ICMR-NIN 2024 India family nutritionist.
 
-Generate a COMPACT 7-day meal plan (Mon–Sun) for the ${family.name} family from ${family.state} (${zone.toUpperCase()} zone), ${members.length} members.
+Family: ${family.name} from ${family.state} (${zone.toUpperCase()} zone), ${members.length} members.
 
 MEMBERS: ${JSON.stringify(memberListForPrompt)}
 BUDGET: ₹${weeklyBudget}/week (≤₹${budgetPerMeal * members.length}/meal)
@@ -484,7 +506,7 @@ RECIPES (prefer these IDs; recipeId:null = AI-invented):
 ${JSON.stringify(recipeListForPrompt)}
 
 OUTPUT RULES — BE TERSE, minimize text length:
-- 7 days × 5 meals: breakfast, mid_morning, lunch, evening_snack, dinner
+- 5 meals per day: breakfast, mid_morning, lunch, evening_snack, dinner
 - For DB recipes (recipeId≠null): omit ingredients & instructions (fetched from DB)
 - For AI recipes (recipeId=null): include ingredients (4+ items with quantities) and instructions (3 steps, ≤10 words each)
 - member_plates: only for members with specific health needs; max 2 items per list
@@ -494,22 +516,49 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
 
 EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
-{"harmonyScore":85,"totalBudgetEstimate":2800,"aiInsights":"<brief>","days":[
+{"harmonyScore":85,"totalBudgetEstimate":1400,"aiInsights":"<brief>","days":[
 {"day":"Monday","isFastingDay":false,"dailyHarmonyScore":82,"dailyNutrition":{"calories":1900,"protein":65,"carbs":280,"fat":55,"fiber":28},"meals":{
 "breakfast":{"recipeId":123,"recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"icmr_rationale":"Complex carbs, morning energy","member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
 "mid_morning":{"recipeId":null,"recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"icmr_rationale":"Potassium, sustained energy","ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_plates":{}},
 "lunch":{"recipeId":456,"recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"icmr_rationale":"Protein, iron, fiber","member_plates":{}},
 "evening_snack":{"recipeId":null,"recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"icmr_rationale":"Probiotics, calcium","ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_plates":{}},
 "dinner":{"recipeId":789,"recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"icmr_rationale":"Iron, calcium, protein","member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
-}}]}
+}}]}`;
 
-MANDATORY: Output ALL 7 days. Every day MUST have all 5 meal keys. No "..." placeholders. No missing days.`;
+  const promptHalf1 = promptPreamble + `
 
-  req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with enhanced engine");
+MANDATORY: Generate ONLY these 4 days: Monday, Tuesday, Wednesday, Thursday. Every day MUST have all 5 meal keys. No "..." placeholders. No missing days.`;
+
+  const promptHalf2 = promptPreamble + `
+
+MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST have all 5 meal keys. No "..." placeholders. No missing days.`;
+
+  req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with parallel split (days 1-4 + days 5-7)");
+
+  const PLAN_TIMEOUT_MS = 45000;
+  const makeTimeout = () => new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Meal plan generation timed out after 45 seconds")), PLAN_TIMEOUT_MS)
+  );
 
   let planData: Record<string, unknown>;
   try {
-    planData = await callGeminiWithJsonRetry(prompt, "generate-meal-plan", req.log);
+    const [half1, half2] = await Promise.all([
+      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log), makeTimeout()]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log), makeTimeout()]),
+    ]);
+
+    const days1 = Array.isArray(half1.days) ? half1.days as Array<Record<string, unknown>> : [];
+    const days2 = Array.isArray(half2.days) ? half2.days as Array<Record<string, unknown>> : [];
+    const allDays = [...days1, ...days2];
+
+    planData = {
+      harmonyScore: Math.round((Number(half1.harmonyScore ?? 70) + Number(half2.harmonyScore ?? 70)) / 2),
+      totalBudgetEstimate: Number(half1.totalBudgetEstimate ?? 0) + Number(half2.totalBudgetEstimate ?? 0),
+      aiInsights: half1.aiInsights ?? half2.aiInsights ?? "",
+      days: allDays,
+    };
+
+    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length }, "Parallel meal plan generation succeeded");
   } catch (err) {
     req.log.error({ err }, "Meal plan generation failed after retry");
     res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again") });

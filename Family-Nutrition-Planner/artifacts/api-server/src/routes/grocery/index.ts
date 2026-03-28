@@ -142,13 +142,87 @@ Rules:
   }
 });
 
+// Hindi/English ingredient alias map for pantry subtraction matching
+const INGREDIENT_ALIASES: Record<string, string[]> = {
+  "mustard oil": ["sarson oil", "sarso tel", "sarson ka tel", "sarsi tel"],
+  "ghee": ["clarified butter", "desi ghee", "cow ghee"],
+  "curd": ["yogurt", "dahi", "dahi curd", "yoghurt"],
+  "chickpeas": ["chana", "chole", "garbanzo", "kabuli chana", "chhole"],
+  "spinach": ["palak", "palak leaves"],
+  "fenugreek": ["methi", "methi leaves", "fenugreek leaves"],
+  "rice": ["chawal", "basmati", "basmati rice", "sona masoori"],
+  "wheat flour": ["atta", "gehun atta", "chapati flour", "aata"],
+  "lentils": ["dal", "daal", "masoor", "masoor dal"],
+  "tomato": ["tamatar", "tamato"],
+  "onion": ["pyaz", "piyaz", "kanda"],
+  "garlic": ["lahsun", "lasan", "lehsun"],
+  "ginger": ["adrak", "adrak paste", "adrakh"],
+  "potato": ["aloo", "alu"],
+  "cauliflower": ["gobhi", "phool gobhi", "gobi"],
+  "green peas": ["matar", "hara matar", "mattar"],
+  "paneer": ["cottage cheese", "fresh paneer"],
+  "milk": ["doodh", "full cream milk", "toned milk"],
+  "butter": ["makhan", "white butter"],
+  "oil": ["tel", "cooking oil"],
+  "salt": ["namak", "sendha namak", "rock salt"],
+  "cumin": ["jeera", "zeera"],
+  "turmeric": ["haldi", "haldee"],
+  "coriander": ["dhania", "dhaniya", "cilantro", "coriander leaves"],
+  "chilli": ["mirchi", "hari mirchi", "lal mirchi", "chili", "chilli powder"],
+  "cardamom": ["elaichi", "ilaichi"],
+  "cloves": ["laung", "lavang"],
+  "cinnamon": ["dalchini", "dal chini"],
+  "black pepper": ["kali mirch", "kaali mirch"],
+  "bay leaf": ["tejpatta", "tej patta"],
+  "mustard seeds": ["rai", "sarson", "raai"],
+  "asafoetida": ["hing", "heeng"],
+  "sugar": ["cheeni", "chini", "shakkar"],
+  "jaggery": ["gur", "gud", "jaggery powder"],
+  "gram flour": ["besan", "chickpea flour"],
+  "semolina": ["suji", "sooji", "rava"],
+  "moong dal": ["green gram", "mung dal", "moong", "green lentil"],
+  "toor dal": ["arhar dal", "tuvar dal", "pigeon pea"],
+  "urad dal": ["black gram", "black lentil", "urad"],
+  "rajma": ["kidney beans", "red kidney beans"],
+  "soybean": ["soya", "soy", "soya bean"],
+  "groundnut": ["peanut", "moongfali", "mungfali"],
+  "coconut": ["nariyal", "narial"],
+  "tamarind": ["imli", "imlee"],
+  "amla": ["indian gooseberry", "gooseberry"],
+  "curry leaves": ["kadi patta", "meetha neem"],
+  "green cardamom": ["choti elaichi", "small cardamom"],
+  "vermicelli": ["seviyan", "sewai"],
+  "poha": ["flattened rice", "beaten rice", "chivda"],
+  "sabudana": ["sago", "tapioca pearls"],
+  "makhana": ["fox nuts", "lotus seeds", "phool makhana"],
+  "bottle gourd": ["lauki", "ghia", "doodhi"],
+  "bitter gourd": ["karela", "bitter melon"],
+  "ladies finger": ["okra", "bhindi"],
+  "brinjal": ["eggplant", "baingan", "aubergine"],
+};
+
 // 7b: Flexible ingredient matching for pantry subtraction
 function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, "").trim();
   const p = normalize(pantryItem);
   const g = normalize(groceryItem);
+
   if (p.includes(g) || g.includes(p)) return true;
-  return p.split(" ").some(word => word.length > 3 && g.split(" ").includes(word));
+
+  // Word-level match
+  const wordsP = p.split(" ").filter(w => w.length > 3);
+  const wordsG = g.split(" ").filter(w => w.length > 3);
+  if (wordsP.some(w => wordsG.includes(w))) return true;
+
+  // Alias match: check if both items map to the same canonical ingredient
+  for (const [canonical, aliases] of Object.entries(INGREDIENT_ALIASES)) {
+    const allForms = [canonical, ...aliases];
+    const pMatches = allForms.some(f => p.includes(f));
+    const gMatches = allForms.some(f => g.includes(f));
+    if (pMatches && gMatches) return true;
+  }
+
+  return false;
 }
 
 // 7a: Persist accepted swap for a grocery list item

@@ -32,16 +32,19 @@ function ProgressItem({ label, value }: { label: string; value?: string | number
   );
 }
 
-function WaveAnimation() {
+function WaveAnimation({ volume = 0 }: { volume?: number }) {
+  const bars = [0.4, 0.7, 1.0, 0.7, 0.4, 0.55, 0.85];
+  const scaledVolume = Math.max(0.15, volume / 100);
   return (
-    <div className="flex items-end gap-0.5 h-5">
-      {[1, 2, 3, 4, 5].map((i) => (
+    <div className="flex items-end gap-0.5 h-6">
+      {bars.map((base, i) => (
         <div
           key={i}
-          className="w-1 rounded-full bg-primary"
+          className="w-1 rounded-full bg-primary transition-all duration-75"
           style={{
-            height: `${20 + Math.random() * 60}%`,
-            animation: `waveBar 0.6s ease-in-out ${i * 0.1}s infinite alternate`,
+            height: `${Math.round(base * scaledVolume * 100)}%`,
+            animation: volume > 5 ? `waveBar 0.5s ease-in-out ${i * 0.07}s infinite alternate` : undefined,
+            minHeight: "3px",
           }}
         />
       ))}
@@ -59,7 +62,7 @@ function PulseRing({ color = "orange" }: { color?: string }) {
 }
 
 export default function VoiceAssistantModal({ open, language, onClose, onComplete }: Props) {
-  const { micState, convState, messages, formData, error, start, stop, stopListeningEarly } =
+  const { micState, convState, messages, formData, error, volume, start, stop, stopListeningEarly } =
     useVoiceAssistant();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -271,10 +274,12 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
                 </button>
               </div>
 
-              {/* Status text */}
-              <div className="flex items-center gap-2 h-5">
-                {micState === "speaking" ? (
-                  <WaveAnimation />
+              {/* Status text / waveform */}
+              <div className="flex items-center gap-2 h-6">
+                {micState === "listening" ? (
+                  <WaveAnimation volume={volume} />
+                ) : micState === "speaking" ? (
+                  <WaveAnimation volume={60} />
                 ) : (
                   <p className="text-xs text-muted-foreground text-center">{micLabel}</p>
                 )}

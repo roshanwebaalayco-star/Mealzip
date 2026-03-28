@@ -451,10 +451,39 @@ export default function MealPlan() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(currentPlan.weekStartDate), "MMM d, yyyy")}
-            {" · "}
-            <span className="font-semibold text-foreground/70">₹{currentPlan.totalBudgetEstimate}</span>{" "}
-            {t("est.", "अनुमानित")}
           </p>
+          {/* Budget tracker */}
+          {(() => {
+            const weeklyBudget = activeFamily.monthlyBudget ? Math.round(Number(activeFamily.monthlyBudget) / 4) : null;
+            const spent = currentPlan.totalBudgetEstimate ?? 0;
+            const pct = weeklyBudget ? Math.min(100, Math.round((spent / weeklyBudget) * 100)) : null;
+            const overBudget = weeklyBudget && spent > weeklyBudget;
+            return (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={`font-bold ${overBudget ? "text-red-600" : "text-green-700"}`}>
+                    ₹{spent.toLocaleString("en-IN")}
+                  </span>
+                  {weeklyBudget && (
+                    <span className="text-muted-foreground">/ ₹{weeklyBudget.toLocaleString("en-IN")} {t("budget", "बजट")}</span>
+                  )}
+                  {pct !== null && (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${overBudget ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
+                      {pct}%
+                    </span>
+                  )}
+                </div>
+                {pct !== null && (
+                  <div className="w-36 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${overBudget ? "bg-red-500" : "bg-green-500"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {Boolean((currentPlan.nutritionSummary as Record<string, unknown> | null)?.isFasting) && (
             <Badge className="mt-2 bg-purple-500/20 text-purple-700 border-purple-500/30">
               <Moon className="w-3 h-3 mr-1" /> {t("Fasting Plan", "व्रत योजना")}
@@ -860,17 +889,24 @@ export default function MealPlan() {
                           )
                         )}
 
-                        {/* Leftover chain */}
+                        {/* Leftover chain — all 3 steps */}
                         {isDinner && (cell.leftoverChain?.length ?? 0) > 0 && (
-                          <div className="flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                            <Link2 className="w-2.5 h-2.5" />
-                            <span>{cell.leftoverChain?.[0].day.slice(0, 3)} {cell.leftoverChain?.[0].meal}: {cell.leftoverChain?.[0].dish.slice(0, 18)}</span>
+                          <div className="space-y-0.5 mt-0.5">
+                            <p className="text-[8px] font-bold text-amber-700 flex items-center gap-0.5 uppercase tracking-wide">
+                              <Link2 className="w-2.5 h-2.5" /> {t("Leftover Plan", "बचे भोजन की योजना")}
+                            </p>
+                            {cell.leftoverChain!.slice(0, 3).map((lc, li) => (
+                              <div key={li} className="flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                <span className="font-bold shrink-0">{li + 1}.</span>
+                                <span>{lc.day.slice(0, 3)} {lc.meal}: {lc.dish.slice(0, 22)}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                         {isDinner && !cell.leftoverChain?.length && leftoverChain && (
                           <div className="flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
                             <Link2 className="w-2.5 h-2.5" />
-                            <span>{leftoverChain.nextDay.slice(0, 3)} {leftoverChain.meal}: {leftoverChain.dish.slice(0, 18)}</span>
+                            <span>↳ {leftoverChain.nextDay.slice(0, 3)} {leftoverChain.meal}: {leftoverChain.dish.slice(0, 18)}</span>
                           </div>
                         )}
 
@@ -983,11 +1019,16 @@ export default function MealPlan() {
 
                     return (
                       <div key={member.id} className={`rounded-2xl border p-3 space-y-1.5 ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-xs">{member.name}</span>
                           {member.role && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground">{member.role}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground capitalize">{member.role}</span>
                           )}
+                          {(member.healthConditions ?? []).slice(0, 3).map(c => (
+                            <span key={c} className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
+                              {({ diabetes: "🍬", hypertension: "💉", anemia: "🩸", obesity: "⚖️", thyroid: "🦋", pcod: "🌸", elderly: "👴", growing_child: "🌱" } as Record<string, string>)[c] ?? "•"} {c.replace(/_/g, " ")}
+                            </span>
+                          ))}
                         </div>
                         {hasStructuredContent ? (
                           <>
@@ -1033,7 +1074,12 @@ export default function MealPlan() {
                 {mealCell.icmr_rationale && (
                   <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2.5 flex gap-2">
                     <Info className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
-                    <p className="text-[9px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
+                    <div className="flex-1">
+                      <p className="text-[9px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
+                      <span className="inline-block mt-1 text-[8px] font-bold text-secondary/60 border border-secondary/20 px-1.5 py-0.5 rounded-full">
+                        📚 ICMR-NIN 2024
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

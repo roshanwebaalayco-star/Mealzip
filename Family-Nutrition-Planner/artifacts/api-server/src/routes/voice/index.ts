@@ -96,8 +96,19 @@ router.post("/voice/transcribe", async (req, res): Promise<void> => {
     }
 
     const data = await response.json() as { transcript?: string; language_code?: string };
+    const transcript = (data.transcript ?? "").trim();
+
+    if (!transcript) {
+      res.status(422).json({
+        error: "Empty transcript — no speech detected",
+        code: "EMPTY_TRANSCRIPT",
+        audioFormat: mimeType,
+      });
+      return;
+    }
+
     res.json({
-      transcript: data.transcript ?? "",
+      transcript,
       confidence: 0.9,
       detectedLanguage: data.language_code ?? languageCode,
     });

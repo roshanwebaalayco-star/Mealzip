@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
@@ -13,9 +13,23 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, demoLogin } = useAuth();
   const [, navigate] = useLocation();
+
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    try {
+      await demoLogin();
+      navigate("/");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Demo login failed.";
+      toast({ variant: "destructive", title: "Demo Login Failed", description: msg });
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +114,30 @@ export default function Login() {
             Log In
           </Button>
         </form>
+
+        {/* Demo login for hackathon judges */}
+        <div className="mt-3">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[11px] text-muted-foreground font-medium">or</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={isDemoLoading}
+            className="w-full h-11 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+          >
+            {isDemoLoading
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <Zap className="w-4 h-4" />
+            }
+            Try Demo — No signup needed
+          </button>
+          <p className="text-center text-[10px] text-muted-foreground mt-1.5">
+            Loads Sharma family demo with a full AI-generated meal plan
+          </p>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground mt-4">
           Don't have an account?{" "}

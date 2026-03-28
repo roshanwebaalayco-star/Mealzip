@@ -185,6 +185,11 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  let clientDisconnected = false;
+  req.on("close", () => {
+    clientDisconnected = true;
+  });
+
   let fullResponse = "";
 
   const stream = await ai.models.generateContentStream({
@@ -201,11 +206,19 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   });
 
   for await (const chunk of stream) {
+    if (clientDisconnected) {
+      break;
+    }
     const text = chunk.text;
     if (text) {
       fullResponse += text;
       res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
     }
+  }
+
+  if (clientDisconnected) {
+    res.end();
+    return;
   }
 
   await db.insert(messagesTable).values({ conversationId: params.data.id, role: "assistant", content: fullResponse });

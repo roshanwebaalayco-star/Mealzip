@@ -67,6 +67,22 @@ export function useAuth() {
     }
   }, [setAuth]);
 
+  const demoLogin = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await apiRequest("/api/demo/quick-login", { method: "POST" }) as { token: string; user: AuthUser; family: unknown; mealPlan: unknown };
+      setAuth(data.token, data.user);
+      if (data.family) {
+        try { localStorage.setItem("demo_family_cache", JSON.stringify(data.family)); } catch { /* ignore */ }
+      }
+      if (data.mealPlan) {
+        try { localStorage.setItem("demo_meal_plan_cache", JSON.stringify(data.mealPlan)); } catch { /* ignore */ }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setAuth]);
+
   const register = useCallback(async (email: string, password: string, name: string, primaryLanguage: string) => {
     setIsLoading(true);
     try {
@@ -105,7 +121,7 @@ export function useAuth() {
     refreshUser();
   }, [refreshUser]);
 
-  return { user, isLoading, login, register, logout, isAuthenticated: !!user };
+  return { user, isLoading, login, demoLogin, register, logout, isAuthenticated: !!user };
 }
 
 export function getAuthToken(): string | null {
