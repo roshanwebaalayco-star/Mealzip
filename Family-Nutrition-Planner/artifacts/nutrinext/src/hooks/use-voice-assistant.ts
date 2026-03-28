@@ -133,23 +133,29 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
   return next;
 }
 
-// Per-language correction/undo triggers — user says one of these to go back to previous question
+// Per-language correction/undo triggers. Only unambiguous phrases — bare "no"/"nahi" are excluded
+// because they are valid yes/no answers in several states (ask_more_members, ask_member_conditions).
 const CORRECTION_TRIGGERS: Record<string, string[]> = {
-  hi: ["nahi", "nahin", "galat", "wapas", "change karo", "phirse", "ruk", "dobara", "redo", "cancel", "bhul gaya", "mistake", "galat hua", "nahi chahiye"],
-  en: ["no", "wrong", "go back", "change", "cancel", "not that", "redo", "back", "no wait", "correction", "undo"],
-  ta: ["illai", "thappu", "vendam", "maarunga", "thirumba po", "cancel", "illa bidi", "athe alla"],
-  te: ["ledu", "thappu", "cancel", "veyyi", "wapas", "back"],
-  bn: ["naa", "bhul", "cancel", "wapas", "phire jao", "na"],
-  mr: ["nahi", "chukle", "cancel", "wapas", "phir", "nko"],
-  gu: ["nahi", "bhul", "cancel", "paachhu", "nahi joi"],
-  kn: ["illa", "tappu", "cancel", "hinge beda", "back"],
-  ml: ["illa", "thettanu", "cancel", "thiriche", "venam"],
-  pa: ["nahi", "galat", "cancel", "wapas", "nahi chahida", "phir"],
-  or: ["naa", "bhul", "cancel", "pheri", "bhul hela"],
+  hi: ["galat", "galat hai", "galat hua", "wapas", "change karo", "bhul gaya", "mistake", "dobara se", "phirse batao", "ruk ruk"],
+  en: ["wrong", "go back", "change that", "not that", "no wait", "redo", "correction", "undo", "that's wrong", "incorrect"],
+  ta: ["thappu", "maarunga", "thirumba po", "cancel pannu", "illa bidi", "thappu aachi"],
+  te: ["thappu", "cancel", "wapas", "thappu undi"],
+  bn: ["bhul", "cancel", "wapas jao", "phire jao", "bhul hoye geche"],
+  mr: ["chukle", "cancel", "wapas", "phir sangto", "chukiche"],
+  gu: ["bhul", "cancel", "paachhu", "bhul thayyu", "wrong"],
+  kn: ["tappu", "cancel", "hinge beda", "tappu aaytu"],
+  ml: ["thettanu", "cancel", "thiriche", "thettayi"],
+  pa: ["galat", "cancel", "wapas", "galat hai"],
+  or: ["bhul", "cancel", "pheri kaho", "bhul hela"],
 };
 
-function detectCorrection(transcript: string, language: string): boolean {
-  if (transcript.length > 80) return false;
+// States where yes/no responses are expected — skip correction detection to avoid intercepting
+// legitimate "no more members" or "no conditions" answers.
+const YES_NO_STATES = new Set<ConvState>(["ask_more_members", "ask_member_conditions"]);
+
+function detectCorrection(transcript: string, language: string, state: ConvState): boolean {
+  if (YES_NO_STATES.has(state)) return false;
+  if (transcript.length > 100) return false;
   const lower = transcript.toLowerCase().trim();
   const langKey = language === "hindi" ? "hi"
     : language === "english" ? "en"
@@ -196,8 +202,8 @@ export function useVoiceAssistant() {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceRafRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  // State history stack for correction/undo: tracks { state, question } pairs
-  const stateHistoryRef = useRef<Array<{ state: ConvState; msg: string }>>([]);
+  // State history stack for correction/undo: tracks { state, question, formData } triples
+  const stateHistoryRef = useRef<Array<{ state: ConvState; msg: string; fd: VoiceFormData }>>([]);
 
   const start = useCallback(
     async (language: string = "hindi", onComplete: (data: VoiceFormData) => void) => {
@@ -410,13 +416,16 @@ export function useVoiceAssistant() {
             continue;
           }
 
-          // Correction intent: user said "nahi", "galat", "wrong" etc. — go back to previous question
-          if (detectCorrection(transcript, language)) {
+          // Correction intent: user said "galat", "wrong", "go back" etc. — go back to previous question.
+          // detectCorrection skips YES_NO_STATES so "no" / "nahi" are never intercepted there.
+          if (detectCorrection(transcript, language, currentState)) {
             const correctionReply = CORRECTION_MSG[language] ?? CORRECTION_MSG.english;
             const prev = stateHistoryRef.current.pop();
             if (prev) {
               currentState = prev.state;
               setConvState(currentState);
+              fd = prev.fd;           // restore captured data to the point before that question
+              setFormData({ ...fd });
               nextMsg = `${correctionReply} ${prev.msg}`;
             } else {
               nextMsg = `${correctionReply} ${nextMsg}`;
@@ -448,9 +457,9 @@ export function useVoiceAssistant() {
           msgs = [...msgs, { role: "assistant", text: result.assistantMessage }];
           setMessages([...msgs]);
 
-          // Push current state to history before advancing (enables correction to pop back)
+          // Push current state + formData snapshot to history before advancing
           if (result.nextState !== currentState && result.nextState !== "complete") {
-            stateHistoryRef.current.push({ state: currentState, msg: nextMsg });
+            stateHistoryRef.current.push({ state: currentState, msg: nextMsg, fd: { ...fd } });
           }
 
           currentState = result.nextState as ConvState;
