@@ -15,6 +15,10 @@ const DEMO_PASSWORD = "DemoJudge2025!";
 const TOKEN_EXPIRY = "7d";
 
 router.post("/demo/quick-login", async (req, res): Promise<void> => {
+  if (!process.env.DEMO_MODE || process.env.DEMO_MODE !== "true") {
+    res.status(403).json({ error: "Demo mode is not available in this environment", retryable: false });
+    return;
+  }
   try {
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
     if (!user) {
@@ -43,7 +47,8 @@ router.post("/demo/quick-login", async (req, res): Promise<void> => {
       harmonyScore: seedResult.harmonyScore,
     });
   } catch (err) {
-    res.status(500).json({ error: "Demo login failed", details: String(err) });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Demo login failed", details: msg, retryable: true });
   }
 });
 

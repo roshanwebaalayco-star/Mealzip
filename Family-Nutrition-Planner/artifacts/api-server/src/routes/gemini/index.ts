@@ -185,35 +185,48 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  const abortController = new AbortController();
   let clientDisconnected = false;
   req.on("close", () => {
     clientDisconnected = true;
+    abortController.abort();
   });
 
   let fullResponse = "";
 
-  const stream = await ai.models.generateContentStream({
-    model: "gemini-2.5-flash",
-    contents: [
-      { role: "user", parts: [{ text: SYSTEM_PROMPT + recipeContext }] },
-      { role: "model", parts: [{ text: "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?" }] },
-      ...chatMessages.map(m => ({
-        role: m.role === "assistant" ? "model" : "user" as "user" | "model",
-        parts: [{ text: m.content }],
-      })),
-    ],
-    config: { maxOutputTokens: 8192 },
-  });
+  try {
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [
+        { role: "user", parts: [{ text: SYSTEM_PROMPT + recipeContext }] },
+        { role: "model", parts: [{ text: "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?" }] },
+        ...chatMessages.map(m => ({
+          role: m.role === "assistant" ? "model" : "user" as "user" | "model",
+          parts: [{ text: m.content }],
+        })),
+      ],
+      config: { maxOutputTokens: 8192 },
+      abortSignal: abortController.signal,
+    });
 
-  for await (const chunk of stream) {
-    if (clientDisconnected) {
-      break;
+    for await (const chunk of stream) {
+      if (clientDisconnected) break;
+      const text = chunk.text;
+      if (text) {
+        fullResponse += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      }
     }
-    const text = chunk.text;
-    if (text) {
-      fullResponse += text;
-      res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+  } catch (err) {
+    const isAbort = err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"));
+    if (!isAbort) {
+      req.log?.error({ err }, "Gemini SSE stream error");
+      if (!clientDisconnected) {
+        res.write(`data: ${JSON.stringify({ error: "Stream interrupted", retryable: true })}\n\n`);
+      }
     }
+    res.end();
+    return;
   }
 
   if (clientDisconnected) {

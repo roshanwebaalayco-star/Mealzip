@@ -17,13 +17,18 @@ const GenerateGrocerySchema = z.object({
 router.get("/grocery-lists", async (req, res): Promise<void> => {
   const familyId = parseInt(req.query.familyId as string);
   if (isNaN(familyId)) {
-    res.status(400).json({ error: "familyId is required" });
+    res.status(400).json({ error: "familyId is required", retryable: false });
     return;
   }
-  const lists = await db.select().from(groceryListsTable)
-    .where(eq(groceryListsTable.familyId, familyId))
-    .orderBy(groceryListsTable.createdAt);
-  res.json(lists);
+  try {
+    const lists = await db.select().from(groceryListsTable)
+      .where(eq(groceryListsTable.familyId, familyId))
+      .orderBy(groceryListsTable.createdAt);
+    res.json(lists);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch grocery lists", details: msg, retryable: true });
+  }
 });
 
 router.post("/grocery-lists/generate", async (req, res): Promise<void> => {
@@ -138,7 +143,8 @@ Rules:
 
     res.json(list);
   } catch (err) {
-    res.status(500).json({ error: "Grocery generation failed", details: String(err) });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Grocery generation failed", details: msg, retryable: true });
   }
 });
 

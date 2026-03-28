@@ -4,16 +4,16 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
+if (!process.env.DATABASE_URL && !process.env.SUPABASE_DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "Either DATABASE_URL or SUPABASE_DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
 // Local PostgreSQL pool — used for read-only recipe/ICMR data and health checks
 // Higher max: recipes are read-heavy with many concurrent requests
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL ?? process.env.SUPABASE_DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 5000,

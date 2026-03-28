@@ -60,6 +60,7 @@ async function callGeminiWithJsonRetry(
   prompt: string,
   label: string,
   log: { info: (obj: Record<string, unknown>, msg: string) => void; error: (obj: Record<string, unknown>, msg: string) => void },
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   const MAX_RETRIES = 5;
   const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000];
@@ -67,12 +68,14 @@ async function callGeminiWithJsonRetry(
   let lastErr: unknown = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (signal?.aborted) throw new Error("AbortError: meal plan generation aborted");
     const activePrompt = attempt >= 2 ? prompt + GEMINI_JSON_CRITICAL_SUFFIX : prompt;
     try {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: activePrompt }] }],
         config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
+        abortSignal: signal,
       });
       const text = response.text ?? "{}";
       const data = tryParseJson(text);
@@ -536,15 +539,21 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
   req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with parallel split (days 1-4 + days 5-7)");
 
   const PLAN_TIMEOUT_MS = 45000;
+  const controller1 = new AbortController();
+  const controller2 = new AbortController();
   const makeTimeout = () => new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Meal plan generation timed out after 45 seconds")), PLAN_TIMEOUT_MS)
+    setTimeout(() => {
+      controller1.abort();
+      controller2.abort();
+      reject(new Error("Meal plan generation timed out after 45 seconds"));
+    }, PLAN_TIMEOUT_MS)
   );
 
   let planData: Record<string, unknown>;
   try {
     const [half1, half2] = await Promise.all([
-      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log), makeTimeout()]),
-      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log), makeTimeout()]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log, controller1.signal), makeTimeout()]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log, controller2.signal), makeTimeout()]),
     ]);
 
     const days1 = Array.isArray(half1.days) ? half1.days as Array<Record<string, unknown>> : [];
@@ -561,7 +570,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length }, "Parallel meal plan generation succeeded");
   } catch (err) {
     req.log.error({ err }, "Meal plan generation failed after retry");
-    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again") });
+    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again"), retryable: true });
     return;
   }
 
@@ -731,7 +740,7 @@ Return valid JSON:
     planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log);
   } catch (err) {
     req.log.error({ err }, "Meal plan regeneration failed after retry");
-    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again") });
+    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again"), retryable: true });
     return;
   }
 
