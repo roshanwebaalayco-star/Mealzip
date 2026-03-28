@@ -233,6 +233,56 @@ export default function Nutrition() {
             </div>
           </div>
 
+          {/* Per-member ICMR-NIN 2024 key nutrient progress bars */}
+          <div className="glass-card rounded-3xl p-5 border border-secondary/20" style={{ background: "rgba(240,253,248,0.65)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-4 h-4 text-secondary" />
+              <h3 className="font-semibold text-sm">{t("ICMR-NIN 2024 Key Nutrient Targets", "ICMR-NIN 2024 मुख्य पोषक लक्ष्य")}</h3>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
+                {summary.member.name}
+              </span>
+            </div>
+            {[
+              { key: "calories" as const, label: t("Energy", "ऊर्जा"), labelHi: "ऊर्जा", unit: "kcal", color: "#f97316", bg: "bg-orange-500" },
+              { key: "protein"  as const, label: t("Protein", "प्रोटीन"), labelHi: "प्रोटीन", unit: "g", color: "#22c55e", bg: "bg-green-500" },
+              { key: "iron"     as const, label: t("Iron", "आयरन"), labelHi: "आयरन", unit: "mg", color: "#ef4444", bg: "bg-red-500" },
+              { key: "calcium"  as const, label: t("Calcium", "कैल्शियम"), labelHi: "कैल्शियम", unit: "mg", color: "#f59e0b", bg: "bg-amber-500" },
+            ].map(({ key, label, unit, bg }) => {
+              const actual = Math.round(summary.actual[key] || 0);
+              const target = Math.round(summary.target ? (summary.target[key] || 1) : 1);
+              const pct = Math.min(Math.round((actual / target) * 100), 100);
+              const isLow = pct < 50;
+              const isGood = pct >= 80;
+              return (
+                <div key={key} className="mb-3 last:mb-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-semibold text-foreground">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold ${isLow ? "text-red-600" : isGood ? "text-green-700" : "text-amber-600"}`}>
+                        {actual} / {target} {unit}
+                      </span>
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${isLow ? "bg-red-50 text-red-600 border-red-200" : isGood ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-muted/50 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${bg}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            <p className="text-[10px] text-secondary/70 mt-3 border-t border-secondary/10 pt-2">
+              {t(
+                "ICMR-NIN 2024 Recommended Dietary Allowances for Indians · Personalised per age, gender & health profile.",
+                "ICMR-NIN 2024 भारतीयों के लिए अनुशंसित आहार भत्ते · आयु, लिंग और स्वास्थ्य के अनुसार व्यक्तिगत।"
+              )}
+            </p>
+          </div>
+
           {/* ICMR Note */}
           <div className="glass-card rounded-2xl p-4 border border-secondary/20 text-xs text-muted-foreground">
             <span className="font-semibold text-secondary">ICMR-NIN 2024: </span>

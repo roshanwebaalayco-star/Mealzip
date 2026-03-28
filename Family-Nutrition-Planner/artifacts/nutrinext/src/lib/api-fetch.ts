@@ -3,6 +3,12 @@ const USER_KEY = "auth_user";
 
 const PUBLIC_PATHS = ["/login", "/register"];
 
+let _tokenGetter: (() => string | null) | null = null;
+
+export function setApiFetchTokenGetter(getter: () => string | null) {
+  _tokenGetter = getter;
+}
+
 function handleUnauthorized(): void {
   if (PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p))) {
     return;
@@ -13,7 +19,7 @@ function handleUnauthorized(): void {
 }
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = (_tokenGetter ? _tokenGetter() : null) ?? localStorage.getItem(TOKEN_KEY);
   const headers = new Headers(init.headers);
 
   if (token && !headers.has("Authorization")) {

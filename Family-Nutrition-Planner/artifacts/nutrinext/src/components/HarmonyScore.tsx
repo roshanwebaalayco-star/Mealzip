@@ -111,9 +111,14 @@ export function HarmonyScore({ score, size = "md" }: HarmonyScoreProps) {
       <div className={`relative z-10 flex flex-col items-center justify-center font-display ${getTextColor(score)}`}>
         <span className={`font-bold leading-none ${text}`}>{score}</span>
         {sub && (
-          <span className="text-[0.22em] font-semibold opacity-55 uppercase tracking-[0.18em] mt-1">
-            Score
-          </span>
+          <>
+            <span className="text-[0.22em] font-semibold opacity-55 uppercase tracking-[0.18em] mt-1">
+              Score
+            </span>
+            <span className="text-[0.18em] font-medium opacity-40 tracking-[0.10em] mt-0.5 whitespace-nowrap">
+              Per ICMR-NIN 2024
+            </span>
+          </>
         )}
       </div>
     </div>

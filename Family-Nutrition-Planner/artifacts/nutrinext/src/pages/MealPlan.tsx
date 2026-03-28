@@ -117,6 +117,20 @@ const MEMBER_COLORS = [
   "bg-rose-100 text-rose-700 border-rose-200",
 ];
 
+const CONDITION_BADGES: Record<string, { label: string; labelHi: string; color: string; icon: string }> = {
+  diabetes:        { label: "Diabetic",        labelHi: "मधुमेह",    color: "bg-rose-100 text-rose-700 border-rose-300",         icon: "🍬" },
+  diabetes_type2:  { label: "Diabetic T2",     labelHi: "मधुमेह T2", color: "bg-rose-100 text-rose-700 border-rose-300",         icon: "🍬" },
+  anemia:          { label: "Anemic",           labelHi: "रक्ताल्पता",color: "bg-red-100 text-red-700 border-red-300",            icon: "🩸" },
+  iron_deficiency: { label: "Iron Low",         labelHi: "आयरन कम",   color: "bg-red-100 text-red-700 border-red-300",            icon: "🩸" },
+  hypertension:    { label: "BP",               labelHi: "BP",        color: "bg-amber-100 text-amber-700 border-amber-300",      icon: "💉" },
+  blood_pressure:  { label: "BP",               labelHi: "BP",        color: "bg-amber-100 text-amber-700 border-amber-300",      icon: "💉" },
+  obesity:         { label: "Weight Loss",      labelHi: "वजन घटाएं", color: "bg-orange-100 text-orange-700 border-orange-300",   icon: "⚖️" },
+  weight_loss:     { label: "Weight Loss",      labelHi: "वजन घटाएं", color: "bg-orange-100 text-orange-700 border-orange-300",   icon: "⚖️" },
+  growing_child:   { label: "Growing Child",    labelHi: "बढ़ता बच्चा",color: "bg-green-100 text-green-700 border-green-300",     icon: "🌱" },
+  thyroid:         { label: "Thyroid",          labelHi: "थायरॉइड",   color: "bg-purple-100 text-purple-700 border-purple-300",  icon: "🦋" },
+  pcod:            { label: "PCOD",             labelHi: "PCOD",      color: "bg-pink-100 text-pink-700 border-pink-300",        icon: "🌸" },
+};
+
 function getMemberVariation(member: FamilyMember, mealType: string): string | null {
   const conditions = member.healthConditions ?? [];
   const restrictions = member.dietaryRestrictions ?? [];
@@ -452,32 +466,36 @@ export default function MealPlan() {
           <p className="text-sm text-muted-foreground mt-1">
             {format(new Date(currentPlan.weekStartDate), "MMM d, yyyy")}
           </p>
-          {/* Budget tracker */}
+          {/* Budget tracker — green < 80%, orange 80-100%, red > 100% */}
           {(() => {
             const weeklyBudget = activeFamily.monthlyBudget ? Math.round(Number(activeFamily.monthlyBudget) / 4) : null;
             const spent = currentPlan.totalBudgetEstimate ?? 0;
-            const pct = weeklyBudget ? Math.min(100, Math.round((spent / weeklyBudget) * 100)) : null;
+            const pct = weeklyBudget ? Math.min(110, Math.round((spent / weeklyBudget) * 100)) : null;
             const overBudget = weeklyBudget && spent > weeklyBudget;
+            const nearBudget = weeklyBudget && !overBudget && pct !== null && pct >= 80;
+            const barColor = overBudget ? "bg-red-500" : nearBudget ? "bg-orange-400" : "bg-green-500";
+            const labelColor = overBudget ? "text-red-600" : nearBudget ? "text-orange-600" : "text-green-700";
+            const badgeClass = overBudget ? "bg-red-50 text-red-600" : nearBudget ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-700";
             return (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={`font-bold ${overBudget ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`font-bold ${labelColor}`}>
                     ₹{spent.toLocaleString("en-IN")}
                   </span>
                   {weeklyBudget && (
                     <span className="text-muted-foreground">/ ₹{weeklyBudget.toLocaleString("en-IN")} {t("budget", "बजट")}</span>
                   )}
                   {pct !== null && (
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${overBudget ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"}`}>
-                      {pct}%
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}>
+                      {Math.min(pct, 100)}%
                     </span>
                   )}
                 </div>
                 {pct !== null && (
-                  <div className="w-36 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="w-40 h-2 rounded-full bg-muted overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${overBudget ? "bg-red-500" : "bg-green-500"}`}
-                      style={{ width: `${pct}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
                     />
                   </div>
                 )}
@@ -634,6 +652,49 @@ export default function MealPlan() {
         </div>
       )}
 
+      {/* ♻️ Leftover Intelligence panel */}
+      {(() => {
+        const chains: { day: string; meal: string; dish: string; isLeftover: boolean; icmrVerified: boolean }[] = [];
+        const dayArr = planData?.days as DayData[] | undefined;
+        dayArr?.forEach(dayObj => {
+          Object.entries(dayObj.meals ?? {}).forEach(([mealKey, cell]) => {
+            const c = cell as MealCell;
+            if (c.isLeftover && c.recipeName) {
+              chains.push({ day: dayObj.day, meal: mealKey, dish: c.recipeName, isLeftover: true, icmrVerified: !!c.icmr_rationale });
+            }
+            c.leftoverChain?.forEach(step => {
+              chains.push({ day: step.day, meal: step.meal, dish: step.dish, isLeftover: false, icmrVerified: !!c.icmr_rationale });
+            });
+          });
+        });
+        if (chains.length === 0) return null;
+        return (
+          <div className="glass-card rounded-3xl p-4 border border-amber-200/60" style={{ background: "rgba(255,251,235,0.75)" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Link2 className="w-4 h-4 text-amber-600" />
+              <h3 className="font-bold text-sm text-amber-800">{t("♻️ Leftover Intelligence", "♻️ बचे भोजन की बुद्धिमानी")}</h3>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                {chains.length} {t("reuse links", "पुनः उपयोग")}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {chains.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[9px]">{i + 1}</span>
+                  <span className="font-medium text-amber-900">{c.day.slice(0, 3)} {c.meal.replace(/_/g, " ")}: {c.dish.slice(0, 30)}</span>
+                  <span className={`ml-auto shrink-0 text-[9px] font-semibold px-2 py-0.5 rounded-full border ${c.icmrVerified ? "bg-green-50 text-green-700 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                    {c.icmrVerified ? "✓ ICMR Verified" : "AI Suggested"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-amber-700/70 mt-2 italic">
+              {t("Cooking extra saves time, money & reduces food waste — ICMR-NIN 2024 recommends batch cooking.", "अतिरिक्त पकाने से समय, पैसा बचता है — ICMR-NIN 2024 बैच कुकिंग की सिफारिश करता है।")}
+            </p>
+          </div>
+        );
+      })()}
+
       {/* Per-Member Variations Legend + Expand/Collapse All */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {familyMembers && familyMembers.length > 0 && (
@@ -770,6 +831,11 @@ export default function MealPlan() {
                               : <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                           )}
                         </button>
+                        {displayMealName !== "—" && (
+                          <p className="text-[8px] text-secondary/60 leading-none -mt-0.5">
+                            📚 ICMR-NIN 2024 · {t("Science-backed nutrition", "विज्ञान-आधारित पोषण")}
+                          </p>
+                        )}
 
                         <div className="flex flex-wrap gap-1">
                           {cell.isLeftover && (
@@ -1024,11 +1090,18 @@ export default function MealPlan() {
                           {member.role && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground capitalize">{member.role}</span>
                           )}
-                          {(member.healthConditions ?? []).slice(0, 3).map(c => (
-                            <span key={c} className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
-                              {({ diabetes: "🍬", hypertension: "💉", anemia: "🩸", obesity: "⚖️", thyroid: "🦋", pcod: "🌸", elderly: "👴", growing_child: "🌱" } as Record<string, string>)[c] ?? "•"} {c.replace(/_/g, " ")}
-                            </span>
-                          ))}
+                          {(member.healthConditions ?? []).slice(0, 4).map(c => {
+                            const badge = CONDITION_BADGES[c];
+                            return badge ? (
+                              <span key={c} className={`text-[8px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.color}`}>
+                                {badge.icon} {lang === "hi" ? badge.labelHi : badge.label}
+                              </span>
+                            ) : (
+                              <span key={c} className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
+                                {c.replace(/_/g, " ")}
+                              </span>
+                            );
+                          })}
                         </div>
                         {hasStructuredContent ? (
                           <>
