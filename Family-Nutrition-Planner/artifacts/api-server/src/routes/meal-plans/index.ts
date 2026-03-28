@@ -657,9 +657,11 @@ SECTION 3 — ICMR-NIN 2024 CLINICAL GUARDRAILS (always enforce)
 • ONE BASE MANY PLATES: Every dinner/lunch = one dish cooked once, portioned differently per member health need.
 • HFSS AVOIDANCE: Never suggest High-Fat-Sugar-Salt foods (chips, cola, instant noodles, maida deep-fried items). If a member had HFSS today, their next meal must compensate with dal, greens, or high-fibre item.
 • CALORIE TARGETS: Match each member's ICMR-NIN 2024 age/gender caloric target. Under-18 and over-60 must never have a calorie deficit.
-• MICRONUTRIENTS: Ensure iron (women of child-bearing age ≥21mg), calcium (300mg/day minimum), vitamin C source daily.
-• SODIUM: Meals must stay under 2000mg sodium per day per adult; children < 1200mg.
-• DIABETES/BP: Members with diabetes must have meals with GI < 55; hypertension < 1500mg sodium.
+• CEREAL:PULSE RATIO: Maintain a 3:1 cereal-to-pulse ratio across the day (e.g. 300g cereals: 100g pulses). Every lunch and dinner must include a pulse/legume source (dal, chana, rajma, sprouts).
+• VEGETABLES: Plan must include ≥400g vegetables per day per adult (WHO/ICMR-NIN 2024). For members with anemia, ≥100g green leafy vegetables (GLV) daily — palak, methi, bathua, drumstick leaves.
+• MICRONUTRIENTS: Ensure iron (women of child-bearing age ≥21mg), calcium (300mg/day minimum), vitamin C source daily (for non-haem iron absorption with meals).
+• SODIUM: Meals must stay under 2000mg sodium per day per adult; children < 1200mg. Single meal sodium cap: 700mg adult, 400mg child.
+• DIABETES/BP: Members with diabetes must have meals with GI < 55; hypertension < 1500mg sodium/day.
 • ALLERGIES: Absolutely zero tolerance for declared allergens. Enforce strictly.
 
 OUTPUT RULES — BE TERSE, minimize text length:
