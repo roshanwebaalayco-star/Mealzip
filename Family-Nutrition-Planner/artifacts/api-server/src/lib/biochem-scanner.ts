@@ -95,33 +95,47 @@ const BIOCHEM_DB: Record<string, Omit<PrepAlert, "ingredient" | "meal_context">>
   },
 };
 
+const QTY_PREFIX_RE = /^[\d/.][\d/.]*\s*(g|grams?|kg|ml|l|litres?|liters?|tsp|tbsp|cups?|pieces?|nos?|handful|pinch)\s*/i;
+
+function normalizeIngredient(raw: string): string {
+  return raw.toLowerCase().trim()
+    .replace(QTY_PREFIX_RE, "")
+    .replace(/\(.*?\)/g, "")
+    .trim();
+}
+
 export function generatePrepAlerts(ingredientList: string[], mealContext: string): PrepAlert[] {
   const alerts: PrepAlert[] = [];
-  const seen = new Set<string>();
+  const matchedKeys = new Set<string>();
 
   for (const ing of ingredientList) {
-    const key = ing.toLowerCase().trim();
-    const match = BIOCHEM_DB[key];
-    if (match && !seen.has(key)) {
-      seen.add(key);
-      alerts.push({
-        ingredient: ing,
-        ...match,
-        meal_context: mealContext,
-      });
+    const normalized = normalizeIngredient(ing);
+    for (const [key, data] of Object.entries(BIOCHEM_DB)) {
+      if (!matchedKeys.has(key) && normalized.includes(key)) {
+        matchedKeys.add(key);
+        alerts.push({ ingredient: key, ...data, meal_context: mealContext });
+      }
     }
   }
 
   return alerts;
 }
 
-export function scanPlanForPrepAlerts(tomorrowMeals: Array<{ mealType: string; ingredients?: string[] }>): PrepAlert[] {
+export function scanPlanForPrepAlerts(
+  tomorrowMeals: Array<{
+    mealType: string;
+    ingredients?: string[];
+    base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
+  }>,
+): PrepAlert[] {
   const allAlerts: PrepAlert[] = [];
   const seen = new Set<string>();
 
   for (const meal of tomorrowMeals) {
-    if (!meal.ingredients) continue;
-    const mealAlerts = generatePrepAlerts(meal.ingredients, meal.mealType);
+    const strIngredients = meal.ingredients ?? [];
+    const baseIngredients = (meal.base_ingredients ?? []).map(b => b.ingredient);
+    const combined = [...strIngredients, ...baseIngredients];
+    const mealAlerts = generatePrepAlerts(combined, meal.mealType);
     for (const alert of mealAlerts) {
       const dedupeKey = `${alert.ingredient.toLowerCase()}:${alert.action}`;
       if (!seen.has(dedupeKey)) {

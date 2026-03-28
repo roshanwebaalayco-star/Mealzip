@@ -331,12 +331,19 @@ export default function MealPlan() {
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
-    const dayArr = parsed?.days as Array<{ day: string; meals: Record<string, { ingredients?: string[] }> }> | undefined;
+    const dayArr = parsed?.days as Array<{
+      day: string;
+      meals: Record<string, {
+        ingredients?: string[];
+        base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
+      }>;
+    }> | undefined;
     const tomorrowData = dayArr?.find(d => d.day === tomorrowName);
     if (!tomorrowData) return null;
     return Object.entries(tomorrowData.meals).map(([mealType, meal]) => ({
       mealType,
       ingredients: meal.ingredients ?? [],
+      base_ingredients: meal.base_ingredients ?? [],
     }));
   }, [plans]);
 

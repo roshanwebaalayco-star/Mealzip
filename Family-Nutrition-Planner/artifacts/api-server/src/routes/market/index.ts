@@ -50,7 +50,11 @@ router.post("/market/trigger-surge", (req, res): void => {
 
 router.post("/market/prep-alerts", (req, res): void => {
   const { meals } = req.body as {
-    meals: Array<{ mealType: string; ingredients?: string[] }>;
+    meals: Array<{
+      mealType: string;
+      ingredients?: string[];
+      base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
+    }>;
   };
   if (!Array.isArray(meals)) {
     res.status(400).json({ error: "meals array required" });
