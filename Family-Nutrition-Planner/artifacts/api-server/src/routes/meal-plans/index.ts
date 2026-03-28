@@ -590,6 +590,14 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     healthConditions: m.healthConditions ?? [],
     dietaryRestrictions: m.dietaryRestrictions ?? [],
     allergies: m.allergies ?? [],
+    primaryGoal: m.primaryGoal ?? null,
+    goalPace: m.goalPace ?? null,
+    tiffinType: m.tiffinType ?? null,
+    religiousRules: m.religiousRules ?? null,
+    ingredientDislikes: m.ingredientDislikes ?? [],
+    nonVegDays: m.nonVegDays ?? [],
+    nonVegTypes: m.nonVegTypes ?? [],
+    icmrCaloricTarget: m.icmrCaloricTarget ?? null,
     targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
   }));
 
@@ -615,6 +623,14 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     conditions: m.healthConditions,
     diet: m.dietaryRestrictions,
     allergies: m.allergies,
+    ...(m.primaryGoal ? { goal: m.primaryGoal } : {}),
+    ...(m.goalPace && m.goalPace !== "none" ? { goalPace: `${m.goalPace}kg/week` } : {}),
+    ...(m.tiffinType && m.tiffinType !== "none" ? { tiffin: m.tiffinType } : {}),
+    ...(m.religiousRules && m.religiousRules !== "none" ? { religiousRules: m.religiousRules } : {}),
+    ...(m.ingredientDislikes && m.ingredientDislikes.length > 0 ? { dislikes: m.ingredientDislikes } : {}),
+    ...(m.nonVegDays && m.nonVegDays.length > 0 ? { nonVegDays: m.nonVegDays } : {}),
+    ...(m.nonVegTypes && m.nonVegTypes.length > 0 ? { nonVegTypes: m.nonVegTypes } : {}),
+    ...(m.icmrCaloricTarget ? { icmrKcalTarget: m.icmrCaloricTarget } : {}),
   }));
 
   const recipeListForPrompt = filteredRecipes.slice(0, 25).map(r => ({

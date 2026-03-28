@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle } from "lucide-react";
+import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: BarChart3, label: "Nutrition", labelHi: "पोषण", href: "/nutrition" },
     { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
+    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
     { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
   ];

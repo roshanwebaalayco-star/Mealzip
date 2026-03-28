@@ -42,7 +42,6 @@ type MemberErrors = { name?: string; age?: string };
 
 let _memberIdCounter = 0;
 
-
 export default function FamilySetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -165,6 +164,12 @@ export default function FamilySetup() {
           dietaryType: newFamilyData.dietaryType,
           memberFastingDays: [],
           foodAllergies: "",
+          goalPace: "none",
+          tiffinType: "none",
+          religiousRules: "none",
+          ingredientDislikes: [],
+          nonVegDays: [],
+          nonVegTypes: [],
         }));
         setFamilyData(newFamilyData);
         if (newMembers.length > 0) setMembers(newMembers);
@@ -428,6 +433,12 @@ export default function FamilySetup() {
           dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
           memberFastingDays: [],
           foodAllergies: "",
+          goalPace: "none",
+          tiffinType: "none",
+          religiousRules: "none",
+          ingredientDislikes: [],
+          nonVegDays: [],
+          nonVegTypes: [],
         }))
       );
     }
@@ -855,21 +866,46 @@ export default function FamilySetup() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Auto-assignment notice for children */}
+                  {Number(member.age) > 0 && Number(member.age) < 13 && (
+                    <div className="col-span-2 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800">
+                      <span className="shrink-0 mt-0.5">🤖</span>
+                      <span>
+                        {Number(member.age) < 5
+                          ? t("Goal auto-set: Early Childhood Nutrition (age <5)", "लक्ष्य स्वतः: शैशव पोषण (आयु <5)")
+                          : t("Goal auto-set: Healthy Growth & School Nutrition (age 5–12)", "लक्ष्य स्वतः: स्वस्थ विकास (आयु 5–12)")}
+                      </span>
+                    </div>
+                  )}
+                  {/* Teenager guardrail notice */}
+                  {Number(member.age) >= 13 && Number(member.age) <= 17 && (
+                    <div className="col-span-2 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs text-blue-800">
+                      <span className="shrink-0 mt-0.5">🔒</span>
+                      <span>{t("Calorie deficit goals (weight loss) are not available for ages 13–17 per Responsible AI guidelines.", "13–17 वर्ष के लिए कैलोरी घाटा लक्ष्य Responsible AI नियमों के अनुसार उपलब्ध नहीं है।")}</span>
+                    </div>
+                  )}
+                  {/* Health Goal — hidden for age <5 (auto early childhood) and age 5-12 (auto healthy growth) */}
+                  {Number(member.age) >= 13 && (
                   <div>
                     <Label className="text-sm font-semibold">{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
                     <Select value={member.healthGoal} onValueChange={v => handleUpdateMember(idx, "healthGoal", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="general_wellness">{t("General Wellness", "सामान्य स्वास्थ्य")}</SelectItem>
-                        <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>
+                        {/* Weight loss hidden for age 13–17 (Responsible AI guardrail) */}
+                        {Number(member.age) >= 18 && (
+                          <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>
+                        )}
                         <SelectItem value="manage_diabetes">{t("Manage Diabetes", "मधुमेह नियंत्रण")}</SelectItem>
                         <SelectItem value="anemia_recovery">{t("Anemia Recovery", "रक्ताल्पता")}</SelectItem>
-                        <SelectItem value="child_growth">{t("Child Growth", "बच्चे का विकास")}</SelectItem>
                         <SelectItem value="heart_health">{t("Heart Health", "हृदय स्वास्थ्य")}</SelectItem>
-                        <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>
+                        {Number(member.age) >= 18 && (
+                          <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
                   <div>
                     <Label className="text-sm font-semibold">{t("Dietary Type", "आहार प्रकार")}</Label>
                     <Select value={member.dietaryType} onValueChange={v => handleUpdateMember(idx, "dietaryType", v)}>
@@ -949,9 +985,10 @@ export default function FamilySetup() {
                 <div className="mt-4 pt-4 border-t border-dashed border-border">
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Advanced Profile", "विस्तृत प्रोफाइल")}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {(member.healthGoal === "weight_loss" || member.healthGoal === "muscle_gain") && (
+                    {/* Goal Pace — shown only for weight loss/gain goals, hidden for minors */}
+                    {(member.healthGoal === "weight_loss" || member.healthGoal === "muscle_gain") && Number(member.age) >= 18 && (
                     <div>
-                      <Label className="text-sm font-semibold">{t("Goal Pace", "लक्ष्य गति")} <span className="text-muted-foreground font-normal text-xs">({t("AI auto-assigns for minors", "बच्चों के लिए AI स्वतः")})</span></Label>
+                      <Label className="text-sm font-semibold">{t("Goal Pace", "लक्ष्य गति")}</Label>
                       <Select value={member.goalPace} onValueChange={v => handleUpdateMember(idx, "goalPace", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -1025,72 +1062,55 @@ export default function FamilySetup() {
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-semibold">{t("Non-Veg Days", "मांसाहार के दिन")}</Label>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <div className="mt-2 space-y-1.5">
                           {[
-                            { id: "monday",    en: "Mon", hi: "सोम" },
-                            { id: "tuesday",   en: "Tue", hi: "मंगल" },
-                            { id: "wednesday", en: "Wed", hi: "बुध" },
-                            { id: "thursday",  en: "Thu", hi: "गुरु" },
-                            { id: "friday",    en: "Fri", hi: "शुक्र" },
-                            { id: "saturday",  en: "Sat", hi: "शनि" },
-                            { id: "sunday",    en: "Sun", hi: "रवि" },
+                            { id: "monday", en: "Monday", hi: "सोमवार" },
+                            { id: "tuesday", en: "Tuesday", hi: "मंगलवार" },
+                            { id: "wednesday", en: "Wednesday", hi: "बुधवार" },
+                            { id: "thursday", en: "Thursday", hi: "गुरुवार" },
+                            { id: "friday", en: "Friday", hi: "शुक्रवार" },
+                            { id: "saturday", en: "Saturday", hi: "शनिवार" },
+                            { id: "sunday", en: "Sunday", hi: "रविवार" },
                           ].map(({ id, en, hi }) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => {
-                                const current = member.nonVegDays;
-                                handleUpdateMember(idx, "nonVegDays", current.includes(id) ? current.filter(d => d !== id) : [...current, id]);
-                              }}
-                              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${member.nonVegDays.includes(id) ? "bg-primary text-white border-primary" : "bg-white border-border hover:border-primary"}`}
-                            >
-                              {t(en, hi)}
-                            </button>
+                            <div key={id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`setup-nvday-${idx}-${id}`}
+                                checked={member.nonVegDays.includes(id)}
+                                onCheckedChange={() => {
+                                  const current = member.nonVegDays;
+                                  handleUpdateMember(idx, "nonVegDays", current.includes(id) ? current.filter(d => d !== id) : [...current, id]);
+                                }}
+                              />
+                              <Label htmlFor={`setup-nvday-${idx}-${id}`} className="text-sm">{t(en, hi)}</Label>
+                            </div>
                           ))}
                         </div>
                       </div>
                       <div>
                         <Label className="text-sm font-semibold">{t("Non-Veg Types", "मांसाहार प्रकार")}</Label>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <div className="mt-2 space-y-1.5">
                           {[
                             { id: "chicken", en: "Chicken", hi: "चिकन" },
                             { id: "mutton", en: "Mutton", hi: "मटन" },
                             { id: "fish", en: "Fish", hi: "मछली" },
                             { id: "eggs", en: "Eggs", hi: "अंडे" },
                           ].map(({ id, en, hi }) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => {
-                                const current = member.nonVegTypes;
-                                handleUpdateMember(idx, "nonVegTypes", current.includes(id) ? current.filter(t => t !== id) : [...current, id]);
-                              }}
-                              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${member.nonVegTypes.includes(id) ? "bg-primary text-white border-primary" : "bg-white border-border hover:border-primary"}`}
-                            >
-                              {t(en, hi)}
-                            </button>
+                            <div key={id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`setup-nvtype-${idx}-${id}`}
+                                checked={member.nonVegTypes.includes(id)}
+                                onCheckedChange={() => {
+                                  const current = member.nonVegTypes;
+                                  handleUpdateMember(idx, "nonVegTypes", current.includes(id) ? current.filter(tp => tp !== id) : [...current, id]);
+                                }}
+                              />
+                              <Label htmlFor={`setup-nvtype-${idx}-${id}`} className="text-sm">{t(en, hi)}</Label>
+                            </div>
                           ))}
                         </div>
                       </div>
                     </div>
                   )}
-                  {/* ICMR Calorie Target Badge (computed on client if enough data) */}
-                  {!!member.weightKg && member.weightKg > 0 && !!member.heightCm && member.heightCm > 0 && Number(member.age) > 0 && member.gender && (() => {
-                    const age = Number(member.age);
-                    const w = member.weightKg as number;
-                    const h = member.heightCm as number;
-                    const g = member.gender;
-                    let bmr = 10 * w + 6.25 * h - 5 * age + (g === "male" ? 5 : -161);
-                    const mult: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
-                    const tdee = Math.round(bmr * (mult[member.activityLevel ?? "moderate"] ?? 1.55));
-                    return (
-                      <div className="mt-3 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
-                        <span className="text-xs text-muted-foreground">{t("ICMR Estimated Target:", "ICMR अनुमानित लक्ष्य:")}</span>
-                        <span className="text-sm font-bold text-primary">{tdee} kcal/day</span>
-                        <span className="text-[10px] text-muted-foreground">({t("Mifflin-St Jeor", "मिफ्लिन-सेंट जियोर")})</span>
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             ))}

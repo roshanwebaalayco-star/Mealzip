@@ -97,7 +97,7 @@ Family-Nutrition-Planner/
 
 Key tables:
 - `families` — family profiles (`monthlyBudget` as integer in rupees, `state`, `primaryLanguage`)
-- `family_members` — per-member profiles (age, gender, `activityLevel`, `healthConditions[]`, `dietaryRestrictions[]`, `healthGoal`)
+- `family_members` — per-member profiles including new fields: `goalPace`, `tiffinType`, `religiousRules`, `ingredientDislikes[]`, `nonVegDays[]`, `nonVegTypes[]`, `icmrCaloricTarget`
 - `recipes` — 12,771 seeded Indian recipes with nutrition data, cuisine, course, diet tags
 - `icmr_nin_rda` — 22 RDA reference records by age group/gender/activity
 - `meal_plans` — AI-generated weekly plans (stored as JSON), linked to family

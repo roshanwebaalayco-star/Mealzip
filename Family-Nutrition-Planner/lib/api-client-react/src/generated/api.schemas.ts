@@ -49,6 +49,15 @@ export interface FamilyMember {
   allergies?: string[];
   /** Daily calorie target (ICMR-NIN 2024 based) */
   calorieTarget?: number;
+  /** ICMR-NIN 2024 caloric target computed by Responsible AI rules */
+  icmrCaloricTarget?: number;
+  primaryGoal?: string;
+  goalPace?: string;
+  tiffinType?: string;
+  religiousRules?: string;
+  ingredientDislikes?: string[];
+  nonVegDays?: string[];
+  nonVegTypes?: string[];
   createdAt: string;
 }
 

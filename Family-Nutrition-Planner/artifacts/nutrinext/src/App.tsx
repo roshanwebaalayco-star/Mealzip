@@ -21,6 +21,7 @@ import Pantry from "@/pages/Pantry";
 import PantryScan from "@/pages/PantryScan";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import Profile from "@/pages/Profile";
 import NotFound from "@/pages/not-found";
 
 const TOKEN_KEY = "auth_token";
@@ -78,6 +79,7 @@ function Router() {
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
         <Route path="/nutrition" component={() => <ProtectedRoute component={Nutrition} />} />
         <Route path="/health" component={() => <ProtectedRoute component={HealthLog} />} />
+        <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
