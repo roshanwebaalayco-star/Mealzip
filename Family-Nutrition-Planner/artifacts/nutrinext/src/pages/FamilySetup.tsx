@@ -1012,10 +1012,13 @@ export default function FamilySetup() {
                         <Label className="text-sm font-semibold">{t("Non-Veg Days", "मांसाहार के दिन")}</Label>
                         <div className="flex flex-wrap gap-1.5 mt-1.5">
                           {[
-                            { id: "tuesday", en: "Tue", hi: "मंगल" },
-                            { id: "saturday", en: "Sat", hi: "शनि" },
-                            { id: "sunday", en: "Sun", hi: "रवि" },
-                            { id: "any", en: "Any", hi: "कभी भी" },
+                            { id: "monday",    en: "Mon", hi: "सोम" },
+                            { id: "tuesday",   en: "Tue", hi: "मंगल" },
+                            { id: "wednesday", en: "Wed", hi: "बुध" },
+                            { id: "thursday",  en: "Thu", hi: "गुरु" },
+                            { id: "friday",    en: "Fri", hi: "शुक्र" },
+                            { id: "saturday",  en: "Sat", hi: "शनि" },
+                            { id: "sunday",    en: "Sun", hi: "रवि" },
                           ].map(({ id, en, hi }) => (
                             <button
                               key={id}

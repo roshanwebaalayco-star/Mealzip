@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CalendarDays, Clock, IndianRupee, Utensils, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { X, CalendarDays, Clock, IndianRupee, Utensils, ChevronDown, ChevronUp, Sparkles, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { useLanguage } from "@/contexts/language-context";
 
 export interface MemberContextOverride {
@@ -153,21 +154,38 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
             </div>
 
             <div className="px-6 py-5 space-y-5">
-              {/* Budget + Dining Out */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-semibold flex items-center gap-1.5">
-                    <IndianRupee className="w-3.5 h-3.5 text-primary" />
-                    {t("Weekly Budget (₹)", "साप्ताहिक बजट (₹)")}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={ctx.budget_inr ?? ""}
-                    onChange={e => updateField("budget_inr", parseInt(e.target.value) || undefined)}
-                    placeholder="e.g. 1500"
-                    className="mt-1.5 h-10 rounded-xl text-sm"
+              {/* Budget slider (full-width) */}
+              <div>
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <IndianRupee className="w-3.5 h-3.5 text-primary" />
+                  {t("Weekly Budget", "साप्ताहिक बजट")}
+                  <span className="ml-auto text-base font-bold text-primary">₹{(ctx.budget_inr ?? 1000).toLocaleString("en-IN")}</span>
+                </Label>
+                <div className="mt-3 flex items-center gap-3">
+                  <button type="button" onClick={() => updateField("budget_inr", Math.max(500, (ctx.budget_inr ?? 1000) - 250))} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0">
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <Slider
+                    min={500}
+                    max={10000}
+                    step={250}
+                    value={[ctx.budget_inr ?? 1000]}
+                    onValueChange={([v]) => updateField("budget_inr", v)}
+                    className="flex-1"
                   />
+                  <button type="button" onClick={() => updateField("budget_inr", Math.min(10000, (ctx.budget_inr ?? 1000) + 250))} className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0">
+                    <Plus className="w-3 h-3" />
+                  </button>
                 </div>
+                <div className="flex justify-between text-[9px] text-muted-foreground mt-1 px-10">
+                  <span>₹500</span>
+                  <span>₹5,000</span>
+                  <span>₹10,000</span>
+                </div>
+              </div>
+
+              {/* Dining Out */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-semibold flex items-center gap-1.5">
                     <Utensils className="w-3.5 h-3.5 text-primary" />

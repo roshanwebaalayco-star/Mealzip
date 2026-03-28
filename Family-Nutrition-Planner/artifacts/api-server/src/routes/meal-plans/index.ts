@@ -724,17 +724,24 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     const days2 = Array.isArray(half2.days) ? half2.days as Array<Record<string, unknown>> : [];
     const allDays = [...days1, ...days2];
 
-    // Extract all unique ingredient names from AI-invented meals (recipeId=null) for arbitrage check
+    // Extract all ingredient names from ALL meals (both AI-invented and DB-backed) for arbitrage
     const extractedIngredients = new Set<string>();
     for (const day of allDays) {
       const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
       if (!meals) continue;
       for (const meal of Object.values(meals)) {
         const m = meal as Record<string, unknown>;
-        if (m.recipeId === null && Array.isArray(m.ingredients)) {
+        // Plain-string ingredients list (both AI and DB recipes may have this)
+        if (Array.isArray(m.ingredients)) {
           for (const ing of m.ingredients as string[]) {
             const cleaned = String(ing).replace(/^\d+[\w.]*\s*/, "").split(" ")[0];
             if (cleaned.length > 2) extractedIngredients.add(cleaned);
+          }
+        }
+        // Structured base_ingredients (AI-invented slots)
+        if (Array.isArray(m.base_ingredients)) {
+          for (const bi of m.base_ingredients as Array<{ ingredient?: string }>) {
+            if (bi.ingredient && bi.ingredient.length > 2) extractedIngredients.add(bi.ingredient.split(" ")[0]);
           }
         }
         if (typeof m.recipeName === "string") {
@@ -747,27 +754,45 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       ? ` 💡 ${arbitrageResult.alertMessage}`
       : "";
 
-    // Mutate AI-invented meal ingredients in-place to use substituted ingredients
+    // Mutate ALL meal ingredient representations in-place (AI-invented AND DB-backed)
     if (arbitrageResult.hasArbitrage && arbitrageResult.swaps.length > 0) {
       for (const day of allDays) {
         const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
         if (!meals) continue;
         for (const mealKey of Object.keys(meals)) {
           const meal = meals[mealKey] as Record<string, unknown>;
-          if (meal.recipeId !== null) continue;
-          if (!Array.isArray(meal.ingredients)) continue;
           const substitutions: string[] = [];
-          meal.ingredients = (meal.ingredients as string[]).map((ing: string) => {
-            let result = ing;
-            for (const swap of arbitrageResult.swaps) {
-              const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
-              if (re.test(result)) {
-                result = result.replace(new RegExp(`\\b${swap.originalIngredient}\\b`, "gi"), swap.substitutedIngredient);
-                if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
+
+          // Mutate plain-string ingredients (both AI and DB recipes)
+          if (Array.isArray(meal.ingredients)) {
+            meal.ingredients = (meal.ingredients as string[]).map((ing: string) => {
+              let result = ing;
+              for (const swap of arbitrageResult.swaps) {
+                const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
+                if (re.test(result)) {
+                  result = result.replace(new RegExp(`\\b${swap.originalIngredient}\\b`, "gi"), swap.substitutedIngredient);
+                  if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
+                }
               }
-            }
-            return result;
-          });
+              return result;
+            });
+          }
+
+          // Mutate structured base_ingredients (AI-invented slots with canonical objects)
+          if (Array.isArray(meal.base_ingredients)) {
+            meal.base_ingredients = (meal.base_ingredients as Array<Record<string, unknown>>).map(bi => {
+              const name = String(bi.ingredient ?? "");
+              for (const swap of arbitrageResult.swaps) {
+                const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
+                if (re.test(name)) {
+                  if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
+                  return { ...bi, ingredient: name.replace(re, swap.substitutedIngredient) };
+                }
+              }
+              return bi;
+            });
+          }
+
           if (substitutions.length > 0) {
             const swapNote = substitutions.map(s => {
               const sw = arbitrageResult.swaps.find(x => x.originalIngredient.toLowerCase() === s.toLowerCase());
