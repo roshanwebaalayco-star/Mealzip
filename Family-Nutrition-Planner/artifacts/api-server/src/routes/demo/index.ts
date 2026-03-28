@@ -14,11 +14,16 @@ const DEMO_EMAIL = "demo@parivarsehat.ai";
 const DEMO_PASSWORD = "DemoJudge2025!";
 const TOKEN_EXPIRY = "7d";
 
-router.post("/demo/quick-login", async (req, res): Promise<void> => {
-  if (!process.env.DEMO_MODE || process.env.DEMO_MODE !== "true") {
+function requireDemoMode(res: import("express").Response): boolean {
+  if (process.env.DEMO_MODE !== "true") {
     res.status(403).json({ error: "Demo mode is not available in this environment", retryable: false });
-    return;
+    return false;
   }
+  return true;
+}
+
+router.post("/demo/quick-login", async (req, res): Promise<void> => {
+  if (!requireDemoMode(res)) return;
   try {
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
     if (!user) {
@@ -53,36 +58,48 @@ router.post("/demo/quick-login", async (req, res): Promise<void> => {
 });
 
 router.get("/demo/sharma-family", async (req, res): Promise<void> => {
-  const [family] = await db.select().from(familiesTable)
-    .where(eq(familiesTable.name, SHARMA_FAMILY_NAME));
+  if (!requireDemoMode(res)) return;
+  try {
+    const [family] = await db.select().from(familiesTable)
+      .where(eq(familiesTable.name, SHARMA_FAMILY_NAME));
 
-  if (!family) {
-    const seedResult = await seedSharmaFamily();
-    res.json(seedResult);
-    return;
+    if (!family) {
+      const seedResult = await seedSharmaFamily();
+      res.json(seedResult);
+      return;
+    }
+
+    const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, family.id));
+    const [mealPlan] = await db.select().from(mealPlansTable)
+      .where(eq(mealPlansTable.familyId, family.id))
+      .orderBy(mealPlansTable.createdAt);
+
+    const harmonyScore = mealPlan ? Number(mealPlan.harmonyScore) : 78;
+
+    res.json({
+      family: { ...family, members },
+      mealPlan: mealPlan || getDemoMealPlan(family.id),
+      harmonyScore,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch demo family", details: msg, retryable: true });
   }
-
-  const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, family.id));
-  const [mealPlan] = await db.select().from(mealPlansTable)
-    .where(eq(mealPlansTable.familyId, family.id))
-    .orderBy(mealPlansTable.createdAt);
-
-  const harmonyScore = mealPlan ? Number(mealPlan.harmonyScore) : 78;
-
-  res.json({
-    family: { ...family, members },
-    mealPlan: mealPlan || getDemoMealPlan(family.id),
-    harmonyScore,
-  });
 });
 
 router.post("/demo/seed", async (req, res): Promise<void> => {
-  const result = await seedSharmaFamily();
-  res.json({
-    success: true,
-    message: "Sharma family demo data seeded successfully",
-    familyId: result.family.id,
-  });
+  if (!requireDemoMode(res)) return;
+  try {
+    const result = await seedSharmaFamily();
+    res.json({
+      success: true,
+      message: "Sharma family demo data seeded successfully",
+      familyId: result.family.id,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Demo seed failed", details: msg, retryable: true });
+  }
 });
 
 async function seedSharmaFamily(userId?: number) {

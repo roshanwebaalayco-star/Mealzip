@@ -41,82 +41,113 @@ Savings tip: [one practical tip]
 Follow this format strictly. List essential items first, then optional. Include ICMR-NIN 2024 health rationale for at least the top 5 items.`;
 
 router.get("/gemini/conversations", async (_req, res): Promise<void> => {
-  const conversations = await db.select().from(conversationsTable).orderBy(conversationsTable.createdAt);
-  res.json(conversations);
+  try {
+    const conversations = await db.select().from(conversationsTable).orderBy(conversationsTable.createdAt);
+    res.json(conversations);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch conversations", details: msg, retryable: true });
+  }
 });
 
 router.post("/gemini/conversations", async (req, res): Promise<void> => {
   const parsed = CreateGeminiConversationBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
-  const [conv] = await db.insert(conversationsTable).values({ title: parsed.data.title }).returning();
-  res.status(201).json(conv);
+  try {
+    const [conv] = await db.insert(conversationsTable).values({ title: parsed.data.title }).returning();
+    res.status(201).json(conv);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to create conversation", details: msg, retryable: true });
+  }
 });
 
 router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
   const params = GetGeminiConversationParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
-  if (!conv) {
-    res.status(404).json({ error: "Conversation not found" });
-    return;
+  try {
+    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found", retryable: false });
+      return;
+    }
+    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
+    res.json({ ...conv, messages });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch conversation", details: msg, retryable: true });
   }
-  const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
-  res.json({ ...conv, messages });
 });
 
 router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
   const params = DeleteGeminiConversationParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  const [conv] = await db.delete(conversationsTable).where(eq(conversationsTable.id, params.data.id)).returning();
-  if (!conv) {
-    res.status(404).json({ error: "Conversation not found" });
-    return;
+  try {
+    const [conv] = await db.delete(conversationsTable).where(eq(conversationsTable.id, params.data.id)).returning();
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found", retryable: false });
+      return;
+    }
+    res.sendStatus(204);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to delete conversation", details: msg, retryable: true });
   }
-  res.sendStatus(204);
 });
 
 router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
   const params = ListGeminiMessagesParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
-  res.json(messages);
+  try {
+    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
+    res.json(messages);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch messages", details: msg, retryable: true });
+  }
 });
 
 router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
   const params = SendGeminiMessageParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
   const parsed = SendGeminiMessageBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
 
-  const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
-  if (!conv) {
-    res.status(404).json({ error: "Conversation not found" });
+  let conv: typeof import("@workspace/db").conversationsTable.$inferSelect | undefined;
+  let allMessages: Array<typeof import("@workspace/db").messagesTable.$inferSelect>;
+  try {
+    [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found", retryable: false });
+      return;
+    }
+    await db.insert(messagesTable).values({ conversationId: params.data.id, role: "user", content: parsed.data.content });
+    allMessages = await db.select().from(messagesTable)
+      .where(eq(messagesTable.conversationId, params.data.id))
+      .orderBy(messagesTable.createdAt);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to process message", details: msg, retryable: true });
     return;
   }
-
-  await db.insert(messagesTable).values({ conversationId: params.data.id, role: "user", content: parsed.data.content });
-
-  const allMessages = await db.select().from(messagesTable)
-    .where(eq(messagesTable.conversationId, params.data.id))
-    .orderBy(messagesTable.createdAt);
 
   // 6b: Trim conversation history to avoid context window overflow
   const MAX_HISTORY_MESSAGES = 20;
@@ -259,11 +290,16 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
 router.post("/gemini/generate-image", async (req, res): Promise<void> => {
   const parsed = GenerateGeminiImageBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
-  const { b64_json, mimeType } = await generateImage(parsed.data.prompt);
-  res.json({ b64_json, mimeType });
+  try {
+    const { b64_json, mimeType } = await generateImage(parsed.data.prompt);
+    res.json({ b64_json, mimeType });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Image generation failed", details: msg, retryable: true });
+  }
 });
 
 export default router;

@@ -358,13 +358,18 @@ async function enrichPlanWithDbLeftoverChains(planData: Record<string, unknown>)
 router.get("/meal-plans", async (req, res): Promise<void> => {
   const query = ListMealPlansQueryParams.safeParse(req.query);
   if (!query.success) {
-    res.status(400).json({ error: query.error.message });
+    res.status(400).json({ error: query.error.message, retryable: false });
     return;
   }
-  const plans = await db.select().from(mealPlansTable)
-    .where(eq(mealPlansTable.familyId, query.data.familyId))
-    .orderBy(desc(mealPlansTable.createdAt));
-  res.json(plans.map(p => ({ ...p, harmonyScore: Number(p.harmonyScore) })));
+  try {
+    const plans = await db.select().from(mealPlansTable)
+      .where(eq(mealPlansTable.familyId, query.data.familyId))
+      .orderBy(desc(mealPlansTable.createdAt));
+    res.json(plans.map(p => ({ ...p, harmonyScore: Number(p.harmonyScore) })));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch meal plans", details: msg, retryable: true });
+  }
 });
 
 router.post("/meal-plans/generate", async (req, res): Promise<void> => {
@@ -376,14 +381,21 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
   const { familyId, weekStartDate, preferences } = parsed.data;
 
-  const [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
-  if (!family) {
-    res.status(404).json({ error: "Family not found" });
+  let family: typeof familiesTable.$inferSelect | undefined;
+  let members: Array<typeof familyMembersTable.$inferSelect>;
+  try {
+    [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
+    if (!family) {
+      res.status(404).json({ error: "Family not found", retryable: false });
+      return;
+    }
+    members = await db.select().from(familyMembersTable)
+      .where(eq(familyMembersTable.familyId, familyId));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to load family data", details: msg, retryable: true });
     return;
   }
-
-  const members = await db.select().from(familyMembersTable)
-    .where(eq(familyMembersTable.familyId, familyId));
 
   const zone = getZoneForState(family.state || "Delhi");
   const weeklyBudget = Math.round(Number(family.monthlyBudget) / 4);
@@ -614,15 +626,20 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 router.get("/meal-plans/:id", async (req, res): Promise<void> => {
   const params = GetMealPlanParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  const [plan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
-  if (!plan) {
-    res.status(404).json({ error: "Meal plan not found" });
-    return;
+  try {
+    const [plan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
+    if (!plan) {
+      res.status(404).json({ error: "Meal plan not found", retryable: false });
+      return;
+    }
+    res.json({ ...plan, harmonyScore: Number(plan.harmonyScore) });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch meal plan", details: msg, retryable: true });
   }
-  res.json({ ...plan, harmonyScore: Number(plan.harmonyScore) });
 });
 
 router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
@@ -632,45 +649,55 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     return;
   }
 
-  const [existingPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, id));
-  if (!existingPlan) {
-    res.status(404).json({ error: "Meal plan not found" });
+  let existingPlan: typeof mealPlansTable.$inferSelect | undefined;
+  let family: typeof familiesTable.$inferSelect | undefined;
+  let members: Array<typeof familyMembersTable.$inferSelect>;
+  let allFeedback: Array<typeof mealFeedbackTable.$inferSelect>;
+  let freshRecipes: Awaited<ReturnType<typeof getFilteredRecipes>>;
+  try {
+    [existingPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, id));
+    if (!existingPlan) {
+      res.status(404).json({ error: "Meal plan not found", retryable: false });
+      return;
+    }
+
+    const familyId = existingPlan.familyId;
+    [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
+    if (!family) {
+      res.status(404).json({ error: "Family not found", retryable: false });
+      return;
+    }
+
+    members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, familyId));
+    allFeedback = await db.select().from(mealFeedbackTable)
+      .where(eq(mealFeedbackTable.familyId, familyId))
+      .orderBy(desc(mealFeedbackTable.createdAt))
+      .limit(50);
+
+    const zone = getZoneForState(family.state || "Delhi");
+    const weeklyBudget = Math.round(Number(family.monthlyBudget) / 4);
+    const budgetPerMeal = Math.round(weeklyBudget / (7 * 4));
+    const allRestrictions = members.flatMap(m => m.dietaryRestrictions ?? []);
+    const existingSummary = existingPlan.nutritionSummary as Record<string, unknown> | null;
+    const isFasting = Boolean(existingSummary?.isFasting ?? false);
+    const cookingTimePref = (family.cuisinePreferences ?? []).find(p => p.startsWith("cooking_time:"));
+    const maxCookTimeMin = cookingTimePref
+      ? cookingTimePref.includes("quick") ? 30 : cookingTimePref.includes("moderate") ? 60 : null
+      : null;
+    freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to load plan data for regeneration", details: msg, retryable: true });
     return;
   }
 
   const familyId = existingPlan.familyId;
-  const [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
-  if (!family) {
-    res.status(404).json({ error: "Family not found" });
-    return;
-  }
-
-  const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, familyId));
-
   const zone = getZoneForState(family.state || "Delhi");
-  const weeklyBudget = Math.round(Number(family.monthlyBudget) / 4);
-  const budgetPerMeal = Math.round(weeklyBudget / (7 * 4));
   const allRestrictions = members.flatMap(m => m.dietaryRestrictions ?? []);
-
-  // Re-apply fasting detection using the same week
   const existingSummary = existingPlan.nutritionSummary as Record<string, unknown> | null;
   const isFasting = Boolean(existingSummary?.isFasting ?? false);
 
-  const cookingTimePref = (family.cuisinePreferences ?? []).find(p => p.startsWith("cooking_time:"));
-  const maxCookTimeMin = cookingTimePref
-    ? cookingTimePref.includes("quick") ? 30 : cookingTimePref.includes("moderate") ? 60 : null
-    : null;
-
-  // Get all feedback since this plan was created for constraint application
-  const allFeedback = await db.select().from(mealFeedbackTable)
-    .where(eq(mealFeedbackTable.familyId, familyId))
-    .orderBy(desc(mealFeedbackTable.createdAt))
-    .limit(50);
-
   const dislikedMeals = allFeedback.filter(f => !f.liked).map(f => f.mealType);
-
-  // Re-run constrained recipe DB search — same pipeline as initial generation but excludes disliked
-  const freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
 
   // Further filter out recipes matching disliked meal types
   const constrainedRecipes = freshRecipes.filter(r => {
@@ -768,34 +795,44 @@ Return valid JSON:
 router.put("/meal-plans/:id", async (req, res): Promise<void> => {
   const params = UpdateMealPlanParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
   const parsed = UpdateMealPlanBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
-  const updateData: Record<string, unknown> = {};
-  if (parsed.data.name) updateData.name = parsed.data.name;
-  if (parsed.data.plan) updateData.plan = parsed.data.plan;
-  if (parsed.data.harmonyScore !== undefined) updateData.harmonyScore = String(parsed.data.harmonyScore);
-  const [plan] = await db.update(mealPlansTable).set(updateData).where(eq(mealPlansTable.id, params.data.id)).returning();
-  if (!plan) {
-    res.status(404).json({ error: "Meal plan not found" });
-    return;
+  try {
+    const updateData: Record<string, unknown> = {};
+    if (parsed.data.name) updateData.name = parsed.data.name;
+    if (parsed.data.plan) updateData.plan = parsed.data.plan;
+    if (parsed.data.harmonyScore !== undefined) updateData.harmonyScore = String(parsed.data.harmonyScore);
+    const [plan] = await db.update(mealPlansTable).set(updateData).where(eq(mealPlansTable.id, params.data.id)).returning();
+    if (!plan) {
+      res.status(404).json({ error: "Meal plan not found", retryable: false });
+      return;
+    }
+    res.json({ ...plan, harmonyScore: Number(plan.harmonyScore) });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to update meal plan", details: msg, retryable: true });
   }
-  res.json({ ...plan, harmonyScore: Number(plan.harmonyScore) });
 });
 
 router.delete("/meal-plans/:id", async (req, res): Promise<void> => {
   const params = DeleteMealPlanParams.safeParse(req.params);
   if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+    res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  await db.delete(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
-  res.sendStatus(204);
+  try {
+    await db.delete(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
+    res.sendStatus(204);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to delete meal plan", details: msg, retryable: true });
+  }
 });
 
 export default router;

@@ -234,7 +234,7 @@ function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
 // 7a: Persist accepted swap for a grocery list item
 router.patch("/grocery-lists/:id/swaps", async (req, res): Promise<void> => {
   const listId = parseInt(req.params.id);
-  if (isNaN(listId)) { res.status(400).json({ error: "Invalid list id" }); return; }
+  if (isNaN(listId)) { res.status(400).json({ error: "Invalid list id", retryable: false }); return; }
 
   const { itemName, swappedWith, cost, source } = req.body as {
     itemName: string;
@@ -242,24 +242,28 @@ router.patch("/grocery-lists/:id/swaps", async (req, res): Promise<void> => {
     cost?: number;
     source?: "db" | "ai";
   };
-  if (!itemName) { res.status(400).json({ error: "itemName is required" }); return; }
+  if (!itemName) { res.status(400).json({ error: "itemName is required", retryable: false }); return; }
 
-  const [list] = await db.select({ id: groceryListsTable.id, acceptedSwaps: groceryListsTable.acceptedSwaps })
-    .from(groceryListsTable).where(eq(groceryListsTable.id, listId));
-  if (!list) { res.status(404).json({ error: "Grocery list not found" }); return; }
+  try {
+    const [list] = await db.select({ id: groceryListsTable.id, acceptedSwaps: groceryListsTable.acceptedSwaps })
+      .from(groceryListsTable).where(eq(groceryListsTable.id, listId));
+    if (!list) { res.status(404).json({ error: "Grocery list not found", retryable: false }); return; }
 
-  const existing = (list.acceptedSwaps as Record<string, unknown> | null) ?? {};
-  let updated: Record<string, unknown>;
-  if (swappedWith === null) {
-    // Remove swap (user reverted to original)
-    updated = { ...existing };
-    delete updated[itemName];
-  } else {
-    updated = { ...existing, [itemName]: { name: swappedWith, cost: cost ?? 0, source: source ?? "ai" } };
+    const existing = (list.acceptedSwaps as Record<string, unknown> | null) ?? {};
+    let updated: Record<string, unknown>;
+    if (swappedWith === null) {
+      updated = { ...existing };
+      delete updated[itemName];
+    } else {
+      updated = { ...existing, [itemName]: { name: swappedWith, cost: cost ?? 0, source: source ?? "ai" } };
+    }
+
+    await db.update(groceryListsTable).set({ acceptedSwaps: updated }).where(eq(groceryListsTable.id, listId));
+    res.json({ success: true, acceptedSwaps: updated });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to update swap", details: msg, retryable: true });
   }
-
-  await db.update(groceryListsTable).set({ acceptedSwaps: updated }).where(eq(groceryListsTable.id, listId));
-  res.json({ success: true, acceptedSwaps: updated });
 });
 
 // DB-backed cheaper alternative ingredient lookup endpoint
@@ -269,62 +273,67 @@ router.get("/grocery/cheaper-alternative", async (req, res): Promise<void> => {
   const diet = (req.query.diet as string) ?? "";
 
   if (!item) {
-    res.status(400).json({ error: "item query parameter is required" });
+    res.status(400).json({ error: "item query parameter is required", retryable: false });
     return;
   }
 
   const budgetFilter = !isNaN(budget) && budget > 0 ? budget : 100;
 
-  const conditions: Parameters<typeof and>[0][] = [
-    lte(recipesTable.costPerServing, budgetFilter),
-    or(
-      ilike(recipesTable.ingredients, `%${item}%`),
-      ilike(recipesTable.name, `%${item}%`),
-    ),
-  ];
+  try {
+    const conditions: Parameters<typeof and>[0][] = [
+      lte(recipesTable.costPerServing, budgetFilter),
+      or(
+        ilike(recipesTable.ingredients, `%${item}%`),
+        ilike(recipesTable.name, `%${item}%`),
+      ),
+    ];
 
-  const validDiets = ["vegetarian", "non vegetarian", "vegan", "eggetarian"];
-  if (diet && validDiets.some(d => d.toLowerCase() === diet.toLowerCase())) {
-    conditions.push(eq(recipesTable.diet, diet));
+    const validDiets = ["vegetarian", "non vegetarian", "vegan", "eggetarian"];
+    if (diet && validDiets.some(d => d.toLowerCase() === diet.toLowerCase())) {
+      conditions.push(eq(recipesTable.diet, diet));
+    }
+
+    const alternatives = await localDb.select({
+      id: recipesTable.id,
+      name: recipesTable.name,
+      nameHindi: recipesTable.nameHindi,
+      cuisine: recipesTable.cuisine,
+      diet: recipesTable.diet,
+      calories: recipesTable.calories,
+      protein: recipesTable.protein,
+      costPerServing: recipesTable.costPerServing,
+      ingredients: recipesTable.ingredients,
+      totalTimeMin: recipesTable.totalTimeMin,
+    })
+      .from(recipesTable)
+      .where(and(...conditions))
+      .limit(5);
+
+    if (alternatives.length === 0) {
+      res.json({ item, alternatives: [], message: "No cheaper DB alternatives found for this ingredient" });
+      return;
+    }
+
+    res.json({
+      item,
+      budget: budgetFilter,
+      alternatives: alternatives.map(r => ({
+        recipeId: r.id,
+        name: r.name,
+        nameHindi: r.nameHindi,
+        cuisine: r.cuisine,
+        diet: r.diet,
+        costPerServing: r.costPerServing,
+        calories: r.calories,
+        protein: r.protein,
+        totalTimeMin: r.totalTimeMin,
+        source: "recipe_db",
+      })),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch alternatives", details: msg, retryable: true });
   }
-
-  const alternatives = await localDb.select({
-    id: recipesTable.id,
-    name: recipesTable.name,
-    nameHindi: recipesTable.nameHindi,
-    cuisine: recipesTable.cuisine,
-    diet: recipesTable.diet,
-    calories: recipesTable.calories,
-    protein: recipesTable.protein,
-    costPerServing: recipesTable.costPerServing,
-    ingredients: recipesTable.ingredients,
-    totalTimeMin: recipesTable.totalTimeMin,
-  })
-    .from(recipesTable)
-    .where(and(...conditions))
-    .limit(5);
-
-  if (alternatives.length === 0) {
-    res.json({ item, alternatives: [], message: "No cheaper DB alternatives found for this ingredient" });
-    return;
-  }
-
-  res.json({
-    item,
-    budget: budgetFilter,
-    alternatives: alternatives.map(r => ({
-      recipeId: r.id,
-      name: r.name,
-      nameHindi: r.nameHindi,
-      cuisine: r.cuisine,
-      diet: r.diet,
-      costPerServing: r.costPerServing,
-      calories: r.calories,
-      protein: r.protein,
-      totalTimeMin: r.totalTimeMin,
-      source: "recipe_db",
-    })),
-  });
 });
 
 const ScanPantrySchema = z.object({
@@ -369,8 +378,8 @@ If no food items are visible, return [].`,
     try { items = JSON.parse(text); } catch { items = []; }
     res.json({ items });
   } catch (err) {
-    console.error("Pantry scan error:", err);
-    res.status(500).json({ error: "Scan failed", items: [] });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Pantry scan failed", details: msg, retryable: true, items: [] });
   }
 });
 
