@@ -16,6 +16,7 @@ export const familyMembersTable = pgTable("family_members", {
   healthConditions: text("health_conditions").array(),
   dietaryRestrictions: text("dietary_restrictions").array(),
   allergies: text("allergies").array(),
+  primaryGoal: text("primary_goal_override"),
   calorieTarget: integer("calorie_target"),
   goalPace: text("goal_pace").default("none"),
   tiffinType: text("tiffin_type").default("none"),

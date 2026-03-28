@@ -308,36 +308,80 @@ router.post("/gemini/generate-image", async (req, res): Promise<void> => {
 });
 
 // ── HFSS Classifier ──────────────────────────────────────────────
+const HFSS_PROFILE: Record<string, { kcal_per_serve: number; sodium_mg: number; fat_g: number }> = {
+  "chips":        { kcal_per_serve: 155, sodium_mg: 280, fat_g: 9 },
+  "namkeen":      { kcal_per_serve: 130, sodium_mg: 320, fat_g: 7 },
+  "biscuit":      { kcal_per_serve: 140, sodium_mg: 180, fat_g: 6 },
+  "cookie":       { kcal_per_serve: 160, sodium_mg: 100, fat_g: 8 },
+  "cake":         { kcal_per_serve: 250, sodium_mg: 180, fat_g: 12 },
+  "burger":       { kcal_per_serve: 400, sodium_mg: 700, fat_g: 18 },
+  "pizza":        { kcal_per_serve: 280, sodium_mg: 600, fat_g: 12 },
+  "samosa":       { kcal_per_serve: 260, sodium_mg: 350, fat_g: 14 },
+  "pakoda":       { kcal_per_serve: 200, sodium_mg: 280, fat_g: 12 },
+  "jalebi":       { kcal_per_serve: 150, sodium_mg: 10, fat_g: 5 },
+  "gulab jamun":  { kcal_per_serve: 140, sodium_mg: 40, fat_g: 5 },
+  "cola":         { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
+  "coke":         { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
+  "pepsi":        { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
+  "chocolate":    { kcal_per_serve: 200, sodium_mg: 40, fat_g: 12 },
+  "ice cream":    { kcal_per_serve: 200, sodium_mg: 80, fat_g: 10 },
+  "maggi":        { kcal_per_serve: 350, sodium_mg: 1200, fat_g: 14 },
+  "instant noodles": { kcal_per_serve: 350, sodium_mg: 1200, fat_g: 14 },
+  "white bread":  { kcal_per_serve: 140, sodium_mg: 240, fat_g: 2 },
+};
+
+const HFSS_KEYWORDS_BE = Object.keys(HFSS_PROFILE).concat([
+  "pastry", "candy", "sweet", "mithai", "kulfi", "maida", "refined",
+  "soda", "soft drink", "cold drink", "fanta", "sprite", "energy drink",
+  "processed", "packed snack", "ketchup", "mayonnaise", "dalda", "vanaspati",
+  "french fries", "deep fried", "fried", "pav",
+]);
+
 router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
   const { message } = req.body as { message?: string };
   if (!message) { res.status(400).json({ error: "message required" }); return; }
 
-  const HFSS_KEYWORDS = [
-    "chips", "namkeen", "biscuit", "cookie", "cake", "pastry", "burger", "pizza",
-    "fried", "deep fried", "french fries", "samosa", "pakoda", "jalebi", "gulab jamun",
-    "cola", "coke", "pepsi", "soda", "soft drink", "cold drink", "fanta", "sprite",
-    "chocolate", "candy", "sweet", "mithai", "ice cream", "kulfi", "maida", "refined",
-    "instant noodles", "maggi", "processed", "packed snack", "energy drink", "juice tetra",
-    "ketchup", "mayonnaise", "sauce", "white bread", "pav", "refined oil", "dalda", "vanaspati",
-  ];
   const lower = message.toLowerCase();
-  const detected = HFSS_KEYWORDS.filter(k => lower.includes(k));
-  if (detected.length === 0) {
-    res.json({ isHFSS: false, items: [], rebalanceSuggestion: null });
+  const detectedNames = HFSS_KEYWORDS_BE.filter(k => lower.includes(k));
+  if (detectedNames.length === 0) {
+    res.json({ isHFSS: false, items: [], foodLog: [], rebalanceSuggestion: null });
     return;
   }
+
+  const foodLog = detectedNames.map(name => ({
+    food: name,
+    kcal_per_serve: HFSS_PROFILE[name]?.kcal_per_serve ?? 180,
+    sodium_mg: HFSS_PROFILE[name]?.sodium_mg ?? 200,
+    fat_g: HFSS_PROFILE[name]?.fat_g ?? 8,
+    is_hfss: true,
+  }));
+
+  const totalKcal = foodLog.reduce((s, f) => s + f.kcal_per_serve, 0);
+  const totalSodium = foodLog.reduce((s, f) => s + f.sodium_mg, 0);
+
   try {
-    const prompt = `A user ate: "${message}". Detected HFSS items: ${detected.join(", ")}.
-As an ICMR-NIN 2024 nutrition expert, give a SHORT (2-3 lines) practical rebalance suggestion for the rest of today to compensate.
-Focus on: which nutrients to add, simple Indian foods to eat next, and one hydration tip.
-Keep it encouraging, not preachy. Respond in English.`;
+    const prompt = `A user ate: "${message}". Detected HFSS items: ${detectedNames.join(", ")} (total ~${totalKcal} kcal, ~${totalSodium}mg sodium).
+As an ICMR-NIN 2024 expert, give a SHORT (2-3 lines) practical rebalance_strategy for the rest of today:
+- Which micronutrients to compensate (iron, fibre, vitamin C, calcium)
+- 1-2 specific Indian foods to eat at the next meal
+- One hydration tip (water / coconut water / lassi)
+Keep it encouraging. Respond in English only. No bullet points, just flowing text.`;
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 256 },
+      config: { maxOutputTokens: 300 },
     });
-    const suggestion = result.candidates?.[0]?.content?.parts?.[0]?.text ?? "Add a dal-vegetable meal + 2 glasses of water to rebalance.";
-    res.json({ isHFSS: true, items: detected, rebalanceSuggestion: suggestion });
+    const rebalance_strategy = result.candidates?.[0]?.content?.parts?.[0]?.text
+      ?? "Balance with a bowl of dal + vegetables at your next meal, and drink 2 glasses of water to flush excess sodium.";
+    res.json({
+      isHFSS: true,
+      items: detectedNames,
+      foodLog,
+      totalKcal,
+      totalSodiumMg: totalSodium,
+      rebalanceSuggestion: rebalance_strategy,
+      rebalance_strategy,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "HFSS classify failed", details: msg, retryable: true });

@@ -8,6 +8,7 @@ const router: IRouter = Router();
 router.get("/market/prices", (_req, res): void => {
   const prices = getMandiPrices();
   const arbitrage = applyIngredientArbitrage(prices.map(p => p.name));
+  const surging = prices.filter(p => p.trend === "surging").map(p => p.name);
   res.json({
     prices,
     arbitrage: {
@@ -16,6 +17,7 @@ router.get("/market/prices", (_req, res): void => {
       totalSaved: arbitrage.totalSaved,
       alertMessage: arbitrage.alertMessage,
     },
+    surging,
     source: "Bokaro Chas Mandi — Live Demo Feed",
     lastUpdated: new Date().toISOString(),
   });

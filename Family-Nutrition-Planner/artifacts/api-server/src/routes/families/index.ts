@@ -175,12 +175,14 @@ router.post("/families/:familyId/members", async (req, res): Promise<void> => {
     weightKg: parsed.data.weightKg,
     heightCm: parsed.data.heightCm,
     activityLevel: parsed.data.activityLevel,
+    primary_goal: parsed.data.primaryGoal,
     goalPace: parsed.data.goalPace,
     healthConditions: parsed.data.healthConditions,
   });
   const memberData = {
     ...parsed.data,
     familyId: params.data.familyId,
+    primaryGoal: raiResult.primary_goal ?? parsed.data.primaryGoal,
     goalPace: raiResult.goalPace,
     calorieTarget: parsed.data.calorieTarget ?? raiResult.calorieTarget,
   };
@@ -220,11 +222,13 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     weightKg: parsed.data.weightKg,
     heightCm: parsed.data.heightCm,
     activityLevel: parsed.data.activityLevel,
+    primary_goal: parsed.data.primaryGoal,
     goalPace: parsed.data.goalPace,
     healthConditions: parsed.data.healthConditions,
   });
   const updateData = {
     ...parsed.data,
+    ...(raiResult.primary_goal ? { primaryGoal: raiResult.primary_goal } : {}),
     ...(raiResult.goalPace ? { goalPace: raiResult.goalPace } : {}),
     ...(raiResult.calorieTarget && !parsed.data.calorieTarget ? { calorieTarget: raiResult.calorieTarget } : {}),
   };

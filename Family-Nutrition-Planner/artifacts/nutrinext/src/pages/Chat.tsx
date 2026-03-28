@@ -60,7 +60,8 @@ export default function Chat() {
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
 
-  type HFSSResult = { isHFSS: boolean; items: string[]; rebalanceSuggestion: string | null };
+  type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean };
+  type HFSSResult = { isHFSS: boolean; items: string[]; foodLog: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null };
   const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
   const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
   const pendingHFSSMsg = useRef<{ msgIndex: number; text: string } | null>(null);
@@ -254,18 +255,30 @@ export default function Chat() {
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="ml-9 max-w-[78%] rounded-2xl border border-green-300/60 bg-green-50/70 px-4 py-3 text-xs"
+                    className="ml-9 max-w-[82%] rounded-2xl border border-green-300/60 bg-green-50/70 px-4 py-3 text-xs"
                   >
-                    <div className="flex items-center gap-1.5 mb-1.5 text-green-800 font-semibold">
+                    <div className="flex items-center gap-1.5 mb-2 text-green-800 font-semibold">
                       <RefreshCcw className="w-3 h-3" />
-                      🔄 HFSS Detected — Rebalance Suggestion
+                      🔄 HFSS Detected — ICMR Rebalance
+                      {hfssResults[i].totalKcal && (
+                        <span className="ml-auto text-[9px] font-normal text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">
+                          ~{hfssResults[i].totalKcal} kcal · {hfssResults[i].totalSodiumMg}mg Na
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1 mb-2">
-                      {hfssResults[i].items.map(item => (
-                        <span key={item} className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-medium capitalize">{item}</span>
-                      ))}
+                      {hfssResults[i].foodLog && hfssResults[i].foodLog.length > 0
+                        ? hfssResults[i].foodLog.map(f => (
+                            <span key={f.food} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[9px] font-medium capitalize">
+                              {f.food} <span className="opacity-70">{f.kcal_per_serve}kcal</span>
+                            </span>
+                          ))
+                        : hfssResults[i].items.map(item => (
+                            <span key={item} className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-medium capitalize">{item}</span>
+                          ))
+                      }
                     </div>
-                    <p className="text-green-900 leading-snug">{hfssResults[i].rebalanceSuggestion}</p>
+                    <p className="text-green-900 leading-snug">{hfssResults[i].rebalance_strategy ?? hfssResults[i].rebalanceSuggestion}</p>
                   </motion.div>
                 )}
               </motion.div>

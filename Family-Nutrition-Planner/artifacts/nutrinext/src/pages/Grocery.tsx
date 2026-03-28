@@ -201,26 +201,43 @@ export default function Grocery() {
     }
   };
 
+  interface MandiIngredientFE {
+    id: string; name: string; nameHindi: string; category: string;
+    wholesale_price: number; retail_price: number; unit: string;
+    trend: "stable" | "rising" | "surging"; surge_percentage: number;
+    seasonal_baseline: number; arbitrage_target: string | null; amino_note?: string;
+  }
+  interface SwapResultFE {
+    originalIngredient: string; substitutedIngredient: string;
+    originalRetailPrice: number; newRetailPrice: number;
+    savingPerKg: number; surgePercent: number; aminoNote?: string;
+  }
   const { data: marketData, refetch: refetchMarket } = useQuery({
     queryKey: ["market-prices"],
     queryFn: async () => {
       const res = await apiFetch("/api/market/prices");
       return res.json() as Promise<{
-        prices: Array<{ ingredient: string; price: number; unit: string; trend: string; surgeMultiplier: number; alternativeFor?: string | null }>;
-        arbitrage: { swaps: Array<{ from: string; to: string; savedPercent: number; reason: string }>; totalSaved: number };
+        prices: MandiIngredientFE[];
+        arbitrage: { swaps: SwapResultFE[]; totalSaved: number; hasArbitrage: boolean; alertMessage: string | null };
         surging: string[];
+        source: string;
+        lastUpdated: string;
       }>;
     },
   });
 
   const triggerSurgeMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiFetch("/api/market/trigger-surge", { method: "POST" });
+      const res = await apiFetch("/api/market/trigger-surge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredient: "Paneer", surgePercent: 55 }),
+      });
       return res.json();
     },
     onSuccess: () => {
       refetchMarket();
-      toast({ title: t("Surge triggered!", "सर्ज ट्रिगर हुआ!"), description: t("Tomato & Onion prices spiked. Swaps recommended.", "टमाटर व प्याज़ के दाम बढ़े।") });
+      toast({ title: t("Surge triggered!", "सर्ज ट्रिगर हुआ!"), description: t("Paneer prices spiked +55%. Swaps recommended.", "पनीर के दाम 55% बढ़े।") });
     },
   });
 
@@ -947,24 +964,24 @@ export default function Grocery() {
                   <tbody>
                     {marketData.prices.slice(0, 8).map((row) => {
                       const isSurging = row.trend === "surging";
-                      const swap = marketData.arbitrage.swaps.find(s => s.from.toLowerCase() === row.ingredient.toLowerCase());
+                      const swap = marketData.arbitrage.swaps.find(s => s.originalIngredient.toLowerCase() === row.name.toLowerCase());
                       return (
-                        <tr key={row.ingredient} className={`border-b border-orange-100/50 ${isSurging ? "bg-red-50/40" : ""}`}>
-                          <td className="py-1.5 px-1 capitalize font-medium text-foreground">{row.ingredient}</td>
+                        <tr key={row.id} className={`border-b border-orange-100/50 ${isSurging ? "bg-red-50/40" : ""}`}>
+                          <td className="py-1.5 px-1 font-medium text-foreground">{row.name}</td>
                           <td className="py-1.5 px-1 text-right">
-                            <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.price}/{row.unit}</span>
+                            <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.retail_price}/{row.unit}</span>
                           </td>
                           <td className="py-1.5 px-1 text-center">
                             {isSurging
                               ? <span className="flex items-center justify-center gap-0.5 text-red-600"><TrendingUp className="w-3 h-3" />↑</span>
-                              : row.trend === "stable"
-                              ? <span className="text-muted-foreground">—</span>
-                              : <span className="flex items-center justify-center gap-0.5 text-green-600"><TrendingDown className="w-3 h-3" />↓</span>}
+                              : row.trend === "rising"
+                              ? <span className="flex items-center justify-center gap-0.5 text-amber-600"><TrendingUp className="w-3 h-3 opacity-60" />~</span>
+                              : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="py-1.5 px-1">
                             {swap ? (
                               <span className="flex items-center gap-1 text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-semibold">
-                                <ArrowLeftRight className="w-2.5 h-2.5" /> {swap.to} <span className="text-green-600">-{swap.savedPercent}%</span>
+                                <ArrowLeftRight className="w-2.5 h-2.5" /> {swap.substitutedIngredient} <span className="text-green-600">₹{swap.savingPerKg} off</span>
                               </span>
                             ) : <span className="text-muted-foreground/50">—</span>}
                           </td>
@@ -981,11 +998,11 @@ export default function Grocery() {
                   <p className="text-[10px] font-semibold text-orange-800 uppercase tracking-wide">{t("Smart Swaps", "स्मार्ट स्वैप")}</p>
                   {marketData.arbitrage.swaps.slice(0, 3).map((sw, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs bg-white/60 rounded-xl px-3 py-2 border border-orange-100">
-                      <span className="font-semibold capitalize text-red-700">{sw.from}</span>
+                      <span className="font-semibold text-red-700">{sw.originalIngredient}</span>
                       <ArrowLeftRight className="w-3 h-3 text-orange-500 shrink-0" />
-                      <span className="font-semibold capitalize text-green-700">{sw.to}</span>
-                      <span className="text-green-600 text-[9px] font-bold ml-auto">-{sw.savedPercent}% {t("saved", "बचत")}</span>
-                      <span className="text-muted-foreground text-[9px] hidden sm:inline">{sw.reason}</span>
+                      <span className="font-semibold text-green-700">{sw.substitutedIngredient}</span>
+                      <span className="text-green-600 text-[9px] font-bold ml-auto">₹{sw.savingPerKg}/kg {t("saved", "बचत")}</span>
+                      {sw.aminoNote && <span className="text-muted-foreground text-[9px] hidden sm:inline">{sw.aminoNote}</span>}
                     </div>
                   ))}
                 </div>
