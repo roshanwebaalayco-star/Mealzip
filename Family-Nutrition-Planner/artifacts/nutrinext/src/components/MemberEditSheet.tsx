@@ -61,7 +61,15 @@ interface Props {
   onClose: () => void;
 }
 
-const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS_OF_WEEK = [
+  { key: "monday", label: "Mon" },
+  { key: "tuesday", label: "Tue" },
+  { key: "wednesday", label: "Wed" },
+  { key: "thursday", label: "Thu" },
+  { key: "friday", label: "Fri" },
+  { key: "saturday", label: "Sat" },
+  { key: "sunday", label: "Sun" },
+];
 const NON_VEG_TYPES = ["chicken", "fish", "mutton", "eggs"];
 
 export default function MemberEditSheet({ member, onClose }: Props) {
@@ -226,13 +234,13 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                 <Label className="text-xs font-semibold">{t("Non-Veg Days", "मांसाहारी दिन")}</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {DAYS_OF_WEEK.map(day => (
-                    <label key={day} className="flex items-center gap-1.5 cursor-pointer">
+                    <label key={day.key} className="flex items-center gap-1.5 cursor-pointer">
                       <Checkbox
-                        checked={(form.nonVegDays ?? []).includes(day)}
-                        onCheckedChange={() => toggleArrayItem("nonVegDays", day)}
+                        checked={(form.nonVegDays ?? []).includes(day.key)}
+                        onCheckedChange={() => toggleArrayItem("nonVegDays", day.key)}
                         className="rounded-md"
                       />
-                      <span className="text-xs">{day.slice(0, 3)}</span>
+                      <span className="text-xs">{day.label}</span>
                     </label>
                   ))}
                 </div>

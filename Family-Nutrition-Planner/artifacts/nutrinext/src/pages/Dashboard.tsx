@@ -442,8 +442,11 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-semibold text-foreground/80">{member.calorieTarget} kcal</p>
-                  <div className="flex gap-1 mt-1 justify-end flex-wrap">
+                  <div className="flex items-center justify-end gap-1 mb-0.5">
+                    <span className="text-[0.6rem] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full leading-none">ICMR</span>
+                    <span className="text-xs font-semibold text-foreground/80">{member.calorieTarget ?? "—"} kcal</span>
+                  </div>
+                  <div className="flex gap-1 mt-0.5 justify-end flex-wrap">
                     {member.healthConditions?.slice(0, 2).map((h) => (
                       <span key={h} className="text-[0.55rem] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 leading-none">{h}</span>
                     ))}

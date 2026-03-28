@@ -8,7 +8,7 @@ import {
   Loader2, Sparkles, Utensils, Info, RefreshCw, ThumbsUp, ThumbsDown,
   CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown, ChevronUp,
   CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle, ExternalLink,
-  FlaskConical, Clock3, RefreshCcw
+  FlaskConical, Clock3, RefreshCcw, TrendingDown
 } from "lucide-react";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
 import { HarmonyScore } from "@/components/HarmonyScore";
@@ -345,6 +345,14 @@ export default function MealPlan() {
       ingredients: meal.ingredients ?? [],
       base_ingredients: meal.base_ingredients ?? [],
     }));
+  }, [plans]);
+
+  const arbitrageData = useMemo(() => {
+    const raw = plans?.[0]?.plan;
+    if (!raw) return { mods: [] as Array<{ original: string; substituted: string; saving: number }>, saving: 0 };
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const mods = (Array.isArray(parsed?.arbitrageMods) ? parsed.arbitrageMods : []) as Array<{ original: string; substituted: string; saving: number }>;
+    return { mods, saving: Number(parsed?.arbitrageSaving ?? 0) };
   }, [plans]);
 
   const { data: prepAlertsData } = useQuery({
@@ -1361,6 +1369,36 @@ export default function MealPlan() {
           </div>
         );
       })()}
+
+      {/* ── Mandi Optimizer — Arbitrage Swap Panel ── */}
+      {arbitrageData.mods.length > 0 && (
+        <div className="glass-card rounded-3xl p-5 border border-amber-400/20" style={{ background: "rgba(255,251,235,0.65)" }}>
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingDown className="w-4 h-4 text-amber-600" />
+            <h3 className="font-semibold text-sm text-amber-900">{t("Mandi Optimizer", "मंडी ऑप्टिमाइज़र")}</h3>
+            <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/20 text-[9px] ml-auto">
+              💰 {t("Save", "बचत")} ₹{Math.round(arbitrageData.saving)}/kg
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {arbitrageData.mods.map((mod, i) => (
+              <div key={i} className="flex items-center gap-2 bg-white/50 rounded-xl p-2.5">
+                <span className="text-xs text-muted-foreground line-through">{mod.original}</span>
+                <span className="text-[10px] text-amber-600 font-bold">→</span>
+                <span className="text-xs font-semibold text-green-700">{mod.substituted}</span>
+                {mod.saving > 0 && (
+                  <span className="ml-auto text-[9px] font-bold text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-full">
+                    -₹{Math.round(mod.saving)}/kg
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] text-amber-700/70 mt-3 leading-relaxed">
+            {t("Ingredients auto-swapped based on today's mandi's best prices.", "आज की मंडी की सबसे अच्छी कीमतों के आधार पर सामग्री स्वचालित रूप से बदली गई।")}
+          </p>
+        </div>
+      )}
 
       {/* Weekly Context Used Banner */}
       {lastWeeklyContext && (
