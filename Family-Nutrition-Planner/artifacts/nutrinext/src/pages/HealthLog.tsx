@@ -62,6 +62,7 @@ export default function HealthLog() {
 
   const { data: healthLogs } = useQuery({
     queryKey: ["health-logs", activeFamily?.id, activeMemberId],
+    staleTime: 0,
     queryFn: async () => {
       const url = `/api/health-logs?familyId=${activeFamily?.id}${activeMemberId ? `&memberId=${activeMemberId}` : ""}`;
       const res = await apiFetch(url);

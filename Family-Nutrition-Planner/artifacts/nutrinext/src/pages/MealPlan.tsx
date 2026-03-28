@@ -179,6 +179,7 @@ export default function MealPlan() {
   const [activeMealTab, setActiveMealTab] = useState("lunch");
   const [detailRecipe, setDetailRecipe] = useState<RecipeDetail | null>(null);
   const [loadingRecipeId, setLoadingRecipeId] = useState<string | null>(null);
+  const [leftoverPanelOpen, setLeftoverPanelOpen] = useState(true);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -652,7 +653,7 @@ export default function MealPlan() {
         </div>
       )}
 
-      {/* ♻️ Leftover Intelligence panel */}
+      {/* ♻️ Leftover Intelligence panel — collapsible */}
       {(() => {
         const chains: { day: string; meal: string; dish: string; isLeftover: boolean; icmrVerified: boolean }[] = [];
         const dayArr = planData?.days as DayData[] | undefined;
@@ -669,28 +670,37 @@ export default function MealPlan() {
         });
         if (chains.length === 0) return null;
         return (
-          <div className="glass-card rounded-3xl p-4 border border-amber-200/60" style={{ background: "rgba(255,251,235,0.75)" }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Link2 className="w-4 h-4 text-amber-600" />
-              <h3 className="font-bold text-sm text-amber-800">{t("♻️ Leftover Intelligence", "♻️ बचे भोजन की बुद्धिमानी")}</h3>
+          <div className="glass-card rounded-3xl border border-amber-200/60 overflow-hidden" style={{ background: "rgba(255,251,235,0.75)" }}>
+            {/* Collapsible header */}
+            <button
+              className="w-full flex items-center gap-2 p-4 text-left"
+              onClick={() => setLeftoverPanelOpen(o => !o)}
+            >
+              <Link2 className="w-4 h-4 text-amber-600 shrink-0" />
+              <h3 className="font-bold text-sm text-amber-800 flex-1">{t("♻️ Leftover Intelligence", "♻️ बचे भोजन की बुद्धिमानी")}</h3>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
                 {chains.length} {t("reuse links", "पुनः उपयोग")}
               </span>
-            </div>
-            <div className="space-y-1.5">
-              {chains.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px]">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[9px]">{i + 1}</span>
-                  <span className="font-medium text-amber-900">{c.day.slice(0, 3)} {c.meal.replace(/_/g, " ")}: {c.dish.slice(0, 30)}</span>
-                  <span className={`ml-auto shrink-0 text-[9px] font-semibold px-2 py-0.5 rounded-full border ${c.icmrVerified ? "bg-green-50 text-green-700 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
-                    {c.icmrVerified ? "✓ ICMR Verified" : "AI Suggested"}
-                  </span>
+              <ChevronDown className={`w-4 h-4 text-amber-600 transition-transform duration-200 ${leftoverPanelOpen ? "rotate-180" : ""}`} />
+            </button>
+            {leftoverPanelOpen && (
+              <div className="px-4 pb-4">
+                <div className="space-y-1.5">
+                  {chains.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px]">
+                      <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[9px]">{i + 1}</span>
+                      <span className="font-medium text-amber-900">{c.day.slice(0, 3)} {c.meal.replace(/_/g, " ")}: {c.dish.slice(0, 30)}</span>
+                      <span className={`ml-auto shrink-0 text-[9px] font-semibold px-2 py-0.5 rounded-full border ${c.icmrVerified ? "bg-green-50 text-green-700 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                        {c.icmrVerified ? "✓ ICMR Verified" : "AI Suggested"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-amber-700/70 mt-2 italic">
-              {t("Cooking extra saves time, money & reduces food waste — ICMR-NIN 2024 recommends batch cooking.", "अतिरिक्त पकाने से समय, पैसा बचता है — ICMR-NIN 2024 बैच कुकिंग की सिफारिश करता है।")}
-            </p>
+                <p className="text-[10px] text-amber-700/70 mt-2 italic">
+                  {t("Cooking extra saves time, money & reduces food waste — ICMR-NIN 2024 recommends batch cooking.", "अतिरिक्त पकाने से समय, पैसा बचता है — ICMR-NIN 2024 बैच कुकिंग की सिफारिश करता है।")}
+                </p>
+              </div>
+            )}
           </div>
         );
       })()}
