@@ -479,7 +479,7 @@ export default function MealPlan() {
             const badgeClass = overBudget ? "bg-red-50 text-red-600" : nearBudget ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-700";
             return (
               <div className="mt-2 space-y-1">
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-xs flex-wrap">
                   <span className={`font-bold ${labelColor}`}>
                     ₹{spent.toLocaleString("en-IN")}
                   </span>
@@ -489,6 +489,16 @@ export default function MealPlan() {
                   {pct !== null && (
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}>
                       {Math.min(pct, 100)}%
+                    </span>
+                  )}
+                  {weeklyBudget && !overBudget && (
+                    <span className="text-[10px] text-muted-foreground">
+                      · ₹{Math.max(0, weeklyBudget - spent).toLocaleString("en-IN")} {t("remaining", "शेष")}
+                    </span>
+                  )}
+                  {overBudget && weeklyBudget && (
+                    <span className="text-[10px] text-red-500 font-semibold">
+                      · ₹{Math.abs(weeklyBudget - spent).toLocaleString("en-IN")} {t("over budget", "बजट से अधिक")}
                     </span>
                   )}
                 </div>
