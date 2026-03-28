@@ -151,14 +151,21 @@ const CORRECTION_TRIGGERS: Record<string, string[]> = {
   or: ["naa", "bhul", "pheri kaho", "bhul hela"],
 };
 
-// States where yes/no responses are expected — skip correction detection to avoid intercepting
-// legitimate "no more members" or "no conditions" answers.
+// States where bare yes/no responses are expected as natural conversation answers.
 const YES_NO_STATES = new Set<ConvState>(["ask_more_members", "ask_member_conditions"]);
 
+// Single-word bare negatives that should NEVER trigger correction in YES_NO_STATES —
+// they are legitimate "no more / no conditions" answers there.
+const BARE_NEGATIVES = new Set([
+  "no", "nope", "nahi", "nahin", "na", "naa", "ledu", "illa", "illai",
+]);
+
 function detectCorrection(transcript: string, language: string, state: ConvState): boolean {
-  if (YES_NO_STATES.has(state)) return false;
   if (transcript.length > 100) return false;
   const lower = transcript.toLowerCase().trim();
+  // In YES_NO states, block only bare single-word negatives; still allow explicit
+  // multi-word correction phrases like "go back", "wrong", "galat hai".
+  if (YES_NO_STATES.has(state) && BARE_NEGATIVES.has(lower)) return false;
   const langKey = language === "hindi" ? "hi"
     : language === "english" ? "en"
     : language === "tamil" ? "ta"
@@ -186,7 +193,7 @@ const CORRECTION_MSG: Record<string, string> = {
   kannada: "ಪರವಾಗಿಲ್ಲ, ಮತ್ತೆ ಹೇಳಿ.",
   malayalam: "കുഴപ്പമില്ല, ഒന്നു കൂടി പറയൂ.",
   punjabi: "ਕੋਈ ਗੱਲ ਨਹੀਂ, ਦੁਬਾਰਾ ਦੱਸੋ।",
-  odia: "ଠିକ ଅଛି, ପୁଣି ଥρ कहé.",
+  odia: "ଠିକ ଅଛି, ପୁଣି ଥରେ କୁହନ୍ତୁ।",
 };
 
 export function useVoiceAssistant() {

@@ -97,41 +97,16 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
     }
   }, [messages]);
 
-  // 8-second safety timeout: if still listening after 8s, stop recording and
-  // immediately speak a localized "didn't hear you" message to the user.
-  const TIMEOUT_MSG: Record<string, string> = {
-    hindi: "कुछ सुनाई नहीं दिया — कृपया फिर से बोलें।",
-    english: "Didn't catch that — please speak again.",
-    bengali: "কিছু শুনলাম না — আবার বলুন।",
-    tamil: "கேட்கவில்லை — மீண்டும் பேசுங்கள்.",
-    telugu: "వినలేదు — మళ్ళీ మాట్లాడండి.",
-    marathi: "ऐकू आले नाही — पुन्हा बोला.",
-    gujarati: "સંભળાઈ નહીં — ફરી બોલો.",
-    kannada: "ಕೇಳಿಸಲಿಲ್ಲ — ಮತ್ತೆ ಮಾತನಾಡಿ.",
-    malayalam: "കേൾക്കാൻ കഴിഞ്ഞില്ല — വീണ്ടും സംസാരിക്കൂ.",
-    punjabi: "ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤਾ — ਦੁਬਾਰਾ ਬੋਲੋ.",
-    odia: "ଶୁଣାଗଲା ନାହିଁ — ପୁଣି ବୋଲନ୍ତୁ.",
-  };
-  const LANG_CODE_TTS: Record<string, string> = {
-    hindi: "hi-IN", english: "en-IN", bengali: "bn-IN", tamil: "ta-IN",
-    telugu: "te-IN", marathi: "mr-IN", gujarati: "gu-IN", kannada: "kn-IN",
-    malayalam: "ml-IN", punjabi: "pa-IN", odia: "or-IN",
-  };
+  // 8-second safety timeout: if still listening after 8s, stop the recorder.
+  // The hook's retry loop then receives an empty transcript and speaks the localized
+  // "didn't catch that" message via the hook's own TTS path — no duplicate audio.
   useEffect(() => {
     if (micState !== "listening") return;
     const t = setTimeout(() => {
       stopListeningEarly();
-      const msg = TIMEOUT_MSG[language] ?? TIMEOUT_MSG.english;
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const utt = new SpeechSynthesisUtterance(msg);
-        utt.lang = LANG_CODE_TTS[language] ?? "hi-IN";
-        utt.rate = 0.9;
-        window.speechSynthesis.speak(utt);
-      }
     }, 8000);
     return () => clearTimeout(t);
-  }, [micState, stopListeningEarly, language]);
+  }, [micState, stopListeningEarly]);
 
   const handleClose = () => {
     const partial = Object.keys(formData).length > 0 ? { ...formData } : undefined;
