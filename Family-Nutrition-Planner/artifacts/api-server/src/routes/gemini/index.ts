@@ -265,22 +265,27 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     return;
   }
 
-  await db.insert(messagesTable).values({ conversationId: params.data.id, role: "assistant", content: fullResponse });
+  try {
+    await db.insert(messagesTable).values({ conversationId: params.data.id, role: "assistant", content: fullResponse });
 
-  // 6d: Auto-generate conversation title from the first user message
-  // allMessages includes the message we just inserted, so length === 1 means this is the first
-  if (allMessages.length === 1) {
-    try {
-      const titleResp = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: `Give this conversation a title in 5 words or less (no quotes, no punctuation at end) based on this first message: "${userMsg}"` }] }],
-        config: { maxOutputTokens: 20 },
-      });
-      const autoTitle = titleResp.text?.trim().replace(/^["']|["']$/g, "").slice(0, 60);
-      if (autoTitle) {
-        await db.update(conversationsTable).set({ title: autoTitle }).where(eq(conversationsTable.id, params.data.id));
-      }
-    } catch { /* non-critical */ }
+    // 6d: Auto-generate conversation title from the first user message
+    // allMessages includes the message we just inserted, so length === 1 means this is the first
+    if (allMessages.length === 1) {
+      try {
+        const titleResp = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: `Give this conversation a title in 5 words or less (no quotes, no punctuation at end) based on this first message: "${userMsg}"` }] }],
+          config: { maxOutputTokens: 20 },
+        });
+        const autoTitle = titleResp.text?.trim().replace(/^["']|["']$/g, "").slice(0, 60);
+        if (autoTitle) {
+          await db.update(conversationsTable).set({ title: autoTitle }).where(eq(conversationsTable.id, params.data.id));
+        }
+      } catch { /* non-critical */ }
+    }
+  } catch (err) {
+    req.log?.error({ err }, "Failed to persist assistant message to DB");
+    /* SSE already streaming — cannot send error to client, just log */
   }
 
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);

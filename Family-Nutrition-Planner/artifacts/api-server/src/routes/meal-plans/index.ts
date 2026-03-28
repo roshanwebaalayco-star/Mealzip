@@ -442,30 +442,38 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     : null;
 
   if (members.length === 0) {
-    res.status(422).json({ error: "Family must have at least one member before generating a meal plan." });
+    res.status(422).json({ error: "Family must have at least one member before generating a meal plan.", retryable: false });
     return;
   }
 
-  let filteredRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+  let filteredRecipes: Awaited<ReturnType<typeof getFilteredRecipes>>;
+  let previousFeedback: Array<typeof mealFeedbackTable.$inferSelect>;
+  try {
+    filteredRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
 
-  // 5d: Progressive fallback when recipe filter is too restrictive
-  if (filteredRecipes.length < 10) {
-    req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes — relaxing budget constraint");
-    filteredRecipes = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
-  }
-  if (filteredRecipes.length < 10) {
-    req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter");
-    filteredRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
-  }
-  if (filteredRecipes.length === 0) {
-    res.status(422).json({ error: "No recipes found in the database. Please seed the recipe database first." });
+    // 5d: Progressive fallback when recipe filter is too restrictive
+    if (filteredRecipes.length < 10) {
+      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes — relaxing budget constraint");
+      filteredRecipes = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
+    }
+    if (filteredRecipes.length < 10) {
+      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter");
+      filteredRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+    }
+    if (filteredRecipes.length === 0) {
+      res.status(422).json({ error: "No recipes found in the database. Please seed the recipe database first.", retryable: false });
+      return;
+    }
+
+    previousFeedback = await db.select().from(mealFeedbackTable)
+      .where(and(eq(mealFeedbackTable.familyId, familyId)))
+      .orderBy(mealFeedbackTable.createdAt)
+      .limit(50);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to load recipe data", details: msg, retryable: true });
     return;
   }
-
-  const previousFeedback = await db.select().from(mealFeedbackTable)
-    .where(and(eq(mealFeedbackTable.familyId, familyId)))
-    .orderBy(mealFeedbackTable.createdAt)
-    .limit(50);
 
   const dislikedMeals = previousFeedback.filter(f => !f.liked).map(f => `${f.mealType} on Day ${f.dayIndex + 1}: ${f.skipReason || "disliked"}`);
   const likedMeals = previousFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4).map(f => `${f.mealType} on Day ${f.dayIndex + 1}`);
@@ -590,37 +598,43 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
   const totalBudgetEstimate = Number(planData.totalBudgetEstimate ?? 0);
   const aiInsights = String(planData.aiInsights ?? "");
 
-  // Enrich dinner meals with DB-backed leftover chains (recipe_db sourced where possible)
-  const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
+  try {
+    // Enrich dinner meals with DB-backed leftover chains (recipe_db sourced where possible)
+    const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
 
-  const weekStartDateStr = weekStartDate.split("T")[0];
+    const weekStartDateStr = weekStartDate.split("T")[0];
 
-  req.log.info({
-    familyId, isFasting, autoDetected: explicitFasting === undefined,
-    memberFastingDays, festivalFasting: festivalFasting.festivals.map(f => f.name),
-  }, "Fasting mode decision");
+    req.log.info({
+      familyId, isFasting, autoDetected: explicitFasting === undefined,
+      memberFastingDays, festivalFasting: festivalFasting.festivals.map(f => f.name),
+    }, "Fasting mode decision");
 
-  const [mealPlan] = await db.insert(mealPlansTable).values({
-    familyId,
-    name: `Week of ${weekStartDateStr} — ${family.name} Family Plan`,
-    weekStartDate: weekStartDateStr,
-    harmonyScore,
-    totalBudgetEstimate,
-    plan: enrichedPlanData,
-    nutritionSummary: {
-      zone,
-      members: memberSummaries.map(m => ({ name: m.name, targets: m.targets })),
-      isFasting,
-      fastingAutoDetected: explicitFasting === undefined,
-      memberFastingDays,
-      festivalFasting: festivalFasting.isFestivalFasting ? festivalFasting.festivals.map(f => f.name) : [],
-      recipeSource: `recipe_db:${filteredRecipes.length}_filtered`,
-      leftoverChainSource: "recipe_db_primary_ai_fallback",
-    },
-    aiInsights,
-  }).returning();
+    const [mealPlan] = await db.insert(mealPlansTable).values({
+      familyId,
+      name: `Week of ${weekStartDateStr} — ${family.name} Family Plan`,
+      weekStartDate: weekStartDateStr,
+      harmonyScore,
+      totalBudgetEstimate,
+      plan: enrichedPlanData,
+      nutritionSummary: {
+        zone,
+        members: memberSummaries.map(m => ({ name: m.name, targets: m.targets })),
+        isFasting,
+        fastingAutoDetected: explicitFasting === undefined,
+        memberFastingDays,
+        festivalFasting: festivalFasting.isFestivalFasting ? festivalFasting.festivals.map(f => f.name) : [],
+        recipeSource: `recipe_db:${filteredRecipes.length}_filtered`,
+        leftoverChainSource: "recipe_db_primary_ai_fallback",
+      },
+      aiInsights,
+    }).returning();
 
-  res.json({ ...mealPlan, harmonyScore: Number(mealPlan.harmonyScore) });
+    res.json({ ...mealPlan, harmonyScore: Number(mealPlan.harmonyScore) });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, "Failed to save meal plan to database");
+    res.status(500).json({ error: "Failed to save meal plan", details: msg, retryable: true });
+  }
 });
 
 router.get("/meal-plans/:id", async (req, res): Promise<void> => {
@@ -645,31 +659,26 @@ router.get("/meal-plans/:id", async (req, res): Promise<void> => {
 router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
-    res.status(400).json({ error: "Invalid meal plan ID" });
+    res.status(400).json({ error: "Invalid meal plan ID", retryable: false });
     return;
   }
 
-  let existingPlan: typeof mealPlansTable.$inferSelect | undefined;
-  let family: typeof familiesTable.$inferSelect | undefined;
-  let members: Array<typeof familyMembersTable.$inferSelect>;
-  let allFeedback: Array<typeof mealFeedbackTable.$inferSelect>;
-  let freshRecipes: Awaited<ReturnType<typeof getFilteredRecipes>>;
   try {
-    [existingPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, id));
+    const [existingPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, id));
     if (!existingPlan) {
       res.status(404).json({ error: "Meal plan not found", retryable: false });
       return;
     }
 
     const familyId = existingPlan.familyId;
-    [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
+    const [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
     if (!family) {
       res.status(404).json({ error: "Family not found", retryable: false });
       return;
     }
 
-    members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, familyId));
-    allFeedback = await db.select().from(mealFeedbackTable)
+    const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, familyId));
+    const allFeedback = await db.select().from(mealFeedbackTable)
       .where(eq(mealFeedbackTable.familyId, familyId))
       .orderBy(desc(mealFeedbackTable.createdAt))
       .limit(50);
@@ -684,44 +693,33 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     const maxCookTimeMin = cookingTimePref
       ? cookingTimePref.includes("quick") ? 30 : cookingTimePref.includes("moderate") ? 60 : null
       : null;
-    freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Failed to load plan data for regeneration", details: msg, retryable: true });
-    return;
-  }
+    const freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
 
-  const familyId = existingPlan.familyId;
-  const zone = getZoneForState(family.state || "Delhi");
-  const allRestrictions = members.flatMap(m => m.dietaryRestrictions ?? []);
-  const existingSummary = existingPlan.nutritionSummary as Record<string, unknown> | null;
-  const isFasting = Boolean(existingSummary?.isFasting ?? false);
+    const dislikedMeals = allFeedback.filter(f => !f.liked).map(f => f.mealType);
 
-  const dislikedMeals = allFeedback.filter(f => !f.liked).map(f => f.mealType);
+    // Further filter out recipes matching disliked meal types
+    const constrainedRecipes = freshRecipes.filter(r => {
+      const course = (r.course ?? "").toLowerCase();
+      return !dislikedMeals.some(dm => course.includes(dm.toLowerCase()));
+    });
 
-  // Further filter out recipes matching disliked meal types
-  const constrainedRecipes = freshRecipes.filter(r => {
-    const course = (r.course ?? "").toLowerCase();
-    return !dislikedMeals.some(dm => course.includes(dm.toLowerCase()));
-  });
+    const finalRecipes = constrainedRecipes.length >= 20 ? constrainedRecipes : freshRecipes;
 
-  const finalRecipes = constrainedRecipes.length >= 20 ? constrainedRecipes : freshRecipes;
+    const memberSummaries = members.map(m => ({
+      name: m.name, role: m.role, age: m.age, gender: m.gender,
+      activityLevel: m.activityLevel,
+      healthConditions: m.healthConditions ?? [],
+      dietaryRestrictions: m.dietaryRestrictions ?? [],
+      allergies: m.allergies ?? [],
+      targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
+    }));
 
-  const memberSummaries = members.map(m => ({
-    name: m.name, role: m.role, age: m.age, gender: m.gender,
-    activityLevel: m.activityLevel,
-    healthConditions: m.healthConditions ?? [],
-    dietaryRestrictions: m.dietaryRestrictions ?? [],
-    allergies: m.allergies ?? [],
-    targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
-  }));
+    const dislikedList = allFeedback.filter(f => !f.liked)
+      .map(f => `${f.mealType}: ${f.skipReason || "disliked"}`).join("\n");
+    const likedList = allFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4)
+      .map(f => f.mealType).join(", ");
 
-  const dislikedList = allFeedback.filter(f => !f.liked)
-    .map(f => `${f.mealType}: ${f.skipReason || "disliked"}`).join("\n");
-  const likedList = allFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4)
-    .map(f => f.mealType).join(", ");
-
-  const regenPrompt = `You are NutriNext AI. Regenerate a 7-day meal plan for ${family.name} family from ${family.state}.
+    const regenPrompt = `You are NutriNext AI. Regenerate a 7-day meal plan for ${family.name} family from ${family.state}.
 Zone: ${zone.toUpperCase()} India.
 
 FAMILY MEMBERS:
@@ -762,34 +760,39 @@ Return valid JSON:
   ]
 }`;
 
-  let planData: Record<string, unknown>;
-  try {
-    planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log);
+    let planData: Record<string, unknown>;
+    try {
+      planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log);
+    } catch (geminiErr) {
+      req.log.error({ err: geminiErr }, "Meal plan regeneration failed after retry");
+      res.status(422).json({ error: (geminiErr instanceof Error ? geminiErr.message : "Meal plan generation failed — please try again"), retryable: true });
+      return;
+    }
+
+    const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
+
+    const [updatedPlan] = await db.update(mealPlansTable).set({
+      plan: enrichedPlanData,
+      harmonyScore: Number(planData.harmonyScore ?? 70),
+      totalBudgetEstimate: Number(planData.totalBudgetEstimate ?? 0),
+      aiInsights: String(planData.aiInsights ?? ""),
+      nutritionSummary: {
+        ...(existingSummary ?? {}),
+        regenerated: true,
+        regeneratedAt: new Date().toISOString(),
+        recipeSource: `recipe_db:${finalRecipes.length}_feedback_filtered`,
+        leftoverChainSource: "recipe_db_primary_ai_fallback",
+      },
+    }).where(eq(mealPlansTable.id, id)).returning();
+
+    req.log.info({ id, familyId, freshRecipes: finalRecipes.length, dislikedCount: dislikedMeals.length }, "Meal plan regenerated with DB-first pipeline");
+
+    res.json({ ...updatedPlan, harmonyScore: Number(updatedPlan?.harmonyScore ?? 70) });
   } catch (err) {
-    req.log.error({ err }, "Meal plan regeneration failed after retry");
-    res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again"), retryable: true });
-    return;
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, "Meal plan regenerate route error");
+    res.status(500).json({ error: "Failed to regenerate meal plan", details: msg, retryable: true });
   }
-
-  const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
-
-  const [updatedPlan] = await db.update(mealPlansTable).set({
-    plan: enrichedPlanData,
-    harmonyScore: Number(planData.harmonyScore ?? 70),
-    totalBudgetEstimate: Number(planData.totalBudgetEstimate ?? 0),
-    aiInsights: String(planData.aiInsights ?? ""),
-    nutritionSummary: {
-      ...(existingSummary ?? {}),
-      regenerated: true,
-      regeneratedAt: new Date().toISOString(),
-      recipeSource: `recipe_db:${finalRecipes.length}_feedback_filtered`,
-      leftoverChainSource: "recipe_db_primary_ai_fallback",
-    },
-  }).where(eq(mealPlansTable.id, id)).returning();
-
-  req.log.info({ id, familyId, freshRecipes: finalRecipes.length, dislikedCount: dislikedMeals.length }, "Meal plan regenerated with DB-first pipeline");
-
-  res.json({ ...updatedPlan, harmonyScore: Number(updatedPlan?.harmonyScore ?? 70) });
 });
 
 router.put("/meal-plans/:id", async (req, res): Promise<void> => {
