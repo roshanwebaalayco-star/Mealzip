@@ -45,9 +45,19 @@ function tryParseJson(text: string): Record<string, unknown> | null {
   const cleaned = slice
     .replace(/,\s*}/g, "}")
     .replace(/,\s*]/g, "]")
-    .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
-    .replace(/:\s*'([^']*)'/g, ': "$1"');
+    .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'\s*:/g, '"$1":')
+    .replace(/([{,\[]\s*)(\w+)\s*:/g, '$1"$2":')
+    .replace(/:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g, ': "$1"');
   try { return JSON.parse(cleaned) as Record<string, unknown>; } catch { /* fall through */ }
+
+  // Strategy 5: More aggressive — replace all unescaped single quotes used as string delimiters
+  const aggressive = slice
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([{,\[]\s*)'([^']*)'\s*:/g, '$1"$2":')
+    .replace(/([{,\[]\s*)(\w+)\s*:/g, '$1"$2":')
+    .replace(/:\s*'([^']*)'/g, ': "$1"')
+    .replace(/,\s*([}\]])/g, "$1");
+  try { return JSON.parse(aggressive) as Record<string, unknown>; } catch { /* fall through */ }
 
   return null;
 }
@@ -561,20 +571,22 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
   const PLAN_TIMEOUT_MS = 45000;
   const controller1 = new AbortController();
   const controller2 = new AbortController();
-  const makeTimeout = () => new Promise<never>((_, reject) =>
-    setTimeout(() => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
       controller1.abort();
       controller2.abort();
       reject(new Error("Meal plan generation timed out after 45 seconds"));
-    }, PLAN_TIMEOUT_MS)
-  );
+    }, PLAN_TIMEOUT_MS);
+  });
 
   let planData: Record<string, unknown>;
   try {
     const [half1, half2] = await Promise.all([
-      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log, controller1.signal), makeTimeout()]),
-      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log, controller2.signal), makeTimeout()]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log, controller1.signal), timeoutPromise]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log, controller2.signal), timeoutPromise]),
     ]);
+    clearTimeout(timeoutHandle);
 
     const days1 = Array.isArray(half1.days) ? half1.days as Array<Record<string, unknown>> : [];
     const days2 = Array.isArray(half2.days) ? half2.days as Array<Record<string, unknown>> : [];
@@ -589,6 +601,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 
     req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length }, "Parallel meal plan generation succeeded");
   } catch (err) {
+    clearTimeout(timeoutHandle);
     req.log.error({ err }, "Meal plan generation failed after retry");
     res.status(422).json({ error: (err instanceof Error ? err.message : "Meal plan generation failed — please try again"), retryable: true });
     return;
