@@ -88,10 +88,11 @@ export interface CreateMemberBody {
   calorieTarget?: number;
   primaryGoal?: string;
   goalPace?: string;
-  needsTiffin?: boolean;
-  religiousRestriction?: string;
-  dislikedIngredients?: string[];
+  tiffinType?: string;
+  religiousRules?: string;
+  ingredientDislikes?: string[];
   nonVegDays?: string[];
+  nonVegTypes?: string[];
 }
 
 export interface UpdateMemberBody {
@@ -108,10 +109,11 @@ export interface UpdateMemberBody {
   calorieTarget?: number;
   primaryGoal?: string;
   goalPace?: string;
-  needsTiffin?: boolean;
-  religiousRestriction?: string;
-  dislikedIngredients?: string[];
+  tiffinType?: string;
+  religiousRules?: string;
+  ingredientDislikes?: string[];
   nonVegDays?: string[];
+  nonVegTypes?: string[];
 }
 
 export interface Recipe {

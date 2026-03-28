@@ -637,6 +637,38 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       ? ` 💡 ${arbitrageResult.alertMessage}`
       : "";
 
+    // Mutate AI-invented meal ingredients in-place to use substituted ingredients
+    if (arbitrageResult.hasArbitrage && arbitrageResult.swaps.length > 0) {
+      for (const day of allDays) {
+        const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
+        if (!meals) continue;
+        for (const mealKey of Object.keys(meals)) {
+          const meal = meals[mealKey] as Record<string, unknown>;
+          if (meal.recipeId !== null) continue;
+          if (!Array.isArray(meal.ingredients)) continue;
+          const substitutions: string[] = [];
+          meal.ingredients = (meal.ingredients as string[]).map((ing: string) => {
+            let result = ing;
+            for (const swap of arbitrageResult.swaps) {
+              const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
+              if (re.test(result)) {
+                result = result.replace(new RegExp(`\\b${swap.originalIngredient}\\b`, "gi"), swap.substitutedIngredient);
+                if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
+              }
+            }
+            return result;
+          });
+          if (substitutions.length > 0) {
+            const swapNote = substitutions.map(s => {
+              const sw = arbitrageResult.swaps.find(x => x.originalIngredient.toLowerCase() === s.toLowerCase());
+              return sw ? `${sw.originalIngredient}→${sw.substitutedIngredient}` : s;
+            }).join(", ");
+            (meals[mealKey] as Record<string, unknown>)._arbitrageNote = `Mandi-optimized: ${swapNote} (save ₹${Math.round(arbitrageResult.totalSaved)}/kg)`;
+          }
+        }
+      }
+    }
+
     planData = {
       harmonyScore: Math.round((Number(half1.harmonyScore ?? 70) + Number(half2.harmonyScore ?? 70)) / 2),
       totalBudgetEstimate: Number(half1.totalBudgetEstimate ?? 0) + Number(half2.totalBudgetEstimate ?? 0),

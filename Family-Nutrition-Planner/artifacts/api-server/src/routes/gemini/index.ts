@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
-import { conversations as conversationsTable, messages as messagesTable, recipesTable } from "@workspace/db";
+import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
@@ -338,7 +338,7 @@ const HFSS_KEYWORDS_BE = Object.keys(HFSS_PROFILE).concat([
 ]);
 
 router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
-  const { message } = req.body as { message?: string };
+  const { message, familyId } = req.body as { message?: string; familyId?: number | null };
   if (!message) { res.status(400).json({ error: "message required" }); return; }
 
   const lower = message.toLowerCase();
@@ -373,6 +373,22 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
     });
     const rebalance_strategy = result.candidates?.[0]?.content?.parts?.[0]?.text
       ?? "Balance with a bowl of dal + vegetables at your next meal, and drink 2 glasses of water to flush excess sodium.";
+
+    // Persist HFSS food log to NutritionLog for longitudinal tracking
+    if (familyId) {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        await db.insert(nutritionLogsTable).values({
+          familyId,
+          logDate: today,
+          mealType: "snack",
+          foodDescription: `[HFSS] ${detectedNames.join(", ")} (${totalKcal}kcal, ${totalSodium}mg Na) | Rebalance: ${rebalance_strategy.slice(0, 300)}`,
+          calories: totalKcal,
+          source: "ai",
+        }).catch(() => { /* non-critical persist */ });
+      } catch { /* non-critical */ }
+    }
+
     res.json({
       isHFSS: true,
       items: detectedNames,

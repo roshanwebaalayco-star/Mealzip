@@ -61,7 +61,7 @@ export default function Chat() {
   const transcribe = useTranscribeVoice();
 
   type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean };
-  type HFSSResult = { isHFSS: boolean; items: string[]; foodLog: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null };
+  type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null };
   const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
   const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
   const pendingHFSSMsg = useRef<{ msgIndex: number; text: string } | null>(null);
@@ -112,8 +112,8 @@ export default function Chat() {
         apiFetch("/api/gemini/hfss-classify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text }),
-        }).then(r => r.json()).then((result: { isHFSS: boolean; items: string[]; rebalanceSuggestion: string | null }) => {
+          body: JSON.stringify({ message: text, familyId: activeFamily?.id ?? null }),
+        }).then(r => r.json()).then((result: HFSSResult) => {
           if (result.isHFSS) {
             setHfssResults(prev => ({ ...prev, [msgIndex]: result }));
             recordHFSSEvent();
