@@ -10,12 +10,14 @@ import { Users, Loader2, Sparkles, ChefHat, Activity, CalendarDays, MessageSquar
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/language-context";
+import MemberEditSheet, { type IMemberProfile } from "@/components/MemberEditSheet";
 
 export default function Dashboard() {
   const { activeFamily, isLoading } = useAppState();
   const seedDemo = useSeedDemoData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [editingMember, setEditingMember] = useState<IMemberProfile | null>(null);
 
   const handleSeedDemo = async () => {
     try {
@@ -402,9 +404,29 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
           </div>
           <div className="space-y-3 relative z-10">
             {familyInfo?.members?.map((member) => (
-              <div
+              <button
                 key={member.id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-white/70 hover:bg-white/80 transition-colors"
+                type="button"
+                onClick={() => setEditingMember({
+                  id: member.id,
+                  familyId: member.familyId,
+                  name: member.name,
+                  role: member.role,
+                  age: member.age,
+                  gender: member.gender,
+                  weightKg: member.weightKg ?? undefined,
+                  heightCm: member.heightCm ?? undefined,
+                  activityLevel: member.activityLevel ?? undefined,
+                  healthConditions: member.healthConditions ?? [],
+                  primaryGoal: member.primaryGoal ?? undefined,
+                  goalPace: member.goalPace ?? "none",
+                  tiffinType: member.tiffinType ?? "none",
+                  religiousRules: member.religiousRules ?? "none",
+                  ingredientDislikes: member.ingredientDislikes ?? [],
+                  nonVegDays: member.nonVegDays ?? [],
+                  calorieTarget: member.calorieTarget ?? undefined,
+                })}
+                className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-white/70 hover:bg-white/80 transition-colors text-left"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/80 to-orange-400 flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
@@ -425,7 +447,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                     ))}
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </motion.div>
@@ -468,6 +490,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
           </div>
         </motion.div>
       </div>
+      <MemberEditSheet key={editingMember?.id ?? 0} member={editingMember} onClose={() => setEditingMember(null)} />
     </motion.div>
   );
 }

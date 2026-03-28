@@ -17,7 +17,7 @@ import { ai } from "@workspace/integrations-gemini-ai";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
 import { resolveDietPreference } from "../../lib/diet-tag.js";
-import { applyIngredientArbitrage } from "../../lib/arbitrage-engine.js";
+import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
 
 const router: IRouter = Router();
 
@@ -126,9 +126,25 @@ const WeekPlanSchema = z.object({
   aiInsights: z.string().optional(),
 }).passthrough();
 
-// Relaxed schema for each half-plan (days 1-4 and days 5-7 are generated independently)
+const HalfMealSlotSchema = z.object({
+  recipeName: z.string().optional(),
+  base_dish_name: z.string().optional(),
+}).passthrough().refine(
+  d => d.recipeName !== undefined || d.base_dish_name !== undefined,
+  { message: "Either recipeName or base_dish_name required" },
+);
+
 const HalfPlanSchema = z.object({
-  days: z.array(z.object({ day: z.string(), meals: z.record(z.unknown()) }).passthrough()).min(1),
+  days: z.array(z.object({
+    day: z.string(),
+    meals: z.object({
+      breakfast: HalfMealSlotSchema,
+      mid_morning: HalfMealSlotSchema,
+      lunch: HalfMealSlotSchema,
+      evening_snack: HalfMealSlotSchema,
+      dinner: HalfMealSlotSchema,
+    }).passthrough(),
+  }).passthrough()).min(1),
 }).passthrough();
 
 async function callGeminiWithJsonRetry(
@@ -724,92 +740,17 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     const days2 = Array.isArray(half2.days) ? half2.days as Array<Record<string, unknown>> : [];
     const allDays = [...days1, ...days2];
 
-    // Extract all ingredient names from ALL meals (both AI-invented and DB-backed) for arbitrage
-    const extractedIngredients = new Set<string>();
-    for (const day of allDays) {
-      const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
-      if (!meals) continue;
-      for (const meal of Object.values(meals)) {
-        const m = meal as Record<string, unknown>;
-        // Plain-string ingredients list (both AI and DB recipes may have this)
-        if (Array.isArray(m.ingredients)) {
-          for (const ing of m.ingredients as string[]) {
-            const cleaned = String(ing).replace(/^\d+[\w.]*\s*/, "").split(" ")[0];
-            if (cleaned.length > 2) extractedIngredients.add(cleaned);
-          }
-        }
-        // Structured base_ingredients (AI-invented slots)
-        if (Array.isArray(m.base_ingredients)) {
-          for (const bi of m.base_ingredients as Array<{ ingredient?: string }>) {
-            if (bi.ingredient && bi.ingredient.length > 2) extractedIngredients.add(bi.ingredient.split(" ")[0]);
-          }
-        }
-        if (typeof m.recipeName === "string") {
-          m.recipeName.split(/\s+/).forEach(w => { if (w.length > 3) extractedIngredients.add(w); });
-        }
-      }
-    }
-    const arbitrageResult = applyIngredientArbitrage([...extractedIngredients]);
-    const arbitrageNote = arbitrageResult.hasArbitrage && arbitrageResult.alertMessage
-      ? ` 💡 ${arbitrageResult.alertMessage}`
+    const { optimizedPlan, totalSaved, planModifications } = applyArbitrageToPlan(allDays);
+    const arbitrageNote = planModifications.length > 0
+      ? ` 💡 Mandi-optimized: ${planModifications.map(m => `${m.original}→${m.substituted}`).slice(0, 3).join(", ")} — save ₹${Math.round(totalSaved)}/kg`
       : "";
-
-    // Mutate ALL meal ingredient representations in-place (AI-invented AND DB-backed)
-    if (arbitrageResult.hasArbitrage && arbitrageResult.swaps.length > 0) {
-      for (const day of allDays) {
-        const meals = (day as Record<string, unknown>).meals as Record<string, unknown> | undefined;
-        if (!meals) continue;
-        for (const mealKey of Object.keys(meals)) {
-          const meal = meals[mealKey] as Record<string, unknown>;
-          const substitutions: string[] = [];
-
-          // Mutate plain-string ingredients (both AI and DB recipes)
-          if (Array.isArray(meal.ingredients)) {
-            meal.ingredients = (meal.ingredients as string[]).map((ing: string) => {
-              let result = ing;
-              for (const swap of arbitrageResult.swaps) {
-                const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
-                if (re.test(result)) {
-                  result = result.replace(new RegExp(`\\b${swap.originalIngredient}\\b`, "gi"), swap.substitutedIngredient);
-                  if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
-                }
-              }
-              return result;
-            });
-          }
-
-          // Mutate structured base_ingredients (AI-invented slots with canonical objects)
-          if (Array.isArray(meal.base_ingredients)) {
-            meal.base_ingredients = (meal.base_ingredients as Array<Record<string, unknown>>).map(bi => {
-              const name = String(bi.ingredient ?? "");
-              for (const swap of arbitrageResult.swaps) {
-                const re = new RegExp(`\\b${swap.originalIngredient}\\b`, "gi");
-                if (re.test(name)) {
-                  if (!substitutions.includes(swap.originalIngredient)) substitutions.push(swap.originalIngredient);
-                  return { ...bi, ingredient: name.replace(re, swap.substitutedIngredient) };
-                }
-              }
-              return bi;
-            });
-          }
-
-          if (substitutions.length > 0) {
-            const swapNote = substitutions.map(s => {
-              const sw = arbitrageResult.swaps.find(x => x.originalIngredient.toLowerCase() === s.toLowerCase());
-              return sw ? `${sw.originalIngredient}→${sw.substitutedIngredient}` : s;
-            }).join(", ");
-            (meals[mealKey] as Record<string, unknown>)._arbitrageNote = `Mandi-optimized: ${swapNote} (save ₹${Math.round(arbitrageResult.totalSaved)}/kg)`;
-          }
-        }
-      }
-    }
 
     const mergedCandidate = {
       harmonyScore: Math.round((Number(half1.harmonyScore ?? 70) + Number(half2.harmonyScore ?? 70)) / 2),
       totalBudgetEstimate: Number(half1.totalBudgetEstimate ?? 0) + Number(half2.totalBudgetEstimate ?? 0),
       aiInsights: (half1.aiInsights ?? half2.aiInsights ?? "") + arbitrageNote,
-      days: allDays,
-      ...(arbitrageResult.hasArbitrage ? { arbitrageSwaps: arbitrageResult.swaps, arbitrageSaving: arbitrageResult.totalSaved } : {}),
+      days: optimizedPlan,
+      ...(planModifications.length > 0 ? { arbitrageMods: planModifications, arbitrageSaving: totalSaved } : {}),
     };
 
     // Validate full merged plan against strict schema before accepting

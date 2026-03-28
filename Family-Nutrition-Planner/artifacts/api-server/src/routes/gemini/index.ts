@@ -307,23 +307,6 @@ router.post("/gemini/generate-image", async (req, res): Promise<void> => {
   }
 });
 
-// ── HFSS Classifier ──────────────────────────────────────────────
-// Threshold policy: multi-factor model (FSSAI 2022 / UK FSA aligned).
-// ANY of these conditions triggers HFSS classification:
-//   High in Energy: kcal_per_100g   > 250
-//   High in Fat:    fat_g_per_100g  > 20
-//   High in Salt:   sodium_mg_per_serve > 600  (≈1500 mg sodium/100g, stricter than WHO 2g/serve)
-//   High in Sugar:  sugar_g_per_100g > 22.5
-// Note: the "sodium > 2000 mg/serve" threshold cited in some drafts is a per-day-equivalent
-// target (ICMR-NIN 2024 cap), not a per-serve HFSS cut-off. The 600 mg/serve threshold
-// is the correct per-serve HFSS boundary per FSSAI draft food labelling regulations.
-
-// NOVA food classification groups (Monteiro et al. 2019 / ICMR-NIN 2024):
-//   1 = Unprocessed/minimally processed (dal, rice, vegetables, fruits, milk, plain meat)
-//   2 = Processed culinary ingredients (oil, sugar, salt, flour, ghee)
-//   3 = Processed foods (bread, cheese, canned fish, salted nuts, pickles)
-//   4 = Ultra-processed products (chips, cola, instant noodles, packaged snacks, biscuits, candies)
-
 const HFSS_EXTRACTION_PROMPT = (msg: string) => `You are a food composition expert trained on ICMR-NIN, FSSAI, and NOVA classification databases.
 
 Analyse this message and extract EVERY food/beverage item mentioned (including brand names, street foods, snacks, drinks):

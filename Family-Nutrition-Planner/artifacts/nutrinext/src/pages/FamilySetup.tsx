@@ -13,27 +13,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
 import VoiceAssistantModal from "@/components/VoiceAssistantModal";
 import type { VoiceFormData } from "@/hooks/use-voice-assistant";
+import type { IMemberProfileFields } from "@/components/MemberEditSheet";
 
-type MemberDraft = {
+type MemberDraft = Omit<IMemberProfileFields, "age"> & {
   _id: number;
-  name: string;
-  role: string;
   age: number | "";
-  gender: string;
-  weightKg: number;
-  heightCm: number;
-  activityLevel: string;
-  healthConditions: string[];
-  dietaryRestrictions: string[];
   healthGoal: string;
   dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
-  goalPace: string;
-  tiffinType: string;
-  religiousRules: string;
-  ingredientDislikes: string[];
-  nonVegDays: string[];
   nonVegTypes: string[];
 };
 

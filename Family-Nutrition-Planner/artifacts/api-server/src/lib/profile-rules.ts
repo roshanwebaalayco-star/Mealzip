@@ -1,4 +1,4 @@
-export interface MemberProfileInput {
+export interface IMemberProfile {
   age?: number;
   gender?: string;
   weightKg?: number;
@@ -7,7 +7,14 @@ export interface MemberProfileInput {
   primary_goal?: string;
   goalPace?: string;
   healthConditions?: string[];
+  ingredientDislikes?: string[];
+  nonVegDays?: string[];
+  tiffinType?: string;
+  religiousRules?: string;
 }
+
+/** @deprecated use IMemberProfile */
+export type MemberProfileInput = IMemberProfile;
 
 export interface MemberProfileOutput {
   primary_goal?: string;
