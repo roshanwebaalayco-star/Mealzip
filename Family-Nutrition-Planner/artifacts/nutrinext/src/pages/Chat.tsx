@@ -59,7 +59,7 @@ export default function Chat() {
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
 
-  type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean; kcal_per_100g?: number; sodium_mg_per_serve?: number; fat_g_per_100g?: number; sugar_g_per_100g?: number };
+  type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean; nova_group?: number; kcal_per_100g?: number; sodium_mg_per_serve?: number; fat_g_per_100g?: number; sugar_g_per_100g?: number };
   type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null; patchedSlot?: { day: string; mealType: string; planId: number } | null };
   const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
   const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
@@ -267,8 +267,14 @@ export default function Chat() {
                     <div className="flex flex-wrap gap-1 mb-2">
                       {hfssResults[i].foodLog && hfssResults[i].foodLog.length > 0
                         ? hfssResults[i].foodLog.map(f => (
-                            <span key={f.food} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[9px] font-medium capitalize">
-                              {f.food} <span className="opacity-70">{f.kcal_per_serve}kcal</span>
+                            <span key={f.food} className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[9px] font-medium capitalize">
+                              {f.food}
+                              <span className="opacity-70">{f.kcal_per_serve}kcal</span>
+                              {f.nova_group && (
+                                <span className={`text-[8px] font-bold px-1 rounded ${f.nova_group === 4 ? "bg-red-700 text-white" : f.nova_group === 3 ? "bg-orange-500 text-white" : "bg-green-600 text-white"}`}>
+                                  N{f.nova_group}
+                                </span>
+                              )}
                             </span>
                           ))
                         : hfssResults[i].items.map(item => (

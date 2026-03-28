@@ -564,28 +564,6 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     ? `\n🏠 PANTRY ITEMS (already at home): ${pantryIngredients.join(", ")}.\nPREFER recipes that use these ingredients to minimise shopping. Incorporate them into breakfast/lunch/dinner where nutritionally appropriate.\n`
     : "";
 
-  const weeklyContextNote = weeklyContext ? (() => {
-    const lines: string[] = ["\n📋 THIS WEEK'S CONTEXT (overrides permanent profile):"];
-    if (weeklyContext.budget_inr) lines.push(`• Weekly budget this week: ₹${weeklyContext.budget_inr} (may differ from default)`);
-    if (weeklyContext.dining_out_freq) lines.push(`• Dining out ${weeklyContext.dining_out_freq} times this week — plan remaining ${7 - weeklyContext.dining_out_freq} days tightly`);
-    if (weeklyContext.weekday_prep_time) lines.push(`• Weekday cook time: ${weeklyContext.weekday_prep_time}`);
-    if (weeklyContext.weekend_prep_time) lines.push(`• Weekend cook time: ${weeklyContext.weekend_prep_time}`);
-    if (weeklyContext.special_request) lines.push(`• Special request: ${weeklyContext.special_request}`);
-    if (weeklyContext.member_overrides) {
-      for (const [_key, overrides] of Object.entries(weeklyContext.member_overrides)) {
-        const memberName = members.find(m => m.id === overrides.memberId)?.name ?? `member#${overrides.memberId}`;
-        const parts: string[] = [];
-        if (overrides.feeling_this_week) parts.push(`feeling ${overrides.feeling_this_week}`);
-        if (overrides.fasting_days?.length) parts.push(`fasting ${overrides.fasting_days.join(", ")}`);
-        if (overrides.tiffin_override) parts.push("tiffin this week");
-        if (overrides.spice_override) parts.push(`spice: ${overrides.spice_override}`);
-        if (parts.length > 0) lines.push(`• ${memberName} this week: ${parts.join("; ")}`);
-      }
-    }
-    lines.push("Apply these context overrides ON TOP of the permanent profile above.\n");
-    return lines.join("\n");
-  })() : "";
-
   const feedbackNote = dislikedMeals.length > 0
     ? `\nPREVIOUS FEEDBACK - AVOID these types:\n${dislikedMeals.slice(0, 10).join("\n")}\nCONTINUE these popular meals:\n${likedMeals.slice(0, 5).join("\n")}\n`
     : "";

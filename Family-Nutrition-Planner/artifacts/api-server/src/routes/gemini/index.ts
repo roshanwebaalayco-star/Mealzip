@@ -315,12 +315,18 @@ router.post("/gemini/generate-image", async (req, res): Promise<void> => {
 //   High in Energy: kcal_per_100g   > 250
 // A food is classified HFSS if it meets ANY of the above.
 
-const HFSS_EXTRACTION_PROMPT = (msg: string) => `You are a food composition expert trained on ICMR-NIN and FSSAI databases.
+// NOVA food classification groups (Monteiro et al. 2019 / ICMR-NIN 2024):
+//   1 = Unprocessed/minimally processed (dal, rice, vegetables, fruits, milk, plain meat)
+//   2 = Processed culinary ingredients (oil, sugar, salt, flour, ghee)
+//   3 = Processed foods (bread, cheese, canned fish, salted nuts, pickles)
+//   4 = Ultra-processed products (chips, cola, instant noodles, packaged snacks, biscuits, candies)
+
+const HFSS_EXTRACTION_PROMPT = (msg: string) => `You are a food composition expert trained on ICMR-NIN, FSSAI, and NOVA classification databases.
 
 Analyse this message and extract EVERY food/beverage item mentioned (including brand names, street foods, snacks, drinks):
 "${msg}"
 
-For each food item, estimate its nutritional composition and return ONLY this JSON (no prose, no markdown):
+For each food item, estimate its nutritional composition and NOVA group, then return ONLY this JSON (no prose, no markdown):
 {
   "foods": [
     {
@@ -329,12 +335,19 @@ For each food item, estimate its nutritional composition and return ONLY this JS
       "sodium_mg_per_serve": number,
       "fat_g_per_100g": number,
       "sugar_g_per_100g": number,
+      "nova_group": number,
       "is_hfss": boolean
     }
   ]
 }
 
-Classification rules (mark is_hfss=true if ANY threshold met):
+NOVA group rules:
+- nova_group=1: Unprocessed/minimally processed (dal, rice, roti, vegetables, fruit, plain curd, milk, eggs, plain meat/fish)
+- nova_group=2: Processed culinary ingredients (oil, ghee, sugar, salt, flour, tamarind, spices)
+- nova_group=3: Processed foods (bread, paneer, cheese, canned items, salted nuts, pickles, poha, chivda)
+- nova_group=4: Ultra-processed (chips, namkeen packet, cola, coke, instant noodles, biscuits, packaged sweets, ice cream, burger, pizza)
+
+HFSS rules (mark is_hfss=true if ANY threshold met):
 - kcal_per_100g > 250
 - sodium_mg_per_serve > 600
 - fat_g_per_100g > 20
@@ -375,25 +388,33 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       sodium_mg_per_serve: number;
       fat_g_per_100g: number;
       sugar_g_per_100g: number;
+      nova_group: number;
       is_hfss: boolean;
     }> = [];
 
     try {
       const rawText = extractResult.text ?? "{}";
       const parsed = JSON.parse(rawText.includes("{") ? rawText.slice(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1) : "{}") as { foods?: typeof extractedFoods };
-      extractedFoods = (parsed.foods ?? []).map(f => ({
-        name: String(f.name ?? ""),
-        kcal_per_100g: Number(f.kcal_per_100g ?? 0),
-        sodium_mg_per_serve: Number(f.sodium_mg_per_serve ?? 0),
-        fat_g_per_100g: Number(f.fat_g_per_100g ?? 0),
-        sugar_g_per_100g: Number(f.sugar_g_per_100g ?? 0),
-        is_hfss: Boolean(
+      extractedFoods = (parsed.foods ?? []).map(f => {
+        const isHfss = Boolean(
           (f.kcal_per_100g ?? 0) > 250 ||
           (f.sodium_mg_per_serve ?? 0) > 600 ||
           (f.fat_g_per_100g ?? 0) > 20 ||
           (f.sugar_g_per_100g ?? 0) > 22.5,
-        ),
-      }));
+        );
+        const rawNova = Number(f.nova_group ?? 0);
+        // If Gemini returns NOVA group, use it; otherwise infer from HFSS flag
+        const nova_group = (rawNova >= 1 && rawNova <= 4) ? rawNova : (isHfss ? 4 : 1);
+        return {
+          name: String(f.name ?? ""),
+          kcal_per_100g: Number(f.kcal_per_100g ?? 0),
+          sodium_mg_per_serve: Number(f.sodium_mg_per_serve ?? 0),
+          fat_g_per_100g: Number(f.fat_g_per_100g ?? 0),
+          sugar_g_per_100g: Number(f.sugar_g_per_100g ?? 0),
+          nova_group,
+          is_hfss: isHfss,
+        };
+      });
     } catch { /* leave extractedFoods empty */ }
 
     if (extractedFoods.length === 0) {
@@ -409,6 +430,7 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       sodium_mg_per_serve: f.sodium_mg_per_serve,
       fat_g_per_100g: f.fat_g_per_100g,
       sugar_g_per_100g: f.sugar_g_per_100g,
+      nova_group: f.nova_group,
       is_hfss: f.is_hfss,
       // Legacy aliases expected by Chat.tsx
       kcal_per_serve: f.kcal_per_100g,

@@ -751,8 +751,12 @@ export default function Grocery() {
                   <tbody>
                     {items.map((item, i) => {
                       const checkKey = `${item.category}-${i}`;
+                      const swapKey = `${latest.id}-${i}`;
                       const isChecked = checkedItems.has(checkKey);
-                      const displayName = lang === "hi" && item.nameHindi ? item.nameHindi : item.name;
+                      const isSwapped = !!swappedItems[swapKey];
+                      const dbSwap = dbSwaps[swapKey];
+                      const originalName = lang === "hi" && item.nameHindi ? item.nameHindi : item.name;
+                      const displayCost = isSwapped && dbSwap ? dbSwap.cost : item.estimatedCost;
                       return (
                         <tr key={checkKey} className={`border-t border-muted/50 transition-all ${isChecked ? "opacity-40 bg-muted/20" : "hover:bg-muted/10"}`}>
                           <td className="px-3 py-2">
@@ -763,12 +767,20 @@ export default function Grocery() {
                             </button>
                           </td>
                           <td className="px-3 py-2">
-                            <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>{displayName}</div>
+                            {isSwapped && dbSwap ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`font-medium text-muted-foreground text-sm line-through`}>{originalName}</span>
+                                <span className="text-muted-foreground text-[10px]">→</span>
+                                <span className={`font-medium text-green-700 text-sm ${isChecked ? "line-through" : ""}`}>{dbSwap.name}</span>
+                              </div>
+                            ) : (
+                              <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>{originalName}</div>
+                            )}
                             <div className="text-[10px] text-muted-foreground">{item.category}</div>
                           </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.quantity}</td>
                           <td className="px-3 py-2 text-right font-semibold text-foreground/80 whitespace-nowrap">
-                            ₹{item.estimatedCost}
+                            ₹{displayCost}
                           </td>
                           <td className="px-3 py-2 text-[10px] text-primary/70 italic max-w-[180px]">
                             {item.healthRationale || "—"}
@@ -822,9 +834,21 @@ export default function Grocery() {
                           </button>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-medium text-sm ${isChecked ? "line-through" : ""} ${isSwapped ? "text-green-700" : ""}`}>
-                                {displayName}
-                              </span>
+                              {isSwapped && dbSwap ? (
+                                <>
+                                  <span className="font-medium text-sm text-muted-foreground line-through">
+                                    {lang === "hi" && item.nameHindi ? item.nameHindi : item.name}
+                                  </span>
+                                  <span className="text-muted-foreground text-[10px]">→</span>
+                                  <span className={`font-medium text-sm text-green-700 ${isChecked ? "line-through" : ""}`}>
+                                    {dbSwap.name}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className={`font-medium text-sm ${isChecked ? "line-through" : ""}`}>
+                                  {displayName}
+                                </span>
+                              )}
                               <span className="text-xs text-muted-foreground">{item.quantity}</span>
                               {item.priority === "essential" && (
                                 <Badge className="text-[10px] py-0 px-1.5 h-4 bg-primary/20 text-primary border-primary/30">
