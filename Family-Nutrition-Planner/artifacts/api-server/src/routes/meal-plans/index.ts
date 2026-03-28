@@ -69,17 +69,24 @@ const GEMINI_JSON_CRITICAL_SUFFIX = `
 CRITICAL REMINDER: Return ONLY raw valid JSON. No markdown fences, no backticks, no prose before or after. The response must start with { and end with }.`;
 
 // Strict week-plan output schema — validated before persisting to DB
+// Accepts both legacy (recipeName/member_plates) and canonical (base_dish_name/member_adjustments) field names
 const MealSlotSchema = z.object({
-  recipeName: z.string(),
+  recipeName: z.string().optional(),
+  base_dish_name: z.string().optional(),
   recipeId: z.number().nullable().optional(),
   nameHindi: z.string().optional(),
   calories: z.number().optional(),
   estimatedCost: z.number().optional(),
   icmr_rationale: z.string().optional(),
   member_plates: z.record(z.unknown()).optional(),
+  member_adjustments: z.record(z.unknown()).optional(),
+  base_ingredients: z.array(z.union([z.string(), z.object({ ingredient: z.string(), qty_grams: z.number().optional() }).passthrough()])).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
-}).passthrough();
+}).passthrough().refine(
+  data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
+  { message: "Either recipeName or base_dish_name must be present" },
+);
 
 const DayPlanSchema = z.object({
   day: z.string(),
@@ -657,9 +664,11 @@ SECTION 3 — ICMR-NIN 2024 CLINICAL GUARDRAILS (always enforce)
 
 OUTPUT RULES — BE TERSE, minimize text length:
 - 5 meals per day: breakfast, mid_morning, lunch, evening_snack, dinner
-- For DB recipes (recipeId≠null): omit ingredients & instructions (fetched from DB)
-- For AI recipes (recipeId=null): include ingredients (4+ items with quantities) and instructions (3 steps, ≤10 words each)
-- member_plates: only for members with specific health needs; max 2 items per list
+- ONE BASE MANY PLATES: base_dish_name is the single shared dish; member_adjustments shows per-member customisations
+- base_dish_name: canonical dish name (also include as recipeName for backward compat)
+- For DB recipes (recipeId≠null): omit ingredients; include base_dish_name + recipeName
+- For AI recipes (recipeId=null): include both base_ingredients (structured: [{ingredient, qty_grams}]) AND ingredients (plain strings); add instructions (3 steps, ≤10 words each)
+- member_adjustments: per-member customisations as {MemberName:{add:[{ingredient,qty_grams}],reduce:[string],avoid:[string]}}; only for members with specific health needs; also include as member_plates for compat
 - icmr_rationale: ≤8 words
 - nameHindi: required
 - aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
@@ -672,11 +681,11 @@ ${masterPromptSection3}
 EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
 {"harmonyScore":85,"totalBudgetEstimate":1400,"aiInsights":"<brief>","days":[
 {"day":"Monday","isFastingDay":false,"dailyHarmonyScore":82,"dailyNutrition":{"calories":1900,"protein":65,"carbs":280,"fat":55,"fiber":28},"meals":{
-"breakfast":{"recipeId":123,"recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"icmr_rationale":"Complex carbs, morning energy","member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
-"mid_morning":{"recipeId":null,"recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"icmr_rationale":"Potassium, sustained energy","ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_plates":{}},
-"lunch":{"recipeId":456,"recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"icmr_rationale":"Protein, iron, fiber","member_plates":{}},
-"evening_snack":{"recipeId":null,"recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"icmr_rationale":"Probiotics, calcium","ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_plates":{}},
-"dinner":{"recipeId":789,"recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"icmr_rationale":"Iron, calcium, protein","member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
+"breakfast":{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"icmr_rationale":"Complex carbs, morning energy","member_adjustments":{"Ramesh":{"add":[{"ingredient":"egg","qty_grams":55}],"reduce":[],"avoid":[]}},"member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
+"mid_morning":{"recipeId":null,"base_dish_name":"Banana Peanut Chikki","recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"icmr_rationale":"Potassium, sustained energy","base_ingredients":[{"ingredient":"banana","qty_grams":120},{"ingredient":"peanut chikki","qty_grams":50}],"ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_adjustments":{},"member_plates":{}},
+"lunch":{"recipeId":456,"base_dish_name":"Dal Tadka Roti","recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"icmr_rationale":"Protein, iron, fiber","member_adjustments":{},"member_plates":{}},
+"evening_snack":{"recipeId":null,"base_dish_name":"Masala Chaas","recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"icmr_rationale":"Probiotics, calcium","base_ingredients":[{"ingredient":"curd","qty_grams":200},{"ingredient":"cumin","qty_grams":2},{"ingredient":"water","qty_grams":100}],"ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_adjustments":{},"member_plates":{}},
+"dinner":{"recipeId":789,"base_dish_name":"Palak Paneer Jeera Rice","recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"icmr_rationale":"Iron, calcium, protein","member_adjustments":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
 }}]}`;
 
   const promptHalf1 = promptPreamble + `

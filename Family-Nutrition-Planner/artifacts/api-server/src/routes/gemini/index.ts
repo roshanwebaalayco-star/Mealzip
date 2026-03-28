@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, lte, or } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
 import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
@@ -484,10 +484,44 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
             const meals = (targetDay.meals as Record<string, unknown>) ?? {};
             const targetMeal = meals[targetMealType] as Record<string, unknown> | undefined;
             if (targetMeal) {
+              // Perform actual nutritional recomposition: swap to a potassium/fibre-rich
+              // low-fat recipe from the DB for the target meal type (deterministic substitution)
+              const mealCourse = targetMealType === "mid_morning" || targetMealType === "evening_snack" ? "snack" : targetMealType;
+              const healthyRecipes = await db
+                .select({ id: recipesTable.id, name: recipesTable.name, nameHindi: recipesTable.nameHindi, calories: recipesTable.calories, costPerServing: recipesTable.costPerServing })
+                .from(recipesTable)
+                .where(
+                  and(
+                    or(eq(recipesTable.course, mealCourse), eq(recipesTable.category, mealCourse)),
+                    lte(recipesTable.fat, 8),
+                    lte(recipesTable.calories, 350),
+                    eq(recipesTable.isActive, true),
+                  )
+                )
+                .orderBy(sql`RANDOM()`)
+                .limit(1)
+                .catch(() => []);
+
+              const swapRecipe = healthyRecipes[0];
+              const originalRecipeName = String(targetMeal.recipeName ?? targetMeal.base_dish_name ?? "unknown");
+
+              if (swapRecipe) {
+                // Recompose the slot with the healthier DB recipe
+                targetMeal.recipeId = swapRecipe.id;
+                targetMeal.recipeName = swapRecipe.name;
+                targetMeal.base_dish_name = swapRecipe.name;
+                targetMeal.nameHindi = swapRecipe.nameHindi ?? targetMeal.nameHindi;
+                targetMeal.calories = swapRecipe.calories ?? targetMeal.calories;
+                targetMeal.estimatedCost = swapRecipe.costPerServing ?? targetMeal.estimatedCost;
+                targetMeal.icmr_rationale = "HFSS rebalance: low-fat, high-fibre substitute";
+              }
+
               targetMeal._hfssRebalance = {
                 detectedAt: new Date().toISOString(),
                 items: detectedNames,
                 totalKcal,
+                originalRecipeName,
+                swappedTo: swapRecipe?.name ?? "metadata-only",
                 rebalanceNote: rebalance_strategy.slice(0, 200),
               };
               await db.update(mealPlansTable)

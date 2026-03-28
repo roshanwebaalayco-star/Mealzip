@@ -316,6 +316,7 @@ export default function FamilySetup() {
               healthConditions: member.healthConditions.filter(c => c !== "none"),
               dietaryRestrictions: enrichedDietaryRestrictions,
               allergies: allergyList,
+              primaryGoal: member.healthGoal !== "general_wellness" ? member.healthGoal : undefined,
               goalPace: member.goalPace !== "none" ? member.goalPace : undefined,
               tiffinType: member.tiffinType !== "none" ? member.tiffinType : undefined,
               religiousRules: member.religiousRules !== "none" ? member.religiousRules : undefined,
