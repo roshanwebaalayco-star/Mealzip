@@ -473,11 +473,15 @@ export const GenerateMealPlanBody = zod.object({
       special_request: zod.string().optional(),
       member_overrides: zod.record(zod.string(), zod.object({
         memberId: zod.number().describe("ID of the family member (key is String(memberId))"),
-        feeling_this_week: zod.enum(["great", "tired", "stressed", "unwell", "active"]).optional(),
+        feeling_this_week: zod.string().optional().describe("Free-text wellness note for the week"),
         fasting_days: zod.array(zod.string()).optional(),
         tiffin_override: zod.boolean().optional(),
         spice_override: zod.enum(["mild", "medium", "spicy"]).optional(),
+        weight_kg: zod.number().optional().describe("Current weight update for calorie target recalculation"),
+        nonveg_days_override: zod.array(zod.string()).optional().describe("Non-veg days override for this week"),
+        nonveg_type_override: zod.string().optional().describe("Non-veg type for this week (chicken/fish/eggs/mutton/any)"),
       })).optional(),
+      pantry_items: zod.array(zod.string()).optional().describe("Ingredients already at home; prefer recipes using these"),
     })
     .optional()
     .describe("Weekly context overrides for this generation — what is different from the permanent profile this week."),

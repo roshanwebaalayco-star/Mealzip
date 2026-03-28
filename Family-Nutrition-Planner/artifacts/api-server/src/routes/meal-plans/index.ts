@@ -601,7 +601,10 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
   }));
 
-  const pantryIngredients = preferences?.pantryIngredients ?? [];
+  const pantryIngredients = [
+    ...(preferences?.pantryIngredients ?? []),
+    ...(weeklyContext?.pantry_items ?? []),
+  ];
   const festivalType = preferences?.festivalType;
 
   const fastingNote = isFasting
@@ -665,16 +668,19 @@ SECTION 2 — WEEKLY CONTEXT OVERRIDES (highest priority this week)
 These OVERRIDE the static profile above for THIS WEEK ONLY.
 ${weeklyContext.special_request ? `⭐ SPECIAL REQUEST (MUST satisfy — highest override priority): ${weeklyContext.special_request}` : ""}
 ${weeklyContext.budget_inr ? `• Weekly budget this week: ₹${weeklyContext.budget_inr} (overrides default ₹${weeklyBudget})` : ""}
-${weeklyContext.dining_out_freq ? `• Dining out ${weeklyContext.dining_out_freq} times — plan only ${7 - weeklyContext.dining_out_freq} cooked days` : ""}
+${weeklyContext.dining_out_freq ? `• Eating out approximately ${weeklyContext.dining_out_freq} meal occasion(s) this week — plan ${Math.max(3, 7 - weeklyContext.dining_out_freq)} home-cooked days, fewer if eating out frequently` : ""}
 ${weeklyContext.weekday_prep_time ? `• Weekday cook time: ${weeklyContext.weekday_prep_time}` : ""}
 ${weeklyContext.weekend_prep_time ? `• Weekend cook time: ${weeklyContext.weekend_prep_time}` : ""}
 ${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([_key, ov]) => {
-  const memberName = members.find(m => m.id === ov.memberId)?.name ?? `member#${ov.memberId}`;
+  const member = members.find(m => m.id === ov.memberId);
+  const memberName = member?.name ?? `member#${ov.memberId}`;
   const parts: string[] = [];
   if (ov.feeling_this_week) parts.push(`feeling ${ov.feeling_this_week}`);
-  if (ov.fasting_days?.length) parts.push(`fasting ${ov.fasting_days.join(", ")}`);
+  if (ov.fasting_days?.length) parts.push(`fasting on ${ov.fasting_days.join(", ")}`);
   if (ov.tiffin_override) parts.push("tiffin needed");
   if (ov.spice_override) parts.push(`spice level: ${ov.spice_override}`);
+  if (ov.weight_kg) parts.push(`current weight ${ov.weight_kg}kg — recalculate calorie target accordingly`);
+  if (ov.nonveg_days_override?.length) parts.push(`non-veg allowed on ${ov.nonveg_days_override.join(", ")} (type: ${ov.nonveg_type_override ?? "any"})`);
   return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
 ${fastingNote}${pantryNote}`.trim() : `

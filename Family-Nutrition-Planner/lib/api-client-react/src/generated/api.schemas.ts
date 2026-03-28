@@ -196,10 +196,17 @@ export type GenerateMealPlanBodyPreferences = {
 
 export interface WeeklyContextMemberOverride {
   memberId: number;
-  feeling_this_week?: "great" | "tired" | "stressed" | "unwell" | "active";
+  /** Free-text wellness note for the week */
+  feeling_this_week?: string;
   fasting_days?: string[];
   tiffin_override?: boolean;
   spice_override?: "mild" | "medium" | "spicy";
+  /** Current weight update for calorie target recalculation */
+  weight_kg?: number;
+  /** Non-veg day overrides for this week */
+  nonveg_days_override?: string[];
+  /** Non-veg type for this week (chicken/fish/eggs/mutton/any) */
+  nonveg_type_override?: string;
 }
 
 export interface WeeklyContext {
@@ -212,6 +219,8 @@ export interface WeeklyContext {
   special_request?: string;
   /** Keys are memberId as string (e.g. "42") */
   member_overrides?: Record<string, WeeklyContextMemberOverride>;
+  /** Ingredients already at home; prefer recipes using these */
+  pantry_items?: string[];
 }
 
 export interface GenerateMealPlanBody {
