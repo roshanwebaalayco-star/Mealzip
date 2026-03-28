@@ -39,7 +39,7 @@ interface Props {
   isPending?: boolean;
 }
 
-const LS_KEY = (familyId: number) => `nutrinext_weekly_context_${familyId}`;
+const LS_KEY = (_familyId: number) => `nutrinext_weekly_context`;
 
 const FASTING_OPTIONS = [
   { id: "monday", label: "Monday", hi: "सोमवार" },
@@ -107,6 +107,10 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
 
   const handleGenerate = () => {
     onGenerate(isFasting, ctx);
+  };
+
+  const handleSkip = () => {
+    onGenerate(false, { budget_inr: Math.round(defaultBudget / 4) });
   };
 
   return (
@@ -349,22 +353,31 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-border px-6 py-4 flex gap-3">
-              <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11" disabled={isPending}>
-                {t("Cancel", "रद्द करें")}
-              </Button>
+            <div className="sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-border px-6 py-4 space-y-2">
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11" disabled={isPending}>
+                  {t("Cancel", "रद्द करें")}
+                </Button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isPending}
+                  className="btn-liquid flex-[2] inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
+                >
+                  {isPending ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : <Sparkles className="w-4 h-4" />}
+                  {t("Generate Plan", "योजना बनाएं")}
+                </button>
+              </div>
               <button
-                onClick={handleGenerate}
+                onClick={handleSkip}
                 disabled={isPending}
-                className="btn-liquid flex-[2] inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1 disabled:opacity-40"
               >
-                {isPending ? (
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : <Sparkles className="w-4 h-4" />}
-                {t("Generate Plan", "योजना बनाएं")}
+                {t("Skip & use defaults", "छोड़ें और डिफ़ॉल्ट उपयोग करें")}
               </button>
             </div>
           </motion.div>

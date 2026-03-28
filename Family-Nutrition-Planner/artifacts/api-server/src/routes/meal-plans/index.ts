@@ -593,18 +593,65 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     id: r.id, name: r.name, course: r.course, diet: r.diet, cal: r.calories, cost: r.costPerServing,
   }));
 
-  const promptPreamble = `You are ParivarSehat AI — ICMR-NIN 2024 India family nutritionist.
+  // ── Master Prompt Architecture ─────────────────────────────────────────────────
+  // Three explicit labeled sections as per ICMR-NIN 2024 guardrails design pattern.
+  // Section priority order (highest→lowest): WEEKLY CONTEXT OVERRIDES > STATIC PROFILE > CLINICAL GUARDRAILS
+  const masterPromptSection1 = `
+══════════════════════════════════════════════════════════════════
+SECTION 1 — STATIC FAMILY PROFILE (permanent dietary contract)
+══════════════════════════════════════════════════════════════════
+You are ParivarSehat AI — certified ICMR-NIN 2024 India family nutritionist.
 
 Family: ${family.name} from ${family.state} (${zone.toUpperCase()} zone), ${members.length} members.
+Weekly budget: ₹${weeklyBudget} (≤₹${budgetPerMeal * members.length}/meal)
+Cuisine preference: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
 
-MEMBERS: ${JSON.stringify(memberListForPrompt)}
-BUDGET: ₹${weeklyBudget}/week (≤₹${budgetPerMeal * members.length}/meal)
-CUISINE: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
-${festivalContext}${fastingNote}${pantryNote}${weeklyContextNote}${feedbackNote}
-ONE BASE MANY PLATES: Every dinner/lunch = one dish cooked once, plated differently per member's health need. Saves time and cost.
+FAMILY MEMBERS (permanent profile — always apply):
+${JSON.stringify(memberListForPrompt)}
 
-RECIPES (prefer these IDs; recipeId:null = AI-invented):
+AVAILABLE RECIPES (prefer these IDs; recipeId:null = AI-invented):
 ${JSON.stringify(recipeListForPrompt)}
+${festivalContext}${feedbackNote}`.trim();
+
+  const masterPromptSection2 = weeklyContext ? `
+
+══════════════════════════════════════════════════════════════════
+SECTION 2 — WEEKLY CONTEXT OVERRIDES (highest priority this week)
+══════════════════════════════════════════════════════════════════
+These OVERRIDE the static profile above for THIS WEEK ONLY.
+${weeklyContext.special_request ? `⭐ SPECIAL REQUEST (MUST satisfy — highest override priority): ${weeklyContext.special_request}` : ""}
+${weeklyContext.budget_inr ? `• Weekly budget this week: ₹${weeklyContext.budget_inr} (overrides default ₹${weeklyBudget})` : ""}
+${weeklyContext.dining_out_freq ? `• Dining out ${weeklyContext.dining_out_freq} times — plan only ${7 - weeklyContext.dining_out_freq} cooked days` : ""}
+${weeklyContext.weekday_prep_time ? `• Weekday cook time: ${weeklyContext.weekday_prep_time}` : ""}
+${weeklyContext.weekend_prep_time ? `• Weekend cook time: ${weeklyContext.weekend_prep_time}` : ""}
+${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([name, ov]) => {
+  const parts: string[] = [];
+  if (ov.feeling_this_week) parts.push(`feeling ${ov.feeling_this_week}`);
+  if (ov.fasting_days?.length) parts.push(`fasting ${ov.fasting_days.join(", ")}`);
+  if (ov.tiffin_override) parts.push("tiffin needed");
+  if (ov.spice_override) parts.push(`spice level: ${ov.spice_override}`);
+  return parts.length ? `• ${name}: ${parts.join("; ")}` : "";
+}).filter(Boolean).join("\n") : ""}
+${fastingNote}${pantryNote}`.trim() : `
+
+══════════════════════════════════════════════════════════════════
+SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
+══════════════════════════════════════════════════════════════════
+No weekly context provided. Use defaults from Section 1.
+${fastingNote}${pantryNote}`.trim();
+
+  const masterPromptSection3 = `
+
+══════════════════════════════════════════════════════════════════
+SECTION 3 — ICMR-NIN 2024 CLINICAL GUARDRAILS (always enforce)
+══════════════════════════════════════════════════════════════════
+• ONE BASE MANY PLATES: Every dinner/lunch = one dish cooked once, portioned differently per member health need.
+• HFSS AVOIDANCE: Never suggest High-Fat-Sugar-Salt foods (chips, cola, instant noodles, maida deep-fried items). If a member had HFSS today, their next meal must compensate with dal, greens, or high-fibre item.
+• CALORIE TARGETS: Match each member's ICMR-NIN 2024 age/gender caloric target. Under-18 and over-60 must never have a calorie deficit.
+• MICRONUTRIENTS: Ensure iron (women of child-bearing age ≥21mg), calcium (300mg/day minimum), vitamin C source daily.
+• SODIUM: Meals must stay under 2000mg sodium per day per adult; children < 1200mg.
+• DIABETES/BP: Members with diabetes must have meals with GI < 55; hypertension < 1500mg sodium.
+• ALLERGIES: Absolutely zero tolerance for declared allergens. Enforce strictly.
 
 OUTPUT RULES — BE TERSE, minimize text length:
 - 5 meals per day: breakfast, mid_morning, lunch, evening_snack, dinner
@@ -614,7 +661,11 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - icmr_rationale: ≤8 words
 - nameHindi: required
 - aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
-- dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
+- dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)`.trim();
+
+  const promptPreamble = `${masterPromptSection1}
+${masterPromptSection2}
+${masterPromptSection3}
 
 EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
 {"harmonyScore":85,"totalBudgetEstimate":1400,"aiInsights":"<brief>","days":[

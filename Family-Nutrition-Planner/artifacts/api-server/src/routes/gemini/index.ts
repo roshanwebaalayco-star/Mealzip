@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
 import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
@@ -346,14 +346,17 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
   const { message, familyId } = req.body as { message?: string; familyId?: number | null };
   if (!message) { res.status(400).json({ error: "message required" }); return; }
 
-  // Ownership check: if familyId provided, verify it exists before any DB write
+  // Ownership check: familyId must exist AND belong to the authenticated user (prevent IDOR)
   if (familyId) {
     const [family] = await db.select({ id: familiesTable.id })
       .from(familiesTable)
-      .where(eq(familiesTable.id, familyId))
+      .where(and(
+        eq(familiesTable.id, familyId),
+        eq(familiesTable.userId, req.user!.userId),
+      ))
       .limit(1);
     if (!family) {
-      res.status(403).json({ error: "Invalid familyId" });
+      res.status(403).json({ error: "Invalid familyId or access denied" });
       return;
     }
   }
@@ -399,6 +402,7 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
     }
 
     // Step 2: Apply HFSS threshold classification
+    // Include both canonical (per100g) and legacy (per_serve) aliases for FE compatibility
     const foodLog = extractedFoods.map(f => ({
       food: f.name,
       kcal_per_100g: f.kcal_per_100g,
@@ -406,6 +410,10 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       fat_g_per_100g: f.fat_g_per_100g,
       sugar_g_per_100g: f.sugar_g_per_100g,
       is_hfss: f.is_hfss,
+      // Legacy aliases expected by Chat.tsx
+      kcal_per_serve: f.kcal_per_100g,
+      sodium_mg: f.sodium_mg_per_serve,
+      fat_g: f.fat_g_per_100g,
     }));
 
     const hfssFoods = foodLog.filter(f => f.is_hfss);

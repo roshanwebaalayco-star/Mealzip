@@ -70,6 +70,7 @@ interface MealCell {
   memberVariations?: Record<string, string>;
   leftoverChain?: LeftoverStep[];
   icmr_rationale?: string;
+  _hfssRebalance?: { detectedAt: string; items: string[]; totalKcal: number; rebalanceNote: string } | null;
   instructions?: string[];
   ingredients?: string[];
   member_plates?: Record<string, MemberPlate>;
@@ -951,6 +952,9 @@ export default function MealPlan() {
                         <div className="flex flex-wrap gap-1">
                           {cell.isLeftover && (
                             <span className="text-[9px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">♻️ {t("Leftover", "बचा")}</span>
+                          )}
+                          {cell._hfssRebalance && (
+                            <span className="text-[9px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full" title={cell._hfssRebalance.rebalanceNote}>🔄 {t("Rebalanced", "पुनर्संतुलित")}</span>
                           )}
                           {(cell.calories || 0) > 0 && (
                             <span className="text-[9px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{cell.calories} kcal</span>

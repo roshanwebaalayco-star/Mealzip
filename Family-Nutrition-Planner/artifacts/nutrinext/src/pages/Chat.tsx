@@ -60,7 +60,7 @@ export default function Chat() {
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
 
-  type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean };
+  type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean; kcal_per_100g?: number; sodium_mg_per_serve?: number; fat_g_per_100g?: number; sugar_g_per_100g?: number };
   type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null; patchedSlot?: { day: string; mealType: string; planId: number } | null };
   const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
   const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
