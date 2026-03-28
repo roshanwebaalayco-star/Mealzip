@@ -86,8 +86,8 @@ const MealSlotSchema = z.object({
   calories: z.number().optional(),
   estimatedCost: z.number().optional(),
   icmr_rationale: z.string().optional(),
-  member_plates: z.record(z.unknown()).optional(),
-  member_adjustments: z.record(MemberAdjustmentSchema).optional(),
+  member_plates: z.record(z.string(), z.unknown()).optional(),
+  member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   // For AI-invented recipes: structured objects only (no plain strings)
   base_ingredients: z.array(BaseIngredientSchema).optional(),
   // Legacy plain-string ingredients list still accepted for DB recipes
@@ -763,7 +763,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 
     planData = mergedCandidate;
 
-    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: arbitrageResult.swaps.length }, "Parallel meal plan generation succeeded");
+    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: planModifications.length }, "Parallel meal plan generation succeeded");
   } catch (err) {
     clearTimeout(timeoutHandle);
     req.log.error({ err }, "Meal plan generation failed after retry");

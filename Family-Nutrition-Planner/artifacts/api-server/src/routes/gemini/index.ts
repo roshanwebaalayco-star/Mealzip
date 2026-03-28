@@ -335,9 +335,7 @@ NOVA group rules:
 
 HFSS rules (mark is_hfss=true if ANY threshold met):
 - kcal_per_100g > 250
-- sodium_mg_per_serve > 600
-- fat_g_per_100g > 20
-- sugar_g_per_100g > 22.5
+- sodium_mg_per_serve > 2000
 
 If no food items are found, return {"foods": []}.`;
 
@@ -384,9 +382,7 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       extractedFoods = (parsed.foods ?? []).map(f => {
         const isHfss = Boolean(
           (f.kcal_per_100g ?? 0) > 250 ||
-          (f.sodium_mg_per_serve ?? 0) > 600 ||
-          (f.fat_g_per_100g ?? 0) > 20 ||
-          (f.sugar_g_per_100g ?? 0) > 22.5,
+          (f.sodium_mg_per_serve ?? 0) > 2000,
         );
         const rawNova = Number(f.nova_group ?? 0);
         // If Gemini returns NOVA group, use it; otherwise infer from HFSS flag

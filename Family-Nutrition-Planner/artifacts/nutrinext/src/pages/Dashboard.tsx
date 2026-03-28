@@ -17,7 +17,6 @@ export default function Dashboard() {
   const seedDemo = useSeedDemoData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [editingMember, setEditingMember] = useState<IMemberProfile | null>(null);
 
   const handleSeedDemo = async () => {
     try {
@@ -305,6 +304,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
   const { data: familyInfo, isLoading: familyLoading } = useGetFamily(familyId);
   const { data: mealPlans, isLoading: plansLoading } = useListMealPlans({ familyId });
   const { t } = useLanguage();
+  const [editingMember, setEditingMember] = useState<IMemberProfile | null>(null);
 
   const latestPlan = mealPlans?.[0];
 
@@ -418,12 +418,14 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                   heightCm: member.heightCm ?? undefined,
                   activityLevel: member.activityLevel ?? undefined,
                   healthConditions: member.healthConditions ?? [],
+                  dietaryRestrictions: member.dietaryRestrictions ?? [],
                   primaryGoal: member.primaryGoal ?? undefined,
                   goalPace: member.goalPace ?? "none",
                   tiffinType: member.tiffinType ?? "none",
                   religiousRules: member.religiousRules ?? "none",
                   ingredientDislikes: member.ingredientDislikes ?? [],
                   nonVegDays: member.nonVegDays ?? [],
+                  nonVegTypes: (member as { nonVegTypes?: string[] }).nonVegTypes ?? [],
                   calorieTarget: member.calorieTarget ?? undefined,
                 })}
                 className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-white/70 hover:bg-white/80 transition-colors text-left"

@@ -5,7 +5,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
 
@@ -25,6 +28,7 @@ export interface IMemberProfileFields {
   religiousRules?: string;
   ingredientDislikes?: string[];
   nonVegDays?: string[];
+  nonVegTypes?: string[];
   calorieTarget?: number;
 }
 
@@ -57,6 +61,9 @@ interface Props {
   onClose: () => void;
 }
 
+const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const NON_VEG_TYPES = ["chicken", "fish", "mutton", "eggs"];
+
 export default function MemberEditSheet({ member, onClose }: Props) {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -64,9 +71,26 @@ export default function MemberEditSheet({ member, onClose }: Props) {
   const updateMember = useUpdateFamilyMember();
 
   const [form, setForm] = useState<Partial<IMemberProfile>>(member ?? {});
+  const [dislikeInput, setDislikeInput] = useState("");
 
   const set = <K extends keyof IMemberProfile>(key: K, value: IMemberProfile[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
+
+  const toggleArrayItem = (key: "nonVegDays" | "nonVegTypes", item: string) => {
+    const arr = (form[key] ?? []) as string[];
+    set(key, (arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]) as IMemberProfile[typeof key]);
+  };
+
+  const addDislike = () => {
+    const val = dislikeInput.trim().toLowerCase();
+    if (!val) return;
+    const current = form.ingredientDislikes ?? [];
+    if (!current.includes(val)) set("ingredientDislikes", [...current, val]);
+    setDislikeInput("");
+  };
+
+  const removeDislike = (item: string) =>
+    set("ingredientDislikes", (form.ingredientDislikes ?? []).filter(d => d !== item));
 
   if (!member) return null;
 
@@ -90,6 +114,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           religiousRules: (form.religiousRules as "none" | "no_beef" | "no_pork" | "sattvic" | "jain") ?? "none",
           ingredientDislikes: form.ingredientDislikes,
           nonVegDays: form.nonVegDays,
+          nonVegTypes: form.nonVegTypes,
         },
       });
       queryClient.invalidateQueries({ queryKey: ["/api/families"] });
@@ -101,6 +126,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
   };
 
   const showGoalPace = form.primaryGoal === "weight_loss" || form.primaryGoal === "build_muscle";
+  const isNonVeg = (form.dietaryRestrictions ?? []).every(r => r !== "vegetarian" && r !== "vegan");
 
   return (
     <Sheet open={!!member} onOpenChange={open => { if (!open) onClose(); }}>
@@ -192,6 +218,70 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                 <SelectItem value="jain">{t("Jain", "जैन")}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {isNonVeg && (
+            <>
+              <div>
+                <Label className="text-xs font-semibold">{t("Non-Veg Days", "मांसाहारी दिन")}</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {DAYS_OF_WEEK.map(day => (
+                    <label key={day} className="flex items-center gap-1.5 cursor-pointer">
+                      <Checkbox
+                        checked={(form.nonVegDays ?? []).includes(day)}
+                        onCheckedChange={() => toggleArrayItem("nonVegDays", day)}
+                        className="rounded-md"
+                      />
+                      <span className="text-xs">{day.slice(0, 3)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">{t("Non-Veg Types", "मांसाहार प्रकार")}</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {NON_VEG_TYPES.map(type => (
+                    <label key={type} className="flex items-center gap-1.5 cursor-pointer">
+                      <Checkbox
+                        checked={(form.nonVegTypes ?? []).includes(type)}
+                        onCheckedChange={() => toggleArrayItem("nonVegTypes", type)}
+                        className="rounded-md"
+                      />
+                      <span className="text-xs capitalize">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          <div>
+            <Label className="text-xs font-semibold">{t("Ingredient Dislikes", "नापसंद सामग्री")}</Label>
+            <div className="mt-2 flex gap-2">
+              <Input
+                value={dislikeInput}
+                onChange={e => setDislikeInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addDislike(); } }}
+                placeholder={t("e.g. bitter gourd", "जैसे करेला")}
+                className="h-9 rounded-xl text-sm flex-1"
+              />
+              <Button type="button" size="icon" variant="outline" className="h-9 w-9 rounded-xl shrink-0" onClick={addDislike}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            {(form.ingredientDislikes ?? []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(form.ingredientDislikes ?? []).map(item => (
+                  <Badge key={item} variant="secondary" className="text-xs pr-1 gap-1 rounded-full">
+                    {item}
+                    <button type="button" onClick={() => removeDislike(item)} className="ml-0.5 rounded-full hover:text-destructive">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           <Button
