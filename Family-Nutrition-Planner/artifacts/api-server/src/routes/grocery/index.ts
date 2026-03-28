@@ -34,29 +34,36 @@ router.get("/grocery-lists", async (req, res): Promise<void> => {
 router.post("/grocery-lists/generate", async (req, res): Promise<void> => {
   const parsed = GenerateGrocerySchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten(), retryable: false });
     return;
   }
   const { familyId, mealPlanId, pantryIngredients, updateMode } = parsed.data;
 
-  const [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
-  if (!family) {
-    res.status(404).json({ error: "Family not found" });
-    return;
-  }
+  let family: typeof familiesTable.$inferSelect | undefined;
+  let mealPlan: typeof mealPlansTable.$inferSelect | undefined;
+  try {
+    [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
+    if (!family) {
+      res.status(404).json({ error: "Family not found", retryable: false });
+      return;
+    }
 
-  let mealPlan: typeof import("@workspace/db").mealPlansTable.$inferSelect | undefined;
-  if (mealPlanId) {
-    [mealPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, mealPlanId));
-  } else {
-    const plans = await db.select().from(mealPlansTable)
-      .where(eq(mealPlansTable.familyId, familyId))
-      .orderBy(mealPlansTable.createdAt);
-    mealPlan = plans[plans.length - 1];
-  }
+    if (mealPlanId) {
+      [mealPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.id, mealPlanId));
+    } else {
+      const plans = await db.select().from(mealPlansTable)
+        .where(eq(mealPlansTable.familyId, familyId))
+        .orderBy(mealPlansTable.createdAt);
+      mealPlan = plans[plans.length - 1];
+    }
 
-  if (!mealPlan) {
-    res.status(404).json({ error: "No meal plan found" });
+    if (!mealPlan) {
+      res.status(404).json({ error: "No meal plan found", retryable: false });
+      return;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to load family/meal-plan data", details: msg, retryable: true });
     return;
   }
 
@@ -344,7 +351,7 @@ const ScanPantrySchema = z.object({
 router.post("/pantry/scan-image", async (req, res): Promise<void> => {
   const parsed = ScanPantrySchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed" });
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten(), retryable: false });
     return;
   }
   const { imageBase64, mimeType } = parsed.data;

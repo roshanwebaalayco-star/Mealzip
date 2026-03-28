@@ -93,7 +93,7 @@ async function callGeminiWithJsonRetry(
         if (attempt > 0) log.info({ label, attempt: attempt + 1 }, `${label}: JSON parse succeeded on attempt ${attempt + 1}`);
         return data;
       }
-      lastErr = new Error(`JSON parse failed after 4 strategies — raw length: ${text.length}, preview: ${text.slice(0, 200)}`);
+      lastErr = new Error(`JSON parse failed after 5 strategies — raw length: ${text.length}, preview: ${text.slice(0, 200)}`);
       log.error({ label, attempt: attempt + 1, rawText: text.slice(0, 500) }, `${label}: JSON parse failed on attempt ${attempt + 1}`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -385,7 +385,7 @@ router.get("/meal-plans", async (req, res): Promise<void> => {
 router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   const parsed = GenerateMealPlanBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
 
