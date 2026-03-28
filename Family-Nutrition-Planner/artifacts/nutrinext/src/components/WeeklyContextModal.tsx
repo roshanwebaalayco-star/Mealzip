@@ -10,10 +10,10 @@ import { useLanguage } from "@/contexts/language-context";
 
 export interface MemberContextOverride {
   memberId: number;
-  feeling_this_week?: string;
+  feeling_this_week?: "great" | "tired" | "stressed" | "unwell" | "active";
   fasting_days?: string[];
   tiffin_override?: boolean;
-  spice_override?: string;
+  spice_override?: "mild" | "medium" | "spicy";
 }
 
 export interface WeeklyContext {
@@ -102,14 +102,14 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
   const updateMemberOverride = (memberId: number, field: keyof MemberContextOverride, value: unknown) => {
     const key = String(memberId);
     const overrides = { ...(ctx.member_overrides ?? {}) };
-    overrides[key] = { memberId, ...(overrides[key] ?? {}), [field]: value };
+    overrides[key] = { ...(overrides[key] ?? {}), memberId, [field]: value };
     persist({ ...ctx, member_overrides: overrides });
   };
 
   const toggleMemberFastingDay = (memberId: number, day: string) => {
     const key = String(memberId);
     const overrides = { ...(ctx.member_overrides ?? {}) };
-    const memberOv = { memberId, ...(overrides[key] ?? {}) };
+    const memberOv = { ...(overrides[key] ?? {}), memberId };
     const days = memberOv.fasting_days ?? [];
     memberOv.fasting_days = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
     overrides[key] = memberOv;

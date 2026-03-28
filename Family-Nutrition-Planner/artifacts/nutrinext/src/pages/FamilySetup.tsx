@@ -15,14 +15,27 @@ import VoiceAssistantModal from "@/components/VoiceAssistantModal";
 import type { VoiceFormData } from "@/hooks/use-voice-assistant";
 import type { IMemberProfileFields } from "@/components/MemberEditSheet";
 
-type MemberDraft = Omit<IMemberProfileFields, "age"> & {
+type MemberDraft = Omit<
+  IMemberProfileFields,
+  "age" | "gender" | "activityLevel" | "primaryGoal" | "goalPace" | "tiffinType" | "religiousRules" | "nonVegDays" | "nonVegTypes" | "healthConditions" | "dietaryRestrictions" | "ingredientDislikes"
+> & {
   _id: number;
   age: number | "";
+  gender: string;
+  activityLevel?: string;
+  primaryGoal?: string;
+  goalPace?: string;
+  tiffinType?: string;
+  religiousRules?: string;
+  healthConditions: string[];
+  dietaryRestrictions: string[];
+  ingredientDislikes: string[];
+  nonVegDays: string[];
+  nonVegTypes: string[];
   healthGoal: string;
   dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
-  nonVegTypes: string[];
 };
 
 type MemberErrors = { name?: string; age?: string };
@@ -142,6 +155,12 @@ export default function FamilySetup() {
           activityLevel: "moderate",
           healthConditions: m.healthConditions ?? [],
           dietaryRestrictions: [],
+          ingredientDislikes: [],
+          nonVegDays: [],
+          nonVegTypes: [],
+          goalPace: "none",
+          tiffinType: "none",
+          religiousRules: "none",
           healthGoal: "general_wellness",
           dietaryType: newFamilyData.dietaryType,
           memberFastingDays: [],
@@ -193,6 +212,8 @@ export default function FamilySetup() {
       _id: ++_memberIdCounter, name: "", role: "other", age: 25, gender: "female", weightKg: 60, heightCm: 160,
       activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
+      goalPace: "none", tiffinType: "none", religiousRules: "none",
+      ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
     }]);
   };
 
@@ -301,7 +322,7 @@ export default function FamilySetup() {
               gender: member.gender,
               weightKg: member.weightKg,
               heightCm: member.heightCm,
-              activityLevel: member.activityLevel,
+              activityLevel: member.activityLevel ?? "moderate",
               healthConditions: member.healthConditions.filter(c => c !== "none"),
               dietaryRestrictions: enrichedDietaryRestrictions,
               allergies: allergyList,
@@ -397,6 +418,12 @@ export default function FamilySetup() {
           activityLevel: "moderate",
           healthConditions: m.healthConditions ?? [],
           dietaryRestrictions: [],
+          ingredientDislikes: [],
+          nonVegDays: [],
+          nonVegTypes: [],
+          goalPace: "none",
+          tiffinType: "none",
+          religiousRules: "none",
           healthGoal: m.healthGoal ?? "general_wellness",
           dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
           memberFastingDays: [],
@@ -1048,14 +1075,14 @@ export default function FamilySetup() {
                     </div>
                   )}
                   {/* ICMR Calorie Target Badge (computed on client if enough data) */}
-                  {member.weightKg > 0 && member.heightCm > 0 && Number(member.age) > 0 && member.gender && (() => {
+                  {!!member.weightKg && member.weightKg > 0 && !!member.heightCm && member.heightCm > 0 && Number(member.age) > 0 && member.gender && (() => {
                     const age = Number(member.age);
-                    const w = member.weightKg;
-                    const h = member.heightCm;
+                    const w = member.weightKg as number;
+                    const h = member.heightCm as number;
                     const g = member.gender;
                     let bmr = 10 * w + 6.25 * h - 5 * age + (g === "male" ? 5 : -161);
                     const mult: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
-                    const tdee = Math.round(bmr * (mult[member.activityLevel] ?? 1.55));
+                    const tdee = Math.round(bmr * (mult[member.activityLevel ?? "moderate"] ?? 1.55));
                     return (
                       <div className="mt-3 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
                         <span className="text-xs text-muted-foreground">{t("ICMR Estimated Target:", "ICMR अनुमानित लक्ष्य:")}</span>

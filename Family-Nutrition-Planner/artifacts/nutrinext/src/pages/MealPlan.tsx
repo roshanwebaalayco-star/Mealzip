@@ -385,7 +385,7 @@ export default function MealPlan() {
     );
   }
 
-  const currentPlan = plans?.[0] ?? (showOfflineBanner ? cachedPlan as typeof plans[0] : undefined);
+  const currentPlan = plans?.[0] ?? (showOfflineBanner ? cachedPlan as unknown as NonNullable<typeof plans>[number] : undefined);
 
   const handleGenerate = async (isFasting = false, weeklyCtx?: WeeklyContext) => {
     try {

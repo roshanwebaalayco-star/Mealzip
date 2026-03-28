@@ -62,15 +62,15 @@ interface Props {
 }
 
 const DAYS_OF_WEEK = [
-  { key: "monday", label: "Mon" },
-  { key: "tuesday", label: "Tue" },
-  { key: "wednesday", label: "Wed" },
-  { key: "thursday", label: "Thu" },
-  { key: "friday", label: "Fri" },
-  { key: "saturday", label: "Sat" },
-  { key: "sunday", label: "Sun" },
+  { key: "monday" as const, label: "Mon" },
+  { key: "tuesday" as const, label: "Tue" },
+  { key: "wednesday" as const, label: "Wed" },
+  { key: "thursday" as const, label: "Thu" },
+  { key: "friday" as const, label: "Fri" },
+  { key: "saturday" as const, label: "Sat" },
+  { key: "sunday" as const, label: "Sun" },
 ];
-const NON_VEG_TYPES = ["chicken", "fish", "mutton", "eggs"];
+const NON_VEG_TYPES = ["chicken", "fish", "mutton", "eggs"] as const;
 
 export default function MemberEditSheet({ member, onClose }: Props) {
   const { t } = useLanguage();
@@ -170,7 +170,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Activity Level", "गतिविधि स्तर")}</Label>
-            <Select value={form.activityLevel ?? "moderate"} onValueChange={v => set("activityLevel", v)}>
+            <Select value={form.activityLevel ?? "moderate"} onValueChange={v => set("activityLevel", v as IMemberProfile["activityLevel"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ACTIVITY_LEVELS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
@@ -180,7 +180,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
-            <Select value={form.primaryGoal ?? "general_wellness"} onValueChange={v => set("primaryGoal", v)}>
+            <Select value={form.primaryGoal ?? "general_wellness"} onValueChange={v => set("primaryGoal", v as IMemberProfile["primaryGoal"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {GOALS.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
@@ -191,7 +191,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           {showGoalPace && (
             <div>
               <Label className="text-xs font-semibold">{t("Goal Pace", "लक्ष्य गति")}</Label>
-              <Select value={form.goalPace ?? "none"} onValueChange={v => set("goalPace", v)}>
+              <Select value={form.goalPace ?? "none"} onValueChange={v => set("goalPace", v as IMemberProfile["goalPace"])}>
                 <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{t("Gradual", "धीरे-धीरे")}</SelectItem>
@@ -204,7 +204,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Tiffin Type", "टिफिन")}</Label>
-            <Select value={form.tiffinType ?? "none"} onValueChange={v => set("tiffinType", v)}>
+            <Select value={form.tiffinType ?? "none"} onValueChange={v => set("tiffinType", v as IMemberProfile["tiffinType"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("None", "नहीं")}</SelectItem>
@@ -216,7 +216,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Religious Rules", "धार्मिक नियम")}</Label>
-            <Select value={form.religiousRules ?? "none"} onValueChange={v => set("religiousRules", v)}>
+            <Select value={form.religiousRules ?? "none"} onValueChange={v => set("religiousRules", v as IMemberProfile["religiousRules"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>

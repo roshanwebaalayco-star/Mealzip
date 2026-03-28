@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, type ReactNode } from "react";
-import { useListFamilies, type Family } from "@workspace/api-client-react";
+import { useListFamilies, getListFamiliesQueryOptions, type Family } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "auth_token";
 
@@ -31,7 +31,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const { data: families, isLoading } = useListFamilies({ query: { enabled: authenticated } });
+  const { data: families, isLoading } = useListFamilies({ query: { ...getListFamiliesQueryOptions(), enabled: authenticated } });
   const [selectedFamilyId, setSelectedFamilyId] = useState<number | null>(null);
 
   const activeFamily = families?.find(f => f.id === selectedFamilyId) || families?.[0];
