@@ -491,6 +491,10 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Family not found", retryable: false });
       return;
     }
+    if (family.userId !== req.user!.userId) {
+      res.status(403).json({ error: "Forbidden: you do not own this family", retryable: false });
+      return;
+    }
     members = await db.select().from(familyMembersTable)
       .where(eq(familyMembersTable.familyId, familyId));
   } catch (err) {
@@ -851,6 +855,10 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     const [family] = await db.select().from(familiesTable).where(eq(familiesTable.id, familyId));
     if (!family) {
       res.status(404).json({ error: "Family not found", retryable: false });
+      return;
+    }
+    if (family.userId !== req.user!.userId) {
+      res.status(403).json({ error: "Forbidden: you do not own this family", retryable: false });
       return;
     }
 
