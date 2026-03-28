@@ -214,6 +214,12 @@ export const AddFamilyMemberBody = zod.object({
   dietaryRestrictions: zod.array(zod.string()).optional(),
   allergies: zod.array(zod.string()).optional(),
   calorieTarget: zod.number().optional(),
+  goalPace: zod.string().optional(),
+  tiffinType: zod.string().optional(),
+  religiousRules: zod.string().optional(),
+  ingredientDislikes: zod.array(zod.string()).optional(),
+  nonVegDays: zod.array(zod.string()).optional(),
+  nonVegTypes: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -236,6 +242,12 @@ export const UpdateFamilyMemberBody = zod.object({
   dietaryRestrictions: zod.array(zod.string()).optional(),
   allergies: zod.array(zod.string()).optional(),
   calorieTarget: zod.number().optional(),
+  goalPace: zod.string().optional(),
+  tiffinType: zod.string().optional(),
+  religiousRules: zod.string().optional(),
+  ingredientDislikes: zod.array(zod.string()).optional(),
+  nonVegDays: zod.array(zod.string()).optional(),
+  nonVegTypes: zod.array(zod.string()).optional(),
 });
 
 export const UpdateFamilyMemberResponse = zod.object({
@@ -450,6 +462,22 @@ export const GenerateMealPlanBody = zod.object({
         .describe("Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning."),
     })
     .optional(),
+  weeklyContext: zod
+    .object({
+      budget_inr: zod.number().optional(),
+      dining_out_freq: zod.number().optional(),
+      weekday_prep_time: zod.string().optional(),
+      weekend_prep_time: zod.string().optional(),
+      special_request: zod.string().optional(),
+      member_overrides: zod.record(zod.string(), zod.object({
+        feeling_this_week: zod.string().optional(),
+        fasting_days: zod.array(zod.string()).optional(),
+        tiffin_override: zod.boolean().optional(),
+        spice_override: zod.string().optional(),
+      })).optional(),
+    })
+    .optional()
+    .describe("Weekly context overrides for this generation — what is different from the permanent profile this week."),
 });
 
 export const GenerateMealPlanResponse = zod.object({

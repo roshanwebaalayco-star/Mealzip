@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList, Camera, ScanLine, Loader2 } from "lucide-react";
+import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList, Camera, ScanLine, Loader2, TrendingUp, Zap, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -200,6 +200,29 @@ export default function Grocery() {
       setSwapLoading(prev => { const next = { ...prev }; delete next[key]; return next; });
     }
   };
+
+  const { data: marketData, refetch: refetchMarket } = useQuery({
+    queryKey: ["market-prices"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/market/prices");
+      return res.json() as Promise<{
+        prices: Array<{ ingredient: string; price: number; unit: string; trend: string; surgeMultiplier: number; alternativeFor?: string | null }>;
+        arbitrage: { swaps: Array<{ from: string; to: string; savedPercent: number; reason: string }>; totalSaved: number };
+        surging: string[];
+      }>;
+    },
+  });
+
+  const triggerSurgeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch("/api/market/trigger-surge", { method: "POST" });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchMarket();
+      toast({ title: t("Surge triggered!", "सर्ज ट्रिगर हुआ!"), description: t("Tomato & Onion prices spiked. Swaps recommended.", "टमाटर व प्याज़ के दाम बढ़े।") });
+    },
+  });
 
   const { data: lists, isLoading } = useQuery({
     queryKey: ["grocery-lists", activeFamily?.id],
@@ -868,6 +891,103 @@ export default function Grocery() {
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Market Intelligence Panel ── */}
+          {marketData && (
+            <div className="glass-card rounded-3xl p-5 border border-orange-400/20" style={{ background: "rgba(255,247,237,0.55)" }}>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <TrendingUp className="w-4 h-4 text-orange-600" />
+                <h3 className="font-semibold text-sm text-orange-900">{t("Bokaro Mandi Intelligence", "बोकारो मंडी इंटेलिजेंस")}</h3>
+                {marketData.surging.length > 0 && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                    <Zap className="w-2.5 h-2.5" /> {t("SURGE ACTIVE", "सर्ज सक्रिय")}
+                  </span>
+                )}
+                {marketData.arbitrage.totalSaved > 0 && (
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 ml-auto">
+                    💰 {t(`Save ₹${marketData.arbitrage.totalSaved} with swaps`, `स्वैप से ₹${marketData.arbitrage.totalSaved} बचाएं`)}
+                  </span>
+                )}
+                <button
+                  onClick={() => triggerSurgeMutation.mutate()}
+                  disabled={triggerSurgeMutation.isPending}
+                  className="ml-auto flex items-center gap-1 text-[9px] font-semibold text-orange-700 border border-orange-300 px-2 py-1 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-2.5 h-2.5 ${triggerSurgeMutation.isPending ? "animate-spin" : ""}`} />
+                  {t("Demo Surge", "डेमो सर्ज")}
+                </button>
+              </div>
+
+              {/* Surge alert banner */}
+              {marketData.surging.length > 0 && (
+                <div className="flex items-start gap-2 mb-3 bg-red-50/80 border border-red-200 rounded-2xl px-3 py-2.5">
+                  <Zap className="w-3.5 h-3.5 text-red-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-red-800 leading-snug">
+                    <span className="font-bold">{marketData.surging.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(", ")}</span>{" "}
+                    {t("prices have surged today. Cheaper alternatives highlighted below.", "के दाम आज बढ़ गए हैं। नीचे सस्ते विकल्प देखें।")}
+                  </p>
+                </div>
+              )}
+
+              {/* Price table — top 8 items */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-orange-200/60">
+                      <th className="text-left py-1.5 px-1 font-semibold text-orange-800">{t("Ingredient", "सामग्री")}</th>
+                      <th className="text-right py-1.5 px-1 font-semibold text-orange-800">{t("Price", "मूल्य")}</th>
+                      <th className="text-center py-1.5 px-1 font-semibold text-orange-800">{t("Trend", "रुझान")}</th>
+                      <th className="text-left py-1.5 px-1 font-semibold text-orange-800">{t("Swap to", "बदलें")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketData.prices.slice(0, 8).map((row) => {
+                      const isSurging = row.trend === "surging";
+                      const swap = marketData.arbitrage.swaps.find(s => s.from.toLowerCase() === row.ingredient.toLowerCase());
+                      return (
+                        <tr key={row.ingredient} className={`border-b border-orange-100/50 ${isSurging ? "bg-red-50/40" : ""}`}>
+                          <td className="py-1.5 px-1 capitalize font-medium text-foreground">{row.ingredient}</td>
+                          <td className="py-1.5 px-1 text-right">
+                            <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.price}/{row.unit}</span>
+                          </td>
+                          <td className="py-1.5 px-1 text-center">
+                            {isSurging
+                              ? <span className="flex items-center justify-center gap-0.5 text-red-600"><TrendingUp className="w-3 h-3" />↑</span>
+                              : row.trend === "stable"
+                              ? <span className="text-muted-foreground">—</span>
+                              : <span className="flex items-center justify-center gap-0.5 text-green-600"><TrendingDown className="w-3 h-3" />↓</span>}
+                          </td>
+                          <td className="py-1.5 px-1">
+                            {swap ? (
+                              <span className="flex items-center gap-1 text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-semibold">
+                                <ArrowLeftRight className="w-2.5 h-2.5" /> {swap.to} <span className="text-green-600">-{swap.savedPercent}%</span>
+                              </span>
+                            ) : <span className="text-muted-foreground/50">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Arbitrage swaps summary */}
+              {marketData.arbitrage.swaps.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-orange-200/40 space-y-1.5">
+                  <p className="text-[10px] font-semibold text-orange-800 uppercase tracking-wide">{t("Smart Swaps", "स्मार्ट स्वैप")}</p>
+                  {marketData.arbitrage.swaps.slice(0, 3).map((sw, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-white/60 rounded-xl px-3 py-2 border border-orange-100">
+                      <span className="font-semibold capitalize text-red-700">{sw.from}</span>
+                      <ArrowLeftRight className="w-3 h-3 text-orange-500 shrink-0" />
+                      <span className="font-semibold capitalize text-green-700">{sw.to}</span>
+                      <span className="text-green-600 text-[9px] font-bold ml-auto">-{sw.savedPercent}% {t("saved", "बचत")}</span>
+                      <span className="text-muted-foreground text-[9px] hidden sm:inline">{sw.reason}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

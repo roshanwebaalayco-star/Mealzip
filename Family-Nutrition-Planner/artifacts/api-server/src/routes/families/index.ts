@@ -15,6 +15,7 @@ import {
   DeleteFamilyMemberParams,
 } from "@workspace/api-zod";
 import { ai } from "@workspace/integrations-gemini-ai";
+import { applyResponsibleAIRules } from "../../lib/profile-rules.js";
 
 const router: IRouter = Router();
 
@@ -168,9 +169,24 @@ router.post("/families/:familyId/members", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const raiResult = applyResponsibleAIRules({
+    age: parsed.data.age,
+    gender: parsed.data.gender,
+    weightKg: parsed.data.weightKg,
+    heightCm: parsed.data.heightCm,
+    activityLevel: parsed.data.activityLevel,
+    goalPace: parsed.data.goalPace,
+    healthConditions: parsed.data.healthConditions,
+  });
+  const memberData = {
+    ...parsed.data,
+    familyId: params.data.familyId,
+    goalPace: raiResult.goalPace,
+    calorieTarget: parsed.data.calorieTarget ?? raiResult.calorieTarget,
+  };
   const [member] = await db
     .insert(familyMembersTable)
-    .values({ ...parsed.data, familyId: params.data.familyId })
+    .values(memberData)
     .returning();
   res.status(201).json(member);
 });
@@ -198,9 +214,23 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const raiResult = applyResponsibleAIRules({
+    age: parsed.data.age,
+    gender: parsed.data.gender,
+    weightKg: parsed.data.weightKg,
+    heightCm: parsed.data.heightCm,
+    activityLevel: parsed.data.activityLevel,
+    goalPace: parsed.data.goalPace,
+    healthConditions: parsed.data.healthConditions,
+  });
+  const updateData = {
+    ...parsed.data,
+    ...(raiResult.goalPace ? { goalPace: raiResult.goalPace } : {}),
+    ...(raiResult.calorieTarget && !parsed.data.calorieTarget ? { calorieTarget: raiResult.calorieTarget } : {}),
+  };
   const [member] = await db
     .update(familyMembersTable)
-    .set(parsed.data)
+    .set(updateData)
     .where(
       and(
         eq(familyMembersTable.id, params.data.memberId),

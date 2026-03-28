@@ -17,6 +17,12 @@ export const familyMembersTable = pgTable("family_members", {
   dietaryRestrictions: text("dietary_restrictions").array(),
   allergies: text("allergies").array(),
   calorieTarget: integer("calorie_target"),
+  goalPace: text("goal_pace").default("none"),
+  tiffinType: text("tiffin_type").default("none"),
+  religiousRules: text("religious_rules").default("none"),
+  ingredientDislikes: text("ingredient_dislikes").array(),
+  nonVegDays: text("non_veg_days").array(),
+  nonVegTypes: text("non_veg_types").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("family_members_family_id_idx").on(table.familyId),

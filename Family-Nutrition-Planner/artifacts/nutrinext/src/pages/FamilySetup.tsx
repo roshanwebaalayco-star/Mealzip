@@ -29,6 +29,12 @@ type MemberDraft = {
   dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
+  goalPace: string;
+  tiffinType: string;
+  religiousRules: string;
+  ingredientDislikes: string[];
+  nonVegDays: string[];
+  nonVegTypes: string[];
 };
 
 type MemberErrors = { name?: string; age?: string };
@@ -66,6 +72,8 @@ export default function FamilySetup() {
       _id: ++_memberIdCounter, name: "", role: "father", age: 35, gender: "male", weightKg: 70, heightCm: 170,
       activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
+      goalPace: "none", tiffinType: "none", religiousRules: "none",
+      ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
     }
   ]);
 
@@ -308,6 +316,12 @@ export default function FamilySetup() {
               healthConditions: member.healthConditions.filter(c => c !== "none"),
               dietaryRestrictions: enrichedDietaryRestrictions,
               allergies: allergyList,
+              goalPace: member.goalPace !== "none" ? member.goalPace : undefined,
+              tiffinType: member.tiffinType !== "none" ? member.tiffinType : undefined,
+              religiousRules: member.religiousRules !== "none" ? member.religiousRules : undefined,
+              ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
+              nonVegDays: member.nonVegDays.length > 0 ? member.nonVegDays : undefined,
+              nonVegTypes: member.nonVegTypes.length > 0 ? member.nonVegTypes : undefined,
             }
           });
         }
@@ -354,6 +368,8 @@ export default function FamilySetup() {
         dietaryType: mergedFamilyData.dietaryType,
         memberFastingDays: [],
         foodAllergies: "",
+        goalPace: "none", tiffinType: "none", religiousRules: "none",
+        ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
       }));
 
     const finalMembers = voiceMembers.length > 0 ? voiceMembers : members;
@@ -910,6 +926,126 @@ export default function FamilySetup() {
                       <p className="text-xs text-muted-foreground mt-1">{t("Separate multiple with commas", "कई एलर्जी को कॉमा से अलग करें")}</p>
                     </div>
                   </div>
+                </div>
+
+                {/* ── Advanced Profile Fields ── */}
+                <div className="mt-4 pt-4 border-t border-dashed border-border">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Advanced Profile", "विस्तृत प्रोफाइल")}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold">{t("Goal Pace", "लक्ष्य गति")} <span className="text-muted-foreground font-normal text-xs">({t("AI auto-assigns for minors", "बच्चों के लिए AI स्वतः")})</span></Label>
+                      <Select value={member.goalPace} onValueChange={v => handleUpdateMember(idx, "goalPace", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("No specific pace", "कोई लक्ष्य नहीं")}</SelectItem>
+                          <SelectItem value="0.25">{t("Gentle (0.25 kg/week)", "धीमा (0.25 किग्रा/हफ्ता)")}</SelectItem>
+                          <SelectItem value="0.5">{t("Moderate (0.5 kg/week)", "मध्यम (0.5 किग्रा/हफ्ता)")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t("Tiffin Type", "टिफिन प्रकार")}</Label>
+                      <Select value={member.tiffinType} onValueChange={v => handleUpdateMember(idx, "tiffinType", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
+                          <SelectItem value="school_tiffin">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
+                          <SelectItem value="office_tiffin">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
+                          <SelectItem value="both">{t("Both School + Office", "दोनों")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t("Religious / Cultural Rules", "धार्मिक नियम")}</Label>
+                      <Select value={member.religiousRules} onValueChange={v => handleUpdateMember(idx, "religiousRules", v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
+                          <SelectItem value="jain">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
+                          <SelectItem value="hindu_no_beef">{t("Hindu (no beef)", "हिंदू (गोमांस नहीं)")}</SelectItem>
+                          <SelectItem value="halal">{t("Halal only", "केवल हलाल")}</SelectItem>
+                          <SelectItem value="sattvic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t("Ingredient Dislikes", "पसंद न आने वाली चीजें")}</Label>
+                      <Input
+                        value={member.ingredientDislikes.join(", ")}
+                        onChange={e => handleUpdateMember(idx, "ingredientDislikes", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                        placeholder={t("e.g. karela, fish, broccoli", "जैसे करेला, मछली, ब्रोकोली")}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                  {/* Non-veg days (only show if non-vegetarian) */}
+                  {(member.dietaryType === "non-vegetarian") && (
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-semibold">{t("Non-Veg Days", "मांसाहार के दिन")}</Label>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {[
+                            { id: "tuesday", en: "Tue", hi: "मंगल" },
+                            { id: "saturday", en: "Sat", hi: "शनि" },
+                            { id: "sunday", en: "Sun", hi: "रवि" },
+                            { id: "any", en: "Any", hi: "कभी भी" },
+                          ].map(({ id, en, hi }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => {
+                                const current = member.nonVegDays;
+                                handleUpdateMember(idx, "nonVegDays", current.includes(id) ? current.filter(d => d !== id) : [...current, id]);
+                              }}
+                              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${member.nonVegDays.includes(id) ? "bg-primary text-white border-primary" : "bg-white border-border hover:border-primary"}`}
+                            >
+                              {t(en, hi)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold">{t("Non-Veg Types", "मांसाहार प्रकार")}</Label>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {[
+                            { id: "chicken", en: "Chicken", hi: "चिकन" },
+                            { id: "mutton", en: "Mutton", hi: "मटन" },
+                            { id: "fish", en: "Fish", hi: "मछली" },
+                            { id: "eggs", en: "Eggs", hi: "अंडे" },
+                          ].map(({ id, en, hi }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => {
+                                const current = member.nonVegTypes;
+                                handleUpdateMember(idx, "nonVegTypes", current.includes(id) ? current.filter(t => t !== id) : [...current, id]);
+                              }}
+                              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${member.nonVegTypes.includes(id) ? "bg-primary text-white border-primary" : "bg-white border-border hover:border-primary"}`}
+                            >
+                              {t(en, hi)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* ICMR Calorie Target Badge (computed on client if enough data) */}
+                  {member.weightKg > 0 && member.heightCm > 0 && Number(member.age) > 0 && member.gender && (() => {
+                    const age = Number(member.age);
+                    const w = member.weightKg;
+                    const h = member.heightCm;
+                    const g = member.gender;
+                    let bmr = 10 * w + 6.25 * h - 5 * age + (g === "male" ? 5 : -161);
+                    const mult: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
+                    const tdee = Math.round(bmr * (mult[member.activityLevel] ?? 1.55));
+                    return (
+                      <div className="mt-3 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                        <span className="text-xs text-muted-foreground">{t("ICMR Estimated Target:", "ICMR अनुमानित लक्ष्य:")}</span>
+                        <span className="text-sm font-bold text-primary">{tdee} kcal/day</span>
+                        <span className="text-[10px] text-muted-foreground">({t("Mifflin-St Jeor", "मिफ्लिन-सेंट जियोर")})</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

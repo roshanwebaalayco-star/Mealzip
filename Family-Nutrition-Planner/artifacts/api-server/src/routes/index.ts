@@ -12,6 +12,7 @@ import demoRouter from "./demo/index.js";
 import geminiRouter from "./gemini/index.js";
 import groceryRouter from "./grocery/index.js";
 import healthRouter from "./health/index.js";
+import marketRouter from "./market/index.js";
 
 const router: IRouter = Router();
 
@@ -33,5 +34,6 @@ router.use(voiceRouter);
 router.use(geminiRouter);
 router.use(groceryRouter);
 router.use(healthRouter); // /health-logs, /nutrition-logs, /symptom-check, /fasting-calendar
+router.use(marketRouter); // /market/prices, /market/trigger-surge, /market/prep-alerts
 
 export default router;

@@ -389,7 +389,7 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const { familyId, weekStartDate, preferences } = parsed.data;
+  const { familyId, weekStartDate, preferences, weeklyContext } = parsed.data;
 
   let family: typeof familiesTable.$inferSelect | undefined;
   let members: Array<typeof familyMembersTable.$inferSelect>;
@@ -510,6 +510,27 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     ? `\n🏠 PANTRY ITEMS (already at home): ${pantryIngredients.join(", ")}.\nPREFER recipes that use these ingredients to minimise shopping. Incorporate them into breakfast/lunch/dinner where nutritionally appropriate.\n`
     : "";
 
+  const weeklyContextNote = weeklyContext ? (() => {
+    const lines: string[] = ["\n📋 THIS WEEK'S CONTEXT (overrides permanent profile):"];
+    if (weeklyContext.budget_inr) lines.push(`• Weekly budget this week: ₹${weeklyContext.budget_inr} (may differ from default)`);
+    if (weeklyContext.dining_out_freq) lines.push(`• Dining out ${weeklyContext.dining_out_freq} times this week — plan remaining ${7 - weeklyContext.dining_out_freq} days tightly`);
+    if (weeklyContext.weekday_prep_time) lines.push(`• Weekday cook time: ${weeklyContext.weekday_prep_time}`);
+    if (weeklyContext.weekend_prep_time) lines.push(`• Weekend cook time: ${weeklyContext.weekend_prep_time}`);
+    if (weeklyContext.special_request) lines.push(`• Special request: ${weeklyContext.special_request}`);
+    if (weeklyContext.member_overrides) {
+      for (const [memberName, overrides] of Object.entries(weeklyContext.member_overrides)) {
+        const parts: string[] = [];
+        if (overrides.feeling_this_week) parts.push(`feeling ${overrides.feeling_this_week}`);
+        if (overrides.fasting_days?.length) parts.push(`fasting ${overrides.fasting_days.join(", ")}`);
+        if (overrides.tiffin_override) parts.push("tiffin this week");
+        if (overrides.spice_override) parts.push(`spice: ${overrides.spice_override}`);
+        if (parts.length > 0) lines.push(`• ${memberName} this week: ${parts.join("; ")}`);
+      }
+    }
+    lines.push("Apply these context overrides ON TOP of the permanent profile above.\n");
+    return lines.join("\n");
+  })() : "";
+
   const feedbackNote = dislikedMeals.length > 0
     ? `\nPREVIOUS FEEDBACK - AVOID these types:\n${dislikedMeals.slice(0, 10).join("\n")}\nCONTINUE these popular meals:\n${likedMeals.slice(0, 5).join("\n")}\n`
     : "";
@@ -532,7 +553,7 @@ Family: ${family.name} from ${family.state} (${zone.toUpperCase()} zone), ${memb
 MEMBERS: ${JSON.stringify(memberListForPrompt)}
 BUDGET: ₹${weeklyBudget}/week (≤₹${budgetPerMeal * members.length}/meal)
 CUISINE: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
-${festivalContext}${fastingNote}${pantryNote}${feedbackNote}
+${festivalContext}${fastingNote}${pantryNote}${weeklyContextNote}${feedbackNote}
 ONE BASE MANY PLATES: Every dinner/lunch = one dish cooked once, plated differently per member's health need. Saves time and cost.
 
 RECIPES (prefer these IDs; recipeId:null = AI-invented):

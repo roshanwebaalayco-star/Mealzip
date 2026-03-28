@@ -307,4 +307,41 @@ router.post("/gemini/generate-image", async (req, res): Promise<void> => {
   }
 });
 
+// ── HFSS Classifier ──────────────────────────────────────────────
+router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
+  const { message } = req.body as { message?: string };
+  if (!message) { res.status(400).json({ error: "message required" }); return; }
+
+  const HFSS_KEYWORDS = [
+    "chips", "namkeen", "biscuit", "cookie", "cake", "pastry", "burger", "pizza",
+    "fried", "deep fried", "french fries", "samosa", "pakoda", "jalebi", "gulab jamun",
+    "cola", "coke", "pepsi", "soda", "soft drink", "cold drink", "fanta", "sprite",
+    "chocolate", "candy", "sweet", "mithai", "ice cream", "kulfi", "maida", "refined",
+    "instant noodles", "maggi", "processed", "packed snack", "energy drink", "juice tetra",
+    "ketchup", "mayonnaise", "sauce", "white bread", "pav", "refined oil", "dalda", "vanaspati",
+  ];
+  const lower = message.toLowerCase();
+  const detected = HFSS_KEYWORDS.filter(k => lower.includes(k));
+  if (detected.length === 0) {
+    res.json({ isHFSS: false, items: [], rebalanceSuggestion: null });
+    return;
+  }
+  try {
+    const prompt = `A user ate: "${message}". Detected HFSS items: ${detected.join(", ")}.
+As an ICMR-NIN 2024 nutrition expert, give a SHORT (2-3 lines) practical rebalance suggestion for the rest of today to compensate.
+Focus on: which nutrients to add, simple Indian foods to eat next, and one hydration tip.
+Keep it encouraging, not preachy. Respond in English.`;
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 256 },
+    });
+    const suggestion = result.candidates?.[0]?.content?.parts?.[0]?.text ?? "Add a dal-vegetable meal + 2 glasses of water to rebalance.";
+    res.json({ isHFSS: true, items: detected, rebalanceSuggestion: suggestion });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "HFSS classify failed", details: msg, retryable: true });
+  }
+});
+
 export default router;

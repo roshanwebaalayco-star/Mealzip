@@ -3,8 +3,30 @@ import { useAppState, useVoiceRecorder } from "@/hooks/use-app-state";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import { useListGeminiConversations, useCreateGeminiConversation, useTranscribeVoice } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown } from "lucide-react";
+import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown, RefreshCcw, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiFetch } from "@/lib/api-fetch";
+
+const FOOD_LOG_PATTERNS = [/\b(ate|had|eaten|drank|consumed|just ate|just had|eating|drinking|finished)\b/i];
+const HFSS_KEYWORDS_CLIENT = ["chips","namkeen","biscuit","cookie","cake","burger","pizza","fried","samosa","cola","coke","pepsi","soda","chocolate","candy","sweet","mithai","ice cream","maggi","noodles"];
+const HFSS_LS_KEY = "nutrinext_hfss_log";
+
+function getWeeklyHFSSCount(): number {
+  try {
+    const log = JSON.parse(localStorage.getItem(HFSS_LS_KEY) ?? "[]") as Array<{ ts: number }>;
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    return log.filter(e => e.ts > weekAgo).length;
+  } catch { return 0; }
+}
+
+function recordHFSSEvent() {
+  try {
+    const log = JSON.parse(localStorage.getItem(HFSS_LS_KEY) ?? "[]") as Array<{ ts: number }>;
+    log.push({ ts: Date.now() });
+    const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    localStorage.setItem(HFSS_LS_KEY, JSON.stringify(log.filter(e => e.ts > weekAgo)));
+  } catch { /* non-critical */ }
+}
 
 const VOICE_LANGUAGES = [
   { code: "hi-IN", label: "हिन्दी" },
@@ -38,6 +60,11 @@ export default function Chat() {
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
 
+  type HFSSResult = { isHFSS: boolean; items: string[]; rebalanceSuggestion: string | null };
+  const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
+  const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
+  const pendingHFSSMsg = useRef<{ msgIndex: number; text: string } | null>(null);
+
   useEffect(() => {
     if (convos && convos.length > 0 && !activeConvoId) {
       setActiveConvoId(convos[0].id);
@@ -59,7 +86,17 @@ export default function Chat() {
     if (!input.trim() || !activeConvoId || isStreaming) return;
     const userMsg = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+
+    const isFoodLog = FOOD_LOG_PATTERNS.some(p => p.test(userMsg));
+    const hasHFSS = HFSS_KEYWORDS_CLIENT.some(k => userMsg.toLowerCase().includes(k));
+
+    setMessages((prev) => {
+      const nextIdx = prev.length + 1; // +1 because AI response will be at this index
+      if (isFoodLog && hasHFSS) {
+        pendingHFSSMsg.current = { msgIndex: nextIdx, text: userMsg };
+      }
+      return [...prev, { role: "user", content: userMsg }];
+    });
 
     await streamMessage(activeConvoId, userMsg);
   };
@@ -67,6 +104,22 @@ export default function Chat() {
   useEffect(() => {
     if (!isStreaming && currentMessage) {
       setMessages((prev) => [...prev, { role: "model", content: currentMessage }]);
+      // Fire HFSS classify for the pending food log message
+      if (pendingHFSSMsg.current) {
+        const { msgIndex, text } = pendingHFSSMsg.current;
+        pendingHFSSMsg.current = null;
+        apiFetch("/api/gemini/hfss-classify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        }).then(r => r.json()).then((result: { isHFSS: boolean; items: string[]; rebalanceSuggestion: string | null }) => {
+          if (result.isHFSS) {
+            setHfssResults(prev => ({ ...prev, [msgIndex]: result }));
+            recordHFSSEvent();
+            setWeeklyHFSSCount(getWeeklyHFSSCount());
+          }
+        }).catch(() => { /* non-critical */ });
+      }
     }
   }, [isStreaming]);
 
@@ -162,29 +215,59 @@ export default function Chat() {
             </motion.div>
           )}
 
+          {/* Weekly HFSS rolling note */}
+          {weeklyHFSSCount >= 3 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-start gap-2 px-3 py-2.5 rounded-2xl border border-amber-300/60 bg-amber-50/70 text-amber-900 text-xs"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+              <span>
+                <span className="font-semibold">Weekly HFSS Alert:</span> You've logged {weeklyHFSSCount} high-fat/sugar/salt items this week. Your meal plan will auto-compensate with more fibre, iron, and hydration.
+              </span>
+            </motion.div>
+          )}
+
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role !== "user" && (
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4 text-primary" />
+              <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="flex flex-col gap-2">
+                <div className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role !== "user" && (
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Bot className="w-4 h-4 text-primary" />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-gradient-to-br from-primary to-orange-500 text-white rounded-3xl rounded-tr-lg shadow-md shadow-primary/20"
+                        : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
                   </div>
-                )}
-                <div
-                  className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-gradient-to-br from-primary to-orange-500 text-white rounded-3xl rounded-tr-lg shadow-md shadow-primary/20"
-                      : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
                 </div>
+
+                {/* HFSS Rebalance Card — shown below the AI response that follows the food log */}
+                {msg.role === "model" && hfssResults[i] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="ml-9 max-w-[78%] rounded-2xl border border-green-300/60 bg-green-50/70 px-4 py-3 text-xs"
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5 text-green-800 font-semibold">
+                      <RefreshCcw className="w-3 h-3" />
+                      🔄 HFSS Detected — Rebalance Suggestion
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {hfssResults[i].items.map(item => (
+                        <span key={item} className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-medium capitalize">{item}</span>
+                      ))}
+                    </div>
+                    <p className="text-green-900 leading-snug">{hfssResults[i].rebalanceSuggestion}</p>
+                  </motion.div>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>

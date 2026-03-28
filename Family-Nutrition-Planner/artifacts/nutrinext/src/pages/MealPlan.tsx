@@ -7,7 +7,8 @@ import { useListMealPlans, useGenerateMealPlan, getListMealPlansQueryKey } from 
 import {
   Loader2, Sparkles, Utensils, Info, RefreshCw, ThumbsUp, ThumbsDown,
   CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown, ChevronUp,
-  CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle, ExternalLink
+  CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle, ExternalLink,
+  FlaskConical, Clock3, RefreshCcw
 } from "lucide-react";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
 import { HarmonyScore } from "@/components/HarmonyScore";
@@ -17,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import RecipeDetailModal from "@/components/RecipeDetailModal";
+import WeeklyContextModal, { type WeeklyContext } from "@/components/WeeklyContextModal";
 
 interface RecipeDetail {
   id: number;
@@ -186,6 +188,8 @@ export default function MealPlan() {
   const [leftoverPanelOpen, setLeftoverPanelOpen] = useState(true);
   const [cachedPlan, setCachedPlan] = useState<Record<string, unknown> | null>(null);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [lastWeeklyContext, setLastWeeklyContext] = useState<WeeklyContext | null>(null);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -337,16 +341,19 @@ export default function MealPlan() {
 
   const currentPlan = plans?.[0] ?? (showOfflineBanner ? cachedPlan as typeof plans[0] : undefined);
 
-  const handleGenerate = async (isFasting = false) => {
+  const handleGenerate = async (isFasting = false, weeklyCtx?: WeeklyContext) => {
     try {
+      if (weeklyCtx) setLastWeeklyContext(weeklyCtx);
       await generate.mutateAsync({
         data: {
           familyId: activeFamily.id,
           weekStartDate: new Date().toISOString(),
           preferences: isFasting ? { isFasting: true } : undefined,
+          weeklyContext: weeklyCtx,
         },
       });
       refetch();
+      setShowContextModal(false);
     } catch (e) {
       console.error(e);
     }
@@ -366,22 +373,23 @@ export default function MealPlan() {
           <div className="flex flex-col gap-3">
             <button
               className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3.5 rounded-2xl relative z-10 disabled:opacity-60"
-              onClick={() => handleGenerate(false)}
+              onClick={() => setShowContextModal(true)}
               disabled={generate.isPending}
             >
               {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {t("Generate Regular Plan", "सामान्य योजना बनाएं")}
-            </button>
-            <button
-              className="w-full inline-flex items-center justify-center gap-2 border border-primary/30 text-primary text-sm font-semibold px-6 py-3 rounded-2xl hover:bg-primary/5 transition-colors disabled:opacity-60"
-              onClick={() => handleGenerate(true)}
-              disabled={generate.isPending}
-            >
-              <Moon className="w-4 h-4" />
-              {t("Generate Fasting Plan", "व्रत योजना बनाएं")}
+              {t("Generate AI Plan", "AI योजना बनाएं")}
             </button>
           </div>
         </div>
+        <WeeklyContextModal
+          open={showContextModal}
+          familyId={activeFamily.id}
+          members={familyMembers ?? []}
+          defaultBudget={activeFamily.monthlyBudget ?? 5000}
+          onClose={() => setShowContextModal(false)}
+          onGenerate={(isFasting, ctx) => handleGenerate(isFasting, ctx)}
+          isPending={generate.isPending}
+        />
       </div>
     );
   }
@@ -570,7 +578,7 @@ export default function MealPlan() {
 
         <div className="flex items-center gap-3 relative z-10 flex-wrap">
           <button
-            onClick={() => handleGenerate(false)}
+            onClick={() => setShowContextModal(true)}
             disabled={generate.isPending}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary glass-card px-3.5 py-2 rounded-xl hover:bg-white/80 transition-colors disabled:opacity-50"
           >
@@ -1264,6 +1272,100 @@ export default function MealPlan() {
         </div>
       )}
 
+      {/* ── Tonight's Prep ── */}
+      {(() => {
+        const BIOCHEM_RULES: Record<string, { action: string; duration: string; benefit: string; benefitHi: string }> = {
+          "rajma": { action: "Soak", duration: "8h", benefit: "Reduces phytates 40% — iron absorption ↑", benefitHi: "फाइटेट 40% कम — आयरन अवशोषण ↑" },
+          "chole": { action: "Soak", duration: "8h", benefit: "Improves digestibility + nutrient bioavailability", benefitHi: "पाचन सुधरता है, पोषक तत्व बेहतर" },
+          "chickpeas": { action: "Soak", duration: "8h", benefit: "Improves digestibility + nutrient bioavailability", benefitHi: "पाचन सुधरता है" },
+          "moong": { action: "Germinate", duration: "24h", benefit: "Vitamin C +300%, protein unlocked", benefitHi: "विटामिन C 3 गुना, प्रोटीन उपलब्ध" },
+          "moong dal": { action: "Germinate", duration: "12h", benefit: "Folate +25%, iron bioavailability ↑", benefitHi: "फोलेट 25% बढ़ता है" },
+          "dosa batter": { action: "Ferment", duration: "12h", benefit: "Vitamin B12 + gut-friendly probiotics", benefitHi: "B12 + प्रोबायोटिक्स" },
+          "idli batter": { action: "Ferment", duration: "12h", benefit: "B-vitamins ↑, protein digestion improves", benefitHi: "B-विटामिन ↑, प्रोटीन पाचन" },
+          "bajra": { action: "Soak", duration: "8h", benefit: "Phytic acid –60%, zinc 3× bioavailable", benefitHi: "फाइटिक एसिड 60% कम, जिंक 3 गुना" },
+          "ragi": { action: "Germinate", duration: "24h", benefit: "Calcium bioavailability doubles", benefitHi: "कैल्शियम उपलब्धता दोगुनी" },
+          "urad dal": { action: "Soak", duration: "6h", benefit: "Reduces tannins + trypsin inhibitors", benefitHi: "टैनिन कम, प्रोटीन गुणवत्ता बेहतर" },
+          "kidney beans": { action: "Soak", duration: "8h", benefit: "Removes lectins — safer to eat", benefitHi: "लेक्टिन हटता है — सुरक्षित" },
+        };
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
+        const dayArr = planData?.days as DayData[] | undefined;
+        const tomorrowData = dayArr?.find(d => d.day === tomorrowName);
+        if (!tomorrowData) return null;
+
+        const prepAlerts: Array<{ ingredient: string; action: string; duration: string; benefit: string; benefitHi: string; meal: string }> = [];
+        const seen = new Set<string>();
+        Object.entries(tomorrowData.meals).forEach(([mealSlot, meal]) => {
+          const m = meal as MealCell;
+          if (!m.ingredients) return;
+          for (const ing of m.ingredients) {
+            const key = ing.toLowerCase().replace(/[\d\s,()]+/g, "").trim();
+            const match = BIOCHEM_RULES[key] ?? BIOCHEM_RULES[key.split(" ").slice(0, 2).join(" ")] ?? null;
+            if (match && !seen.has(key)) {
+              seen.add(key);
+              prepAlerts.push({ ingredient: ing.split(/\d/)[0].trim(), ...match, meal: mealSlot });
+            }
+          }
+        });
+
+        if (prepAlerts.length === 0) return null;
+
+        return (
+          <div className="glass-card rounded-3xl p-5 border border-violet-500/20" style={{ background: "rgba(245,240,255,0.55)" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <FlaskConical className="w-4 h-4 text-violet-600" />
+              <h3 className="font-semibold text-sm text-violet-900">
+                {t(`Tonight's Prep for ${tomorrowName}`, `कल के लिए आज रात की तैयारी (${tomorrowName})`)}
+              </h3>
+              <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[9px] ml-auto">
+                🔬 {t("Biochemical Pre-Processing", "जैव-रसायन प्री-प्रोसेसिंग")}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {prepAlerts.map((alert, i) => (
+                <div key={i} className="flex items-start gap-3 bg-white/60 rounded-2xl px-3.5 py-3 border border-violet-200/50">
+                  <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
+                    alert.action === "Soak" ? "bg-blue-100 text-blue-700" :
+                    alert.action === "Germinate" ? "bg-green-100 text-green-700" :
+                    "bg-amber-100 text-amber-700"
+                  }`}>
+                    {alert.action === "Soak" ? "💧" : alert.action === "Germinate" ? "🌱" : "🧫"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs font-bold text-foreground capitalize">{alert.ingredient}</p>
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                        alert.action === "Soak" ? "bg-blue-50 text-blue-700" :
+                        alert.action === "Germinate" ? "bg-green-50 text-green-700" :
+                        "bg-amber-50 text-amber-700"
+                      }`}>
+                        {alert.action} {alert.duration}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                        <Clock3 className="w-2.5 h-2.5" /> {t("for tomorrow", "कल के लिए")}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                      {lang === "hi" ? alert.benefitHi : alert.benefit}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Weekly Context Used Banner */}
+      {lastWeeklyContext && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-primary/20 bg-primary/5 text-primary text-xs font-medium">
+          <RefreshCcw className="w-3.5 h-3.5 shrink-0" />
+          <span>{t("🔄 Plan generated with your weekly context. Budget, prep time, and member overrides applied.", "🔄 साप्ताहिक विवरण के साथ योजना बनाई। बजट, समय, और सदस्य बदलाव लागू।")}</span>
+          <button onClick={() => setLastWeeklyContext(null)} className="ml-auto text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+      )}
+
       {/* Dietary note */}
       <div className="glass-card rounded-3xl p-5" style={{ background: "rgba(240,253,248,0.65)" }}>
         <div className="flex gap-3 relative z-10">
@@ -1284,6 +1386,17 @@ export default function MealPlan() {
 
       {/* Recipe Detail Modal */}
       <RecipeDetailModal recipe={detailRecipe} onClose={() => setDetailRecipe(null)} />
+
+      {/* Weekly Context Modal */}
+      <WeeklyContextModal
+        open={showContextModal}
+        familyId={activeFamily.id}
+        members={familyMembers ?? []}
+        defaultBudget={activeFamily.monthlyBudget ?? 5000}
+        onClose={() => setShowContextModal(false)}
+        onGenerate={(isFasting, ctx) => handleGenerate(isFasting, ctx)}
+        isPending={generate.isPending}
+      />
     </motion.div>
   );
 }
