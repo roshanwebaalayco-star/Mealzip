@@ -217,16 +217,47 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  // Hydrate existing member so RAI always sees the full merged profile,
+  // not just the partial patch — prevents age defaulting to 0 on partial updates
+  const [existing] = await db
+    .select()
+    .from(familyMembersTable)
+    .where(
+      and(
+        eq(familyMembersTable.id, params.data.memberId),
+        eq(familyMembersTable.familyId, params.data.familyId),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ error: "Member not found" });
+    return;
+  }
+
+  const merged = {
+    age: parsed.data.age ?? existing.age,
+    gender: parsed.data.gender ?? existing.gender,
+    weightKg: parsed.data.weightKg ?? existing.weightKg,
+    heightCm: parsed.data.heightCm ?? existing.heightCm,
+    activityLevel: parsed.data.activityLevel ?? existing.activityLevel,
+    primaryGoal: parsed.data.primaryGoal ?? existing.primaryGoal,
+    goalPace: parsed.data.goalPace ?? existing.goalPace,
+    healthConditions: parsed.data.healthConditions ?? existing.healthConditions,
+  };
+
   const raiResult = applyResponsibleAIRules({
-    age: parsed.data.age,
-    gender: parsed.data.gender,
-    weightKg: parsed.data.weightKg,
-    heightCm: parsed.data.heightCm,
-    activityLevel: parsed.data.activityLevel,
-    primary_goal: parsed.data.primaryGoal,
-    goalPace: parsed.data.goalPace,
-    healthConditions: parsed.data.healthConditions,
+    age: merged.age,
+    gender: merged.gender ?? undefined,
+    weightKg: merged.weightKg ?? undefined,
+    heightCm: merged.heightCm ?? undefined,
+    activityLevel: merged.activityLevel ?? undefined,
+    primary_goal: merged.primaryGoal ?? undefined,
+    goalPace: merged.goalPace ?? undefined,
+    healthConditions: merged.healthConditions ?? undefined,
   });
+
+  // Only override goal fields when the merged (full) profile requires it,
+  // not just because the patch omitted optional fields
   const updateData = {
     ...parsed.data,
     ...(raiResult.primary_goal ? { primaryGoal: raiResult.primary_goal } : {}),

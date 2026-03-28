@@ -565,7 +565,8 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     if (weeklyContext.weekend_prep_time) lines.push(`• Weekend cook time: ${weeklyContext.weekend_prep_time}`);
     if (weeklyContext.special_request) lines.push(`• Special request: ${weeklyContext.special_request}`);
     if (weeklyContext.member_overrides) {
-      for (const [memberName, overrides] of Object.entries(weeklyContext.member_overrides)) {
+      for (const [_key, overrides] of Object.entries(weeklyContext.member_overrides)) {
+        const memberName = members.find(m => m.id === overrides.memberId)?.name ?? `member#${overrides.memberId}`;
         const parts: string[] = [];
         if (overrides.feeling_this_week) parts.push(`feeling ${overrides.feeling_this_week}`);
         if (overrides.fasting_days?.length) parts.push(`fasting ${overrides.fasting_days.join(", ")}`);
@@ -624,13 +625,14 @@ ${weeklyContext.budget_inr ? `• Weekly budget this week: ₹${weeklyContext.bu
 ${weeklyContext.dining_out_freq ? `• Dining out ${weeklyContext.dining_out_freq} times — plan only ${7 - weeklyContext.dining_out_freq} cooked days` : ""}
 ${weeklyContext.weekday_prep_time ? `• Weekday cook time: ${weeklyContext.weekday_prep_time}` : ""}
 ${weeklyContext.weekend_prep_time ? `• Weekend cook time: ${weeklyContext.weekend_prep_time}` : ""}
-${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([name, ov]) => {
+${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([_key, ov]) => {
+  const memberName = members.find(m => m.id === ov.memberId)?.name ?? `member#${ov.memberId}`;
   const parts: string[] = [];
   if (ov.feeling_this_week) parts.push(`feeling ${ov.feeling_this_week}`);
   if (ov.fasting_days?.length) parts.push(`fasting ${ov.fasting_days.join(", ")}`);
   if (ov.tiffin_override) parts.push("tiffin needed");
   if (ov.spice_override) parts.push(`spice level: ${ov.spice_override}`);
-  return parts.length ? `• ${name}: ${parts.join("; ")}` : "";
+  return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
 ${fastingNote}${pantryNote}`.trim() : `
 
@@ -766,13 +768,23 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       }
     }
 
-    planData = {
+    const mergedCandidate = {
       harmonyScore: Math.round((Number(half1.harmonyScore ?? 70) + Number(half2.harmonyScore ?? 70)) / 2),
       totalBudgetEstimate: Number(half1.totalBudgetEstimate ?? 0) + Number(half2.totalBudgetEstimate ?? 0),
       aiInsights: (half1.aiInsights ?? half2.aiInsights ?? "") + arbitrageNote,
       days: allDays,
       ...(arbitrageResult.hasArbitrage ? { arbitrageSwaps: arbitrageResult.swaps, arbitrageSaving: arbitrageResult.totalSaved } : {}),
     };
+
+    // Validate full merged plan against strict schema before accepting
+    const mergedValidation = WeekPlanSchema.safeParse(mergedCandidate);
+    if (!mergedValidation.success) {
+      const issues = mergedValidation.error.issues.slice(0, 3).map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+      req.log.error({ familyId, schemaErrors: issues }, "Merged plan failed WeekPlanSchema validation — rejecting");
+      throw new Error(`Generated plan has structural issues after merge: ${issues}`);
+    }
+
+    planData = mergedCandidate;
 
     req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: arbitrageResult.swaps.length }, "Parallel meal plan generation succeeded");
   } catch (err) {

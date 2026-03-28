@@ -468,14 +468,15 @@ export const GenerateMealPlanBody = zod.object({
     .object({
       budget_inr: zod.number().optional(),
       dining_out_freq: zod.number().optional(),
-      weekday_prep_time: zod.string().optional(),
-      weekend_prep_time: zod.string().optional(),
+      weekday_prep_time: zod.enum(["15min", "30min", "45min", "60min+"]).optional(),
+      weekend_prep_time: zod.enum(["30min", "60min", "90min", "elaborate"]).optional(),
       special_request: zod.string().optional(),
       member_overrides: zod.record(zod.string(), zod.object({
-        feeling_this_week: zod.string().optional(),
+        memberId: zod.number().describe("ID of the family member (key is String(memberId))"),
+        feeling_this_week: zod.enum(["great", "tired", "stressed", "unwell", "active"]).optional(),
         fasting_days: zod.array(zod.string()).optional(),
         tiffin_override: zod.boolean().optional(),
-        spice_override: zod.string().optional(),
+        spice_override: zod.enum(["mild", "medium", "spicy"]).optional(),
       })).optional(),
     })
     .optional()

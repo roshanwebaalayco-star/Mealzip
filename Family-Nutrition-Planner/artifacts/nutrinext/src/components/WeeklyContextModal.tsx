@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLanguage } from "@/contexts/language-context";
 
 export interface MemberContextOverride {
+  memberId: number;
   feeling_this_week?: string;
   fasting_days?: string[];
   tiffin_override?: boolean;
@@ -90,18 +91,20 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
     persist({ ...ctx, [key]: value });
   };
 
-  const updateMemberOverride = (memberName: string, field: keyof MemberContextOverride, value: unknown) => {
+  const updateMemberOverride = (memberId: number, field: keyof MemberContextOverride, value: unknown) => {
+    const key = String(memberId);
     const overrides = { ...(ctx.member_overrides ?? {}) };
-    overrides[memberName] = { ...(overrides[memberName] ?? {}), [field]: value };
+    overrides[key] = { memberId, ...(overrides[key] ?? {}), [field]: value };
     persist({ ...ctx, member_overrides: overrides });
   };
 
-  const toggleMemberFastingDay = (memberName: string, day: string) => {
+  const toggleMemberFastingDay = (memberId: number, day: string) => {
+    const key = String(memberId);
     const overrides = { ...(ctx.member_overrides ?? {}) };
-    const memberOv = { ...(overrides[memberName] ?? {}) };
+    const memberOv = { memberId, ...(overrides[key] ?? {}) };
     const days = memberOv.fasting_days ?? [];
     memberOv.fasting_days = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
-    overrides[memberName] = memberOv;
+    overrides[key] = memberOv;
     persist({ ...ctx, member_overrides: overrides });
   };
 
@@ -231,7 +234,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                   <p className="text-sm font-semibold text-foreground mb-2">{t("Member Check-In", "सदस्यों की इस-हफ्ते की स्थिति")}</p>
                   <div className="space-y-2">
                     {members.map(member => {
-                      const memberOv = ctx.member_overrides?.[member.name] ?? {};
+                      const memberOv = ctx.member_overrides?.[String(member.id)] ?? { memberId: member.id };
                       const isExpanded = expandedMembers[member.id] ?? false;
                       return (
                         <div key={member.id} className="border border-border rounded-2xl overflow-hidden">
@@ -271,7 +274,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                     <Label className="text-xs font-semibold text-muted-foreground">{t("Feeling this week", "इस हफ्ते कैसा महसूस हो रहा है")}</Label>
                                     <Select
                                       value={memberOv.feeling_this_week ?? "not_set"}
-                                      onValueChange={v => updateMemberOverride(member.name, "feeling_this_week", v === "not_set" ? undefined : v)}
+                                      onValueChange={v => updateMemberOverride(member.id, "feeling_this_week", v === "not_set" ? undefined : v)}
                                     >
                                       <SelectTrigger className="mt-1 h-9 rounded-xl text-xs"><SelectValue placeholder={t("How are they feeling?", "कैसा महसूस हो रहा है?")} /></SelectTrigger>
                                       <SelectContent>
@@ -287,7 +290,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                         <button
                                           key={fd.id}
                                           type="button"
-                                          onClick={() => toggleMemberFastingDay(member.name, fd.id)}
+                                          onClick={() => toggleMemberFastingDay(member.id, fd.id)}
                                           className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                                             (memberOv.fasting_days ?? []).includes(fd.id)
                                               ? "bg-primary text-white border-primary"
@@ -304,7 +307,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                       <input
                                         type="checkbox"
                                         checked={memberOv.tiffin_override ?? false}
-                                        onChange={e => updateMemberOverride(member.name, "tiffin_override", e.target.checked || undefined)}
+                                        onChange={e => updateMemberOverride(member.id, "tiffin_override", e.target.checked || undefined)}
                                         className="w-3.5 h-3.5 accent-primary"
                                       />
                                       <span className="text-xs">{t("Needs tiffin", "टिफिन चाहिए")}</span>
@@ -312,7 +315,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                                     <div>
                                       <Select
                                         value={memberOv.spice_override ?? "normal"}
-                                        onValueChange={v => updateMemberOverride(member.name, "spice_override", v === "normal" ? undefined : v)}
+                                        onValueChange={v => updateMemberOverride(member.id, "spice_override", v === "normal" ? undefined : v)}
                                       >
                                         <SelectTrigger className="h-8 rounded-xl text-xs border-border"><SelectValue /></SelectTrigger>
                                         <SelectContent>

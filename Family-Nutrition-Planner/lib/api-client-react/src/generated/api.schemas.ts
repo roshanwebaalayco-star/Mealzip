@@ -186,18 +186,22 @@ export type GenerateMealPlanBodyPreferences = {
 };
 
 export interface WeeklyContextMemberOverride {
-  feeling_this_week?: string;
+  memberId: number;
+  feeling_this_week?: "great" | "tired" | "stressed" | "unwell" | "active";
   fasting_days?: string[];
   tiffin_override?: boolean;
-  spice_override?: string;
+  spice_override?: "mild" | "medium" | "spicy";
 }
 
 export interface WeeklyContext {
   budget_inr?: number;
   dining_out_freq?: number;
-  weekday_prep_time?: string;
-  weekend_prep_time?: string;
+  /** Weekday cook-time budget: "15min" | "30min" | "45min" | "60min+" */
+  weekday_prep_time?: "15min" | "30min" | "45min" | "60min+";
+  /** Weekend cook-time budget: "30min" | "60min" | "90min" | "elaborate" */
+  weekend_prep_time?: "30min" | "60min" | "90min" | "elaborate";
   special_request?: string;
+  /** Keys are memberId as string (e.g. "42") */
   member_overrides?: Record<string, WeeklyContextMemberOverride>;
 }
 
