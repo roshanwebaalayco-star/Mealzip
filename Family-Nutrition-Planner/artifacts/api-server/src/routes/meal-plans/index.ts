@@ -69,6 +69,14 @@ const GEMINI_JSON_CRITICAL_SUFFIX = `
 CRITICAL REMINDER: Return ONLY raw valid JSON. No markdown fences, no backticks, no prose before or after. The response must start with { and end with }.`;
 
 // Strict week-plan output schema — validated before persisting to DB
+// Canonical structured schemas for base_ingredients and member_adjustments
+const BaseIngredientSchema = z.object({ ingredient: z.string(), qty_grams: z.number().optional() }).passthrough();
+const MemberAdjustmentSchema = z.object({
+  add: z.array(z.union([BaseIngredientSchema, z.string()])).optional().default([]),
+  reduce: z.array(z.string()).optional().default([]),
+  avoid: z.array(z.string()).optional().default([]),
+}).passthrough();
+
 // Accepts both legacy (recipeName/member_plates) and canonical (base_dish_name/member_adjustments) field names
 const MealSlotSchema = z.object({
   recipeName: z.string().optional(),
@@ -79,13 +87,25 @@ const MealSlotSchema = z.object({
   estimatedCost: z.number().optional(),
   icmr_rationale: z.string().optional(),
   member_plates: z.record(z.unknown()).optional(),
-  member_adjustments: z.record(z.unknown()).optional(),
-  base_ingredients: z.array(z.union([z.string(), z.object({ ingredient: z.string(), qty_grams: z.number().optional() }).passthrough()])).optional(),
+  member_adjustments: z.record(MemberAdjustmentSchema).optional(),
+  // For AI-invented recipes: structured objects only (no plain strings)
+  base_ingredients: z.array(BaseIngredientSchema).optional(),
+  // Legacy plain-string ingredients list still accepted for DB recipes
+  ingredients: z.array(z.string()).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
 }).passthrough().refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
+).refine(
+  data => {
+    // Only enforce base_ingredients when Gemini explicitly marks slot as AI-invented (recipeId=null)
+    if (data.recipeId === null) {
+      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
+    }
+    return true;
+  },
+  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
 );
 
 const DayPlanSchema = z.object({

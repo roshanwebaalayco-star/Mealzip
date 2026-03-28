@@ -974,13 +974,14 @@ export default function Grocery() {
                 </div>
               )}
 
-              {/* Price table — top 8 items */}
+              {/* Price table — top 8 items (wholesale + retail side-by-side) */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-orange-200/60">
                       <th className="text-left py-1.5 px-1 font-semibold text-orange-800">{t("Ingredient", "सामग्री")}</th>
-                      <th className="text-right py-1.5 px-1 font-semibold text-orange-800">{t("Price", "मूल्य")}</th>
+                      <th className="text-right py-1.5 px-1 font-semibold text-orange-800">{t("Wholesale", "थोक")}</th>
+                      <th className="text-right py-1.5 px-1 font-semibold text-orange-800">{t("Retail", "खुदरा")}</th>
                       <th className="text-center py-1.5 px-1 font-semibold text-orange-800">{t("Trend", "रुझान")}</th>
                       <th className="text-left py-1.5 px-1 font-semibold text-orange-800">{t("Swap to", "बदलें")}</th>
                     </tr>
@@ -989,11 +990,18 @@ export default function Grocery() {
                     {marketData.prices.slice(0, 8).map((row) => {
                       const isSurging = row.trend === "surging";
                       const swap = marketData.arbitrage.swaps.find(s => s.originalIngredient.toLowerCase() === row.name.toLowerCase());
+                      const margin = row.retail_price - row.wholesale_price;
                       return (
                         <tr key={row.id} className={`border-b border-orange-100/50 ${isSurging ? "bg-red-50/40" : ""}`}>
                           <td className="py-1.5 px-1 font-medium text-foreground">{row.name}</td>
                           <td className="py-1.5 px-1 text-right">
-                            <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.retail_price}/{row.unit}</span>
+                            <span className="font-medium text-blue-700">₹{row.wholesale_price}/{row.unit}</span>
+                          </td>
+                          <td className="py-1.5 px-1 text-right">
+                            <div className="flex flex-col items-end">
+                              <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.retail_price}/{row.unit}</span>
+                              {margin > 0 && <span className="text-[8px] text-muted-foreground">+₹{margin} margin</span>}
+                            </div>
                           </td>
                           <td className="py-1.5 px-1 text-center">
                             {isSurging
