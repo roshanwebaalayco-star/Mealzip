@@ -324,6 +324,36 @@ export default function MealPlan() {
     },
   });
 
+  // Derive tomorrow's meals for biochem pre-processing alerts (hook level — before early returns)
+  const tomorrowMealsForPrep = useMemo(() => {
+    const raw = plans?.[0]?.plan;
+    if (!raw) return null;
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
+    const dayArr = parsed?.days as Array<{ day: string; meals: Record<string, { ingredients?: string[] }> }> | undefined;
+    const tomorrowData = dayArr?.find(d => d.day === tomorrowName);
+    if (!tomorrowData) return null;
+    return Object.entries(tomorrowData.meals).map(([mealType, meal]) => ({
+      mealType,
+      ingredients: meal.ingredients ?? [],
+    }));
+  }, [plans]);
+
+  const { data: prepAlertsData } = useQuery({
+    queryKey: ["prep-alerts", familyId, tomorrowMealsForPrep],
+    queryFn: async () => {
+      const res = await apiFetch("/api/market/prep-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meals: tomorrowMealsForPrep }),
+      });
+      return res.json() as Promise<{ alerts: Array<{ ingredient: string; action: string; duration: string; benefit: string; benefitHindi: string; meal_context: string }> }>;
+    },
+    enabled: !!tomorrowMealsForPrep && tomorrowMealsForPrep.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   if (!activeFamily) {
     return (
       <div className="p-8 text-center text-muted-foreground text-sm">
@@ -1276,45 +1306,9 @@ export default function MealPlan() {
         </div>
       )}
 
-      {/* ── Tonight's Prep ── */}
-      {(() => {
-        const BIOCHEM_RULES: Record<string, { action: string; duration: string; benefit: string; benefitHi: string }> = {
-          "rajma": { action: "Soak", duration: "8h", benefit: "Reduces phytates 40% — iron absorption ↑", benefitHi: "फाइटेट 40% कम — आयरन अवशोषण ↑" },
-          "chole": { action: "Soak", duration: "8h", benefit: "Improves digestibility + nutrient bioavailability", benefitHi: "पाचन सुधरता है, पोषक तत्व बेहतर" },
-          "chickpeas": { action: "Soak", duration: "8h", benefit: "Improves digestibility + nutrient bioavailability", benefitHi: "पाचन सुधरता है" },
-          "moong": { action: "Germinate", duration: "24h", benefit: "Vitamin C +300%, protein unlocked", benefitHi: "विटामिन C 3 गुना, प्रोटीन उपलब्ध" },
-          "moong dal": { action: "Germinate", duration: "12h", benefit: "Folate +25%, iron bioavailability ↑", benefitHi: "फोलेट 25% बढ़ता है" },
-          "dosa batter": { action: "Ferment", duration: "12h", benefit: "Vitamin B12 + gut-friendly probiotics", benefitHi: "B12 + प्रोबायोटिक्स" },
-          "idli batter": { action: "Ferment", duration: "12h", benefit: "B-vitamins ↑, protein digestion improves", benefitHi: "B-विटामिन ↑, प्रोटीन पाचन" },
-          "bajra": { action: "Soak", duration: "8h", benefit: "Phytic acid –60%, zinc 3× bioavailable", benefitHi: "फाइटिक एसिड 60% कम, जिंक 3 गुना" },
-          "ragi": { action: "Germinate", duration: "24h", benefit: "Calcium bioavailability doubles", benefitHi: "कैल्शियम उपलब्धता दोगुनी" },
-          "urad dal": { action: "Soak", duration: "6h", benefit: "Reduces tannins + trypsin inhibitors", benefitHi: "टैनिन कम, प्रोटीन गुणवत्ता बेहतर" },
-          "kidney beans": { action: "Soak", duration: "8h", benefit: "Removes lectins — safer to eat", benefitHi: "लेक्टिन हटता है — सुरक्षित" },
-        };
-
-        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
-        const dayArr = planData?.days as DayData[] | undefined;
-        const tomorrowData = dayArr?.find(d => d.day === tomorrowName);
-        if (!tomorrowData) return null;
-
-        const prepAlerts: Array<{ ingredient: string; action: string; duration: string; benefit: string; benefitHi: string; meal: string }> = [];
-        const seen = new Set<string>();
-        Object.entries(tomorrowData.meals).forEach(([mealSlot, meal]) => {
-          const m = meal as MealCell;
-          if (!m.ingredients) return;
-          for (const ing of m.ingredients) {
-            const key = ing.toLowerCase().replace(/[\d\s,()]+/g, "").trim();
-            const match = BIOCHEM_RULES[key] ?? BIOCHEM_RULES[key.split(" ").slice(0, 2).join(" ")] ?? null;
-            if (match && !seen.has(key)) {
-              seen.add(key);
-              prepAlerts.push({ ingredient: ing.split(/\d/)[0].trim(), ...match, meal: mealSlot });
-            }
-          }
-        });
-
-        if (prepAlerts.length === 0) return null;
-
+      {/* ── Tonight's Prep (server-driven via /api/market/prep-alerts) ── */}
+      {prepAlertsData && prepAlertsData.alerts.length > 0 && (() => {
+        const tomorrowName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][(new Date().getDay() + 1) % 7];
         return (
           <div className="glass-card rounded-3xl p-5 border border-violet-500/20" style={{ background: "rgba(245,240,255,0.55)" }}>
             <div className="flex items-center gap-2 mb-4">
@@ -1327,7 +1321,7 @@ export default function MealPlan() {
               </Badge>
             </div>
             <div className="space-y-2">
-              {prepAlerts.map((alert, i) => (
+              {prepAlertsData.alerts.map((alert, i) => (
                 <div key={i} className="flex items-start gap-3 bg-white/60 rounded-2xl px-3.5 py-3 border border-violet-200/50">
                   <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
                     alert.action === "Soak" ? "bg-blue-100 text-blue-700" :
@@ -1351,7 +1345,7 @@ export default function MealPlan() {
                       </span>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                      {lang === "hi" ? alert.benefitHi : alert.benefit}
+                      {lang === "hi" ? alert.benefitHindi : alert.benefit}
                     </p>
                   </div>
                 </div>

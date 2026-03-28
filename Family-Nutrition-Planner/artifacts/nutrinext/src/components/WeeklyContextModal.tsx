@@ -61,12 +61,19 @@ const FEELING_OPTIONS = [
 export default function WeeklyContextModal({ open, familyId, members, defaultBudget = 5000, onClose, onGenerate, isPending }: Props) {
   const { t, lang } = useLanguage();
 
+  const buildFirstTimeDefaults = (): WeeklyContext => ({
+    budget_inr: Math.round(defaultBudget / 4),
+    weekday_prep_time: "<20",
+    weekend_prep_time: "nopref",
+    dining_out_freq: 1,
+  });
+
   const [ctx, setCtx] = useState<WeeklyContext>(() => {
     try {
       const stored = localStorage.getItem(LS_KEY(familyId));
       if (stored) return JSON.parse(stored) as WeeklyContext;
     } catch { /* ignore */ }
-    return { budget_inr: Math.round(defaultBudget / 4) };
+    return buildFirstTimeDefaults();
   });
 
   const [expandedMembers, setExpandedMembers] = useState<Record<number, boolean>>({});
@@ -77,7 +84,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
       try {
         const stored = localStorage.getItem(LS_KEY(familyId));
         if (stored) setCtx(JSON.parse(stored) as WeeklyContext);
-        else setCtx({ budget_inr: Math.round(defaultBudget / 4) });
+        else setCtx(buildFirstTimeDefaults());
       } catch { /* ignore */ }
     }
   }, [familyId, defaultBudget]);
