@@ -70,12 +70,12 @@ CRITICAL REMINDER: Return ONLY raw valid JSON. No markdown fences, no backticks,
 
 // Strict week-plan output schema — validated before persisting to DB
 // Canonical structured schemas for base_ingredients and member_adjustments
-const BaseIngredientSchema = z.object({ ingredient: z.string(), qty_grams: z.number().optional() }).passthrough();
+const BaseIngredientSchema = z.object({ ingredient: z.string(), qty_grams: z.number().optional() });
 const MemberAdjustmentSchema = z.object({
   add: z.array(z.union([BaseIngredientSchema, z.string()])).optional().default([]),
   reduce: z.array(z.string()).optional().default([]),
   avoid: z.array(z.string()).optional().default([]),
-}).passthrough();
+});
 
 // Accepts both legacy (recipeName/member_plates) and canonical (base_dish_name/member_adjustments) field names
 const MealSlotSchema = z.object({
@@ -94,7 +94,7 @@ const MealSlotSchema = z.object({
   ingredients: z.array(z.string()).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
-}).passthrough().refine(
+}).refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
 ).refine(
@@ -117,19 +117,19 @@ const DayPlanSchema = z.object({
     evening_snack: MealSlotSchema,
     dinner: MealSlotSchema,
   }),
-}).passthrough();
+});
 
 const WeekPlanSchema = z.object({
   days: z.array(DayPlanSchema).min(1),
   harmonyScore: z.number().optional(),
   totalBudgetEstimate: z.number().optional(),
   aiInsights: z.string().optional(),
-}).passthrough();
+});
 
 const HalfMealSlotSchema = z.object({
   recipeName: z.string().optional(),
   base_dish_name: z.string().optional(),
-}).passthrough().refine(
+}).refine(
   d => d.recipeName !== undefined || d.base_dish_name !== undefined,
   { message: "Either recipeName or base_dish_name required" },
 );
@@ -143,9 +143,9 @@ const HalfPlanSchema = z.object({
       lunch: HalfMealSlotSchema,
       evening_snack: HalfMealSlotSchema,
       dinner: HalfMealSlotSchema,
-    }).passthrough(),
-  }).passthrough()).min(1),
-}).passthrough();
+    }),
+  })).min(1),
+});
 
 async function callGeminiWithJsonRetry(
   prompt: string,

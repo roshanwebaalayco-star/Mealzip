@@ -349,9 +349,9 @@ export default function MealPlan() {
 
   const arbitrageData = useMemo(() => {
     const raw = plans?.[0]?.plan;
-    if (!raw) return { mods: [] as Array<{ original: string; substituted: string; saving: number }>, saving: 0 };
+    if (!raw) return { mods: [] as Array<{ original: string; substituted: string; savingPerKg: number }>, saving: 0 };
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    const mods = (Array.isArray(parsed?.arbitrageMods) ? parsed.arbitrageMods : []) as Array<{ original: string; substituted: string; saving: number }>;
+    const mods = (Array.isArray(parsed?.arbitrageMods) ? parsed.arbitrageMods : []) as Array<{ original: string; substituted: string; savingPerKg: number }>;
     return { mods, saving: Number(parsed?.arbitrageSaving ?? 0) };
   }, [plans]);
 
@@ -1386,9 +1386,9 @@ export default function MealPlan() {
                 <span className="text-xs text-muted-foreground line-through">{mod.original}</span>
                 <span className="text-[10px] text-amber-600 font-bold">→</span>
                 <span className="text-xs font-semibold text-green-700">{mod.substituted}</span>
-                {mod.saving > 0 && (
+                {mod.savingPerKg > 0 && (
                   <span className="ml-auto text-[9px] font-bold text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-full">
-                    -₹{Math.round(mod.saving)}/kg
+                    -₹{Math.round(mod.savingPerKg)}/kg
                   </span>
                 )}
               </div>

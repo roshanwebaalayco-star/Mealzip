@@ -14,21 +14,21 @@ import { useLanguage } from "@/contexts/language-context";
 
 export interface IMemberProfileFields {
   name: string;
-  role: string;
+  role: "admin" | "member" | string;
   age: number;
-  gender: string;
+  gender: "male" | "female" | "other";
   weightKg?: number;
   heightCm?: number;
-  activityLevel?: string;
+  activityLevel?: "sedentary" | "light" | "moderate" | "active" | "very_active";
   healthConditions?: string[];
   dietaryRestrictions?: string[];
-  primaryGoal?: string;
-  goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
+  primaryGoal?: "general_wellness" | "weight_loss" | "build_muscle" | "manage_diabetes" | "heart_health" | "anemia_recovery" | "healthy_growth" | "senior_nutrition";
+  goalPace?: "none" | "0.25" | "0.5";
+  tiffinType?: "none" | "school" | "office";
+  religiousRules?: "none" | "no_beef" | "no_pork" | "sattvic" | "jain";
   ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
+  nonVegDays?: ("monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday")[];
+  nonVegTypes?: ("chicken" | "fish" | "mutton" | "eggs")[];
   calorieTarget?: number;
 }
 
