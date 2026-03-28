@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod/v4";
 import { eq, and, or, inArray, lte, sql, desc, ilike } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
 import {
@@ -67,11 +68,46 @@ const GEMINI_JSON_CRITICAL_SUFFIX = `
 
 CRITICAL REMINDER: Return ONLY raw valid JSON. No markdown fences, no backticks, no prose before or after. The response must start with { and end with }.`;
 
+// Strict week-plan output schema — validated before persisting to DB
+const MealSlotSchema = z.object({
+  recipeName: z.string(),
+  recipeId: z.number().nullable().optional(),
+  nameHindi: z.string().optional(),
+  calories: z.number().optional(),
+  estimatedCost: z.number().optional(),
+  icmr_rationale: z.string().optional(),
+  member_plates: z.record(z.unknown()).optional(),
+  _hfssRebalance: z.unknown().optional(),
+  _arbitrageNote: z.unknown().optional(),
+}).passthrough();
+
+const DayPlanSchema = z.object({
+  day: z.string(),
+  meals: z.object({
+    breakfast: MealSlotSchema,
+    lunch: MealSlotSchema,
+    dinner: MealSlotSchema,
+  }).passthrough(),
+}).passthrough();
+
+const WeekPlanSchema = z.object({
+  days: z.array(DayPlanSchema).min(1),
+  harmonyScore: z.number().optional(),
+  totalBudgetEstimate: z.number().optional(),
+  aiInsights: z.string().optional(),
+}).passthrough();
+
+// Relaxed schema for each half-plan (days 1-4 and days 5-7 are generated independently)
+const HalfPlanSchema = z.object({
+  days: z.array(z.object({ day: z.string(), meals: z.record(z.unknown()) }).passthrough()).min(1),
+}).passthrough();
+
 async function callGeminiWithJsonRetry(
   prompt: string,
   label: string,
   log: { info: (obj: Record<string, unknown>, msg: string) => void; error: (obj: Record<string, unknown>, msg: string) => void },
   signal?: AbortSignal,
+  zodSchema?: z.ZodType<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
   const MAX_RETRIES = 5;
   const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000];
@@ -91,7 +127,17 @@ async function callGeminiWithJsonRetry(
       const text = response.text ?? "{}";
       const data = tryParseJson(text);
       if (data !== null) {
-        if (attempt > 0) log.info({ label, attempt: attempt + 1 }, `${label}: JSON parse succeeded on attempt ${attempt + 1}`);
+        // If a schema validator is provided, validate before accepting
+        if (zodSchema) {
+          const validation = zodSchema.safeParse(data);
+          if (!validation.success) {
+            const issues = validation.error.issues.slice(0, 3).map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+            lastErr = new Error(`Schema validation failed: ${issues}`);
+            log.error({ label, attempt: attempt + 1, schemaErrors: issues }, `${label}: schema validation failed on attempt ${attempt + 1}`);
+            continue;
+          }
+        }
+        if (attempt > 0) log.info({ label, attempt: attempt + 1 }, `${label}: JSON parse + schema validation succeeded on attempt ${attempt + 1}`);
         return data;
       }
       lastErr = new Error(`JSON parse failed after 5 strategies — raw length: ${text.length}, preview: ${text.slice(0, 200)}`);
@@ -605,8 +651,8 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
   let planData: Record<string, unknown>;
   try {
     const [half1, half2] = await Promise.all([
-      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log, controller1.signal), timeoutPromise]),
-      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log, controller2.signal), timeoutPromise]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf1, "generate-meal-plan-days-1-4", req.log, controller1.signal, HalfPlanSchema as z.ZodType<Record<string, unknown>>), timeoutPromise]),
+      Promise.race([callGeminiWithJsonRetry(promptHalf2, "generate-meal-plan-days-5-7", req.log, controller2.signal, HalfPlanSchema as z.ZodType<Record<string, unknown>>), timeoutPromise]),
     ]);
     clearTimeout(timeoutHandle);
 
@@ -853,7 +899,7 @@ Return valid JSON:
 
     let planData: Record<string, unknown>;
     try {
-      planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log);
+      planData = await callGeminiWithJsonRetry(regenPrompt, "regenerate-meal-plan", req.log, undefined, WeekPlanSchema as z.ZodType<Record<string, unknown>>);
     } catch (geminiErr) {
       req.log.error({ err: geminiErr }, "Meal plan regeneration failed after retry");
       res.status(422).json({ error: (geminiErr instanceof Error ? geminiErr.message : "Meal plan generation failed — please try again"), retryable: true });

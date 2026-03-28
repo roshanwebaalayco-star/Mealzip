@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, desc } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
-import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable } from "@workspace/db";
+import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
@@ -308,75 +308,137 @@ router.post("/gemini/generate-image", async (req, res): Promise<void> => {
 });
 
 // ── HFSS Classifier ──────────────────────────────────────────────
-const HFSS_PROFILE: Record<string, { kcal_per_serve: number; sodium_mg: number; fat_g: number }> = {
-  "chips":        { kcal_per_serve: 155, sodium_mg: 280, fat_g: 9 },
-  "namkeen":      { kcal_per_serve: 130, sodium_mg: 320, fat_g: 7 },
-  "biscuit":      { kcal_per_serve: 140, sodium_mg: 180, fat_g: 6 },
-  "cookie":       { kcal_per_serve: 160, sodium_mg: 100, fat_g: 8 },
-  "cake":         { kcal_per_serve: 250, sodium_mg: 180, fat_g: 12 },
-  "burger":       { kcal_per_serve: 400, sodium_mg: 700, fat_g: 18 },
-  "pizza":        { kcal_per_serve: 280, sodium_mg: 600, fat_g: 12 },
-  "samosa":       { kcal_per_serve: 260, sodium_mg: 350, fat_g: 14 },
-  "pakoda":       { kcal_per_serve: 200, sodium_mg: 280, fat_g: 12 },
-  "jalebi":       { kcal_per_serve: 150, sodium_mg: 10, fat_g: 5 },
-  "gulab jamun":  { kcal_per_serve: 140, sodium_mg: 40, fat_g: 5 },
-  "cola":         { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
-  "coke":         { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
-  "pepsi":        { kcal_per_serve: 140, sodium_mg: 45, fat_g: 0 },
-  "chocolate":    { kcal_per_serve: 200, sodium_mg: 40, fat_g: 12 },
-  "ice cream":    { kcal_per_serve: 200, sodium_mg: 80, fat_g: 10 },
-  "maggi":        { kcal_per_serve: 350, sodium_mg: 1200, fat_g: 14 },
-  "instant noodles": { kcal_per_serve: 350, sodium_mg: 1200, fat_g: 14 },
-  "white bread":  { kcal_per_serve: 140, sodium_mg: 240, fat_g: 2 },
-};
+// HFSS thresholds (UK FSA / FSSAI aligned):
+//   High in Fat:    fat_g_per_100g  > 20
+//   High in Salt:   sodium_mg_per_serve > 600  (≈1500 mg sodium/100g)
+//   High in Sugar:  sugar_g_per_100g > 22.5
+//   High in Energy: kcal_per_100g   > 250
+// A food is classified HFSS if it meets ANY of the above.
 
-const HFSS_KEYWORDS_BE = Object.keys(HFSS_PROFILE).concat([
-  "pastry", "candy", "sweet", "mithai", "kulfi", "maida", "refined",
-  "soda", "soft drink", "cold drink", "fanta", "sprite", "energy drink",
-  "processed", "packed snack", "ketchup", "mayonnaise", "dalda", "vanaspati",
-  "french fries", "deep fried", "fried", "pav",
-]);
+const HFSS_EXTRACTION_PROMPT = (msg: string) => `You are a food composition expert trained on ICMR-NIN and FSSAI databases.
+
+Analyse this message and extract EVERY food/beverage item mentioned (including brand names, street foods, snacks, drinks):
+"${msg}"
+
+For each food item, estimate its nutritional composition and return ONLY this JSON (no prose, no markdown):
+{
+  "foods": [
+    {
+      "name": "string — exact food name as mentioned",
+      "kcal_per_100g": number,
+      "sodium_mg_per_serve": number,
+      "fat_g_per_100g": number,
+      "sugar_g_per_100g": number,
+      "is_hfss": boolean
+    }
+  ]
+}
+
+Classification rules (mark is_hfss=true if ANY threshold met):
+- kcal_per_100g > 250
+- sodium_mg_per_serve > 600
+- fat_g_per_100g > 20
+- sugar_g_per_100g > 22.5
+
+If no food items are found, return {"foods": []}.`;
 
 router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
   const { message, familyId } = req.body as { message?: string; familyId?: number | null };
   if (!message) { res.status(400).json({ error: "message required" }); return; }
 
-  const lower = message.toLowerCase();
-  const detectedNames = HFSS_KEYWORDS_BE.filter(k => lower.includes(k));
-  if (detectedNames.length === 0) {
-    res.json({ isHFSS: false, items: [], foodLog: [], rebalanceSuggestion: null });
-    return;
+  // Ownership check: if familyId provided, verify it exists before any DB write
+  if (familyId) {
+    const [family] = await db.select({ id: familiesTable.id })
+      .from(familiesTable)
+      .where(eq(familiesTable.id, familyId))
+      .limit(1);
+    if (!family) {
+      res.status(403).json({ error: "Invalid familyId" });
+      return;
+    }
   }
 
-  const foodLog = detectedNames.map(name => ({
-    food: name,
-    kcal_per_serve: HFSS_PROFILE[name]?.kcal_per_serve ?? 180,
-    sodium_mg: HFSS_PROFILE[name]?.sodium_mg ?? 200,
-    fat_g: HFSS_PROFILE[name]?.fat_g ?? 8,
-    is_hfss: true,
-  }));
-
-  const totalKcal = foodLog.reduce((s, f) => s + f.kcal_per_serve, 0);
-  const totalSodium = foodLog.reduce((s, f) => s + f.sodium_mg, 0);
-
   try {
-    const prompt = `A user ate: "${message}". Detected HFSS items: ${detectedNames.join(", ")} (total ~${totalKcal} kcal, ~${totalSodium}mg sodium).
+    // Step 1: Gemini structured food extraction
+    const extractResult = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: HFSS_EXTRACTION_PROMPT(message) }] }],
+      config: { maxOutputTokens: 1024, responseMimeType: "application/json" },
+    });
+
+    let extractedFoods: Array<{
+      name: string;
+      kcal_per_100g: number;
+      sodium_mg_per_serve: number;
+      fat_g_per_100g: number;
+      sugar_g_per_100g: number;
+      is_hfss: boolean;
+    }> = [];
+
+    try {
+      const rawText = extractResult.text ?? "{}";
+      const parsed = JSON.parse(rawText.includes("{") ? rawText.slice(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1) : "{}") as { foods?: typeof extractedFoods };
+      extractedFoods = (parsed.foods ?? []).map(f => ({
+        name: String(f.name ?? ""),
+        kcal_per_100g: Number(f.kcal_per_100g ?? 0),
+        sodium_mg_per_serve: Number(f.sodium_mg_per_serve ?? 0),
+        fat_g_per_100g: Number(f.fat_g_per_100g ?? 0),
+        sugar_g_per_100g: Number(f.sugar_g_per_100g ?? 0),
+        is_hfss: Boolean(
+          (f.kcal_per_100g ?? 0) > 250 ||
+          (f.sodium_mg_per_serve ?? 0) > 600 ||
+          (f.fat_g_per_100g ?? 0) > 20 ||
+          (f.sugar_g_per_100g ?? 0) > 22.5,
+        ),
+      }));
+    } catch { /* leave extractedFoods empty */ }
+
+    if (extractedFoods.length === 0) {
+      res.json({ isHFSS: false, items: [], foodLog: [], rebalanceSuggestion: null });
+      return;
+    }
+
+    // Step 2: Apply HFSS threshold classification
+    const foodLog = extractedFoods.map(f => ({
+      food: f.name,
+      kcal_per_100g: f.kcal_per_100g,
+      sodium_mg_per_serve: f.sodium_mg_per_serve,
+      fat_g_per_100g: f.fat_g_per_100g,
+      sugar_g_per_100g: f.sugar_g_per_100g,
+      is_hfss: f.is_hfss,
+    }));
+
+    const hfssFoods = foodLog.filter(f => f.is_hfss);
+    const isHFSS = hfssFoods.length > 0;
+
+    if (!isHFSS) {
+      res.json({ isHFSS: false, items: [], foodLog, rebalanceSuggestion: null });
+      return;
+    }
+
+    const detectedNames = hfssFoods.map(f => f.food);
+    const totalKcal = hfssFoods.reduce((s, f) => s + f.kcal_per_100g, 0);
+    const totalSodium = hfssFoods.reduce((s, f) => s + f.sodium_mg_per_serve, 0);
+
+    // Step 3: Gemini rebalance strategy for detected HFSS items
+    const rebalancePrompt = `A user consumed these HFSS-classified foods: ${detectedNames.join(", ")} (total ~${totalKcal} kcal, ~${totalSodium}mg sodium in this serving).
 As an ICMR-NIN 2024 expert, give a SHORT (2-3 lines) practical rebalance_strategy for the rest of today:
 - Which micronutrients to compensate (iron, fibre, vitamin C, calcium)
 - 1-2 specific Indian foods to eat at the next meal
 - One hydration tip (water / coconut water / lassi)
 Keep it encouraging. Respond in English only. No bullet points, just flowing text.`;
-    const result = await ai.models.generateContent({
+
+    const rebalanceResult = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts: [{ text: rebalancePrompt }] }],
       config: { maxOutputTokens: 300 },
     });
-    const rebalance_strategy = result.candidates?.[0]?.content?.parts?.[0]?.text
+    const rebalance_strategy = rebalanceResult.candidates?.[0]?.content?.parts?.[0]?.text
       ?? "Balance with a bowl of dal + vegetables at your next meal, and drink 2 glasses of water to flush excess sodium.";
 
     let patchedSlot: { day: string; mealType: string; planId: number } | null = null;
 
-    // Persist HFSS food log to NutritionLog for longitudinal tracking + patch next meal slot
+    // Step 4: Persist to NutritionLog + patch next meal slot (non-critical, both guarded)
     if (familyId) {
       try {
         const today = new Date().toISOString().split("T")[0];
@@ -389,7 +451,6 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
           source: "ai",
         }).catch(() => { /* non-critical */ });
 
-        // Patch next meal slot in the latest active plan with _hfssRebalance marker
         const [latestPlan] = await db.select().from(mealPlansTable)
           .where(eq(mealPlansTable.familyId, familyId))
           .orderBy(desc(mealPlansTable.createdAt))
@@ -406,7 +467,7 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
 
           const weekStart = new Date((latestPlan.weekStartDate as string) + "T00:00:00Z");
           const daysSinceStart = Math.floor((nowIST.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
-          const targetDayIdx = daysSinceStart + dayOffset;
+          const targetDayIdx = Math.max(0, Math.min(daysSinceStart + dayOffset, 6));
 
           type PlanJSON = { days?: Array<Record<string, unknown>> };
           const planData = latestPlan.plan as PlanJSON;

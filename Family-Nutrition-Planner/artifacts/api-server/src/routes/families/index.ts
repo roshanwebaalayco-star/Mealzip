@@ -184,7 +184,8 @@ router.post("/families/:familyId/members", async (req, res): Promise<void> => {
     familyId: params.data.familyId,
     primaryGoal: raiResult.primary_goal ?? parsed.data.primaryGoal,
     goalPace: raiResult.goalPace,
-    calorieTarget: parsed.data.calorieTarget ?? raiResult.calorieTarget,
+    calorieTarget: parsed.data.calorieTarget ?? raiResult.icmrCaloricTarget,
+    icmrCaloricTarget: raiResult.icmrCaloricTarget,
   };
   const [member] = await db
     .insert(familyMembersTable)
@@ -230,7 +231,8 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     ...parsed.data,
     ...(raiResult.primary_goal ? { primaryGoal: raiResult.primary_goal } : {}),
     ...(raiResult.goalPace ? { goalPace: raiResult.goalPace } : {}),
-    ...(raiResult.calorieTarget && !parsed.data.calorieTarget ? { calorieTarget: raiResult.calorieTarget } : {}),
+    ...(raiResult.icmrCaloricTarget && !parsed.data.calorieTarget ? { calorieTarget: raiResult.icmrCaloricTarget } : {}),
+    ...(raiResult.icmrCaloricTarget ? { icmrCaloricTarget: raiResult.icmrCaloricTarget } : {}),
   };
   const [member] = await db
     .update(familyMembersTable)

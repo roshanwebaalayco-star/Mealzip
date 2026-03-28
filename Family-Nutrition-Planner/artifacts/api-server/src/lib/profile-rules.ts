@@ -12,6 +12,8 @@ export interface MemberProfileInput {
 export interface MemberProfileOutput {
   primary_goal?: string;
   goalPace: string;
+  icmrCaloricTarget?: number;
+  /** @deprecated use icmrCaloricTarget — kept for back-compat during transition */
   calorieTarget?: number;
 }
 
@@ -62,7 +64,9 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
       tdee += pace === "0.5" ? 500 : 250;
     }
 
-    result.calorieTarget = Math.max(1000, Math.round(tdee));
+    const computed = Math.max(1000, Math.round(tdee));
+    result.icmrCaloricTarget = computed;
+    result.calorieTarget = computed;
   }
 
   return result;

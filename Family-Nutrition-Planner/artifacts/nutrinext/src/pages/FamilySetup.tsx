@@ -951,7 +951,6 @@ export default function FamilySetup() {
                           <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
                           <SelectItem value="school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
                           <SelectItem value="office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
-                          <SelectItem value="both">{t("Both School + Office", "दोनों")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
