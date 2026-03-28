@@ -61,7 +61,7 @@ export default function Chat() {
   const transcribe = useTranscribeVoice();
 
   type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean };
-  type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null };
+  type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null; patchedSlot?: { day: string; mealType: string; planId: number } | null };
   const [hfssResults, setHfssResults] = useState<Record<number, HFSSResult>>({});
   const [weeklyHFSSCount, setWeeklyHFSSCount] = useState(() => getWeeklyHFSSCount());
   const pendingHFSSMsg = useRef<{ msgIndex: number; text: string } | null>(null);
@@ -279,6 +279,11 @@ export default function Chat() {
                       }
                     </div>
                     <p className="text-green-900 leading-snug">{hfssResults[i].rebalance_strategy ?? hfssResults[i].rebalanceSuggestion}</p>
+                    {hfssResults[i].patchedSlot && (
+                      <p className="mt-1.5 text-[9px] text-teal-700 bg-teal-50 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+                        ✅ {hfssResults[i].patchedSlot!.day} {hfssResults[i].patchedSlot!.mealType} rebalanced in your meal plan
+                      </p>
+                    )}
                   </motion.div>
                 )}
               </motion.div>

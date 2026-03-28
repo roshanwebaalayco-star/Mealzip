@@ -56,9 +56,9 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
     let tdee = bmr * multiplier;
 
     const pace = result.goalPace;
-    if (result.primary_goal === "weight_loss") {
+    if (result.primary_goal === "weight_loss" && (pace === "0.25" || pace === "0.5")) {
       tdee -= pace === "0.5" ? 500 : 250;
-    } else if (result.primary_goal === "weight_gain" || result.primary_goal === "build_muscle") {
+    } else if ((result.primary_goal === "weight_gain" || result.primary_goal === "build_muscle") && (pace === "0.25" || pace === "0.5")) {
       tdee += pace === "0.5" ? 500 : 250;
     }
 

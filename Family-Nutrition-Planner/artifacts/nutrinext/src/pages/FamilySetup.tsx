@@ -949,8 +949,8 @@ export default function FamilySetup() {
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
-                          <SelectItem value="school_tiffin">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
-                          <SelectItem value="office_tiffin">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
+                          <SelectItem value="school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
+                          <SelectItem value="office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
                           <SelectItem value="both">{t("Both School + Office", "दोनों")}</SelectItem>
                         </SelectContent>
                       </Select>
@@ -962,8 +962,8 @@ export default function FamilySetup() {
                         <SelectContent>
                           <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
                           <SelectItem value="jain">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
-                          <SelectItem value="hindu_no_beef">{t("Hindu (no beef)", "हिंदू (गोमांस नहीं)")}</SelectItem>
-                          <SelectItem value="halal">{t("Halal only", "केवल हलाल")}</SelectItem>
+                          <SelectItem value="no_beef">{t("Hindu (no beef)", "हिंदू (गोमांस नहीं)")}</SelectItem>
+                          <SelectItem value="no_pork">{t("Halal / No Pork", "हलाल / सूअर नहीं")}</SelectItem>
                           <SelectItem value="sattvic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
                         </SelectContent>
                       </Select>

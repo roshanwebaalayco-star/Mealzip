@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
-import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable } from "@workspace/db";
+import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
@@ -374,7 +374,9 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
     const rebalance_strategy = result.candidates?.[0]?.content?.parts?.[0]?.text
       ?? "Balance with a bowl of dal + vegetables at your next meal, and drink 2 glasses of water to flush excess sodium.";
 
-    // Persist HFSS food log to NutritionLog for longitudinal tracking
+    let patchedSlot: { day: string; mealType: string; planId: number } | null = null;
+
+    // Persist HFSS food log to NutritionLog for longitudinal tracking + patch next meal slot
     if (familyId) {
       try {
         const today = new Date().toISOString().split("T")[0];
@@ -385,8 +387,49 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
           foodDescription: `[HFSS] ${detectedNames.join(", ")} (${totalKcal}kcal, ${totalSodium}mg Na) | Rebalance: ${rebalance_strategy.slice(0, 300)}`,
           calories: totalKcal,
           source: "ai",
-        }).catch(() => { /* non-critical persist */ });
-      } catch { /* non-critical */ }
+        }).catch(() => { /* non-critical */ });
+
+        // Patch next meal slot in the latest active plan with _hfssRebalance marker
+        const [latestPlan] = await db.select().from(mealPlansTable)
+          .where(eq(mealPlansTable.familyId, familyId))
+          .orderBy(desc(mealPlansTable.createdAt))
+          .limit(1);
+
+        if (latestPlan) {
+          const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+          const hourIST = nowIST.getUTCHours();
+          let targetMealType: string;
+          let dayOffset = 0;
+          if (hourIST < 11) { targetMealType = "lunch"; }
+          else if (hourIST < 16) { targetMealType = "dinner"; }
+          else { targetMealType = "breakfast"; dayOffset = 1; }
+
+          const weekStart = new Date((latestPlan.weekStartDate as string) + "T00:00:00Z");
+          const daysSinceStart = Math.floor((nowIST.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
+          const targetDayIdx = daysSinceStart + dayOffset;
+
+          type PlanJSON = { days?: Array<Record<string, unknown>> };
+          const planData = latestPlan.plan as PlanJSON;
+          const targetDay = planData?.days?.[targetDayIdx];
+          if (targetDay) {
+            const meals = (targetDay.meals as Record<string, unknown>) ?? {};
+            const targetMeal = meals[targetMealType] as Record<string, unknown> | undefined;
+            if (targetMeal) {
+              targetMeal._hfssRebalance = {
+                detectedAt: new Date().toISOString(),
+                items: detectedNames,
+                totalKcal,
+                rebalanceNote: rebalance_strategy.slice(0, 200),
+              };
+              await db.update(mealPlansTable)
+                .set({ plan: planData })
+                .where(eq(mealPlansTable.id, latestPlan.id))
+                .catch(() => { /* non-critical */ });
+              patchedSlot = { day: String(targetDay.day ?? `Day ${targetDayIdx + 1}`), mealType: targetMealType, planId: latestPlan.id };
+            }
+          }
+        }
+      } catch { /* non-critical — never block the HFSS classify response */ }
     }
 
     res.json({
@@ -397,6 +440,7 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
       totalSodiumMg: totalSodium,
       rebalanceSuggestion: rebalance_strategy,
       rebalance_strategy,
+      patchedSlot,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
