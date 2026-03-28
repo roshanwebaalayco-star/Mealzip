@@ -133,20 +133,22 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
   return next;
 }
 
-// Per-language correction/undo triggers. Only unambiguous phrases — bare "no"/"nahi" are excluded
-// because they are valid yes/no answers in several states (ask_more_members, ask_member_conditions).
+// Per-language correction/undo triggers. "nahi"/"no" ARE included as they are valid correction
+// signals after a field is confirmed. Collision with yes/no answers is handled by YES_NO_STATES:
+// detectCorrection() returns false unconditionally in ask_more_members and ask_member_conditions,
+// so bare "nahi"/"no" are never mistaken for corrections at those prompts.
 const CORRECTION_TRIGGERS: Record<string, string[]> = {
-  hi: ["galat", "galat hai", "galat hua", "wapas", "change karo", "bhul gaya", "mistake", "dobara se", "phirse batao", "ruk ruk"],
-  en: ["wrong", "go back", "change that", "not that", "no wait", "redo", "correction", "undo", "that's wrong", "incorrect"],
-  ta: ["thappu", "maarunga", "thirumba po", "cancel pannu", "illa bidi", "thappu aachi"],
-  te: ["thappu", "cancel", "wapas", "thappu undi"],
-  bn: ["bhul", "cancel", "wapas jao", "phire jao", "bhul hoye geche"],
-  mr: ["chukle", "cancel", "wapas", "phir sangto", "chukiche"],
-  gu: ["bhul", "cancel", "paachhu", "bhul thayyu", "wrong"],
-  kn: ["tappu", "cancel", "hinge beda", "tappu aaytu"],
-  ml: ["thettanu", "cancel", "thiriche", "thettayi"],
-  pa: ["galat", "cancel", "wapas", "galat hai"],
-  or: ["bhul", "cancel", "pheri kaho", "bhul hela"],
+  hi: ["nahi", "nahin", "na", "galat", "galat hai", "galat hua", "wapas", "change karo", "bhul gaya", "mistake", "dobara se", "phirse batao"],
+  en: ["no", "nope", "wrong", "go back", "change that", "not that", "no wait", "redo", "correction", "undo", "that's wrong", "incorrect"],
+  ta: ["illai", "vendam", "thappu", "maarunga", "thirumba po", "cancel pannu", "illa bidi"],
+  te: ["ledu", "thappu", "wapas", "thappu undi"],
+  bn: ["naa", "na", "bhul", "wapas jao", "phire jao", "bhul hoye geche"],
+  mr: ["nahi", "chukle", "wapas", "phir sangto", "chukiche"],
+  gu: ["nahi", "bhul", "paachhu", "bhul thayyu"],
+  kn: ["illa", "tappu", "hinge beda", "tappu aaytu"],
+  ml: ["illa", "thettanu", "thiriche", "thettayi"],
+  pa: ["nahi", "galat", "wapas", "galat hai"],
+  or: ["naa", "bhul", "pheri kaho", "bhul hela"],
 };
 
 // States where yes/no responses are expected — skip correction detection to avoid intercepting
@@ -439,6 +441,10 @@ export function useVoiceAssistant() {
           setMessages([...msgs]);
           setMicState("processing");
 
+          // Capture pre-turn snapshot BEFORE the API call / mergeFields — so rolling back
+          // truly restores formData to before this answer was processed.
+          const preTurnSnapshot = { state: currentState, msg: nextMsg, fd: { ...fd } };
+
           let result: Awaited<ReturnType<typeof callChatTurn>>;
           try {
             result = await callChatTurn(currentState, transcript, msgs, fd);
@@ -457,9 +463,9 @@ export function useVoiceAssistant() {
           msgs = [...msgs, { role: "assistant", text: result.assistantMessage }];
           setMessages([...msgs]);
 
-          // Push current state + formData snapshot to history before advancing
+          // Push pre-turn snapshot only when state actually advances (not on same-state retries)
           if (result.nextState !== currentState && result.nextState !== "complete") {
-            stateHistoryRef.current.push({ state: currentState, msg: nextMsg, fd: { ...fd } });
+            stateHistoryRef.current.push(preTurnSnapshot);
           }
 
           currentState = result.nextState as ConvState;
