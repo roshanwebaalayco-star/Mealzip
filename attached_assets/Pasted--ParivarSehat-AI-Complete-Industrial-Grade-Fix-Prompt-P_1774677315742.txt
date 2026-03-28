@@ -1,0 +1,608 @@
+# ParivarSehat AI — Complete Industrial Grade Fix Prompt
+**Paste this entire prompt into Cursor/Replit AI**
+
+---
+
+## CONTEXT
+This is a production-grade family nutrition AI app built on:
+- React 19 + Vite 7 + Wouter + TanStack Query + Framer Motion
+- Express API server + Drizzle ORM
+- Dual PostgreSQL pools (local for recipes, Supabase for user data)
+- Gemini 2.5 Pro + Sarvam AI voice
+- pnpm monorepo with TypeScript project references
+
+Read the full codebase carefully before making ANY changes. Every fix must be surgical — do not refactor what is working. Fix only what is broken or suboptimal.
+
+---
+
+## PRIORITY 1 — CRITICAL BUGS (Fix These First)
+
+### 1.1 — Meal Plan Generation Reliability
+**Problem:** Gemini returns malformed JSON on ~30% of requests. The retry logic exists but fails silently.
+
+**Fix:**
+```typescript
+// In callGeminiWithJsonRetry() — strengthen the parse pipeline
+const tryParseJson = (raw: string): MealPlanResponse => {
+  // Strategy 1: Direct parse
+  try { return JSON.parse(raw); } catch {}
+  
+  // Strategy 2: Extract from markdown fences
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) try { return JSON.parse(fenced[1].trim()); } catch {}
+  
+  // Strategy 3: Find outermost braces
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    try { return JSON.parse(raw.slice(start, end + 1)); } catch {}
+  }
+  
+  // Strategy 4: Fix common Gemini JSON errors
+  const cleaned = raw
+    .replace(/,\s*}/g, '}')           // trailing commas
+    .replace(/,\s*]/g, ']')           // trailing commas in arrays  
+    .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // unquoted keys
+    .replace(/:\s*'([^']*)'/g, ': "$1"');   // single quotes
+  try { return JSON.parse(cleaned); } catch {}
+  
+  throw new Error(`JSON parse failed after 4 strategies. Raw length: ${raw.length}`);
+};
+
+// Increase retry attempts to 5, exponential backoff: 1s, 2s, 4s, 8s, 16s
+// On attempt 3+, add "CRITICAL: return ONLY valid JSON, no markdown" to prompt
+// Log every failed attempt with raw response for debugging
+```
+
+### 1.2 — Database Dual Pool Null Safety
+**Problem:** When SUPABASE_DATABASE_URL is absent, the fallback to DATABASE_URL is not type-safe. Routes importing `db` can receive undefined.
+
+**Fix:**
+```typescript
+// lib/db/src/index.ts
+const supabaseUrl = process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL;
+if (!supabaseUrl) throw new Error('Neither SUPABASE_DATABASE_URL nor DATABASE_URL is set');
+
+export const db = drizzle(new Pool({ 
+  connectionString: supabaseUrl,
+  ssl: supabaseUrl.includes('supabase') ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+}));
+
+export const localDb = drizzle(new Pool({
+  connectionString: process.env.DATABASE_URL!,
+  max: 20, // higher — recipes are read-heavy
+  idleTimeoutMillis: 60000,
+}));
+```
+
+### 1.3 — Auth Token Race Condition
+**Problem:** `getAuthToken()` getter is installed in `main.tsx` but API calls from React Query can fire before it's set on slow renders.
+
+**Fix:**
+```typescript
+// lib/api-fetch.ts
+let _tokenGetter: (() => string | null) | null = null;
+
+export const setAuthTokenGetter = (getter: () => string | null) => {
+  _tokenGetter = getter;
+};
+
+const getToken = (): string | null => {
+  if (_tokenGetter) return _tokenGetter();
+  // Fallback: read directly — safe for race condition
+  return localStorage.getItem('auth_token');
+};
+```
+
+### 1.4 — Voice State Machine Missing Recovery
+**Problem:** If Sarvam returns an empty transcript or Gemini parse fails mid-conversation, the state machine hangs — user sees a frozen mic.
+
+**Fix:**
+```typescript
+// In voice chat-turn endpoint
+if (!transcript || transcript.trim().length < 2) {
+  return res.json({
+    assistantText: getRetryMessage(currentState, language),
+    parsedFields: {},
+    nextState: currentState, // stay on same state
+    isComplete: false,
+    retry: true
+  });
+}
+
+// Add timeout recovery on frontend
+const VOICE_TIMEOUT_MS = 8000;
+useEffect(() => {
+  if (!isListening) return;
+  const timeout = setTimeout(() => {
+    stopListening();
+    speak(t('voiceTimeout')); // "Kuch suna nahi — dobara bolein?"
+  }, VOICE_TIMEOUT_MS);
+  return () => clearTimeout(timeout);
+}, [isListening]);
+```
+
+### 1.5 — Grocery Pantry Subtraction Matching
+**Problem:** `ingredientMatches()` misses too many valid matches (e.g., "mustard oil" vs "sarso tel").
+
+**Fix:**
+```typescript
+const INGREDIENT_ALIASES: Record<string, string[]> = {
+  'mustard oil': ['sarson oil', 'sarso tel', 'sarson ka tel'],
+  'ghee': ['clarified butter', 'desi ghee'],
+  'curd': ['yogurt', 'dahi'],
+  'chickpeas': ['chana', 'chole', 'garbanzo'],
+  'spinach': ['palak'],
+  'fenugreek': ['methi'],
+  'rice': ['chawal', 'basmati'],
+  'wheat flour': ['atta', 'gehun atta'],
+  'lentils': ['dal', 'daal', 'masoor'],
+  // Add 50 more common mappings
+};
+
+const ingredientMatches = (pantryItem: string, groceryItem: string): boolean => {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  const a = normalize(pantryItem);
+  const b = normalize(groceryItem);
+  
+  if (a.includes(b) || b.includes(a)) return true;
+  
+  // Word-level match (existing)
+  const wordsA = a.split(' ').filter(w => w.length > 3);
+  const wordsB = b.split(' ').filter(w => w.length > 3);
+  if (wordsA.some(w => wordsB.includes(w))) return true;
+  
+  // Alias match (new)
+  for (const [canonical, aliases] of Object.entries(INGREDIENT_ALIASES)) {
+    const allForms = [canonical, ...aliases];
+    const aMatches = allForms.some(f => a.includes(f));
+    const bMatches = allForms.some(f => b.includes(f));
+    if (aMatches && bMatches) return true;
+  }
+  
+  return false;
+};
+```
+
+---
+
+## PRIORITY 2 — PERFORMANCE FIXES
+
+### 2.1 — Recipe Full-Text Search Optimization
+**Problem:** GIN index exists but queries use `to_tsquery` which requires exact word matches. Regional dish names like "dhuska" won't match "dhushka".
+
+**Fix:**
+```sql
+-- Replace GIN index with pg_trgm for fuzzy matching
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+DROP INDEX IF EXISTS recipes_fts_idx;
+CREATE INDEX recipes_trgm_idx ON recipes 
+  USING GIN ((name || ' ' || COALESCE("nameHindi", '') || ' ' || COALESCE(ingredients, '')) gin_trgm_ops);
+
+-- Update query in getFilteredRecipes()
+WHERE (name || ' ' || COALESCE("nameHindi", '') || ' ' || COALESCE(ingredients, '')) 
+  ILIKE ANY(ARRAY[${keywords.map(k => `%${k}%`)}])
+```
+
+### 2.2 — Meal Plan Generation Timeout
+**Problem:** 65,536 max tokens + 7 days × 5 meals = frequent timeout on slow networks.
+
+**Fix:**
+```typescript
+// Split into 2 Gemini calls in parallel
+const [firstHalf, secondHalf] = await Promise.all([
+  callGemini(buildPrompt(members, recipes, { days: [1,2,3,4] })),
+  callGemini(buildPrompt(members, recipes, { days: [5,6,7] })),
+]);
+const plan = mergeDayPlans(firstHalf.days, secondHalf.days);
+
+// Set timeout per call
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 45000);
+// Pass signal to fetch
+```
+
+### 2.3 — React Query Cache Strategy
+**Problem:** Every page navigation refetches everything. No stale time configured.
+
+**Fix:**
+```typescript
+// In main.tsx QueryClient config
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,      // 5 min — meal plans don't change
+      gcTime: 30 * 60 * 1000,         // 30 min cache
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      refetchOnWindowFocus: false,     // stop refetching on tab switch
+    },
+  },
+});
+
+// Override for real-time data
+useQuery({ 
+  queryKey: ['health-logs', memberId],
+  staleTime: 0, // always fresh
+});
+```
+
+### 2.4 — SSE Stream Memory Leak
+**Problem:** If user navigates away mid-stream, the SSE connection stays open server-side indefinitely.
+
+**Fix:**
+```typescript
+// Server: detect client disconnect
+req.on('close', () => {
+  console.log('Client disconnected, stopping stream');
+  controller.abort(); // abort the Gemini stream
+  res.end();
+});
+
+// Client: cleanup on unmount
+useEffect(() => {
+  const controller = new AbortController();
+  startStream(controller.signal);
+  return () => controller.abort();
+}, []);
+```
+
+---
+
+## PRIORITY 3 — FEATURE COMPLETIONS
+
+### 3.1 — Harmony Score — Make It Visible and Meaningful
+**Problem:** Harmony score is computed but barely shown. Judges need to see this prominently.
+
+**Fix:**
+```typescript
+// Add visual harmony score component
+const HarmonyScoreRing = ({ score }: { score: number }) => {
+  const color = score >= 80 ? '#22c55e' : score >= 60 ? '#f97316' : '#ef4444';
+  const label = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Improvement';
+  
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="35" fill="none" stroke="#1e1e3a" strokeWidth="8"/>
+        <circle cx="40" cy="40" r="35" fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={`${score * 2.2} 220`}
+          strokeLinecap="round"
+          transform="rotate(-90 40 40)"
+        />
+        <text x="40" y="45" textAnchor="middle" fontSize="18" fontWeight="bold" fill={color}>
+          {score}
+        </text>
+      </svg>
+      <span className="text-xs mt-1">{label} Family Harmony</span>
+      <span className="text-xs text-gray-500">Per ICMR-NIN 2024</span>
+    </div>
+  );
+};
+```
+
+### 3.2 — Leftover Chain — Make It Actually Visible
+**Problem:** leftoverChain is computed and stored but the UI barely shows it.
+
+**Fix:**
+```tsx
+// In MealPlan page, add leftover chain visualization
+const LeftoverChain = ({ chain }: { chain: LeftoverChainStep[] }) => (
+  <div className="glass-card p-3 mt-2">
+    <h4 className="text-xs font-bold text-orange-500 mb-2">
+      ♻️ Leftover Intelligence
+    </h4>
+    {chain.map((step, i) => (
+      <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
+        <span className="text-orange-400">→</span>
+        <span>{step.meal}: {step.recipeName}</span>
+        <span className={`ml-auto px-1 rounded text-[10px] ${
+          step.source === 'recipe_db' ? 'bg-green-900 text-green-400' : 'bg-gray-800'
+        }`}>
+          {step.source === 'recipe_db' ? 'ICMR Verified' : 'AI Suggested'}
+        </span>
+      </div>
+    ))}
+  </div>
+);
+```
+
+### 3.3 — Fasting Calendar — Fix isFallbackYear Silently Failing
+**Problem:** When isFallbackYear is true, the API returns wrong fasting data with no UI warning.
+
+**Fix:**
+```typescript
+// API response
+if (isFallbackYear) {
+  return res.json({
+    isFestivalFasting: false,
+    festivals: [],
+    isFallbackYear: true,
+    message: `Fasting calendar for ${year} not yet available. Using general Indian fasting patterns.`,
+    generalFastingDays: computeEkadashiDates(year), // compute mathematically
+  });
+}
+
+// Frontend
+{fastingData?.isFallbackYear && (
+  <p className="text-xs text-yellow-500">
+    ⚠️ Using estimated fasting dates for {year}
+  </p>
+)}
+```
+
+### 3.4 — ICMR-NIN Targets — Show Per-Member in UI
+**Problem:** ICMR targets are computed server-side but never shown to the user, killing a major credibility feature.
+
+**Fix:**
+```tsx
+// Add ICMR target breakdown per member on Nutrition page
+const ICMRTargetCard = ({ member, targets, actual }) => (
+  <div className="glass-card p-4">
+    <h3 className="font-bold text-sm mb-3">
+      {member.name} 
+      <span className="text-xs text-orange-400 ml-2">
+        ICMR-NIN 2024 Targets
+      </span>
+    </h3>
+    {Object.entries(targets).map(([nutrient, target]) => {
+      const pct = Math.min((actual[nutrient] / target) * 100, 100);
+      const color = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-orange-500' : 'bg-red-500';
+      return (
+        <div key={nutrient} className="mb-2">
+          <div className="flex justify-between text-xs mb-1">
+            <span>{nutrient}</span>
+            <span>{actual[nutrient]?.toFixed(1)} / {target} {getUnit(nutrient)}</span>
+          </div>
+          <div className="w-full bg-gray-800 rounded-full h-1.5">
+            <div className={`${color} h-1.5 rounded-full`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+```
+
+---
+
+## PRIORITY 4 — VOICE ASSISTANT UPGRADE
+
+### 4.1 — Make It Truly Conversational (Siri-Level)
+**Problem:** Current voice is request-response. Real assistants maintain context and handle corrections.
+
+**Fix:**
+```typescript
+// Add correction handling to state machine
+const CORRECTION_TRIGGERS = {
+  hi: ['nahi', 'galat', 'change karo', 'wapas', 'badle', 'correction'],
+  en: ['no', 'wrong', 'change', 'go back', 'correction', 'actually'],
+  ta: ['illa', 'thappa', 'thirumbu'],
+};
+
+const detectCorrection = (text: string, lang: string): boolean => {
+  const triggers = CORRECTION_TRIGGERS[lang] ?? CORRECTION_TRIGGERS.en;
+  return triggers.some(t => text.toLowerCase().includes(t));
+};
+
+// In processVoiceTurn()
+if (detectCorrection(transcript, language)) {
+  const prevState = stateHistory[stateHistory.length - 2];
+  return {
+    assistantText: `Theek hai, chalein wapas. ${QUESTIONS[prevState][language]}`,
+    nextState: prevState,
+    parsedFields: {},
+  };
+}
+
+// Add to system prompt context
+"If user says they want to correct something, identify WHAT they want to change 
+and return correctedField with the field name and correctedValue with the new value."
+```
+
+### 4.2 — Visual Audio Waveform (Makes Demo Impressive)
+```tsx
+const AudioWaveform = ({ isListening }: { isListening: boolean }) => {
+  const bars = Array.from({ length: 20 }, (_, i) => i);
+  return (
+    <div className="flex items-center gap-0.5 h-8">
+      {bars.map(i => (
+        <div
+          key={i}
+          className={`w-1 rounded-full bg-orange-500 transition-all duration-100 ${
+            isListening ? 'animate-pulse' : ''
+          }`}
+          style={{
+            height: isListening 
+              ? `${Math.random() * 24 + 8}px` 
+              : '4px',
+            animationDelay: `${i * 50}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+---
+
+## PRIORITY 5 — DEMO MODE (Critical for Competition)
+
+### 5.1 — One-Tap Judge Demo
+**Problem:** Judges have 60 seconds at your booth. Current demo requires full signup.
+
+**Fix:**
+```typescript
+// GET /api/demo/instant — returns fully populated demo state
+router.get('/instant', async (req, res) => {
+  const demoToken = jwt.sign(
+    { userId: 'demo-judge-001', email: 'judge@bic2025.in' },
+    process.env.JWT_SECRET!,
+    { expiresIn: '2h' }
+  );
+  
+  const demoFamily = await getOrCreateSharmaFamily();
+  const latestPlan = await getLatestMealPlan(demoFamily.id);
+  
+  return res.json({ 
+    token: demoToken,
+    family: demoFamily,
+    mealPlan: latestPlan,
+    message: 'Demo mode — Sharma family from Jharkhand, 4 members'
+  });
+});
+
+// Frontend: Add "Judge Demo" button on login page
+<button onClick={activateJudgeDemo} className="btn-liquid w-full mt-4 border border-orange-500">
+  🎯 Try with Demo Family (60 seconds)
+</button>
+```
+
+### 5.2 — Offline Resilience For Demo Day
+```typescript
+// Cache last successful meal plan in localStorage
+const cacheMealPlan = (plan: MealPlan) => {
+  localStorage.setItem(`cached_plan_${plan.familyId}`, JSON.stringify({
+    plan,
+    cachedAt: Date.now(),
+  }));
+};
+
+// In meal plan page: if API fails, show cached
+const { data, error } = useListMealPlans({ familyId });
+const cachedPlan = useMemo(() => {
+  if (!error) return null;
+  const cached = localStorage.getItem(`cached_plan_${familyId}`);
+  return cached ? JSON.parse(cached) : null;
+}, [error, familyId]);
+
+// Show banner
+{cachedPlan && (
+  <div className="bg-yellow-900 text-yellow-300 text-xs p-2 rounded">
+    📱 Showing cached plan — connect to internet to refresh
+  </div>
+)}
+```
+
+---
+
+## PRIORITY 6 — PRESENTATION LAYER (Wins Judges)
+
+### 6.1 — ICMR Citation Footer on Every Meal Card
+```tsx
+// Add to every meal card
+<p className="text-[10px] text-gray-600 mt-2 border-t border-gray-800 pt-1">
+  📚 Nutritional targets per ICMR-NIN Dietary Guidelines for Indians 2024, 
+  Table 1.5 (Minerals) & Annexure III (Glycemic Index)
+</p>
+```
+
+### 6.2 — Real-Time Cost Tracker
+```tsx
+// Show budget consumption prominently
+const BudgetTracker = ({ spent, budget }) => {
+  const pct = (spent / budget) * 100;
+  const remaining = budget - spent;
+  return (
+    <div className="glass-card p-3">
+      <div className="flex justify-between text-xs mb-1">
+        <span>Weekly Budget</span>
+        <span className={remaining < 0 ? 'text-red-400' : 'text-green-400'}>
+          ₹{remaining} remaining
+        </span>
+      </div>
+      <div className="w-full bg-gray-800 rounded-full h-2">
+        <div 
+          className={`h-2 rounded-full ${pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-orange-500' : 'bg-green-500'}`}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      <p className="text-[10px] text-gray-500 mt-1">₹{spent} of ₹{budget} used this week</p>
+    </div>
+  );
+};
+```
+
+### 6.3 — Health Condition Badges on Every Plate
+```tsx
+const CONDITION_BADGES = {
+  diabetes: { label: 'Diabetic', color: 'bg-red-900 text-red-300' },
+  anemia: { label: 'Anemic', color: 'bg-purple-900 text-purple-300' },
+  hypertension: { label: 'BP', color: 'bg-blue-900 text-blue-300' },
+  obesity: { label: 'Weight Loss', color: 'bg-orange-900 text-orange-300' },
+  'growing child': { label: 'Growing Child', color: 'bg-green-900 text-green-300' },
+};
+
+// Show on every member plate card
+{member.conditions.map(c => (
+  <span key={c} className={`text-[10px] px-2 py-0.5 rounded-full ${CONDITION_BADGES[c]?.color}`}>
+    {CONDITION_BADGES[c]?.label ?? c}
+  </span>
+))}
+```
+
+---
+
+## GLOBAL CODE STANDARDS TO ENFORCE
+
+```typescript
+// 1. Every async route MUST have try-catch
+router.post('/generate', async (req, res) => {
+  try {
+    // ... logic
+  } catch (err) {
+    console.error('[meal-plan:generate]', err);
+    res.status(500).json({ 
+      error: 'Failed to generate plan',
+      message: err instanceof Error ? err.message : 'Unknown error',
+      retryable: true,
+    });
+  }
+});
+
+// 2. Every Drizzle query MUST have timeout
+const result = await localDb
+  .select()
+  .from(recipes)
+  .where(conditions)
+  .limit(100)
+  // Add query timeout
+  .$dynamic()
+  .execute();
+
+// 3. Every environment variable MUST be validated at startup
+const requiredEnv = ['DATABASE_URL', 'JWT_SECRET', 'PORT'];
+for (const key of requiredEnv) {
+  if (!process.env[key]) throw new Error(`Missing required env: ${key}`);
+}
+
+// 4. TypeScript strict mode — no any
+// In every tsconfig.json:
+{
+  "strict": true,
+  "noImplicitAny": true,
+  "strictNullChecks": true,
+}
+```
+
+---
+
+## TESTING CHECKLIST BEFORE DEMO
+
+Run these manually — if any fails, fix before presenting:
+
+- [ ] Register new user → login → auto-redirect to setup
+- [ ] Create family with 4 members (diabetic + anemic + child + elderly)
+- [ ] Generate 7-day meal plan → harmonyScore visible → all 7 days populated
+- [ ] Each member plate shows add/reduce/avoid
+- [ ] Grocery list generated → pantry items subtracted → budget tracked
+- [ ] Voice setup: speak "Sharma family, Jharkhand, 5000 rupaye" → form fills
+- [ ] Chat: ask "mujhe diabetes hai, kya khau?" → gets ICMR-backed answer
+- [ ] Demo mode: single tap → Sharma family fully loaded → no login required
+- [ ] Offline: disconnect internet → cached plan visible
+- [ ] All screens on mobile (375px width) — no horizontal scroll
+- [ ] Language toggle: switch to Hindi → all labels change
