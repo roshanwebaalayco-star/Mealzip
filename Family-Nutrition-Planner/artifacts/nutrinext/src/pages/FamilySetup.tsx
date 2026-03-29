@@ -98,7 +98,7 @@ export default function FamilySetup() {
 
   type ChatMsg = { role: "user" | "model"; content: string };
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatLang, setChatLang] = useState<string | null>(globalLang !== "english" ? globalLang : null);
+  const [chatLang, setChatLang] = useState<string | null>(globalLang);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -499,7 +499,14 @@ export default function FamilySetup() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => { setChatOpen(true); setChatLang(globalLang !== "english" ? globalLang : null); setChatMessages([]); setChatComplete(false); }}
+                      onClick={() => {
+                        setChatOpen(true);
+                        setChatMessages([]);
+                        setChatComplete(false);
+                        const lang = globalLang;
+                        setChatLang(lang);
+                        if (lang) startChat(lang);
+                      }}
                       className="gap-1.5 shrink-0 ml-2 border-secondary/40 text-secondary hover:bg-secondary/10"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />

@@ -88,6 +88,10 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
       setHasStarted(true);
       start(currentLanguage, onComplete);
     }
+    // Intentionally narrow deps: only trigger on open/close transitions.
+    // hasStarted prevents re-entry; currentLanguage/start/onComplete are
+    // stable refs or primitives that don't change mid-dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const handlePickLanguage = (lang: string) => {
