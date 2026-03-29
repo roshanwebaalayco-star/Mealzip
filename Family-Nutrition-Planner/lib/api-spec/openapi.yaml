@@ -1181,6 +1181,14 @@ components:
           items:
             type: string
           description: Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)
+        mealsAreShared:
+          type: boolean
+        sharedTypicalBreakfast:
+          type: string
+        sharedTypicalLunch:
+          type: string
+        sharedTypicalDinner:
+          type: string
       required:
         - name
         - state
@@ -1209,6 +1217,14 @@ components:
           items:
             type: string
           description: Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)
+        mealsAreShared:
+          type: boolean
+        sharedTypicalBreakfast:
+          type: string
+        sharedTypicalLunch:
+          type: string
+        sharedTypicalDinner:
+          type: string
 
     FamilyMember:
       type: object
@@ -1293,8 +1309,37 @@ components:
           type: array
           items:
             type: string
+        primaryGoal:
+          type: string
         calorieTarget:
           type: integer
+        goalPace:
+          type: string
+          enum: ["none", "0.25", "0.5"]
+        tiffinType:
+          type: string
+          enum: ["none", "school", "office"]
+        religiousRules:
+          type: string
+          enum: ["none", "no_beef", "no_pork", "sattvic", "jain"]
+        ingredientDislikes:
+          type: array
+          items:
+            type: string
+        nonVegDays:
+          type: array
+          items:
+            type: string
+        nonVegTypes:
+          type: array
+          items:
+            type: string
+        individualTypicalBreakfast:
+          type: string
+        individualTypicalLunch:
+          type: string
+        individualTypicalDinner:
+          type: string
       required:
         - name
         - role
@@ -1331,8 +1376,37 @@ components:
           type: array
           items:
             type: string
+        primaryGoal:
+          type: string
         calorieTarget:
           type: integer
+        goalPace:
+          type: string
+          enum: ["none", "0.25", "0.5"]
+        tiffinType:
+          type: string
+          enum: ["none", "school", "office"]
+        religiousRules:
+          type: string
+          enum: ["none", "no_beef", "no_pork", "sattvic", "jain"]
+        ingredientDislikes:
+          type: array
+          items:
+            type: string
+        nonVegDays:
+          type: array
+          items:
+            type: string
+        nonVegTypes:
+          type: array
+          items:
+            type: string
+        individualTypicalBreakfast:
+          type: string
+        individualTypicalLunch:
+          type: string
+        individualTypicalDinner:
+          type: string
 
     # ── Recipes ────────────────────────────────────────────────────────────────
     Recipe:
@@ -1485,6 +1559,68 @@ components:
             isFasting:
               type: boolean
               description: Generate a fasting-mode plan (Navratri, Ekadashi, etc.)
+            pantryIngredients:
+              type: array
+              items:
+                type: string
+              description: Ingredients already available at home
+            festivalType:
+              type: string
+              description: Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning.
+        weeklyContext:
+          type: object
+          description: Weekly context overrides for this generation — what is different from the permanent profile this week.
+          properties:
+            budget_inr:
+              type: number
+            dining_out_freq:
+              type: number
+            weekday_prep_time:
+              type: string
+              enum: ["<20", "20-40", "nolimit"]
+            weekend_prep_time:
+              type: string
+              enum: ["quick", "elaborate", "nopref"]
+            special_request:
+              type: string
+            member_overrides:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  memberId:
+                    type: number
+                    description: ID of the family member (key is String(memberId))
+                  feeling_this_week:
+                    type: string
+                    description: Free-text wellness note for the week
+                  fasting_days:
+                    type: array
+                    items:
+                      type: string
+                  tiffin_override:
+                    type: boolean
+                  spice_override:
+                    type: string
+                    enum: ["mild", "medium", "spicy"]
+                  weight_kg:
+                    type: number
+                    description: Current weight update for calorie target recalculation
+                  nonveg_days_override:
+                    type: array
+                    items:
+                      type: string
+                    description: Non-veg days override for this week
+                  nonveg_type_override:
+                    type: string
+                    description: Non-veg type for this week (chicken/fish/eggs/mutton/any)
+                required:
+                  - memberId
+            pantry_items:
+              type: array
+              items:
+                type: string
+              description: Ingredients already at home; prefer recipes using these
       required:
         - familyId
         - weekStartDate
@@ -1741,6 +1877,9 @@ components:
       properties:
         content:
           type: string
+        familyId:
+          type: integer
+          nullable: true
       required:
         - content
 

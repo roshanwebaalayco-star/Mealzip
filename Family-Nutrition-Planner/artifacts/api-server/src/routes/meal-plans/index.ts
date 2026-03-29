@@ -865,11 +865,11 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
             base_dish_name: `Simple ${slotKey.replace("_", " ")} (${dishName} replaced — needs ${violations.join(", ")})`,
             recipeName: `Simple ${slotKey.replace("_", " ")}`,
             recipeId: null,
-            required_appliances: ["tawa"],
+            required_appliances: [],
             icmr_rationale: `Original dish required unavailable appliance: ${violations.join(", ")}`,
-            base_ingredients: [{ ingredient: "seasonal vegetables", qty_grams: 200 }],
-            ingredients: ["seasonal vegetables", "spices"],
-            instructions: ["Use available appliances", "Cook simply", "Serve fresh"],
+            base_ingredients: [{ ingredient: "seasonal fruits", qty_grams: 200 }, { ingredient: "curd", qty_grams: 100 }],
+            ingredients: ["seasonal fruits", "curd", "nuts"],
+            instructions: ["Wash and cut fruits", "Mix with curd", "Serve fresh"],
           };
         }
       }

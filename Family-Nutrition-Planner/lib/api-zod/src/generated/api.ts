@@ -57,6 +57,10 @@ export const CreateFamilyBody = zod.object({
     .describe(
       "Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)",
     ),
+  mealsAreShared: zod.boolean().optional(),
+  sharedTypicalBreakfast: zod.string().optional(),
+  sharedTypicalLunch: zod.string().optional(),
+  sharedTypicalDinner: zod.string().optional(),
 });
 
 /**
@@ -149,6 +153,10 @@ export const UpdateFamilyBody = zod.object({
     .describe(
       "Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)",
     ),
+  mealsAreShared: zod.boolean().optional(),
+  sharedTypicalBreakfast: zod.string().optional(),
+  sharedTypicalLunch: zod.string().optional(),
+  sharedTypicalDinner: zod.string().optional(),
 });
 
 export const UpdateFamilyResponse = zod.object({
@@ -243,7 +251,19 @@ export const AddFamilyMemberBody = zod.object({
   healthConditions: zod.array(zod.string()).optional(),
   dietaryRestrictions: zod.array(zod.string()).optional(),
   allergies: zod.array(zod.string()).optional(),
+  primaryGoal: zod.string().optional(),
   calorieTarget: zod.number().optional(),
+  goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
+  tiffinType: zod.enum(["none", "school", "office"]).optional(),
+  religiousRules: zod
+    .enum(["none", "no_beef", "no_pork", "sattvic", "jain"])
+    .optional(),
+  ingredientDislikes: zod.array(zod.string()).optional(),
+  nonVegDays: zod.array(zod.string()).optional(),
+  nonVegTypes: zod.array(zod.string()).optional(),
+  individualTypicalBreakfast: zod.string().optional(),
+  individualTypicalLunch: zod.string().optional(),
+  individualTypicalDinner: zod.string().optional(),
 });
 
 /**
@@ -265,7 +285,19 @@ export const UpdateFamilyMemberBody = zod.object({
   healthConditions: zod.array(zod.string()).optional(),
   dietaryRestrictions: zod.array(zod.string()).optional(),
   allergies: zod.array(zod.string()).optional(),
+  primaryGoal: zod.string().optional(),
   calorieTarget: zod.number().optional(),
+  goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
+  tiffinType: zod.enum(["none", "school", "office"]).optional(),
+  religiousRules: zod
+    .enum(["none", "no_beef", "no_pork", "sattvic", "jain"])
+    .optional(),
+  ingredientDislikes: zod.array(zod.string()).optional(),
+  nonVegDays: zod.array(zod.string()).optional(),
+  nonVegTypes: zod.array(zod.string()).optional(),
+  individualTypicalBreakfast: zod.string().optional(),
+  individualTypicalLunch: zod.string().optional(),
+  individualTypicalDinner: zod.string().optional(),
 });
 
 export const UpdateFamilyMemberResponse = zod.object({
@@ -480,8 +512,67 @@ export const GenerateMealPlanBody = zod.object({
         .boolean()
         .optional()
         .describe("Generate a fasting-mode plan (Navratri, Ekadashi, etc.)"),
+      pantryIngredients: zod
+        .array(zod.string())
+        .optional()
+        .describe("Ingredients already available at home"),
+      festivalType: zod
+        .string()
+        .optional()
+        .describe(
+          "Name of festival\/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning.",
+        ),
     })
     .optional(),
+  weeklyContext: zod
+    .object({
+      budget_inr: zod.number().optional(),
+      dining_out_freq: zod.number().optional(),
+      weekday_prep_time: zod.enum(["<20", "20-40", "nolimit"]).optional(),
+      weekend_prep_time: zod.enum(["quick", "elaborate", "nopref"]).optional(),
+      special_request: zod.string().optional(),
+      member_overrides: zod
+        .record(
+          zod.string(),
+          zod.object({
+            memberId: zod
+              .number()
+              .describe("ID of the family member (key is String(memberId))"),
+            feeling_this_week: zod
+              .string()
+              .optional()
+              .describe("Free-text wellness note for the week"),
+            fasting_days: zod.array(zod.string()).optional(),
+            tiffin_override: zod.boolean().optional(),
+            spice_override: zod.enum(["mild", "medium", "spicy"]).optional(),
+            weight_kg: zod
+              .number()
+              .optional()
+              .describe(
+                "Current weight update for calorie target recalculation",
+              ),
+            nonveg_days_override: zod
+              .array(zod.string())
+              .optional()
+              .describe("Non-veg days override for this week"),
+            nonveg_type_override: zod
+              .string()
+              .optional()
+              .describe(
+                "Non-veg type for this week (chicken\/fish\/eggs\/mutton\/any)",
+              ),
+          }),
+        )
+        .optional(),
+      pantry_items: zod
+        .array(zod.string())
+        .optional()
+        .describe("Ingredients already at home; prefer recipes using these"),
+    })
+    .optional()
+    .describe(
+      "Weekly context overrides for this generation — what is different from the permanent profile this week.",
+    ),
 });
 
 export const GenerateMealPlanResponse = zod.object({
@@ -1028,6 +1119,7 @@ export const SendGeminiMessageParams = zod.object({
 
 export const SendGeminiMessageBody = zod.object({
   content: zod.string(),
+  familyId: zod.number().nullish(),
 });
 
 /**

@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GenerateMealPlanBodyPreferences } from "./generateMealPlanBodyPreferences";
+import type { GenerateMealPlanBodyWeeklyContext } from "./generateMealPlanBodyWeeklyContext";
 
 export interface GenerateMealPlanBody {
   familyId: number;
   /** ISO 8601 date-time string (e.g. 2026-03-23T00:00:00.000Z). Accepted as string from JSON body. */
   weekStartDate: string;
   preferences?: GenerateMealPlanBodyPreferences;
+  /** Weekly context overrides for this generation — what is different from the permanent profile this week. */
+  weeklyContext?: GenerateMealPlanBodyWeeklyContext;
 }

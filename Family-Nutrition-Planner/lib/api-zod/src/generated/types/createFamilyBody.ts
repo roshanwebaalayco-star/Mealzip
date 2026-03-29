@@ -15,4 +15,8 @@ export interface CreateFamilyBody {
   cuisinePreferences?: string[];
   /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
   appliances?: string[];
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
 }

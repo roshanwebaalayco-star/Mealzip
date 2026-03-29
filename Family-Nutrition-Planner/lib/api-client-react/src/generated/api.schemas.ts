@@ -67,6 +67,10 @@ export interface CreateFamilyBody {
   cuisinePreferences?: string[];
   /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
   appliances?: string[];
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
 }
 
 export interface UpdateFamilyBody {
@@ -78,7 +82,40 @@ export interface UpdateFamilyBody {
   cuisinePreferences?: string[];
   /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
   appliances?: string[];
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
 }
+
+export type CreateMemberBodyGoalPace =
+  (typeof CreateMemberBodyGoalPace)[keyof typeof CreateMemberBodyGoalPace];
+
+export const CreateMemberBodyGoalPace = {
+  none: "none",
+  "025": "0.25",
+  "05": "0.5",
+} as const;
+
+export type CreateMemberBodyTiffinType =
+  (typeof CreateMemberBodyTiffinType)[keyof typeof CreateMemberBodyTiffinType];
+
+export const CreateMemberBodyTiffinType = {
+  none: "none",
+  school: "school",
+  office: "office",
+} as const;
+
+export type CreateMemberBodyReligiousRules =
+  (typeof CreateMemberBodyReligiousRules)[keyof typeof CreateMemberBodyReligiousRules];
+
+export const CreateMemberBodyReligiousRules = {
+  none: "none",
+  no_beef: "no_beef",
+  no_pork: "no_pork",
+  sattvic: "sattvic",
+  jain: "jain",
+} as const;
 
 export interface CreateMemberBody {
   name: string;
@@ -91,8 +128,47 @@ export interface CreateMemberBody {
   healthConditions?: string[];
   dietaryRestrictions?: string[];
   allergies?: string[];
+  primaryGoal?: string;
   calorieTarget?: number;
+  goalPace?: CreateMemberBodyGoalPace;
+  tiffinType?: CreateMemberBodyTiffinType;
+  religiousRules?: CreateMemberBodyReligiousRules;
+  ingredientDislikes?: string[];
+  nonVegDays?: string[];
+  nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
 }
+
+export type UpdateMemberBodyGoalPace =
+  (typeof UpdateMemberBodyGoalPace)[keyof typeof UpdateMemberBodyGoalPace];
+
+export const UpdateMemberBodyGoalPace = {
+  none: "none",
+  "025": "0.25",
+  "05": "0.5",
+} as const;
+
+export type UpdateMemberBodyTiffinType =
+  (typeof UpdateMemberBodyTiffinType)[keyof typeof UpdateMemberBodyTiffinType];
+
+export const UpdateMemberBodyTiffinType = {
+  none: "none",
+  school: "school",
+  office: "office",
+} as const;
+
+export type UpdateMemberBodyReligiousRules =
+  (typeof UpdateMemberBodyReligiousRules)[keyof typeof UpdateMemberBodyReligiousRules];
+
+export const UpdateMemberBodyReligiousRules = {
+  none: "none",
+  no_beef: "no_beef",
+  no_pork: "no_pork",
+  sattvic: "sattvic",
+  jain: "jain",
+} as const;
 
 export interface UpdateMemberBody {
   name?: string;
@@ -105,7 +181,17 @@ export interface UpdateMemberBody {
   healthConditions?: string[];
   dietaryRestrictions?: string[];
   allergies?: string[];
+  primaryGoal?: string;
   calorieTarget?: number;
+  goalPace?: UpdateMemberBodyGoalPace;
+  tiffinType?: UpdateMemberBodyTiffinType;
+  religiousRules?: UpdateMemberBodyReligiousRules;
+  ingredientDislikes?: string[];
+  nonVegDays?: string[];
+  nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
 }
 
 export interface Recipe {
@@ -171,6 +257,69 @@ export type GenerateMealPlanBodyPreferences = {
   maxBudget?: number;
   /** Generate a fasting-mode plan (Navratri, Ekadashi, etc.) */
   isFasting?: boolean;
+  /** Ingredients already available at home */
+  pantryIngredients?: string[];
+  /** Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning. */
+  festivalType?: string;
+};
+
+export type GenerateMealPlanBodyWeeklyContextWeekdayPrepTime =
+  (typeof GenerateMealPlanBodyWeeklyContextWeekdayPrepTime)[keyof typeof GenerateMealPlanBodyWeeklyContextWeekdayPrepTime];
+
+export const GenerateMealPlanBodyWeeklyContextWeekdayPrepTime = {
+  "<20": "<20",
+  "20-40": "20-40",
+  nolimit: "nolimit",
+} as const;
+
+export type GenerateMealPlanBodyWeeklyContextWeekendPrepTime =
+  (typeof GenerateMealPlanBodyWeeklyContextWeekendPrepTime)[keyof typeof GenerateMealPlanBodyWeeklyContextWeekendPrepTime];
+
+export const GenerateMealPlanBodyWeeklyContextWeekendPrepTime = {
+  quick: "quick",
+  elaborate: "elaborate",
+  nopref: "nopref",
+} as const;
+
+export type GenerateMealPlanBodyWeeklyContextMemberOverridesSpiceOverride =
+  (typeof GenerateMealPlanBodyWeeklyContextMemberOverridesSpiceOverride)[keyof typeof GenerateMealPlanBodyWeeklyContextMemberOverridesSpiceOverride];
+
+export const GenerateMealPlanBodyWeeklyContextMemberOverridesSpiceOverride = {
+  mild: "mild",
+  medium: "medium",
+  spicy: "spicy",
+} as const;
+
+export type GenerateMealPlanBodyWeeklyContextMemberOverrides = {
+  [key: string]: {
+    /** ID of the family member (key is String(memberId)) */
+    memberId: number;
+    /** Free-text wellness note for the week */
+    feeling_this_week?: string;
+    fasting_days?: string[];
+    tiffin_override?: boolean;
+    spice_override?: GenerateMealPlanBodyWeeklyContextMemberOverridesSpiceOverride;
+    /** Current weight update for calorie target recalculation */
+    weight_kg?: number;
+    /** Non-veg days override for this week */
+    nonveg_days_override?: string[];
+    /** Non-veg type for this week (chicken/fish/eggs/mutton/any) */
+    nonveg_type_override?: string;
+  };
+};
+
+/**
+ * Weekly context overrides for this generation — what is different from the permanent profile this week.
+ */
+export type GenerateMealPlanBodyWeeklyContext = {
+  budget_inr?: number;
+  dining_out_freq?: number;
+  weekday_prep_time?: GenerateMealPlanBodyWeeklyContextWeekdayPrepTime;
+  weekend_prep_time?: GenerateMealPlanBodyWeeklyContextWeekendPrepTime;
+  special_request?: string;
+  member_overrides?: GenerateMealPlanBodyWeeklyContextMemberOverrides;
+  /** Ingredients already at home; prefer recipes using these */
+  pantry_items?: string[];
 };
 
 export interface GenerateMealPlanBody {
@@ -178,6 +327,8 @@ export interface GenerateMealPlanBody {
   /** ISO 8601 date-time string (e.g. 2026-03-23T00:00:00.000Z). Accepted as string from JSON body. */
   weekStartDate: string;
   preferences?: GenerateMealPlanBodyPreferences;
+  /** Weekly context overrides for this generation — what is different from the permanent profile this week. */
+  weeklyContext?: GenerateMealPlanBodyWeeklyContext;
 }
 
 export interface UpdateMealPlanBody {
@@ -317,6 +468,7 @@ export interface CreateGeminiConversationBody {
 
 export interface SendGeminiMessageBody {
   content: string;
+  familyId?: number | null;
 }
 
 export interface GeminiConversationWithMessages {

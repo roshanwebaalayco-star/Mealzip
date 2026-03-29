@@ -8,4 +8,5 @@
 
 export interface SendGeminiMessageBody {
   content: string;
+  familyId?: number | null;
 }

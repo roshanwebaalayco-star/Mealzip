@@ -5,6 +5,9 @@
  * NutriNext / ParivarSehat AI — Family Nutrition Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateMemberBodyGoalPace } from "./updateMemberBodyGoalPace";
+import type { UpdateMemberBodyReligiousRules } from "./updateMemberBodyReligiousRules";
+import type { UpdateMemberBodyTiffinType } from "./updateMemberBodyTiffinType";
 
 export interface UpdateMemberBody {
   name?: string;
@@ -17,5 +20,15 @@ export interface UpdateMemberBody {
   healthConditions?: string[];
   dietaryRestrictions?: string[];
   allergies?: string[];
+  primaryGoal?: string;
   calorieTarget?: number;
+  goalPace?: UpdateMemberBodyGoalPace;
+  tiffinType?: UpdateMemberBodyTiffinType;
+  religiousRules?: UpdateMemberBodyReligiousRules;
+  ingredientDislikes?: string[];
+  nonVegDays?: string[];
+  nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
 }
