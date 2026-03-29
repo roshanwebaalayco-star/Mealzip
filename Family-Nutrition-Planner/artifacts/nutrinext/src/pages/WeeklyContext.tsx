@@ -18,40 +18,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 
-interface MemberContextOverride {
-  memberId: number;
-  feeling_this_week?: string;
-  fasting_days?: string[];
-  tiffin_override?: boolean;
-  spice_override?: "mild" | "medium" | "spicy";
-  weight_kg?: number;
-  nonveg_days_override?: string[];
-  nonveg_type_override?: string;
-}
-
-interface WeeklyContext {
-  budget_inr?: number;
-  dining_out_freq?: number;
-  weekday_prep_time?: "<20" | "20-40" | "nolimit";
-  weekend_prep_time?: "quick" | "elaborate" | "nopref";
-  special_request?: string;
-  member_overrides?: Record<string, MemberContextOverride>;
-  pantry_items?: string[];
-}
-
-interface FamilyMember {
-  id: number;
-  name: string;
-  role: string;
-  age?: number;
-  healthConditions?: string[];
-  dietaryRestrictions?: string[];
-  primaryGoal?: string;
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  tiffinType?: string;
-  weightKg?: number;
-}
+import type { MemberContextOverride, WeeklyContext, FamilyMember } from "@/types/weekly-context";
 
 const lsKey = (familyId: number) => `nutrinext_weekly_context_${familyId}`;
 

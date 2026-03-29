@@ -19,7 +19,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { WeeklyContext } from "@/components/WeeklyContextModal";
+import type { WeeklyContext } from "@/types/weekly-context";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
