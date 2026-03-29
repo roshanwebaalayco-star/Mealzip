@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, X, Volume2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { useVoiceAssistant, type VoiceFormData } from "@/hooks/use-voice-assistant";
 import { INDIAN_LANGUAGES } from "@/lib/languages";
+import { useLanguageStore } from "@/store/useLanguageStore";
 
 interface Props {
   open: boolean;
@@ -73,13 +74,23 @@ function PulseRing({ color = "orange" }: { color?: string }) {
 export default function VoiceAssistantModal({ open, language, onClose, onComplete }: Props) {
   const { micState, convState, messages, formData, error, volume, start, stop, stopListeningEarly } =
     useVoiceAssistant();
+  const { currentLanguage, setLanguage: setGlobalLanguage } = useLanguageStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [pickedLang, setPickedLang] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open && !hasStarted && currentLanguage !== "english") {
+      setPickedLang(currentLanguage);
+      setHasStarted(true);
+      start(currentLanguage, onComplete);
+    }
+  }, [open]);
+
   const handlePickLanguage = (lang: string) => {
     setPickedLang(lang);
+    setGlobalLanguage(lang);
     setHasStarted(true);
     start(lang, onComplete);
   };

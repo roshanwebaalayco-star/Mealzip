@@ -15,6 +15,7 @@ import { useLanguage } from "@/contexts/language-context";
 import VoiceAssistantModal from "@/components/VoiceAssistantModal";
 import type { VoiceFormData } from "@/hooks/use-voice-assistant";
 import { INDIAN_LANGUAGES } from "@/lib/languages";
+import { useLanguageStore } from "@/store/useLanguageStore";
 import type { IMemberProfileFields } from "@/components/MemberEditSheet";
 
 type MemberDraft = Omit<
@@ -51,6 +52,7 @@ export default function FamilySetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { currentLanguage: globalLang, setLanguage: setGlobalLang } = useLanguageStore();
   const queryClient = useQueryClient();
   const createFamily = useCreateFamily();
   const addMember = useAddFamilyMember();
@@ -96,7 +98,7 @@ export default function FamilySetup() {
 
   type ChatMsg = { role: "user" | "model"; content: string };
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatLang, setChatLang] = useState<string | null>(null);
+  const [chatLang, setChatLang] = useState<string | null>(globalLang !== "english" ? globalLang : null);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function FamilySetup() {
 
   const startChat = async (lang: string) => {
     setChatLang(lang);
+    setGlobalLang(lang);
     setChatMessages([]);
     setChatLoading(true);
     try {
