@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users } from "lucide-react";
+import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, X, Globe } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,6 +12,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { activeFamily } = useAppState();
   const { lang, toggleLang } = useLanguage();
   const { user, logout } = useAuth();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = [
     { icon: Home, label: "Home", labelHi: "होम", href: "/" },
@@ -22,7 +25,21 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
   ];
 
-  const mobileNavItems = navItems.slice(0, 5);
+  const mobileMainItems = [
+    { icon: Home, label: "Home", labelHi: "होम", href: "/" },
+    { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
+    { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
+    { icon: BarChart3, label: "Nutrition", labelHi: "पोषण", href: "/nutrition" },
+  ];
+
+  const moreItems = [
+    { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
+    { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
+    { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
+    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
+  ];
+
+  const moreIsActive = moreItems.some((i) => i.href === location);
 
   return (
     <div className="min-h-screen pb-24 md:pb-0 md:pl-64 flex flex-col bg-background">
@@ -168,7 +185,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* ── Mobile Bottom Nav ── */}
       <div className="md:hidden fixed bottom-5 left-4 right-4 z-50">
         <nav className="glass-nav-pill rounded-[2rem] px-2 py-2 flex justify-around items-center">
-          {mobileNavItems.map((item) => {
+          {mobileMainItems.map((item) => {
             const isActive = location === item.href;
             return (
               <Link
@@ -189,8 +206,129 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+
+          {/* More button */}
+          <button
+            onClick={() => setMoreOpen(true)}
+            className={`relative flex flex-col items-center justify-center min-w-[3.2rem] h-13 rounded-[1.5rem] transition-all duration-250 focus-ring ${
+              moreIsActive
+                ? "nav-active text-white px-3 gap-0.5"
+                : "text-muted-foreground hover:text-foreground px-2"
+            }`}
+          >
+            <MoreHorizontal className={`w-5 h-5 shrink-0 ${moreIsActive ? "text-white" : ""}`} />
+            {moreIsActive && (
+              <span className="text-[0.55rem] font-semibold text-white leading-none">
+                {lang === "hi" ? "अधिक" : "More"}
+              </span>
+            )}
+            {!moreIsActive && (
+              <span className="text-[0.55rem] font-semibold leading-none mt-0.5">
+                {lang === "hi" ? "अधिक" : "More"}
+              </span>
+            )}
+          </button>
         </nav>
       </div>
+
+      {/* ── More Bottom Sheet ── */}
+      <AnimatePresence>
+        {moreOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+              onClick={() => setMoreOpen(false)}
+            />
+
+            {/* Sheet */}
+            <motion.div
+              key="sheet"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] glass-panel rounded-t-3xl px-4 pt-3 pb-8 shadow-2xl"
+            >
+              {/* Handle */}
+              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+
+              {/* Close button */}
+              <div className="flex items-center justify-between mb-4 px-1">
+                <span className="text-sm font-semibold text-foreground">
+                  {lang === "hi" ? "सभी विकल्प" : "All Options"}
+                </span>
+                <button
+                  onClick={() => setMoreOpen(false)}
+                  className="p-1.5 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* More nav items grid */}
+              <div className="grid grid-cols-4 gap-2 mb-5">
+                {moreItems.map((item) => {
+                  const isActive = location === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMoreOpen(false)}
+                      className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all ${
+                        isActive
+                          ? "nav-active text-white"
+                          : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                      }`}
+                    >
+                      <item.icon className={`w-5 h-5 ${isActive ? "text-white" : ""}`} />
+                      <span className="text-[0.65rem] font-medium leading-none">
+                        {lang === "hi" ? item.labelHi : item.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border/40 my-3" />
+
+              {/* Language toggle + Auth */}
+              <div className="flex items-center gap-3 px-1">
+                <button
+                  onClick={() => { toggleLang(); setMoreOpen(false); }}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-medium text-foreground flex-1"
+                >
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <span>{lang === "en" ? "Switch to हिंदी" : "Switch to English"}</span>
+                </button>
+
+                {user ? (
+                  <button
+                    onClick={() => { logout(); setMoreOpen(false); }}
+                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-destructive/10 hover:bg-destructive/20 transition-colors text-sm font-medium text-destructive"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{lang === "hi" ? "लॉग आउट" : "Log out"}</span>
+                  </button>
+                ) : (
+                  <Link href="/login" onClick={() => setMoreOpen(false)}>
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-primary/10 hover:bg-primary/20 transition-colors text-sm font-medium text-primary">
+                      <LogIn className="w-4 h-4" />
+                      <span>{lang === "hi" ? "लॉग इन" : "Log in"}</span>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
