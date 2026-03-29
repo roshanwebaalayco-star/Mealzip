@@ -543,7 +543,7 @@ export default function MealPlan() {
           </p>
           <div className="flex flex-col gap-3">
             <button
-              className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3.5 rounded-2xl relative z-10 disabled:opacity-60"
+              className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-6 py-3.5 rounded-2xl relative z-10 disabled:opacity-60"
               onClick={() => setLocation("/meal-plan/context")}
               disabled={generate.isPending}
             >

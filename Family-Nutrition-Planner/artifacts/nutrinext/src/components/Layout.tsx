@@ -45,7 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 glass-sidebar z-50">
         {/* Logo */}
         <div className="px-6 pt-7 pb-5 flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-[var(--brand-400)] to-[var(--brand-600)] shadow-lg" style={{ boxShadow: '0 4px 16px rgba(245, 166, 35, 0.30)' }}>
+          <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg" style={{ boxShadow: '0 4px 16px rgba(5, 150, 105, 0.30)' }}>
             <Sprout className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -149,7 +149,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* ── Mobile Top Bar ── */}
       <header className="md:hidden glass-elevated sticky top-0 z-40 px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 relative z-10">
-          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-orange-500 shadow shadow-primary/30">
+          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow shadow-emerald-500/30">
             <Sprout className="w-4 h-4 text-white" />
           </div>
           <h1 className="font-semibold text-base" style={{ color: 'var(--text-primary)' }}>NutriNext</h1>

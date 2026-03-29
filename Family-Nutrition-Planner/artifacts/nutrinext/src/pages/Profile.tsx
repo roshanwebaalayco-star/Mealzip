@@ -260,7 +260,7 @@ export default function Profile() {
                 onClick={() => toggleExpand(member.id)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/80 to-orange-400 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                     {member.name.charAt(0)}
                   </div>
                   <div>

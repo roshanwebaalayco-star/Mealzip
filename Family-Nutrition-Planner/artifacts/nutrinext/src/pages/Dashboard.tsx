@@ -356,7 +356,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
           </p>
           <div className="flex flex-wrap gap-2.5">
             <Link href="/meal-plan">
-              <button className="btn-liquid inline-flex items-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-5 py-2.5 rounded-2xl">
+              <button className="btn-liquid inline-flex items-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-2xl">
                 <CalendarDays className="w-4 h-4" />
                 {t("View Meal Plan", "भोजन योजना देखें")}
               </button>

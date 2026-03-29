@@ -295,7 +295,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           <Button
             onClick={handleSave}
             disabled={updateMember.isPending}
-            className="w-full rounded-2xl h-11 bg-gradient-to-r from-primary to-orange-500 text-white font-semibold"
+            className="w-full rounded-2xl h-11 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold"
           >
             {updateMember.isPending ? t("Saving…", "सहेज रहे हैं…") : t("Save Changes", "बदलाव सहेजें")}
           </Button>

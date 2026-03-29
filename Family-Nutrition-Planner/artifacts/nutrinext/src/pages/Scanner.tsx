@@ -553,7 +553,7 @@ export default function Scanner() {
                 <div className="flex gap-3 flex-wrap justify-center">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="btn-liquid inline-flex items-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-5 py-3 rounded-2xl"
+                    className="btn-liquid inline-flex items-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl"
                   >
                     <ImageIcon className="w-4 h-4" />
                     {t("Upload Photo", "फोटो अपलोड करें")}

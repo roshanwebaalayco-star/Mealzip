@@ -614,7 +614,7 @@ export default function WeeklyContextPage() {
           <button
             onClick={submitPlan}
             disabled={generate.isPending}
-            className="btn-liquid flex-[2] inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
+            className="btn-liquid flex-[2] inline-flex items-center justify-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
           >
             {generate.isPending ? (
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">

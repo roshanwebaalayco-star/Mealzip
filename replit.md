@@ -11,7 +11,7 @@ Key differentiators:
 - **YOLOv11 food scanner** (`DEMO_MODE=true` in dev returns mock data; production requires `YOLOV11_INFERENCE_URL`)
 - **Sarvam AI multilingual voice** support (Hindi, Bhojpuri, Bengali, Tamil, etc.)
 - **Multi-faith fasting calendar** covering Hindu, Islamic (Ramadan), Jain, and Sikh fasts
-- **Apple-tier Glass Design System** — complete visual overhaul with Inter typography, design tokens (--brand-*, --text-*, --glass-*), glass-card/glass-elevated/glass-sidebar primitives, animate-fade-up/animate-scale-in animations, label-caps/pill/pill-brand component classes, input-glass form styling, btn-primary/btn-brand buttons, gradient-mesh background, and stagger grid animations
+- **Apple-tier Glass Design System** — complete visual overhaul with Inter typography, design tokens (--brand-*, --text-*, --glass-*), glass-card/glass-elevated/glass-sidebar primitives, animate-fade-up/animate-scale-in animations, label-caps/pill/pill-brand component classes, input-glass form styling, btn-primary/btn-brand buttons, gradient-mesh background, and stagger grid animations. **Color palette**: clean cool gray background (#f7f9fa) with emerald/teal primary accent (--brand-400: #34d399, --brand-600: #059669), neutral text grays (#111827/#6b7280/#9ca3af), and subtle green/blue gradient mesh. Orange/amber is reserved for semantic contexts only (calorie badges, warning states, price indicators).
 
 ## User Preferences
 
