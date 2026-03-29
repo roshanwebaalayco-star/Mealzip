@@ -328,6 +328,7 @@ Required info to collect:
 4. Number of family members (min 2, max 5)
 5. For each member: first name, age, gender (male/female), role (father/mother/son/daughter/grandfather/grandmother/other), any health conditions (diabetes/hypertension/anaemia/none)
 6. Family's overall dietary type (vegetarian/non-vegetarian/vegan/jain)
+7. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have — most families at minimum have tawa, pressure cooker and kadai.
 
 Rules:
 - Ask EXACTLY ONE question per response
@@ -341,6 +342,7 @@ Rules:
   "state": "Maharashtra",
   "monthlyBudget": 8000,
   "dietaryType": "vegetarian",
+  "appliances": ["tawa", "pressure_cooker", "kadai"],
   "members": [
     { "name": "Rajesh", "age": 42, "gender": "male", "role": "father", "healthConditions": ["diabetes"] },
     { "name": "Priya", "age": 38, "gender": "female", "role": "mother", "healthConditions": [] }

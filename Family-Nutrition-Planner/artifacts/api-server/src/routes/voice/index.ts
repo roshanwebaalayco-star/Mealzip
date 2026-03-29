@@ -143,6 +143,7 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact structu
   "language": "hindi|english|bengali|tamil|telugu|marathi|gujarati|kannada|malayalam|punjabi|odia or null",
   "dietaryType": "vegetarian|non-vegetarian|vegan|jain or null — the overall family diet type",
   "healthGoal": "general_wellness|weight_loss|muscle_gain|manage_diabetes|heart_health|manage_thyroid or null",
+  "appliances": ["tawa", "pressure_cooker", "kadai"] — array of kitchen appliances from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer. Default to ["tawa","pressure_cooker","kadai"] if not mentioned,
   "members": [
     {
       "name": "string or null",
