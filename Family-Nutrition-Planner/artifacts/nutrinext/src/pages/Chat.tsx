@@ -97,7 +97,7 @@ export default function Chat() {
       return [...prev, { role: "user", content: userMsg }];
     });
 
-    await streamMessage(activeConvoId, userMsg);
+    await streamMessage(activeConvoId, userMsg, activeFamily?.id ?? null);
   };
 
   useEffect(() => {

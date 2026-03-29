@@ -12,7 +12,7 @@ export function useChatStream() {
     };
   }, []);
 
-  const streamMessage = async (conversationId: number, content: string) => {
+  const streamMessage = async (conversationId: number, content: string, familyId?: number | null) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -24,7 +24,7 @@ export function useChatStream() {
       const res = await apiFetch(`/api/gemini/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, familyId: familyId ?? null }),
         signal: controller.signal,
       });
 

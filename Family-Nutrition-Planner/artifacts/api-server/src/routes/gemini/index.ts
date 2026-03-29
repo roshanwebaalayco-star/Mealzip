@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, lte, or } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
-import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable } from "@workspace/db";
+import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
@@ -212,6 +212,42 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     } catch { /* non-critical — continue without recipe context */ }
   }
 
+  // Build family context block if a familyId was provided
+  let familyContext = "";
+  const { familyId } = parsed.data;
+  if (familyId) {
+    try {
+      const [family] = await db.select().from(familiesTable)
+        .where(and(eq(familiesTable.id, familyId), eq(familiesTable.userId, req.user!.userId)))
+        .limit(1);
+      if (family) {
+        const members = await db.select().from(familyMembersTable)
+          .where(eq(familyMembersTable.familyId, familyId));
+        const memberLines = members.map(m => {
+          const parts: string[] = [`- ${m.name} (${m.role}, ${m.age}y, ${m.gender})`];
+          if (m.healthConditions?.length) parts.push(`  Health: ${m.healthConditions.join(", ")}`);
+          if (m.dietaryRestrictions?.length) parts.push(`  Diet restrictions: ${m.dietaryRestrictions.join(", ")}`);
+          if (m.allergies?.length) parts.push(`  Allergies: ${m.allergies.join(", ")}`);
+          if (m.primaryGoal && m.primaryGoal !== "none") parts.push(`  Goal: ${m.primaryGoal}`);
+          if (m.weightKg) parts.push(`  Weight: ${m.weightKg}kg${m.heightCm ? `, Height: ${m.heightCm}cm` : ""}`);
+          if (m.calorieTarget) parts.push(`  Calorie target: ${m.calorieTarget} kcal/day`);
+          if (m.ingredientDislikes?.length) parts.push(`  Dislikes: ${m.ingredientDislikes.join(", ")}`);
+          if (m.religiousRules && m.religiousRules !== "none") parts.push(`  Religious rules: ${m.religiousRules}`);
+          return parts.join("\n");
+        });
+        familyContext = `\n\nFAMILY PROFILE — USE THIS AS YOUR KNOWLEDGE BASE:
+Family name: ${family.name}
+Location: ${family.city ? `${family.city}, ` : ""}${family.state}
+Monthly food budget: ₹${family.monthlyBudget} (≈ ₹${Math.round(family.monthlyBudget / 4)}/week)
+Cuisine preferences: ${(family.cuisinePreferences ?? []).join(", ") || "Not specified"}
+Members (${members.length}):
+${memberLines.join("\n")}
+
+You KNOW these family members well. When the user refers to any member by name, use the above profile to give personalised, accurate advice. Never say you don't know who they are.`;
+      }
+    } catch { /* non-critical — continue without family context */ }
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -229,7 +265,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [
-        { role: "user", parts: [{ text: SYSTEM_PROMPT + recipeContext }] },
+        { role: "user", parts: [{ text: SYSTEM_PROMPT + familyContext + recipeContext }] },
         { role: "model", parts: [{ text: "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?" }] },
         ...chatMessages.map(m => ({
           role: m.role === "assistant" ? "model" : "user" as "user" | "model",
