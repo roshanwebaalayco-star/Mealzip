@@ -160,7 +160,7 @@ export default function Login() {
             }
             🎯 Try with Demo Family (60 seconds)
           </button>
-          <p className="text-center text-[10px] text-muted-foreground mt-1.5">
+          <p className="text-center text-xs text-muted-foreground mt-1.5">
             Loads Sharma family demo with a full 7-day AI meal plan — no signup needed
           </p>
         </div>

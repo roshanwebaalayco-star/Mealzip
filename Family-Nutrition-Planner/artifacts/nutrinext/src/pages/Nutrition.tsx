@@ -238,7 +238,7 @@ export default function Nutrition() {
             <div className="flex items-center gap-2 mb-4">
               <Target className="w-4 h-4 text-secondary" />
               <h3 className="font-semibold text-sm">{t("ICMR-NIN 2024 Key Nutrient Targets", "ICMR-NIN 2024 मुख्य पोषक लक्ष्य")}</h3>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
                 {summary.member.name}
               </span>
             </div>
@@ -258,10 +258,10 @@ export default function Nutrition() {
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-semibold text-foreground">{label}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold ${isLow ? "text-red-600" : isGood ? "text-green-700" : "text-amber-600"}`}>
+                      <span className={`text-xs font-bold ${isLow ? "text-red-600" : isGood ? "text-green-700" : "text-amber-600"}`}>
                         {actual} / {target} {unit}
                       </span>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${isLow ? "bg-red-50 text-red-600 border-red-200" : isGood ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
+                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full border ${isLow ? "bg-red-50 text-red-600 border-red-200" : isGood ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
                         {pct}%
                       </span>
                     </div>
@@ -275,7 +275,7 @@ export default function Nutrition() {
                 </div>
               );
             })}
-            <p className="text-[10px] text-secondary/70 mt-3 border-t border-secondary/10 pt-2">
+            <p className="text-xs text-secondary/70 mt-3 border-t border-secondary/10 pt-2">
               {t(
                 "ICMR-NIN 2024 Recommended Dietary Allowances for Indians · Personalised per age, gender & health profile.",
                 "ICMR-NIN 2024 भारतीयों के लिए अनुशंसित आहार भत्ते · आयु, लिंग और स्वास्थ्य के अनुसार व्यक्तिगत।"
@@ -298,7 +298,7 @@ export default function Nutrition() {
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold">{t("30-Day Progress", "30 दिन की प्रगति")}</h3>
-                <Badge variant="secondary" className="text-[10px]">{summary.member.name}</Badge>
+                <Badge variant="secondary" className="text-xs">{summary.member.name}</Badge>
               </div>
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={nutritionLogs} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
@@ -332,7 +332,7 @@ export default function Nutrition() {
                 ].map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1.5">
                     <div className="w-3 h-0.5 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[10px] text-muted-foreground">{label}</span>
+                    <span className="text-xs text-muted-foreground">{label}</span>
                   </div>
                 ))}
               </div>

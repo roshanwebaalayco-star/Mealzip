@@ -266,7 +266,7 @@ function PantryScanner({ familyId }: { familyId: number }) {
         <div className="glass-card rounded-3xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-sm">{t("Detected Ingredients", "पहचाने गए तत्व")}</h4>
-            <Badge className="text-[10px]">{pantryItems.length} {t("items", "आइटम")}</Badge>
+            <Badge className="text-xs">{pantryItems.length} {t("items", "आइटम")}</Badge>
           </div>
           <div className="space-y-2">
             {pantryItems.map((item, idx) => (
@@ -283,16 +283,16 @@ function PantryScanner({ familyId }: { familyId: number }) {
                 <label htmlFor={`pantry-${idx}`} className="flex-1 cursor-pointer min-w-0">
                   <p className="text-sm font-medium">{item.name}</p>
                   {item.nameHindi && (
-                    <p className="text-[10px] text-muted-foreground">{item.nameHindi}</p>
+                    <p className="text-xs text-muted-foreground">{item.nameHindi}</p>
                   )}
                   {(item.quantity != null && item.unit) && (
-                    <p className="text-[10px] text-primary/70 font-medium">
+                    <p className="text-xs text-primary/70 font-medium">
                       {item.quantity} {item.unit}
                       {item.weightGrams ? ` · ~${item.weightGrams}g` : ""}
                     </p>
                   )}
                 </label>
-                <Badge className={`text-[9px] shrink-0 ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                <Badge className={`text-[11px] shrink-0 ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                   {(item.confidence * 100).toFixed(0)}%
                 </Badge>
               </div>
@@ -742,7 +742,7 @@ export default function Scanner() {
                     </p>
                     <div className="flex gap-2 mt-3 flex-wrap">
                       {lowConfidenceFoods.map((f: DetectedFood, i: number) => (
-                        <Badge key={i} variant="secondary" className="text-[10px] bg-amber-500/20 text-amber-700">
+                        <Badge key={i} variant="secondary" className="text-xs bg-amber-500/20 text-amber-700">
                           {f.name} ({(f.confidence * 100).toFixed(0)}%)
                         </Badge>
                       ))}
@@ -765,7 +765,7 @@ export default function Scanner() {
                 <div className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-display font-bold text-base">{t("Detected Items", "पहचाने गए भोजन")}</h3>
-                    <Badge className="text-[10px] bg-green-500/20 text-green-700">
+                    <Badge className="text-xs bg-green-500/20 text-green-700">
                       {t("High confidence", "उच्च विश्वसनीयता")}
                     </Badge>
                   </div>
@@ -787,7 +787,7 @@ export default function Scanner() {
                           P {food.nutrition.protein}g · C {food.nutrition.carbs}g
                         </p>
                         {food.nutritionSource && (
-                          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
+                          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
                             food.nutritionSource === "recipe_db" ? "bg-emerald-100 text-emerald-700" :
                             food.nutritionSource === "icmr_nin" ? "bg-blue-100 text-blue-700" :
                             "bg-amber-100 text-amber-700"

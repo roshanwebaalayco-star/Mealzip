@@ -328,7 +328,7 @@ export default function Chat() {
                       <RefreshCcw className="w-3 h-3" />
                       HFSS Detected — ICMR Rebalance
                       {hfssResults[i].totalKcal && (
-                        <span className="ml-auto text-[9px] font-normal text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">
+                        <span className="ml-auto text-[11px] font-normal text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">
                           ~{hfssResults[i].totalKcal} kcal · {hfssResults[i].totalSodiumMg}mg Na
                         </span>
                       )}
@@ -336,24 +336,24 @@ export default function Chat() {
                     <div className="flex flex-wrap gap-1 mb-2">
                       {hfssResults[i].foodLog && hfssResults[i].foodLog.length > 0
                         ? hfssResults[i].foodLog.map(f => (
-                            <span key={f.food} className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[9px] font-medium capitalize">
+                            <span key={f.food} className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[11px] font-medium capitalize">
                               {f.food}
                               <span className="opacity-70">{f.kcal_per_serve}kcal</span>
                               {f.nova_group && (
-                                <span className={`text-[8px] font-bold px-1 rounded ${f.nova_group === 4 ? "bg-red-700 text-white" : f.nova_group === 3 ? "bg-orange-500 text-white" : "bg-green-600 text-white"}`}>
+                                <span className={`text-[10px] font-bold px-1 rounded ${f.nova_group === 4 ? "bg-red-700 text-white" : f.nova_group === 3 ? "bg-orange-500 text-white" : "bg-green-600 text-white"}`}>
                                   N{f.nova_group}
                                 </span>
                               )}
                             </span>
                           ))
                         : hfssResults[i].items.map(item => (
-                            <span key={item} className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-medium capitalize">{item}</span>
+                            <span key={item} className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[11px] font-medium capitalize">{item}</span>
                           ))
                       }
                     </div>
                     <p className="text-green-900 leading-snug">{hfssResults[i].rebalance_strategy ?? hfssResults[i].rebalanceSuggestion}</p>
                     {hfssResults[i].patchedSlot && (
-                      <p className="mt-1.5 text-[9px] text-teal-700 bg-teal-50 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
+                      <p className="mt-1.5 text-[11px] text-teal-700 bg-teal-50 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
                         {hfssResults[i].patchedSlot!.day} {hfssResults[i].patchedSlot!.mealType} rebalanced in your meal plan
                       </p>
                     )}

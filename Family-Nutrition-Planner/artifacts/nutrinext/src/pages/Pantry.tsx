@@ -295,7 +295,7 @@ export default function Pantry() {
                         <span className={`text-xs font-medium leading-tight ${checked ? "text-primary" : "text-foreground"}`}>
                           {item.en}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">{item.hi}</span>
+                        <span className="text-xs text-muted-foreground">{item.hi}</span>
                         {checked && (
                           <span className="text-primary text-xs font-bold">✓</span>
                         )}
@@ -315,7 +315,7 @@ export default function Pantry() {
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-primary" />
             <span className="font-semibold text-sm">Pantry Scan Imports / स्कैन आइटम</span>
-            <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 py-0">{scannedImports.length}</Badge>
+            <Badge className="text-xs bg-primary/10 text-primary border-primary/30 py-0">{scannedImports.length}</Badge>
           </div>
           <p className="text-xs text-muted-foreground">Items detected from your pantry photo — included in meal planning.</p>
           <div className="flex flex-wrap gap-1.5 pt-1">

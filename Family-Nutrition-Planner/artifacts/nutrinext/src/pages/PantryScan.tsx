@@ -90,7 +90,7 @@ function ScannedItemsCard({ items }: { items: PantryItem[] }) {
               <div className="flex-1">
                 <span className="text-sm font-medium text-foreground">{item.name}</span>
               </div>
-              <Badge variant="secondary" className="text-[10px] font-semibold">{item.quantity}</Badge>
+              <Badge variant="secondary" className="text-xs font-semibold">{item.quantity}</Badge>
             </div>
           ))}
         </div>
@@ -181,7 +181,7 @@ function InventoryCard({ items }: { items: InventoryItem[] }) {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-blue-50 border border-blue-100 p-2.5">
-            <p className="text-[10px] font-semibold text-blue-600 uppercase mb-1.5">🏠 From Pantry</p>
+            <p className="text-xs font-semibold text-blue-600 uppercase mb-1.5">🏠 From Pantry</p>
             {pantryItems.map((it, i) => (
               <p key={i} className="text-xs text-foreground flex items-center gap-1">
                 <span>{it.emoji}</span> {it.name}
@@ -190,7 +190,7 @@ function InventoryCard({ items }: { items: InventoryItem[] }) {
             ))}
           </div>
           <div className="rounded-xl bg-green-50 border border-green-100 p-2.5">
-            <p className="text-[10px] font-semibold text-green-600 uppercase mb-1.5">🛒 Just Bought</p>
+            <p className="text-xs font-semibold text-green-600 uppercase mb-1.5">🛒 Just Bought</p>
             {groceryItems.map((it, i) => (
               <p key={i} className="text-xs text-foreground flex items-center gap-1">
                 <span>{it.emoji}</span> {it.name}
@@ -199,7 +199,7 @@ function InventoryCard({ items }: { items: InventoryItem[] }) {
             ))}
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground">✅ MasterInventory saved · {items.length} items ready</p>
+        <p className="text-xs text-muted-foreground">✅ MasterInventory saved · {items.length} items ready</p>
       </div>
     </BotBubble>
   );
@@ -218,7 +218,7 @@ function OneManyPlatesCard({ baseDish, baseHindi, baseDescription, plates }: {
         </div>
 
         <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-3 space-y-1">
-          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">🫕 Base Dish</p>
+          <p className="text-xs font-bold text-amber-600 uppercase tracking-wide">🫕 Base Dish</p>
           <p className="text-base font-bold text-foreground">{baseDish}</p>
           <p className="text-xs text-amber-700 font-medium">{baseHindi}</p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{baseDescription}</p>
@@ -242,7 +242,7 @@ function OneManyPlatesCard({ baseDish, baseHindi, baseDescription, plates }: {
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5 text-[10px] text-green-700 font-semibold pt-1">
+        <div className="flex items-center gap-1.5 text-xs text-green-700 font-semibold pt-1">
           <CheckCircle2 className="w-3.5 h-3.5" />
           Generated from your MasterInventory · ICMR-NIN 2024 balanced
         </div>
@@ -495,7 +495,7 @@ export default function PantryScan() {
 
       {/* Bottom hint */}
       <div className="px-4 pb-4 pt-1 shrink-0">
-        <p className="text-center text-[10px] text-muted-foreground">
+        <p className="text-center text-xs text-muted-foreground">
           {flowStep === "welcome" && "Upload a photo to begin · All data stays on your device"}
           {flowStep === "scanned" && "⬆ Review your Kirana List above and click Confirm Purchase to continue"}
           {flowStep === "meal_ready" && "✅ Meal generated from your MasterInventory · ICMR-NIN 2024 balanced"}

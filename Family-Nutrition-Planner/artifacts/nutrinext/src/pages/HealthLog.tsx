@@ -242,7 +242,7 @@ export default function HealthLog() {
                 </div>
                 {(log.symptoms?.length ?? 0) > 0 && (
                   <div className="flex gap-1 mt-1 flex-wrap">
-                    {log.symptoms?.map((s: string) => <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>)}
+                    {log.symptoms?.map((s: string) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
                   </div>
                 )}
               </div>

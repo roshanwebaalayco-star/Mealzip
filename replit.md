@@ -142,6 +142,12 @@ A separate Vite app (`artifacts/mockup-sandbox`) for UI prototyping. Uses a cust
   - Drizzle ORM with `drizzle-kit` for schema management
   - `pg` (node-postgres) as the driver
 
+### UI Polish (Task #3)
+- **WeeklyContextModal** uses `flex flex-col` layout with `shrink-0` header/footer and `overflow-y-auto flex-1 min-h-0` content area — ensures the Generate button is always visible regardless of content height
+- **RecipeDetailModal** already uses correct flex layout with `max-h-[92vh] flex flex-col` and scrollable content
+- **Micro-text readability**: All `text-[8px]` bumped to `text-[10px]`, `text-[9px]` to `text-[11px]`, `text-[10px]` to `text-xs` (12px) across all pages and components
+- **Affected files**: MealPlan, Grocery, Scanner, PantryScan, Nutrition, Chat, RecipeExplorer, HealthLog, Pantry, Login, ThaliScoreBadge, WeeklyContextModal, RecipeDetailModal, VoiceAssistantModal
+
 ### Key npm Packages
 | Package | Purpose |
 |---|---|

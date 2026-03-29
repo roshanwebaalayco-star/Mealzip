@@ -158,7 +158,7 @@ export default function RecipeExplorer() {
                 />
                 {/* Cuisine badge */}
                 <div className="absolute top-2.5 left-2.5">
-                  <span className="text-[0.6rem] font-bold bg-white/85 backdrop-blur-sm border border-white/60 text-foreground/80 px-2 py-1 rounded-full shadow-sm">
+                  <span className="text-[0.7rem] font-bold bg-white/85 backdrop-blur-sm border border-white/60 text-foreground/80 px-2 py-1 rounded-full shadow-sm">
                     {recipe.cuisine}
                   </span>
                 </div>
@@ -205,7 +205,7 @@ export default function RecipeExplorer() {
                     {(recipe.prepTimeMin || 0) + (recipe.cookTimeMin || 0)}m
                   </span>
                 </div>
-                <p className="text-[10px] text-primary mt-2 font-medium">Tap for full recipe →</p>
+                <p className="text-xs text-primary mt-2 font-medium">Tap for full recipe →</p>
               </div>
             </motion.div>
           ))}

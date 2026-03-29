@@ -770,19 +770,19 @@ export default function Grocery() {
                             {isSwapped && dbSwap ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className={`font-medium text-muted-foreground text-sm line-through`}>{originalName}</span>
-                                <span className="text-muted-foreground text-[10px]">→</span>
+                                <span className="text-muted-foreground text-xs">→</span>
                                 <span className={`font-medium text-green-700 text-sm ${isChecked ? "line-through" : ""}`}>{dbSwap.name}</span>
                               </div>
                             ) : (
                               <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>{originalName}</div>
                             )}
-                            <div className="text-[10px] text-muted-foreground">{item.category}</div>
+                            <div className="text-xs text-muted-foreground">{item.category}</div>
                           </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{item.quantity}</td>
                           <td className="px-3 py-2 text-right font-semibold text-foreground/80 whitespace-nowrap">
                             ₹{displayCost}
                           </td>
-                          <td className="px-3 py-2 text-[10px] text-primary/70 italic max-w-[180px]">
+                          <td className="px-3 py-2 text-xs text-primary/70 italic max-w-[180px]">
                             {item.healthRationale || "—"}
                           </td>
                         </tr>
@@ -795,7 +795,7 @@ export default function Grocery() {
                       <td className="px-3 py-2 text-right font-bold text-sm text-foreground">
                         ₹{items.reduce((s, it) => s + (it.estimatedCost || 0), 0)}
                       </td>
-                      <td className="px-3 py-2 text-[10px] text-muted-foreground">
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
                         {latest.budgetStatus === "over"
                           ? <span className="text-red-600">{t("Over budget!", "बजट से अधिक!")}</span>
                           : <span className="text-green-600">{t("Within budget ✓", "बजट में ✓")}</span>}
@@ -839,7 +839,7 @@ export default function Grocery() {
                                   <span className="font-medium text-sm text-muted-foreground line-through">
                                     {lang === "hi" && item.nameHindi ? item.nameHindi : item.name}
                                   </span>
-                                  <span className="text-muted-foreground text-[10px]">→</span>
+                                  <span className="text-muted-foreground text-xs">→</span>
                                   <span className={`font-medium text-sm text-green-700 ${isChecked ? "line-through" : ""}`}>
                                     {dbSwap.name}
                                   </span>
@@ -851,12 +851,12 @@ export default function Grocery() {
                               )}
                               <span className="text-xs text-muted-foreground">{item.quantity}</span>
                               {item.priority === "essential" && (
-                                <Badge className="text-[10px] py-0 px-1.5 h-4 bg-primary/20 text-primary border-primary/30">
+                                <Badge className="text-xs py-0 px-1.5 h-4 bg-primary/20 text-primary border-primary/30">
                                   {t("Essential", "जरूरी")}
                                 </Badge>
                               )}
                               {isSwapped && (
-                                <Badge className="text-[10px] py-0 px-1.5 h-4 bg-green-500/20 text-green-700 border-green-500/30">
+                                <Badge className="text-xs py-0 px-1.5 h-4 bg-green-500/20 text-green-700 border-green-500/30">
                                   {dbSwap?.source === "db" ? t("DB Verified", "DB सत्यापित") : t("Swapped", "बदला")}
                                 </Badge>
                               )}
@@ -871,7 +871,7 @@ export default function Grocery() {
                                 size="sm"
                                 disabled={isSwapLoading}
                                 onClick={() => handleCheaperSwap(latest.id, i, item)}
-                                className="h-5 px-2 text-[10px] gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
+                                className="h-5 px-2 text-xs gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
                               >
                                 <ArrowLeftRight className={`w-2.5 h-2.5 ${isSwapLoading ? "animate-spin" : ""}`} />
                                 {isSwapLoading
@@ -882,7 +882,7 @@ export default function Grocery() {
                               </Button>
                             </div>
                             {item.healthRationale && (
-                              <p className="text-[10px] text-primary/70 mt-1 leading-snug italic">
+                              <p className="text-xs text-primary/70 mt-1 leading-snug italic">
                                 {item.healthRationale}
                               </p>
                             )}
@@ -944,19 +944,19 @@ export default function Grocery() {
                 <TrendingUp className="w-4 h-4 text-orange-600" />
                 <h3 className="font-semibold text-sm text-orange-900">{t("Bokaro Mandi Intelligence", "बोकारो मंडी इंटेलिजेंस")}</h3>
                 {marketData.surging.length > 0 && (
-                  <span className="flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 animate-pulse">
                     <Zap className="w-2.5 h-2.5" /> {t("SURGE ACTIVE", "सर्ज सक्रिय")}
                   </span>
                 )}
                 {marketData.arbitrage.totalSaved > 0 && (
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 ml-auto">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200 ml-auto">
                     💰 {t(`Save ₹${marketData.arbitrage.totalSaved} with swaps`, `स्वैप से ₹${marketData.arbitrage.totalSaved} बचाएं`)}
                   </span>
                 )}
                 <button
                   onClick={() => triggerSurgeMutation.mutate()}
                   disabled={triggerSurgeMutation.isPending}
-                  className="ml-auto flex items-center gap-1 text-[9px] font-semibold text-orange-700 border border-orange-300 px-2 py-1 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
+                  className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-orange-700 border border-orange-300 px-2 py-1 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-2.5 h-2.5 ${triggerSurgeMutation.isPending ? "animate-spin" : ""}`} />
                   {t("Demo Surge", "डेमो सर्ज")}
@@ -1000,7 +1000,7 @@ export default function Grocery() {
                           <td className="py-1.5 px-1 text-right">
                             <div className="flex flex-col items-end">
                               <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.retail_price}/{row.unit}</span>
-                              {margin > 0 && <span className="text-[8px] text-muted-foreground">+₹{margin} margin</span>}
+                              {margin > 0 && <span className="text-[10px] text-muted-foreground">+₹{margin} margin</span>}
                             </div>
                           </td>
                           <td className="py-1.5 px-1 text-center">
@@ -1012,7 +1012,7 @@ export default function Grocery() {
                           </td>
                           <td className="py-1.5 px-1">
                             {swap ? (
-                              <span className="flex items-center gap-1 text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-semibold">
+                              <span className="flex items-center gap-1 text-[11px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-semibold">
                                 <ArrowLeftRight className="w-2.5 h-2.5" /> {swap.substitutedIngredient} <span className="text-green-600">₹{swap.savingPerKg} off</span>
                               </span>
                             ) : <span className="text-muted-foreground/50">—</span>}
@@ -1027,14 +1027,14 @@ export default function Grocery() {
               {/* Arbitrage swaps summary */}
               {marketData.arbitrage.swaps.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-orange-200/40 space-y-1.5">
-                  <p className="text-[10px] font-semibold text-orange-800 uppercase tracking-wide">{t("Smart Swaps", "स्मार्ट स्वैप")}</p>
+                  <p className="text-xs font-semibold text-orange-800 uppercase tracking-wide">{t("Smart Swaps", "स्मार्ट स्वैप")}</p>
                   {marketData.arbitrage.swaps.slice(0, 3).map((sw, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs bg-white/60 rounded-xl px-3 py-2 border border-orange-100">
                       <span className="font-semibold text-red-700">{sw.originalIngredient}</span>
                       <ArrowLeftRight className="w-3 h-3 text-orange-500 shrink-0" />
                       <span className="font-semibold text-green-700">{sw.substitutedIngredient}</span>
-                      <span className="text-green-600 text-[9px] font-bold ml-auto">₹{sw.savingPerKg}/kg {t("saved", "बचत")}</span>
-                      {sw.aminoNote && <span className="text-muted-foreground text-[9px] hidden sm:inline">{sw.aminoNote}</span>}
+                      <span className="text-green-600 text-[11px] font-bold ml-auto">₹{sw.savingPerKg}/kg {t("saved", "बचत")}</span>
+                      {sw.aminoNote && <span className="text-muted-foreground text-[11px] hidden sm:inline">{sw.aminoNote}</span>}
                     </div>
                   ))}
                 </div>
@@ -1069,13 +1069,13 @@ export default function Grocery() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[10px] text-muted-foreground">{t("Items", "चीजें")}</p>
+                    <p className="text-xs text-muted-foreground">{t("Items", "चीजें")}</p>
                     <p className="font-bold text-lg text-foreground">{totalItems}</p>
                   </div>
                 </div>
                 {/* Kirana receipt divider */}
                 <div className="border-t border-dashed border-current/20 pt-2 mt-1">
-                  <p className="text-[10px] text-muted-foreground text-center italic">
+                  <p className="text-xs text-muted-foreground text-center italic">
                     {t("Generated by ParivarSehat AI · Based on ICMR-NIN 2024 nutrition guidelines", "ParivarSehat AI द्वारा · ICMR-NIN 2024 पोषण दिशानिर्देशों पर आधारित")}
                   </p>
                 </div>

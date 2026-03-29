@@ -737,17 +737,17 @@ export default function MealPlan() {
                     <span className="text-muted-foreground">/ ₹{weeklyBudget.toLocaleString("en-IN")} {t("budget", "बजट")}</span>
                   )}
                   {pct !== null && (
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${badgeClass}`}>
                       {Math.min(pct, 100)}%
                     </span>
                   )}
                   {weeklyBudget && !overBudget && (
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       · ₹{Math.max(0, weeklyBudget - spent).toLocaleString("en-IN")} {t("remaining", "शेष")}
                     </span>
                   )}
                   {overBudget && weeklyBudget && (
-                    <span className="text-[10px] text-red-500 font-semibold">
+                    <span className="text-xs text-red-500 font-semibold">
                       · ₹{Math.abs(weeklyBudget - spent).toLocaleString("en-IN")} {t("over budget", "बजट से अधिक")}
                     </span>
                   )}
@@ -821,7 +821,7 @@ export default function MealPlan() {
             <h3 className="font-semibold">
               {t("Fasting Calendar", "व्रत कैलेंडर")} — {format(new Date(fastingData.year, fastingData.month - 1, 1), "MMMM yyyy")}
             </h3>
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               {fastingData.isFallbackYear
                 ? `${fastingData.generalFastingDays?.length ?? 0} ${t("estimated", "अनुमानित")}`
                 : `${fastingData.totalFestivalsInMonth ?? fastingData.fastingDays?.length ?? 0} ${t("events", "कार्यक्रम")}`
@@ -832,7 +832,7 @@ export default function MealPlan() {
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 gap-1 mb-1">
             {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
-              <div key={d} className="text-center text-[10px] font-bold text-muted-foreground py-1">{d}</div>
+              <div key={d} className="text-center text-xs font-bold text-muted-foreground py-1">{d}</div>
             ))}
           </div>
 
@@ -896,10 +896,10 @@ export default function MealPlan() {
                   <Moon className="w-3 h-3 text-purple-600 mt-0.5 shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold truncate">{lang === "hi" ? day.nameHindi : day.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{day.date} · <span className="capitalize">{day.fastingType}</span></p>
+                    <p className="text-xs text-muted-foreground">{day.date} · <span className="capitalize">{day.fastingType}</span></p>
                     <div className="flex gap-1 mt-1 flex-wrap">
                       {day.recommendedFoods.slice(0, 3).map((f: string) => (
-                        <span key={f} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border">{f}</span>
+                        <span key={f} className="text-[11px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border">{f}</span>
                       ))}
                     </div>
                   </div>
@@ -920,10 +920,10 @@ export default function MealPlan() {
                     <Moon className="w-3 h-3 text-amber-600 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold truncate">{lang === "hi" ? day.nameHindi : day.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{day.date} · partial fast</p>
+                      <p className="text-xs text-muted-foreground">{day.date} · partial fast</p>
                       <div className="flex gap-1 mt-1 flex-wrap">
                         {day.recommendedFoods.slice(0, 3).map((f: string) => (
-                          <span key={f} className="text-[9px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border">{f}</span>
+                          <span key={f} className="text-[11px] px-1.5 py-0.5 rounded-full bg-background/60 border border-border">{f}</span>
                         ))}
                       </div>
                     </div>
@@ -933,7 +933,7 @@ export default function MealPlan() {
             </div>
           )}
 
-          <p className="text-[10px] text-muted-foreground mt-3">{fastingData.note}</p>
+          <p className="text-xs text-muted-foreground mt-3">{fastingData.note}</p>
         </div>
       )}
 
@@ -954,7 +954,7 @@ export default function MealPlan() {
           <RefreshCcw className="w-4 h-4 text-emerald-600" />
           <h3 className="font-bold text-sm text-emerald-800">{t("Log Leftovers", "बचा खाना लॉग करें")}</h3>
           {(activeLeftovers?.length ?? 0) > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 ml-auto">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 ml-auto">
               {activeLeftovers!.length} {t("active", "सक्रिय")}
             </span>
           )}
@@ -962,14 +962,14 @@ export default function MealPlan() {
 
         {quickChips.length > 0 && (
           <div className="mb-3">
-            <p className="text-[10px] text-emerald-700/70 mb-1.5 font-medium">{t("Quick add from today's plan:", "आज की योजना से जल्दी जोड़ें:")}</p>
+            <p className="text-xs text-emerald-700/70 mb-1.5 font-medium">{t("Quick add from today's plan:", "आज की योजना से जल्दी जोड़ें:")}</p>
             <div className="flex flex-wrap gap-1.5">
               {quickChips.map(chip => (
                 <button
                   key={chip}
                   onClick={() => handleLogLeftoverChip(chip)}
                   disabled={leftoverLogMutation.isPending}
-                  className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50"
                 >
                   + {chip}
                 </button>
@@ -1007,7 +1007,7 @@ export default function MealPlan() {
         {(activeLeftovers?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {activeLeftovers!.map(item => (
-              <div key={item.id} className="flex items-center gap-1 text-[10px] bg-white border border-emerald-200 rounded-full pl-2.5 pr-1 py-0.5">
+              <div key={item.id} className="flex items-center gap-1 text-xs bg-white border border-emerald-200 rounded-full pl-2.5 pr-1 py-0.5">
                 <span className="font-medium text-emerald-800">{item.ingredientName}</span>
                 <span className="text-emerald-500 flex items-center gap-0.5">
                   <Timer className="w-2.5 h-2.5" />{item.hoursRemaining}h
@@ -1023,7 +1023,7 @@ export default function MealPlan() {
           </div>
         )}
 
-        <p className="text-[9px] text-emerald-600/60 mt-2 italic">
+        <p className="text-[11px] text-emerald-600/60 mt-2 italic">
           {t("Leftovers auto-expire after 48h. They'll be prioritized in your next plan regeneration.", "बचा खाना 48 घंटे बाद स्वतः समाप्त हो जाता है। अगली योजना में इसे प्राथमिकता दी जाएगी।")}
         </p>
       </div>
@@ -1053,7 +1053,7 @@ export default function MealPlan() {
             >
               <Link2 className="w-4 h-4 text-amber-600 shrink-0" />
               <h3 className="font-bold text-sm text-amber-800 flex-1">{t("♻️ Leftover Intelligence", "♻️ बचे भोजन की बुद्धिमानी")}</h3>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
                 {chains.length} {t("reuse links", "पुनः उपयोग")}
               </span>
               <ChevronDown className={`w-4 h-4 text-amber-600 transition-transform duration-200 ${leftoverPanelOpen ? "rotate-180" : ""}`} />
@@ -1063,15 +1063,15 @@ export default function MealPlan() {
                 <div className="space-y-1.5">
                   {chains.map((c, i) => (
                     <div key={i} className="flex items-center gap-2 text-[11px]">
-                      <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[9px]">{i + 1}</span>
+                      <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center font-bold text-[11px]">{i + 1}</span>
                       <span className="font-medium text-amber-900">{c.day.slice(0, 3)} {c.meal.replace(/_/g, " ")}: {c.dish.slice(0, 30)}</span>
-                      <span className={`ml-auto shrink-0 text-[9px] font-semibold px-2 py-0.5 rounded-full border ${c.icmrVerified ? "bg-green-50 text-green-700 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                      <span className={`ml-auto shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${c.icmrVerified ? "bg-green-50 text-green-700 border-green-300" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
                         {c.icmrVerified ? "✓ ICMR Verified" : "AI Suggested"}
                       </span>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-amber-700/70 mt-2 italic">
+                <p className="text-xs text-amber-700/70 mt-2 italic">
                   {t("Cooking extra saves time, money & reduces food waste — ICMR-NIN 2024 recommends batch cooking.", "अतिरिक्त पकाने से समय, पैसा बचता है — ICMR-NIN 2024 बैच कुकिंग की सिफारिश करता है।")}
                 </p>
               </div>
@@ -1144,11 +1144,11 @@ export default function MealPlan() {
                 <div className="flex items-center justify-between gap-1">
                   <div>
                     <div className="flex items-center gap-1">
-                      <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? "text-primary" : "text-muted-foreground"}`}>{day.slice(0, 3)}</p>
+                      <p className={`text-xs font-bold uppercase tracking-widest ${isToday ? "text-primary" : "text-muted-foreground"}`}>{day.slice(0, 3)}</p>
                       {isToday && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                     </div>
                     {dayObj?.dailyHarmonyScore && (
-                      <p className="text-[10px] font-semibold text-primary">{dayObj.dailyHarmonyScore}% ✦</p>
+                      <p className="text-xs font-semibold text-primary">{dayObj.dailyHarmonyScore}% ✦</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
@@ -1157,20 +1157,20 @@ export default function MealPlan() {
                   </div>
                 </div>
                 {!isExpanded && breakfastPreview && breakfastPreview !== "—" && (
-                  <p className="text-[9px] text-muted-foreground leading-tight line-clamp-2 mt-0.5">
+                  <p className="text-[11px] text-muted-foreground leading-tight line-clamp-2 mt-0.5">
                     {breakfastPreview}
                   </p>
                 )}
                 {dn && (
                   <div className="flex flex-col gap-0.5">
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${dn.calories < 1600 ? "text-red-700 bg-red-50" : dn.calories > 2400 ? "text-amber-700 bg-amber-50" : "text-green-700 bg-green-50"}`}>
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${dn.calories < 1600 ? "text-red-700 bg-red-50" : dn.calories > 2400 ? "text-amber-700 bg-amber-50" : "text-green-700 bg-green-50"}`}>
                       {dn.calories} kcal
                     </span>
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${dn.protein < 45 ? "text-red-700 bg-red-50" : "text-green-700 bg-green-50"}`}>
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${dn.protein < 45 ? "text-red-700 bg-red-50" : "text-green-700 bg-green-50"}`}>
                       {dn.protein}g P
                     </span>
                     {dn.carbs && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full text-blue-700 bg-blue-50">
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-blue-700 bg-blue-50">
                         {dn.carbs}g C
                       </span>
                     )}
@@ -1203,11 +1203,11 @@ export default function MealPlan() {
                     return (
                       <div key={meal} className={`p-3 space-y-1.5 ${mealColors[mi]} ${isSkipped ? "opacity-60" : ""}`}>
                         <div className="flex items-center gap-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                             {t(meal, mealTranslations[meal] ?? meal)}
                           </p>
                           {isSkipped && (
-                            <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full ${skipAction === "skip" ? "bg-orange-100 text-orange-600" : "bg-violet-100 text-violet-600"}`}>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${skipAction === "skip" ? "bg-orange-100 text-orange-600" : "bg-violet-100 text-violet-600"}`}>
                               {skipAction === "skip" ? t("Skipped", "छोड़ा") : t("Ate Out", "बाहर खाया")}
                             </span>
                           )}
@@ -1226,26 +1226,26 @@ export default function MealPlan() {
                           )}
                         </button>
                         {displayMealName !== "—" && (
-                          <p className="text-[8px] text-secondary/60 leading-none -mt-0.5">
+                          <p className="text-[10px] text-secondary/60 leading-none -mt-0.5">
                             📚 ICMR-NIN 2024 · {t("Science-backed nutrition", "विज्ञान-आधारित पोषण")}
                           </p>
                         )}
 
                         <div className="flex flex-wrap gap-1">
                           {cell.isLeftover && (
-                            <span className="text-[9px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">♻️ {t("Leftover", "बचा")}</span>
+                            <span className="text-[11px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">♻️ {t("Leftover", "बचा")}</span>
                           )}
                           {cell._hfssRebalance && (
-                            <span className="text-[9px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full" title={cell._hfssRebalance.rebalanceNote}>🔄 {t("Rebalanced", "पुनर्संतुलित")}</span>
+                            <span className="text-[11px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full" title={cell._hfssRebalance.rebalanceNote}>🔄 {t("Rebalanced", "पुनर्संतुलित")}</span>
                           )}
                           {(cell.calories || 0) > 0 && (
-                            <span className="text-[9px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{cell.calories} kcal</span>
+                            <span className="text-[11px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{cell.calories} kcal</span>
                           )}
                           {cell.estimatedCost && (
-                            <span className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{cell.estimatedCost}</span>
+                            <span className="text-[11px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{cell.estimatedCost}</span>
                           )}
                           {(cell._validationReplaced) && (
-                            <span className="text-[9px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200" title={Array.isArray(cell._violations) ? cell._violations.join("; ") : ""}>
+                            <span className="text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200" title={Array.isArray(cell._violations) ? cell._violations.join("; ") : ""}>
                               🛡️ {t("Safe swap", "सुरक्षित बदलाव")}
                             </span>
                           )}
@@ -1258,14 +1258,14 @@ export default function MealPlan() {
                         <button
                           type="button"
                           onClick={() => setRationaleExpanded(prev => ({ ...prev, [rationaleKey]: !prev[rationaleKey] }))}
-                          className="flex items-center gap-1 text-[9px] text-secondary/80 hover:text-secondary transition-colors"
+                          className="flex items-center gap-1 text-[11px] text-secondary/80 hover:text-secondary transition-colors"
                         >
                           <HelpCircle className="w-3 h-3 shrink-0" />
                           <span className="font-medium">{t("Why this dish?", "यह क्यों?")}</span>
                           {rationaleExpanded[rationaleKey] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                         </button>
                         {rationaleExpanded[rationaleKey] && (
-                          <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2 text-[9px] text-secondary/90 leading-relaxed">
+                          <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2 text-[11px] text-secondary/90 leading-relaxed">
                             {hasRationale
                               ? cell.icmr_rationale
                               : t(
@@ -1279,7 +1279,7 @@ export default function MealPlan() {
                         <button
                           type="button"
                           onClick={() => setInstructionsExpanded(prev => ({ ...prev, [instructionsKey]: !prev[instructionsKey] }))}
-                          className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground transition-colors"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                         >
                           <BookOpen className="w-3 h-3 shrink-0" />
                           <span className="font-medium">{t("Steps", "विधि")}</span>
@@ -1289,13 +1289,13 @@ export default function MealPlan() {
                           <div className="bg-muted/30 border border-border/30 rounded-xl p-2 space-y-1">
                             {hasInstructions
                               ? cell.instructions!.map((step, si) => (
-                                  <div key={si} className="flex gap-1.5 text-[9px] text-foreground/80">
-                                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">{si + 1}</span>
+                                  <div key={si} className="flex gap-1.5 text-[11px] text-foreground/80">
+                                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">{si + 1}</span>
                                     <span className="leading-relaxed">{step.replace(/^Step \d+:\s*/i, "")}</span>
                                   </div>
                                 ))
                               : (
-                                <p className="text-[9px] text-muted-foreground italic">
+                                <p className="text-[11px] text-muted-foreground italic">
                                   {t("Cooking instructions will appear after generating a new plan.", "नई योजना बनाने के बाद खाना पकाने के निर्देश दिखाई देंगे।")}
                                 </p>
                               )
@@ -1315,8 +1315,8 @@ export default function MealPlan() {
                                 const autoVariation = legacyVariation?.trim() || getMemberVariation(member, meal);
                                 if (!hasStructuredContent && !autoVariation) return null;
                                 return (
-                                  <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[8px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
-                                    <p className="font-bold text-[9px] leading-none">{firstName}</p>
+                                  <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[10px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                                    <p className="font-bold text-[11px] leading-none">{firstName}</p>
                                     {hasStructuredContent ? (
                                       <>
                                         {plate!.add.length > 0 && (
@@ -1351,7 +1351,7 @@ export default function MealPlan() {
                                 const aiVariation = cell.memberVariations?.[member.name] || cell.memberVariations?.[member.name.split(" ")[0]];
                                 const variation = (aiVariation && aiVariation.trim()) ? aiVariation : getMemberVariation(member, meal);
                                 return variation ? (
-                                  <span key={member.id} className={`text-[9px] px-1.5 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                                  <span key={member.id} className={`text-[11px] px-1.5 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
                                     {member.name.split(" ")[0]}: {variation}
                                   </span>
                                 ) : null;
@@ -1363,11 +1363,11 @@ export default function MealPlan() {
                         {/* Leftover chain — all 3 steps */}
                         {isDinner && (cell.leftoverChain?.length ?? 0) > 0 && (
                           <div className="space-y-0.5 mt-0.5">
-                            <p className="text-[8px] font-bold text-amber-700 flex items-center gap-0.5 uppercase tracking-wide">
+                            <p className="text-[10px] font-bold text-amber-700 flex items-center gap-0.5 uppercase tracking-wide">
                               <Link2 className="w-2.5 h-2.5" /> {t("Leftover Plan", "बचे भोजन की योजना")}
                             </p>
                             {cell.leftoverChain!.slice(0, 3).map((lc, li) => (
-                              <div key={li} className="flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                              <div key={li} className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
                                 <span className="font-bold shrink-0">{li + 1}.</span>
                                 <span>{lc.day.slice(0, 3)} {lc.meal}: {lc.dish.slice(0, 22)}</span>
                               </div>
@@ -1375,7 +1375,7 @@ export default function MealPlan() {
                           </div>
                         )}
                         {isDinner && !cell.leftoverChain?.length && leftoverChain && (
-                          <div className="flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                          <div className="flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
                             <Link2 className="w-2.5 h-2.5" />
                             <span>↳ {leftoverChain.nextDay.slice(0, 3)} {leftoverChain.meal}: {leftoverChain.dish.slice(0, 18)}</span>
                           </div>
@@ -1392,11 +1392,11 @@ export default function MealPlan() {
                           >
                             <Info className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                              <p className="text-[10px] font-semibold text-blue-800">
+                              <p className="text-xs font-semibold text-blue-800">
                                 {t("Adjusted for today's meals.", "आज के भोजन के लिए समायोजित।")}
                               </p>
-                              <p className="text-[9px] text-blue-700/80">{lang === "hi" ? rebalanceBanner.suggestionHi : rebalanceBanner.suggestion}</p>
-                              <p className="text-[8px] text-blue-500 mt-0.5 font-medium">{t("Tap to apply", "लागू करने के लिए टैप करें")}</p>
+                              <p className="text-[11px] text-blue-700/80">{lang === "hi" ? rebalanceBanner.suggestionHi : rebalanceBanner.suggestion}</p>
+                              <p className="text-[10px] text-blue-500 mt-0.5 font-medium">{t("Tap to apply", "लागू करने के लिए टैप करें")}</p>
                             </div>
                           </button>
                         )}
@@ -1429,7 +1429,7 @@ export default function MealPlan() {
                           <button
                             onClick={() => handleSkipMeal(di, meal, "skip")}
                             disabled={!!skippedMeals[feedbackKey]}
-                            className={`p-1.5 rounded-lg transition-colors text-[9px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "skip" ? "text-orange-600 bg-orange-100" : "text-muted-foreground hover:text-orange-600 hover:bg-orange-50"} disabled:opacity-50`}
+                            className={`p-1.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "skip" ? "text-orange-600 bg-orange-100" : "text-muted-foreground hover:text-orange-600 hover:bg-orange-50"} disabled:opacity-50`}
                             title={t("Skip", "छोड़ें")}
                           >
                             <SkipForward className="w-3 h-3" />
@@ -1438,7 +1438,7 @@ export default function MealPlan() {
                           <button
                             onClick={() => handleSkipMeal(di, meal, "ate_out")}
                             disabled={!!skippedMeals[feedbackKey]}
-                            className={`p-1.5 rounded-lg transition-colors text-[9px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "ate_out" ? "text-violet-600 bg-violet-100" : "text-muted-foreground hover:text-violet-600 hover:bg-violet-50"} disabled:opacity-50`}
+                            className={`p-1.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "ate_out" ? "text-violet-600 bg-violet-100" : "text-muted-foreground hover:text-violet-600 hover:bg-violet-50"} disabled:opacity-50`}
                             title={t("Ate Out", "बाहर खाया")}
                           >
                             <UtensilsCrossed className="w-3 h-3" />
@@ -1464,10 +1464,10 @@ export default function MealPlan() {
               <Utensils className="w-4 h-4 text-primary" />
               {t("Personalised Plates", "व्यक्तिगत थाली")}
               {(expandedDay || days[0]) && (
-                <span className="text-[10px] text-muted-foreground font-normal ml-1">— {expandedDay ?? days[0]}</span>
+                <span className="text-xs text-muted-foreground font-normal ml-1">— {expandedDay ?? days[0]}</span>
               )}
             </h3>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {t("Select a meal slot to see each member's plate guidance.", "भोजन स्लॉट चुनें — हर सदस्य की थाली देखें।")}
             </p>
           </div>
@@ -1479,7 +1479,7 @@ export default function MealPlan() {
                 key={slot.key}
                 type="button"
                 onClick={() => setActiveMealTab(slot.key)}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                   activeMealTab === slot.key
                     ? "bg-primary text-white shadow-sm"
                     : "bg-muted/40 text-muted-foreground hover:bg-muted/70"
@@ -1504,10 +1504,10 @@ export default function MealPlan() {
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold text-foreground">{dishName}</p>
                   {(mealCell.calories || 0) > 0 && (
-                    <span className="text-[9px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{mealCell.calories} kcal</span>
+                    <span className="text-[11px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">{mealCell.calories} kcal</span>
                   )}
                   {mealCell.estimatedCost && (
-                    <span className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{mealCell.estimatedCost}</span>
+                    <span className="text-[11px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{mealCell.estimatedCost}</span>
                   )}
                 </div>
 
@@ -1525,16 +1525,16 @@ export default function MealPlan() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-xs">{member.name}</span>
                           {member.role && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground capitalize">{member.role}</span>
+                            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground capitalize">{member.role}</span>
                           )}
                           {(member.healthConditions ?? []).slice(0, 4).map(c => {
                             const badge = CONDITION_BADGES[c];
                             return badge ? (
-                              <span key={c} className={`text-[8px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.color}`}>
+                              <span key={c} className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.color}`}>
                                 {badge.icon} {lang === "hi" ? badge.labelHi : badge.label}
                               </span>
                             ) : (
-                              <span key={c} className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
+                              <span key={c} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
                                 {c.replace(/_/g, " ")}
                               </span>
                             );
@@ -1546,8 +1546,8 @@ export default function MealPlan() {
                               <div className="flex items-start gap-1.5">
                                 <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0 mt-0.5" />
                                 <div>
-                                  <span className="text-[9px] font-semibold text-green-700">{t("Add", "जोड़ें")}: </span>
-                                  <span className="text-[9px] text-green-700/80">{plate!.add.join(", ")}</span>
+                                  <span className="text-[11px] font-semibold text-green-700">{t("Add", "जोड़ें")}: </span>
+                                  <span className="text-[11px] text-green-700/80">{plate!.add.join(", ")}</span>
                                 </div>
                               </div>
                             )}
@@ -1555,8 +1555,8 @@ export default function MealPlan() {
                               <div className="flex items-start gap-1.5">
                                 <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
                                 <div>
-                                  <span className="text-[9px] font-semibold text-amber-700">{t("Reduce", "कम करें")}: </span>
-                                  <span className="text-[9px] text-amber-700/80">{plate!.reduce.join(", ")}</span>
+                                  <span className="text-[11px] font-semibold text-amber-700">{t("Reduce", "कम करें")}: </span>
+                                  <span className="text-[11px] text-amber-700/80">{plate!.reduce.join(", ")}</span>
                                 </div>
                               </div>
                             )}
@@ -1564,16 +1564,16 @@ export default function MealPlan() {
                               <div className="flex items-start gap-1.5">
                                 <XCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
                                 <div>
-                                  <span className="text-[9px] font-semibold text-red-600">{t("Avoid", "न लें")}: </span>
-                                  <span className="text-[9px] text-red-600/80">{plate!.avoid.join(", ")}</span>
+                                  <span className="text-[11px] font-semibold text-red-600">{t("Avoid", "न लें")}: </span>
+                                  <span className="text-[11px] text-red-600/80">{plate!.avoid.join(", ")}</span>
                                 </div>
                               </div>
                             )}
                           </>
                         ) : fallback ? (
-                          <p className="text-[9px] text-foreground/70">{fallback}</p>
+                          <p className="text-[11px] text-foreground/70">{fallback}</p>
                         ) : (
-                          <p className="text-[9px] text-muted-foreground italic">{t("Standard serving — no specific modifications needed.", "सामान्य मात्रा — कोई विशेष बदलाव नहीं।")}</p>
+                          <p className="text-[11px] text-muted-foreground italic">{t("Standard serving — no specific modifications needed.", "सामान्य मात्रा — कोई विशेष बदलाव नहीं।")}</p>
                         )}
                       </div>
                     );
@@ -1585,8 +1585,8 @@ export default function MealPlan() {
                   <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-2.5 flex gap-2">
                     <Info className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-[9px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
-                      <span className="inline-block mt-1 text-[8px] font-bold text-secondary/60 border border-secondary/20 px-1.5 py-0.5 rounded-full">
+                      <p className="text-[11px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
+                      <span className="inline-block mt-1 text-[10px] font-bold text-secondary/60 border border-secondary/20 px-1.5 py-0.5 rounded-full">
                         📚 ICMR-NIN 2024
                       </span>
                     </div>
@@ -1607,7 +1607,7 @@ export default function MealPlan() {
               <h3 className="font-semibold text-sm text-violet-900">
                 {t(`Tonight's Prep for ${tomorrowName}`, `कल के लिए आज रात की तैयारी (${tomorrowName})`)}
               </h3>
-              <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[9px] ml-auto mr-1">
+              <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[11px] ml-auto mr-1">
                 {t("Prep reminder", "तैयारी रिमाइंडर")}
               </Badge>
               <ChevronDown className="w-4 h-4 text-violet-400 transition-transform group-data-[state=open]:rotate-180" />
@@ -1627,7 +1627,7 @@ export default function MealPlan() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-xs font-bold text-foreground capitalize">{reminder.ingredient}</p>
-                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
                           reminder.prepType === "soak" ? "bg-blue-50 text-blue-700" :
                           reminder.prepType === "sprout" ? "bg-green-50 text-green-700" :
                           reminder.prepType === "marinate" ? "bg-orange-50 text-orange-700" :
@@ -1635,11 +1635,11 @@ export default function MealPlan() {
                         }`}>
                           {reminder.prepType.charAt(0).toUpperCase() + reminder.prepType.slice(1)} {reminder.duration}
                         </span>
-                        <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                           <Clock3 className="w-2.5 h-2.5" /> {t("For best results", "सर्वोत्तम परिणामों के लिए")}
                         </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                         {lang === "hi" ? reminder.benefitHi : reminder.benefit}
                       </p>
                     </div>
@@ -1657,7 +1657,7 @@ export default function MealPlan() {
           <div className="flex items-center gap-2 mb-4">
             <TrendingDown className="w-4 h-4 text-amber-600" />
             <h3 className="font-semibold text-sm text-amber-900">{t("Mandi Optimizer", "मंडी ऑप्टिमाइज़र")}</h3>
-            <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/20 text-[9px] ml-auto">
+            <Badge className="bg-amber-500/15 text-amber-700 border-amber-500/20 text-[11px] ml-auto">
               💰 {t("Save", "बचत")} ₹{Math.round(arbitrageData.saving)}/kg
             </Badge>
           </div>
@@ -1665,17 +1665,17 @@ export default function MealPlan() {
             {arbitrageData.mods.map((mod, i) => (
               <div key={i} className="flex items-center gap-2 bg-white/50 rounded-xl p-2.5">
                 <span className="text-xs text-muted-foreground line-through">{mod.original}</span>
-                <span className="text-[10px] text-amber-600 font-bold">→</span>
+                <span className="text-xs text-amber-600 font-bold">→</span>
                 <span className="text-xs font-semibold text-green-700">{mod.substituted}</span>
                 {mod.savingPerKg > 0 && (
-                  <span className="ml-auto text-[9px] font-bold text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-auto text-[11px] font-bold text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-full">
                     -₹{Math.round(mod.savingPerKg)}/kg
                   </span>
                 )}
               </div>
             ))}
           </div>
-          <p className="text-[9px] text-amber-700/70 mt-3 leading-relaxed">
+          <p className="text-[11px] text-amber-700/70 mt-3 leading-relaxed">
             {t("Ingredients auto-swapped based on today's mandi's best prices.", "आज की मंडी की सबसे अच्छी कीमतों के आधार पर सामग्री स्वचालित रूप से बदली गई।")}
           </p>
         </div>

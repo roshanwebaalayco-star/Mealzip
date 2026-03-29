@@ -35,7 +35,7 @@ export default function ThaliScoreBadge({ meal, compact = false }: ThaliScoreBad
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${colorClass}`}
+        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full border ${colorClass}`}
         title={`Thali Score: ${score}/5`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
@@ -52,7 +52,7 @@ export default function ThaliScoreBadge({ meal, compact = false }: ThaliScoreBad
           e.stopPropagation();
           setExpanded(prev => !prev);
         }}
-        className={`inline-flex items-center gap-1.5 text-[9px] font-semibold px-2 py-1 rounded-xl border transition-colors hover:opacity-80 ${colorClass}`}
+        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-xl border transition-colors hover:opacity-80 ${colorClass}`}
       >
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
         <span>{t("Thali", "थाली")} {score}/5</span>
@@ -60,7 +60,7 @@ export default function ThaliScoreBadge({ meal, compact = false }: ThaliScoreBad
           {THALI_CATEGORIES.map((cat) => (
             <span
               key={cat.key}
-              className={`text-[10px] ${present.includes(cat.key) ? "opacity-100" : "opacity-25"}`}
+              className={`text-xs ${present.includes(cat.key) ? "opacity-100" : "opacity-25"}`}
               title={lang === "hi" ? cat.labelHi : cat.label}
             >
               {cat.icon}
@@ -79,7 +79,7 @@ export default function ThaliScoreBadge({ meal, compact = false }: ThaliScoreBad
             return (
               <div
                 key={sug.category}
-                className="flex items-start gap-1.5 text-[9px] text-muted-foreground bg-muted/30 border border-border/30 rounded-lg px-2 py-1"
+                className="flex items-start gap-1.5 text-[11px] text-muted-foreground bg-muted/30 border border-border/30 rounded-lg px-2 py-1"
               >
                 <span className="shrink-0 opacity-50">{cat?.icon}</span>
                 <span>

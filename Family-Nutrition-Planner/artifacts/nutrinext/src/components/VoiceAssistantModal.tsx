@@ -303,9 +303,9 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
 
               {memberCount > 0 && (
                 <div className="mt-2 space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground font-medium">Members:</p>
+                  <p className="text-xs text-muted-foreground font-medium">Members:</p>
                   {formData.members?.map((m, i) => (
-                    <div key={i} className="text-[10px] text-foreground leading-tight">
+                    <div key={i} className="text-xs text-foreground leading-tight">
                       <span className="font-medium">{m.name ?? "?"}</span>
                       <span className="text-muted-foreground"> ({m.role})</span>
                     </div>

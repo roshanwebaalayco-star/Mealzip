@@ -130,46 +130,46 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
             <div className="bg-orange-50 rounded-xl p-2 text-center">
               <Flame className="w-4 h-4 text-orange-500 mx-auto mb-0.5" />
               <p className="text-xs font-bold text-orange-700">{Math.round(recipe.calories ?? 0)}</p>
-              <p className="text-[10px] text-orange-500">kcal</p>
+              <p className="text-xs text-orange-500">kcal</p>
             </div>
             <div className="bg-blue-50 rounded-xl p-2 text-center">
               <BarChart2 className="w-4 h-4 text-blue-500 mx-auto mb-0.5" />
               <p className="text-xs font-bold text-blue-700">{Math.round(recipe.protein ?? 0)}g</p>
-              <p className="text-[10px] text-blue-500">protein</p>
+              <p className="text-xs text-blue-500">protein</p>
             </div>
             {recipe.prepTimeMin != null ? (
               <div className="bg-amber-50 rounded-xl p-2 text-center">
                 <Clock className="w-4 h-4 text-amber-500 mx-auto mb-0.5" />
                 <p className="text-xs font-bold text-amber-700">{recipe.prepTimeMin}m</p>
-                <p className="text-[10px] text-amber-500">prep</p>
+                <p className="text-xs text-amber-500">prep</p>
               </div>
             ) : (
               <div className="bg-emerald-50 rounded-xl p-2 text-center">
                 <Clock className="w-4 h-4 text-emerald-500 mx-auto mb-0.5" />
                 <p className="text-xs font-bold text-emerald-700">{totalTime > 0 ? `${totalTime}m` : "—"}</p>
-                <p className="text-[10px] text-emerald-500">total time</p>
+                <p className="text-xs text-emerald-500">total time</p>
               </div>
             )}
             <div className="bg-violet-50 rounded-xl p-2 text-center">
               <IndianRupee className="w-4 h-4 text-violet-500 mx-auto mb-0.5" />
               <p className="text-xs font-bold text-violet-700">{Math.round(recipe.costPerServing ?? 0)}</p>
-              <p className="text-[10px] text-violet-500">/serving</p>
+              <p className="text-xs text-violet-500">/serving</p>
             </div>
           </div>
           {/* Prep + Cook breakdown when both are available */}
           {recipe.prepTimeMin != null && recipe.cookTimeMin != null && (
             <div className="flex gap-2 px-4 pb-2 shrink-0">
               <div className="flex-1 bg-amber-50 rounded-xl px-3 py-1.5 flex items-center justify-between">
-                <span className="text-[10px] text-amber-600 font-medium">Prep</span>
+                <span className="text-xs text-amber-600 font-medium">Prep</span>
                 <span className="text-xs font-bold text-amber-700">{recipe.prepTimeMin}m</span>
               </div>
               <div className="flex-1 bg-emerald-50 rounded-xl px-3 py-1.5 flex items-center justify-between">
-                <span className="text-[10px] text-emerald-600 font-medium">Cook</span>
+                <span className="text-xs text-emerald-600 font-medium">Cook</span>
                 <span className="text-xs font-bold text-emerald-700">{recipe.cookTimeMin}m</span>
               </div>
               {totalTime > 0 && (
                 <div className="flex-1 bg-gray-50 rounded-xl px-3 py-1.5 flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-medium">Total</span>
+                  <span className="text-xs text-gray-500 font-medium">Total</span>
                   <span className="text-xs font-bold text-gray-700">{totalTime}m</span>
                 </div>
               )}
@@ -187,7 +187,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
               ].map(m => (
                 <div key={m.label} className="bg-muted/50 rounded-xl p-2.5 text-center">
                   <p className={`text-sm font-bold ${m.color}`}>{Math.round(m.value ?? 0)}{m.unit}</p>
-                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                  <p className="text-xs text-muted-foreground">{m.label}</p>
                 </div>
               ))}
             </div>
@@ -203,7 +203,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
             {/* ICMR rationale */}
             {recipe.icmr_rationale && (
               <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">ICMR-NIN 2024</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">ICMR-NIN 2024</p>
                 <p className="text-xs text-foreground/80 leading-relaxed">{recipe.icmr_rationale}</p>
               </div>
             )}
