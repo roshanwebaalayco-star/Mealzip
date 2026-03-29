@@ -160,8 +160,8 @@ export function Layout({ children }: { children: ReactNode }) {
               {activeFamily.name}
             </div>
           )}
-          <label className="relative flex items-center p-1 sm:p-1.5 rounded-full border border-border bg-background/50 shrink-0">
-            <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
+          <label className="relative flex items-center p-2 sm:p-2 rounded-full border border-border bg-background/50 shrink-0">
+            <Globe className="w-5 h-5 text-primary shrink-0" />
             <select
               value={currentLanguage}
               onChange={(e) => setLanguage(e.target.value)}
@@ -175,22 +175,22 @@ export function Layout({ children }: { children: ReactNode }) {
             </select>
           </label>
           <Link href="/profile">
-            <div className="p-1 sm:p-1.5 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-primary transition-colors shrink-0">
-              <UserCircle className="w-3.5 h-3.5" />
+            <div className="p-2 sm:p-2 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-primary transition-colors shrink-0">
+              <UserCircle className="w-5 h-5" />
             </div>
           </Link>
           {user ? (
             <button
               onClick={() => logout()}
-              className="p-1 sm:p-1.5 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+              className="p-2 sm:p-2 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-destructive transition-colors shrink-0"
               title="Log out"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-5 h-5" />
             </button>
           ) : (
             <Link href="/login">
-              <div className="p-1 sm:p-1.5 rounded-full border border-primary/40 bg-primary/10 text-primary shrink-0">
-                <LogIn className="w-3.5 h-3.5" />
+              <div className="p-2 sm:p-2 rounded-full border border-primary/40 bg-primary/10 text-primary shrink-0">
+                <LogIn className="w-5 h-5" />
               </div>
             </Link>
           )}
