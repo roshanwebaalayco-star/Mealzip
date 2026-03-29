@@ -206,22 +206,28 @@ router.post("/symptom-check", async (req, res): Promise<void> => {
 Patient info: Age ${age || "adult"}, Gender ${gender || "unknown"}, Existing conditions: ${(existingConditions || []).join(", ") || "none"}
 Symptoms reported: ${symptoms.join(", ")}
 
-Respond in ${lang}. Be extremely concise. Use short, punchy sentences.
+Respond in ${lang}. Be concise but ensure every field has meaningful content.
 
 Return ONLY valid JSON with these exact fields:
 {
-  "nutritionalInsight": "One or two short sentences on the nutritional angle of these symptoms.",
-  "dietarySuggestions": ["short suggestion 1", "short suggestion 2"],
-  "recommendedFoods": ["Food name or short phrase only", "Another food"],
-  "avoidFoods": ["Food name or short phrase only", "Another food"],
-  "seeDoctor": "• Red flag 1\n• Red flag 2\n• Red flag 3",
+  "nutritionalInsight": "Two to three sentences explaining the nutritional connection to these symptoms.",
+  "dietarySuggestions": ["actionable dietary change 1", "actionable dietary change 2", "actionable dietary change 3"],
+  "recommendedFoods": ["Specific Indian food 1", "Specific Indian food 2", "Specific Indian food 3", "Specific Indian food 4"],
+  "avoidFoods": ["Food to avoid 1", "Food to avoid 2", "Food to avoid 3"],
+  "seeDoctor": "• Warning sign 1\\n• Warning sign 2\\n• Warning sign 3",
   "urgency": "routine|soon|urgent"
 }
 
 STRICT RULES:
-- recommendedFoods and avoidFoods must be short food names or brief phrases (not full sentences).
-- seeDoctor must be bullet points separated by newlines, each starting with "•". Never write a paragraph.
-- urgency must be exactly one of: routine, soon, urgent.
+- EVERY field must be non-empty. nutritionalInsight must be at least 2 sentences. Each array must have at least 2 items.
+- recommendedFoods and avoidFoods: use Indian food names and brief phrases (not full sentences). Prefer locally available foods.
+- dietarySuggestions: practical, actionable advice (e.g., "Eat iron-rich greens like palak daily", "Add lemon to meals for better iron absorption").
+- seeDoctor: bullet points separated by \\n, each starting with "•". List specific warning signs that should trigger a doctor visit.
+- URGENCY CALIBRATION (follow strictly):
+  * "routine" = common single symptoms like headache, mild fatigue, occasional bloating. Most single-symptom cases are routine.
+  * "soon" = multiple symptoms together suggesting a deficiency pattern, or symptoms lasting over a week.
+  * "urgent" = symptoms suggesting serious conditions: severe chest pain, sudden vision changes, high fever with weakness, unexplained rapid weight loss.
+  A single headache or mild symptom should NEVER be "urgent".
 - Do NOT include a disclaimer field.`;
 
   try {
@@ -230,8 +236,17 @@ STRICT RULES:
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: { responseMimeType: "application/json" },
     });
-    const result = JSON.parse(response.text ?? "{}");
-    res.json(result);
+    const raw = response.text ?? "{}";
+    const result = JSON.parse(raw);
+    const fallback = {
+      nutritionalInsight: result.nutritionalInsight || "Could not generate insight. Please try again.",
+      dietarySuggestions: Array.isArray(result.dietarySuggestions) && result.dietarySuggestions.length > 0 ? result.dietarySuggestions : ["Maintain a balanced diet", "Stay hydrated"],
+      recommendedFoods: Array.isArray(result.recommendedFoods) && result.recommendedFoods.length > 0 ? result.recommendedFoods : ["Fresh fruits", "Green vegetables"],
+      avoidFoods: Array.isArray(result.avoidFoods) && result.avoidFoods.length > 0 ? result.avoidFoods : ["Processed foods", "Excessive sugar"],
+      seeDoctor: result.seeDoctor || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
+      urgency: ["routine", "soon", "urgent"].includes(result.urgency) ? result.urgency : "routine",
+    };
+    res.json(fallback);
   } catch (err) {
     res.status(500).json({ error: "Symptom check failed", details: String(err) });
   }

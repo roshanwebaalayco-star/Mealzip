@@ -1,12 +1,12 @@
 import { apiFetch } from "@/lib/api-fetch";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Heart, Scale, Activity, User, Plus, Sparkles, Target, TrendingUp, ActivitySquare, CheckCircle2, XCircle } from "lucide-react";
+import { Heart, Scale, Activity, User, Plus, Sparkles, Target, TrendingUp, ActivitySquare, CheckCircle2, XCircle, Lightbulb, RotateCcw, ClipboardList, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,113 @@ interface HealthLogEntry {
   bloodPressureSystolic?: number;
   bloodPressureDiastolic?: number;
   symptoms?: string[];
+}
+
+function getBmiCategory(bmi: number): { label: string; labelHi: string; color: string } {
+  if (bmi < 18.5) return { label: "Underweight", labelHi: "कम वजन", color: "text-blue-600" };
+  if (bmi < 25) return { label: "Normal", labelHi: "सामान्य", color: "text-green-600" };
+  if (bmi < 30) return { label: "Overweight", labelHi: "अधिक वजन", color: "text-amber-600" };
+  return { label: "Obese", labelHi: "मोटापा", color: "text-red-600" };
+}
+
+function getBloodSugarRange(val: number): { label: string; labelHi: string; color: string; bg: string } {
+  if (val < 70) return { label: "Low", labelHi: "कम", color: "text-blue-700", bg: "bg-blue-100" };
+  if (val <= 100) return { label: "Normal", labelHi: "सामान्य", color: "text-green-700", bg: "bg-green-100" };
+  if (val <= 125) return { label: "Pre-diabetic", labelHi: "प्री-डायबिटिक", color: "text-amber-700", bg: "bg-amber-100" };
+  return { label: "High", labelHi: "उच्च", color: "text-red-700", bg: "bg-red-100" };
+}
+
+function getBpRange(sys: number, dia: number): { label: string; labelHi: string; color: string; bg: string } {
+  if (sys < 90 || dia < 60) return { label: "Low", labelHi: "कम", color: "text-blue-700", bg: "bg-blue-100" };
+  if (sys <= 120 && dia <= 80) return { label: "Normal", labelHi: "सामान्य", color: "text-green-700", bg: "bg-green-100" };
+  if (sys <= 139 || dia <= 89) return { label: "Elevated", labelHi: "बढ़ा हुआ", color: "text-amber-700", bg: "bg-amber-100" };
+  return { label: "High", labelHi: "उच्च", color: "text-red-700", bg: "bg-red-100" };
+}
+
+interface HealthLogFormProps {
+  logForm: { weightKg: string; heightCm: string; bloodSugar: string; bpSys: string; bpDia: string; notes: string };
+  setLogForm: React.Dispatch<React.SetStateAction<{ weightKg: string; heightCm: string; bloodSugar: string; bpSys: string; bpDia: string; notes: string }>>;
+  logMutation: { mutate: () => void; isPending: boolean };
+  onCancel: () => void;
+  t: (en: string, hi: string) => string;
+}
+
+function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: HealthLogFormProps) {
+  const bmi = useMemo(() => {
+    const w = parseFloat(logForm.weightKg);
+    const h = parseFloat(logForm.heightCm);
+    if (w > 0 && h > 0) return w / ((h / 100) ** 2);
+    return null;
+  }, [logForm.weightKg, logForm.heightCm]);
+
+  const bmiCat = bmi ? getBmiCategory(bmi) : null;
+
+  const bs = parseFloat(logForm.bloodSugar);
+  const bsRange = bs > 0 ? getBloodSugarRange(bs) : null;
+
+  const sys = parseInt(logForm.bpSys);
+  const dia = parseInt(logForm.bpDia);
+  const bpRange = sys > 0 && dia > 0 ? getBpRange(sys, dia) : null;
+
+  return (
+    <div className="glass-card rounded-3xl p-5 space-y-4">
+      <h3 className="font-semibold">{t("Log Health Metrics", "स्वास्थ्य डेटा दर्ज करें")}</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-muted-foreground">{t("Weight (kg)", "वजन (kg)")}</label>
+          <Input value={logForm.weightKg} onChange={e => setLogForm(f => ({ ...f, weightKg: e.target.value }))} type="number" placeholder="65" />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">{t("Height (cm)", "ऊंचाई (cm)")}</label>
+          <Input value={logForm.heightCm} onChange={e => setLogForm(f => ({ ...f, heightCm: e.target.value }))} type="number" placeholder="170" />
+        </div>
+      </div>
+
+      {bmi && bmiCat && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/30">
+          <Scale className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{t("BMI", "बीएमआई")}:</span>
+          <span className={`text-sm font-bold ${bmiCat.color}`}>{bmi.toFixed(1)}</span>
+          <span className={`text-xs font-medium ${bmiCat.color}`}>({t(bmiCat.label, bmiCat.labelHi)})</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-muted-foreground">{t("Blood Sugar (mg/dL)", "रक्त शर्करा (mg/dL)")}</label>
+          <Input value={logForm.bloodSugar} onChange={e => setLogForm(f => ({ ...f, bloodSugar: e.target.value }))} type="number" placeholder="90" />
+          {bsRange && (
+            <span className={`inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${bsRange.bg} ${bsRange.color}`}>
+              {t(bsRange.label, bsRange.labelHi)}
+            </span>
+          )}
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">{t("BP (sys/dia mmHg)", "बीपी (sys/dia)")}</label>
+          <div className="flex gap-1">
+            <Input value={logForm.bpSys} onChange={e => setLogForm(f => ({ ...f, bpSys: e.target.value }))} type="number" placeholder="120" />
+            <Input value={logForm.bpDia} onChange={e => setLogForm(f => ({ ...f, bpDia: e.target.value }))} type="number" placeholder="80" />
+          </div>
+          {bpRange && (
+            <span className={`inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${bpRange.bg} ${bpRange.color}`}>
+              {t(bpRange.label, bpRange.labelHi)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-muted-foreground">{t("Notes", "नोट्स")}</label>
+        <Input value={logForm.notes} onChange={e => setLogForm(f => ({ ...f, notes: e.target.value }))} placeholder={t("How are you feeling today?", "आज कैसा महसूस हो रहा है?")} />
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={() => logMutation.mutate()} disabled={logMutation.isPending} className="flex-1">
+          {logMutation.isPending ? t("Saving…", "सहेज रहा है…") : t("Save Log", "लॉग सहेजें")}
+        </Button>
+        <Button variant="outline" onClick={onCancel}>{t("Cancel", "रद्द करें")}</Button>
+      </div>
+    </div>
+  );
 }
 
 export default function HealthLog() {
@@ -517,40 +624,13 @@ export default function HealthLog() {
         </div>
 
         {showLogForm && (
-          <div className="glass-card rounded-3xl p-5 space-y-4">
-            <h3 className="font-semibold">{t("Log Health Metrics", "स्वास्थ्य डेटा दर्ज करें")}</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground">{t("Weight (kg)", "वजन (kg)")}</label>
-                <Input value={logForm.weightKg} onChange={e => setLogForm(f => ({ ...f, weightKg: e.target.value }))} type="number" placeholder="65" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">{t("Height (cm)", "ऊंचाई (cm)")}</label>
-                <Input value={logForm.heightCm} onChange={e => setLogForm(f => ({ ...f, heightCm: e.target.value }))} type="number" placeholder="170" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">{t("Blood Sugar (mg/dL)", "रक्त शर्करा (mg/dL)")}</label>
-                <Input value={logForm.bloodSugar} onChange={e => setLogForm(f => ({ ...f, bloodSugar: e.target.value }))} type="number" placeholder="90" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">{t("BP (sys/dia mmHg)", "बीपी (sys/dia)")}</label>
-                <div className="flex gap-1">
-                  <Input value={logForm.bpSys} onChange={e => setLogForm(f => ({ ...f, bpSys: e.target.value }))} type="number" placeholder="120" />
-                  <Input value={logForm.bpDia} onChange={e => setLogForm(f => ({ ...f, bpDia: e.target.value }))} type="number" placeholder="80" />
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">{t("Notes", "नोट्स")}</label>
-              <Input value={logForm.notes} onChange={e => setLogForm(f => ({ ...f, notes: e.target.value }))} placeholder={t("How are you feeling today?", "आज कैसा महसूस हो रहा है?")} />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={() => logMutation.mutate()} disabled={logMutation.isPending} className="flex-1">
-                {logMutation.isPending ? t("Saving…", "सहेज रहा है…") : t("Save Log", "लॉग सहेजें")}
-              </Button>
-              <Button variant="outline" onClick={() => setShowLogForm(false)}>{t("Cancel", "रद्द करें")}</Button>
-            </div>
-          </div>
+          <HealthLogForm
+            logForm={logForm}
+            setLogForm={setLogForm}
+            logMutation={logMutation}
+            onCancel={() => setShowLogForm(false)}
+            t={t}
+          />
         )}
 
         {weightData.length > 1 && (
@@ -571,7 +651,7 @@ export default function HealthLog() {
           </div>
         )}
 
-        {healthLogs && healthLogs.length > 0 && (
+        {healthLogs && healthLogs.length > 0 ? (
           <div className="glass-card rounded-3xl p-5 space-y-3">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-secondary" />
@@ -596,13 +676,53 @@ export default function HealthLog() {
               </div>
             ))}
           </div>
+        ) : (
+          !showLogForm && (
+            <div className="glass-card rounded-3xl p-8 text-center space-y-3">
+              <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto" />
+              <h3 className="font-display font-bold text-lg">{t("No Health Records Yet", "अभी तक कोई स्वास्थ्य रिकॉर्ड नहीं")}</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                {t(
+                  "Start tracking your weight, blood pressure, and blood sugar to see trends and get personalized insights.",
+                  "अपना वजन, रक्तचाप और रक्त शर्करा ट्रैक करना शुरू करें और व्यक्तिगत अंतर्दृष्टि पाएं।"
+                )}
+              </p>
+              <Button onClick={() => setShowLogForm(true)} className="gap-2 mt-2">
+                <Plus className="w-4 h-4" />
+                {t("Log Your First Entry", "अपनी पहली प्रविष्टि दर्ज करें")}
+              </Button>
+            </div>
+          )
         )}
 
         <div className="glass-card rounded-3xl p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Heart className="w-4 h-4 text-red-500" />
-            <h3 className="font-semibold">{t("Symptom Advisor", "लक्षण सलाहकार")}</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Stethoscope className="w-4 h-4 text-red-500" />
+              <h3 className="font-semibold">{t("Symptom Advisor", "लक्षण सलाहकार")}</h3>
+            </div>
+            {symptomResult && (
+              <button
+                onClick={() => { setSymptomResult(null); setSelectedSymptoms([]); }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/50"
+              >
+                <RotateCcw className="w-3 h-3" />
+                {t("Clear", "साफ़ करें")}
+              </button>
+            )}
           </div>
+
+          {!symptomResult && !checkingSymptoms && selectedSymptoms.length === 0 && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+              <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "Select your symptoms below and get AI-powered nutrition insights — which foods can help, what to avoid, and when to consult a doctor.",
+                  "नीचे अपने लक्षण चुनें और AI-संचालित पोषण अंतर्दृष्टि पाएं — कौन से खाद्य पदार्थ मदद कर सकते हैं, क्या बचें, और डॉक्टर से कब मिलें।"
+                )}
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {COMMON_SYMPTOMS.map((symptom, i) => {
@@ -622,11 +742,27 @@ export default function HealthLog() {
             })}
           </div>
 
-          {selectedSymptoms.length > 0 && (
+          {selectedSymptoms.length > 0 && !symptomResult && (
             <Button onClick={checkSymptoms} disabled={checkingSymptoms} className="w-full gap-2">
               <Sparkles className="w-4 h-4" />
               {checkingSymptoms ? t("Analyzing…", "विश्लेषण हो रहा है…") : t("Get Nutrition Insights", "पोषण अंतर्दृष्टि पाएं")}
             </Button>
+          )}
+
+          {checkingSymptoms && (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-5 w-24 bg-muted/50 rounded-full" />
+              <div className="p-4 rounded-xl bg-muted/20 space-y-2">
+                <div className="h-4 w-32 bg-muted/40 rounded" />
+                <div className="h-3 w-full bg-muted/30 rounded" />
+                <div className="h-3 w-3/4 bg-muted/30 rounded" />
+              </div>
+              <div className="p-4 rounded-xl bg-muted/20 space-y-2">
+                <div className="h-4 w-28 bg-muted/40 rounded" />
+                <div className="h-3 w-2/3 bg-muted/30 rounded" />
+                <div className="h-3 w-1/2 bg-muted/30 rounded" />
+              </div>
+            </div>
           )}
 
           {symptomResult && (
@@ -635,50 +771,68 @@ export default function HealthLog() {
                 {symptomResult.urgency === "routine" ? t("Routine check", "नियमित जांच") : symptomResult.urgency === "soon" ? t("See doctor soon", "जल्द डॉक्टर से मिलें") : t("See doctor urgently", "तुरंत डॉक्टर से मिलें")}
               </Badge>
 
-              <div className="p-4 rounded-xl bg-muted/30">
-                <p className="text-base md:text-lg font-medium mb-2">{t("Nutritional Insight", "पोषण अंतर्दृष्टि")}</p>
-                <p className="text-base md:text-lg leading-relaxed text-muted-foreground">{symptomResult.nutritionalInsight}</p>
-              </div>
+              {symptomResult.nutritionalInsight && (
+                <div className="p-4 rounded-xl bg-muted/30">
+                  <p className="text-sm font-semibold mb-2">{t("Nutritional Insight", "पोषण अंतर्दृष्टि")}</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{symptomResult.nutritionalInsight}</p>
+                </div>
+              )}
 
-              {symptomResult.recommendedFoods?.length > 0 && (
+              {symptomResult.dietarySuggestions && symptomResult.dietarySuggestions.length > 0 && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm font-semibold text-amber-700 mb-3">{t("Dietary Suggestions", "आहार सुझाव")}</p>
+                  <ul className="space-y-2">
+                    {symptomResult.dietarySuggestions.map((s, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span className="text-sm text-amber-800">{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {symptomResult.recommendedFoods && symptomResult.recommendedFoods.length > 0 && (
                 <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                  <p className="text-base md:text-lg font-semibold text-green-700 mb-3">{t("Recommended Foods", "अनुशंसित खाद्य पदार्थ")}</p>
+                  <p className="text-sm font-semibold text-green-700 mb-3">{t("Recommended Foods", "अनुशंसित खाद्य पदार्थ")}</p>
                   <ul className="space-y-2">
                     {symptomResult.recommendedFoods.map(f => (
                       <li key={f} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                        <span className="text-base md:text-lg text-green-800">{f}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" />
+                        <span className="text-sm text-green-800">{f}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {symptomResult.avoidFoods?.length > 0 && (
+              {symptomResult.avoidFoods && symptomResult.avoidFoods.length > 0 && (
                 <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                  <p className="text-base md:text-lg font-semibold text-red-700 mb-3">{t("Foods to Avoid", "से बचें")}</p>
+                  <p className="text-sm font-semibold text-red-700 mb-3">{t("Foods to Avoid", "इनसे बचें")}</p>
                   <ul className="space-y-2">
                     {symptomResult.avoidFoods.map(f => (
                       <li key={f} className="flex items-start gap-2">
-                        <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                        <span className="text-base md:text-lg text-red-800">{f}</span>
+                        <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                        <span className="text-sm text-red-800">{f}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              <div className="p-5 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <p className="text-base md:text-lg font-semibold text-blue-700 mb-3">{t("When to see a doctor", "डॉक्टर से कब मिलें")}</p>
-                <ul className="space-y-2">
-                  {(typeof symptomResult.seeDoctor === "string" ? symptomResult.seeDoctor : "").split(/\n|•/).filter(line => line.trim()).map((line, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-blue-500 font-bold mt-0.5">•</span>
-                      <span className="text-base md:text-lg text-blue-700">{line.trim()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {symptomResult.seeDoctor && (
+                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-sm font-semibold text-blue-700 mb-3">{t("When to see a doctor", "डॉक्टर से कब मिलें")}</p>
+                  <ul className="space-y-2">
+                    {(typeof symptomResult.seeDoctor === "string" ? symptomResult.seeDoctor : "").split(/\n|•/).filter(line => line.trim()).map((line, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-blue-500 font-bold mt-0.5 text-sm">•</span>
+                        <span className="text-sm text-blue-700">{line.trim()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <p className="text-xs text-muted-foreground text-center pt-1">
                 {t(
