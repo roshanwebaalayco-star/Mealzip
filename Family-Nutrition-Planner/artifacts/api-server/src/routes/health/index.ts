@@ -230,19 +230,20 @@ STRICT RULES:
   A single headache or mild symptom should NEVER be "urgent".
 - Do NOT include a disclaimer field.`;
 
-  const cleanArr = (arr: unknown, defaults: string[]): string[] => {
+  const cleanArr = (arr: unknown, defaults: string[], minLen = 2): string[] => {
     if (!Array.isArray(arr)) return defaults;
     const filtered = arr.map((s) => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
-    return filtered.length > 0 ? filtered : defaults;
+    return filtered.length >= minLen ? filtered : defaults;
   };
 
-  const safeFallback = (result: Record<string, unknown> = {}) => ({
+  const safeFallback = (result: Record<string, unknown> = {}, isFallback = false) => ({
     nutritionalInsight: (typeof result.nutritionalInsight === "string" && result.nutritionalInsight.trim()) || "Could not generate a detailed insight. Please try again or consult a healthcare professional.",
     dietarySuggestions: cleanArr(result.dietarySuggestions, ["Maintain a balanced diet with whole grains and vegetables", "Stay well hydrated throughout the day"]),
     recommendedFoods: cleanArr(result.recommendedFoods, ["Fresh seasonal fruits", "Green leafy vegetables", "Dal and legumes"]),
     avoidFoods: cleanArr(result.avoidFoods, ["Highly processed foods", "Excessive sugar and refined flour"]),
     seeDoctor: (typeof result.seeDoctor === "string" && result.seeDoctor.trim()) || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
     urgency: (typeof result.urgency === "string" && ["routine", "soon", "urgent"].includes(result.urgency)) ? result.urgency : "routine",
+    ...(isFallback ? { source: "fallback" as const } : {}),
   });
 
   try {
@@ -253,15 +254,17 @@ STRICT RULES:
     });
     const raw = response.text ?? "{}";
     let result: Record<string, unknown> = {};
+    let parseFailed = false;
     try {
       result = JSON.parse(raw);
     } catch (parseErr) {
+      parseFailed = true;
       req.log.warn({ raw: raw.slice(0, 200) }, "Symptom-check AI returned malformed JSON, using fallback");
     }
-    res.json(safeFallback(result));
+    res.json(safeFallback(result, parseFailed));
   } catch (err) {
     req.log.error({ err }, "Symptom-check AI call failed, returning fallback");
-    res.json(safeFallback());
+    res.json(safeFallback({}, true));
   }
 });
 
