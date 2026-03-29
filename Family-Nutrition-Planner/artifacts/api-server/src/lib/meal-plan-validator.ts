@@ -155,6 +155,45 @@ function checkAllergies(ingredientText: string, memberName: string, allergies: s
   return violations;
 }
 
+export interface CandidateSelectionResult {
+  selectedIndex: number;
+  selectedMeal: Record<string, unknown>;
+  violations: Violation[];
+  allViolations: Violation[];
+  usedFallback: boolean;
+}
+
+export function validateMealPlan(
+  candidates: Record<string, unknown>[],
+  members: MemberProfile[],
+): CandidateSelectionResult {
+  let allViolations: Violation[] = [];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const violations = validateMealForMembers(candidates[i], members);
+    const hardViolations = violations.filter(v => v.severity === "hard");
+    allViolations.push(...violations);
+
+    if (hardViolations.length === 0) {
+      return {
+        selectedIndex: i,
+        selectedMeal: candidates[i],
+        violations,
+        allViolations,
+        usedFallback: false,
+      };
+    }
+  }
+
+  return {
+    selectedIndex: -1,
+    selectedMeal: candidates[0] ?? {},
+    violations: allViolations,
+    allViolations,
+    usedFallback: true,
+  };
+}
+
 export function validateMealForMembers(
   meal: Record<string, unknown>,
   members: MemberProfile[],

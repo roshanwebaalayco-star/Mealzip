@@ -21,7 +21,7 @@ import { resolveDietPreference } from "../../lib/diet-tag.js";
 import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
 import { filterByAppliances, ALL_APPLIANCES, detectRequiredAppliances } from "../../lib/appliance-filter.js";
 import { getSeasonalIngredients, type Region, type Month } from "../../lib/seasonal-ingredients.js";
-import { validateMealForMembers, getSafeFallback, type MemberProfile, type Violation } from "../../lib/meal-plan-validator.js";
+import { validateMealForMembers, validateMealPlan, getSafeFallback, type MemberProfile, type Violation } from "../../lib/meal-plan-validator.js";
 import { scoreThaliCompleteness } from "../../lib/thali-scorer.js";
 
 const router: IRouter = Router();
@@ -82,8 +82,7 @@ const MemberAdjustmentSchema = z.object({
   avoid: z.array(z.string()).optional().default([]),
 });
 
-// Accepts both legacy (recipeName/member_plates) and canonical (base_dish_name/member_adjustments) field names
-const MealSlotSchema = z.object({
+const MealFieldsShape = {
   recipeName: z.string().optional(),
   base_dish_name: z.string().optional(),
   recipeId: z.number().nullable().optional(),
@@ -94,25 +93,32 @@ const MealSlotSchema = z.object({
   required_appliances: z.array(z.string()).default([]),
   member_plates: z.record(z.string(), z.unknown()).optional(),
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
-  // For AI-invented recipes: structured objects only (no plain strings)
   base_ingredients: z.array(BaseIngredientSchema).optional(),
-  // Legacy plain-string ingredients list still accepted for DB recipes; also accept comma-string from AI
   ingredients: z.union([z.array(z.string()), z.string()]).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
-}).refine(
-  data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
-  { message: "Either recipeName or base_dish_name must be present" },
-).refine(
-  data => {
-    // Only enforce base_ingredients when Gemini explicitly marks slot as AI-invented (recipeId=null)
-    if (data.recipeId === null) {
-      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
-    }
-    return true;
-  },
-  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
-);
+};
+
+const mealRefinements = <T extends { recipeName?: string; base_dish_name?: string; recipeId?: number | null; base_ingredients?: unknown[] }>(schema: z.ZodType<T>) =>
+  (schema as z.ZodObject<any>).refine(
+    (data: T) => (data.recipeName !== undefined || data.base_dish_name !== undefined),
+    { message: "Either recipeName or base_dish_name must be present" },
+  ).refine(
+    (data: T) => {
+      if (data.recipeId === null) {
+        return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
+      }
+      return true;
+    },
+    { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
+  );
+
+const MealCandidateSchema = mealRefinements(z.object(MealFieldsShape));
+
+const MealSlotSchema = mealRefinements(z.object({
+  ...MealFieldsShape,
+  candidates: z.array(mealRefinements(z.object(MealFieldsShape))).optional(),
+}));
 
 const DayPlanSchema = z.object({
   day: z.string(),
@@ -132,9 +138,18 @@ const WeekPlanSchema = z.object({
   aiInsights: z.string().optional(),
 });
 
+const HalfMealCandidateSchema = z.object({
+  recipeName: z.string().optional(),
+  base_dish_name: z.string().optional(),
+}).refine(
+  d => d.recipeName !== undefined || d.base_dish_name !== undefined,
+  { message: "Either recipeName or base_dish_name required" },
+);
+
 const HalfMealSlotSchema = z.object({
   recipeName: z.string().optional(),
   base_dish_name: z.string().optional(),
+  candidates: z.array(HalfMealCandidateSchema).optional(),
 }).refine(
   d => d.recipeName !== undefined || d.base_dish_name !== undefined,
   { message: "Either recipeName or base_dish_name required" },
@@ -808,7 +823,8 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - icmr_rationale: ≤8 words
 - nameHindi: required
 - aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
-- dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)`.trim();
+- dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
+- CANDIDATES: For breakfast, lunch, and dinner slots, provide exactly 3 different recipe options as a "candidates" array. Each candidate has the same shape as the main meal object (base_dish_name, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, required_appliances, base_ingredients if AI). Rank by confidence — candidate 1 is the primary choice. Options 2 and 3 may have shorter descriptions. The top-level slot fields should match candidate 1. mid_morning and evening_snack do NOT need candidates.`.trim();
 
   const promptPreamble = `${masterPromptSection1}
 ${masterPromptSection2}
@@ -817,7 +833,7 @@ ${masterPromptSection3}
 EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
 {"harmonyScore":85,"totalBudgetEstimate":1400,"aiInsights":"<brief>","days":[
 {"day":"Monday","isFastingDay":false,"dailyHarmonyScore":82,"dailyNutrition":{"calories":1900,"protein":65,"carbs":280,"fat":55,"fiber":28},"meals":{
-"breakfast":{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"required_appliances":["tawa"],"icmr_rationale":"Complex carbs, morning energy","member_adjustments":{"Ramesh":{"add":[{"ingredient":"egg","qty_grams":55}],"reduce":[],"avoid":[]}},"member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
+"breakfast":{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"required_appliances":["tawa"],"icmr_rationale":"Complex carbs, morning energy","member_adjustments":{"Ramesh":{"add":[{"ingredient":"egg","qty_grams":55}],"reduce":[],"avoid":[]}},"member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}},"candidates":[{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"required_appliances":["tawa"],"icmr_rationale":"Complex carbs, morning energy"},{"recipeId":null,"base_dish_name":"Upma","recipeName":"Upma","nameHindi":"उपमा","calories":290,"estimatedCost":60,"required_appliances":["kadai"],"icmr_rationale":"Fiber, low GI","base_ingredients":[{"ingredient":"semolina","qty_grams":80}],"ingredients":["80g rava","vegetables"]},{"recipeId":null,"base_dish_name":"Moong Dal Cheela","recipeName":"Moong Dal Cheela","nameHindi":"मूंग दाल चीला","calories":300,"estimatedCost":70,"required_appliances":["tawa"],"icmr_rationale":"Protein-rich, low GI","base_ingredients":[{"ingredient":"moong dal","qty_grams":60}],"ingredients":["60g moong dal","spices"]}]},
 "mid_morning":{"recipeId":null,"base_dish_name":"Banana Peanut Chikki","recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"required_appliances":[],"icmr_rationale":"Potassium, sustained energy","base_ingredients":[{"ingredient":"banana","qty_grams":120},{"ingredient":"peanut chikki","qty_grams":50}],"ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_adjustments":{},"member_plates":{}},
 "lunch":{"recipeId":456,"base_dish_name":"Dal Tadka Roti","recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"required_appliances":["pressure_cooker","tawa"],"icmr_rationale":"Protein, iron, fiber","member_adjustments":{},"member_plates":{}},
 "evening_snack":{"recipeId":null,"base_dish_name":"Masala Chaas","recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"required_appliances":[],"icmr_rationale":"Probiotics, calcium","base_ingredients":[{"ingredient":"curd","qty_grams":200},{"ingredient":"cumin","qty_grams":2},{"ingredient":"water","qty_grams":100}],"ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_adjustments":{},"member_plates":{}},
@@ -918,49 +934,72 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     const dietPref = resolveDietPreference(allRestrictions) ?? "vegetarian";
     let validationWarnings: Violation[] = [];
     let validationFallbacks = 0;
+    let candidateSelections = 0;
     for (const day of candidateDays) {
       if (!day.meals) continue;
       for (const [slotKey, meal] of Object.entries(day.meals)) {
-        const violations = validateMealForMembers(meal as Record<string, unknown>, memberProfiles);
-        if (violations.length > 0) {
-          const hardViolations = violations.filter(v => v.severity === "hard");
-          if (hardViolations.length > 0) {
-            const dishName = ((meal as Record<string, unknown>).base_dish_name ?? (meal as Record<string, unknown>).recipeName ?? "unknown") as string;
-            req.log.info({ dish: dishName, slot: slotKey, day: day.day, violations: hardViolations.length }, "Validation sieve — hard violation, replacing with safe fallback");
-            const fallback = getSafeFallback(slotKey, dietPref);
-            const fallbackObj = {
-              ...(fallback as unknown as Record<string, unknown>),
-              _validationReplaced: true,
-              _originalDish: dishName,
-              _violations: hardViolations.map(v => v.message),
-            };
-            const recheck = validateMealForMembers(fallbackObj, memberProfiles);
-            const recheckHard = recheck.filter(v => v.severity === "hard");
-            if (recheckHard.length > 0) {
-              req.log.info({ slot: slotKey, day: day.day }, "Fallback also violates — using minimal safe meal");
-              fallbackObj.base_dish_name = "Seasonal Fruit Bowl";
-              fallbackObj.recipeName = "Seasonal Fruit Bowl";
-              (fallbackObj as Record<string, unknown>).nameHindi = "मौसमी फल कटोरी";
-              (fallbackObj as Record<string, unknown>).recipeId = null;
-              (fallbackObj as Record<string, unknown>).base_ingredients = [{ ingredient: "seasonal fruits", qty_grams: 200 }];
-              (fallbackObj as Record<string, unknown>).ingredients = ["seasonal fruits"];
-              (fallbackObj as Record<string, unknown>).instructions = ["Wash and cut fruits", "Serve fresh"];
-            }
-            day.meals[slotKey] = fallbackObj;
-            validationFallbacks++;
+        const mealObj = meal as Record<string, unknown>;
+        const candidates = Array.isArray(mealObj.candidates) ? mealObj.candidates as Record<string, unknown>[] : [];
+        const allOptions = candidates.length > 0
+          ? [mealObj, ...candidates.filter(c => c !== mealObj)]
+          : [mealObj];
+
+        const sieveResult = validateMealPlan(allOptions, memberProfiles);
+
+        if (!sieveResult.usedFallback && sieveResult.selectedIndex > 0) {
+          const dishName = (mealObj.base_dish_name ?? mealObj.recipeName ?? "unknown") as string;
+          const selectedName = (sieveResult.selectedMeal.base_dish_name ?? sieveResult.selectedMeal.recipeName ?? "unknown") as string;
+          req.log.info({ originalDish: dishName, selectedDish: selectedName, slot: slotKey, day: day.day }, "Validation sieve — selected alternate candidate");
+          day.meals[slotKey] = {
+            ...sieveResult.selectedMeal,
+            _candidateSelected: true,
+            _originalDish: dishName,
+          };
+          candidateSelections++;
+          validationWarnings.push(...sieveResult.violations);
+        } else if (sieveResult.usedFallback) {
+          const dishName = (mealObj.base_dish_name ?? mealObj.recipeName ?? "unknown") as string;
+          req.log.info({ dish: dishName, slot: slotKey, day: day.day, candidatesChecked: allOptions.length }, "Validation sieve — all candidates failed, using safe fallback");
+          const fallback = getSafeFallback(slotKey, dietPref);
+          const fallbackObj: Record<string, unknown> = {
+            ...(fallback as unknown as Record<string, unknown>),
+            _validationReplaced: true,
+            _originalDish: dishName,
+            _violations: sieveResult.allViolations.filter(v => v.severity === "hard").map(v => v.message),
+          };
+          const recheck = validateMealForMembers(fallbackObj, memberProfiles);
+          const recheckHard = recheck.filter(v => v.severity === "hard");
+          if (recheckHard.length > 0) {
+            req.log.info({ slot: slotKey, day: day.day }, "Fallback also violates — using minimal safe meal");
+            fallbackObj.base_dish_name = "Seasonal Fruit Bowl";
+            fallbackObj.recipeName = "Seasonal Fruit Bowl";
+            fallbackObj.nameHindi = "मौसमी फल कटोरी";
+            fallbackObj.recipeId = null;
+            fallbackObj.base_ingredients = [{ ingredient: "seasonal fruits", qty_grams: 200 }];
+            fallbackObj.ingredients = ["seasonal fruits"];
+            fallbackObj.instructions = ["Wash and cut fruits", "Serve fresh"];
+            fallbackObj.required_appliances = [];
+            fallbackObj.icmr_rationale = "Safe fallback — seasonal vitamins";
+            fallbackObj.calories = 150;
+            fallbackObj.estimatedCost = 40;
           }
-          validationWarnings.push(...violations);
+          day.meals[slotKey] = fallbackObj;
+          validationFallbacks++;
+          validationWarnings.push(...sieveResult.allViolations);
+        } else {
+          validationWarnings.push(...sieveResult.violations);
         }
 
-        const finalMeal = day.meals[slotKey];
+        const finalMeal = day.meals[slotKey] as Record<string, unknown>;
+        delete finalMeal.candidates;
         const thali = scoreThaliCompleteness(finalMeal as unknown as Parameters<typeof scoreThaliCompleteness>[0]);
-        (finalMeal as Record<string, unknown>)._thaliScore = thali.score;
-        (finalMeal as Record<string, unknown>)._thaliPresent = thali.present;
-        (finalMeal as Record<string, unknown>)._thaliMissing = thali.missing;
+        finalMeal._thaliScore = thali.score;
+        finalMeal._thaliPresent = thali.present;
+        finalMeal._thaliMissing = thali.missing;
       }
     }
-    if (validationFallbacks > 0) {
-      req.log.info({ familyId, validationFallbacks, totalWarnings: validationWarnings.length }, "Validation sieve applied — some meals replaced with safe fallbacks");
+    if (candidateSelections > 0 || validationFallbacks > 0) {
+      req.log.info({ familyId, candidateSelections, validationFallbacks, totalWarnings: validationWarnings.length }, "Validation sieve applied — candidates evaluated and selected");
     }
 
     (mergedCandidate as Record<string, unknown>)._validationWarnings = validationWarnings.map(v => ({

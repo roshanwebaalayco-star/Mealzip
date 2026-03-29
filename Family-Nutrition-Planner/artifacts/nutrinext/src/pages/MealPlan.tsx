@@ -80,6 +80,7 @@ interface MealCell {
   base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
   member_plates?: Record<string, MemberPlate>;
   _validationReplaced?: boolean;
+  _candidateSelected?: boolean;
   _originalDish?: string;
   _violations?: string[];
   _thaliScore?: number;
