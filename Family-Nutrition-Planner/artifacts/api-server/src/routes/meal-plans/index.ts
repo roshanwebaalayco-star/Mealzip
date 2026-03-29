@@ -959,9 +959,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       for (const [slotKey, meal] of Object.entries(day.meals)) {
         const mealObj = meal as Record<string, unknown>;
         const candidates = Array.isArray(mealObj.candidates) ? mealObj.candidates as Record<string, unknown>[] : [];
-        const allOptions = candidates.length > 0
-          ? [mealObj, ...candidates.filter(c => c !== mealObj)]
-          : [mealObj];
+        const allOptions = candidates.length > 0 ? candidates : [mealObj];
 
         const sieveResult = validateMealPlan(allOptions, memberProfiles);
 
