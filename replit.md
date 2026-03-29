@@ -71,6 +71,8 @@ Family-Nutrition-Planner/
 - `logger.ts` — pino logger (pretty in dev, JSON in production)
 - `appliance-filter.ts` — keyword-based appliance detection from recipe text + filterByAppliances() for hard filtering
 - `seasonal-ingredients.ts` — 5-region × 12-month Indian seasonal produce calendar (vegetables, fruits, grains)
+- `meal-plan-validator.ts` — post-generation validation sieve: checks diabetic high-GI, hypertension sodium, Jain-forbidden, allergy cross-checks; replaces hard-violation meals with safe fallbacks (SAFE_FALLBACKS map keyed by meal_type × diet_preference)
+- `thali-scorer.ts` — 5-bucket thali completeness scorer (carb/protein/fat/fiber/vegetable); keyword-matching against meal name + ingredients; returns score(0-5), present[], missing[], suggestions[]
 
 ### Frontend Architecture
 

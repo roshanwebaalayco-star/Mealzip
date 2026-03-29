@@ -21,6 +21,8 @@ import { resolveDietPreference } from "../../lib/diet-tag.js";
 import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
 import { filterByAppliances, ALL_APPLIANCES, detectRequiredAppliances } from "../../lib/appliance-filter.js";
 import { getSeasonalIngredients, type Region, type Month } from "../../lib/seasonal-ingredients.js";
+import { validateMealForMembers, getSafeFallback, type MemberProfile, type Violation } from "../../lib/meal-plan-validator.js";
+import { scoreThaliCompleteness } from "../../lib/thali-scorer.js";
 
 const router: IRouter = Router();
 
@@ -906,6 +908,67 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     if (applianceViolations > 0) {
       req.log.info({ familyId, applianceViolations }, "Appliance violations replaced with simple alternatives");
     }
+
+    const memberProfiles: MemberProfile[] = members.map(m => ({
+      name: m.name,
+      healthConditions: m.healthConditions ?? [],
+      dietaryRestrictions: m.dietaryRestrictions ?? [],
+      allergies: m.allergies ?? [],
+    }));
+    const dietPref = resolveDietPreference(allRestrictions) ?? "vegetarian";
+    let validationWarnings: Violation[] = [];
+    let validationFallbacks = 0;
+    for (const day of candidateDays) {
+      if (!day.meals) continue;
+      for (const [slotKey, meal] of Object.entries(day.meals)) {
+        const violations = validateMealForMembers(meal as Record<string, unknown>, memberProfiles);
+        if (violations.length > 0) {
+          const hardViolations = violations.filter(v => v.severity === "hard");
+          if (hardViolations.length > 0) {
+            const dishName = ((meal as Record<string, unknown>).base_dish_name ?? (meal as Record<string, unknown>).recipeName ?? "unknown") as string;
+            req.log.info({ dish: dishName, slot: slotKey, day: day.day, violations: hardViolations.length }, "Validation sieve — hard violation, replacing with safe fallback");
+            const fallback = getSafeFallback(slotKey, dietPref);
+            const fallbackObj = {
+              ...(fallback as unknown as Record<string, unknown>),
+              _validationReplaced: true,
+              _originalDish: dishName,
+              _violations: hardViolations.map(v => v.message),
+            };
+            const recheck = validateMealForMembers(fallbackObj, memberProfiles);
+            const recheckHard = recheck.filter(v => v.severity === "hard");
+            if (recheckHard.length > 0) {
+              req.log.info({ slot: slotKey, day: day.day }, "Fallback also violates — using minimal safe meal");
+              fallbackObj.base_dish_name = "Seasonal Fruit Bowl";
+              fallbackObj.recipeName = "Seasonal Fruit Bowl";
+              (fallbackObj as Record<string, unknown>).nameHindi = "मौसमी फल कटोरी";
+              (fallbackObj as Record<string, unknown>).recipeId = null;
+              (fallbackObj as Record<string, unknown>).base_ingredients = [{ ingredient: "seasonal fruits", qty_grams: 200 }];
+              (fallbackObj as Record<string, unknown>).ingredients = ["seasonal fruits"];
+              (fallbackObj as Record<string, unknown>).instructions = ["Wash and cut fruits", "Serve fresh"];
+            }
+            day.meals[slotKey] = fallbackObj;
+            validationFallbacks++;
+          }
+          validationWarnings.push(...violations);
+        }
+
+        const finalMeal = day.meals[slotKey];
+        const thali = scoreThaliCompleteness(finalMeal as unknown as Parameters<typeof scoreThaliCompleteness>[0]);
+        (finalMeal as Record<string, unknown>)._thaliScore = thali.score;
+        (finalMeal as Record<string, unknown>)._thaliPresent = thali.present;
+        (finalMeal as Record<string, unknown>)._thaliMissing = thali.missing;
+      }
+    }
+    if (validationFallbacks > 0) {
+      req.log.info({ familyId, validationFallbacks, totalWarnings: validationWarnings.length }, "Validation sieve applied — some meals replaced with safe fallbacks");
+    }
+
+    (mergedCandidate as Record<string, unknown>)._validationWarnings = validationWarnings.map(v => ({
+      severity: v.severity,
+      member: v.member,
+      rule: v.rule,
+      message: v.message,
+    }));
 
     planData = mergedCandidate;
 

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import RecipeDetailModal from "@/components/RecipeDetailModal";
 import WeeklyContextModal, { type WeeklyContext } from "@/components/WeeklyContextModal";
+import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 
 interface RecipeDetail {
   id: number;
@@ -75,7 +76,15 @@ interface MealCell {
   _hfssRebalance?: { detectedAt: string; items: string[]; totalKcal: number; rebalanceNote: string } | null;
   instructions?: string[];
   ingredients?: string[];
+  base_dish_name?: string;
+  base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
   member_plates?: Record<string, MemberPlate>;
+  _validationReplaced?: boolean;
+  _originalDish?: string;
+  _violations?: string[];
+  _thaliScore?: number;
+  _thaliPresent?: string[];
+  _thaliMissing?: string[];
 }
 
 interface DayData {
@@ -1241,7 +1250,15 @@ export default function MealPlan() {
                           {cell.estimatedCost && (
                             <span className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">₹{cell.estimatedCost}</span>
                           )}
+                          {(cell._validationReplaced) && (
+                            <span className="text-[9px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200" title={Array.isArray(cell._violations) ? cell._violations.join("; ") : ""}>
+                              🛡️ {t("Safe swap", "सुरक्षित बदलाव")}
+                            </span>
+                          )}
                         </div>
+                        {displayMealName !== "—" && (
+                          <ThaliScoreBadge meal={cell} compact={false} />
+                        )}
 
                         {/* "Why this dish?" collapsible — ICMR rationale */}
                         <button
