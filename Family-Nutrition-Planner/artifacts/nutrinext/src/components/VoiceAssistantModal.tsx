@@ -80,8 +80,10 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
   const [hasStarted, setHasStarted] = useState(false);
   const [pickedLang, setPickedLang] = useState<string | null>(null);
 
+  const validLangKeys = new Set(INDIAN_LANGUAGES.map(l => l.key));
+
   useEffect(() => {
-    if (open && !hasStarted && currentLanguage !== "english") {
+    if (open && !hasStarted && currentLanguage !== "english" && validLangKeys.has(currentLanguage)) {
       setPickedLang(currentLanguage);
       setHasStarted(true);
       start(currentLanguage, onComplete);

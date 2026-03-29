@@ -92,7 +92,7 @@ export default function FamilySetup() {
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const CHAT_LANGUAGES = INDIAN_LANGUAGES.map(l => ({
-    key: l.key.charAt(0).toUpperCase() + l.key.slice(1),
+    key: l.key,
     label: l.label,
   }));
 
@@ -499,7 +499,7 @@ export default function FamilySetup() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => { setChatOpen(true); setChatLang(null); setChatMessages([]); setChatComplete(false); }}
+                      onClick={() => { setChatOpen(true); setChatLang(globalLang !== "english" ? globalLang : null); setChatMessages([]); setChatComplete(false); }}
                       className="gap-1.5 shrink-0 ml-2 border-secondary/40 text-secondary hover:bg-secondary/10"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
