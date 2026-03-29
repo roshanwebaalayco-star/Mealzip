@@ -1,0 +1,61 @@
+Yes, the design flaws in that screenshot are glaring and completely violate good UX principles, especially for a health app where users might already be feeling unwell (e.g., experiencing a headache). 
+
+Here is a UX teardown of exactly what is wrong with the current design, followed by the Master Prompt to fix it:
+
+### **The UX/UI Teardown (What went wrong):**
+1. **The "Disclaimer Wall":** You have *two* massive, redundant yellow warning boxes taking up 30% of the screen real estate. This causes "banner blindness" and pushes the actual useful information below the fold.
+2. **Improper Component Use (The Pills):** You are using "Pill/Tag" components to hold entire sentences (e.g., *"Leafy green vegetables (spinach, kale)"*). Pills are meant for single words or short categories. When stuffed with text, they become unreadable, especially on mobile.
+3. **Information Density (Wall of Text):** The "Nutritional Insight" and "When to see a doctor" sections are dense paragraphs. People don't read on apps; they *scan*. 
+4. **Typography:** The font sizes are too small (`text-xs` or `text-sm`), making it inaccessible, particularly for older family members.
+
+Here is the exact **Elite Master Prompt** to feed into Replit to overhaul this component into a clean, modern, and accessible interface.
+
+***
+
+### 📋 COPY AND PASTE EVERYTHING BELOW THIS LINE INTO REPLIT 📋
+
+```text
+You are an Elite Staff Frontend & UX Engineer building the 'NutriNext' Health OS.
+
+CONTEXT: The current UI for the "Symptom Advisor / Health Log" results is severely flawed. It suffers from information overload, redundant disclaimers, improper component usage (putting sentences inside pill tags), and font sizes that are too small. We need to overhaul this UI to be clean, scannable, and mobile-friendly.
+
+Execute this UX/UI overhaul EXACTLY step-by-step:
+
+### STEP 1: DISCLAIMER CONSOLIDATION
+The UI currently renders TWO massive, redundant medical disclaimers (the yellow boxes).
+1. Delete the top yellow warning box entirely.
+2. Move the remaining medical disclaimer to the VERY BOTTOM of the component (below "When to see a doctor").
+3. Make it subtle: Use smaller text (`text-xs`), a muted gray text color (`text-gray-500`), and remove the heavy yellow background. It should look like a standard legal footer, not a glaring alert.
+
+### STEP 2: FIX TYPOGRAPHY & SCANNABILITY
+We must convert the "Wall of Text" into scannable, accessible content.
+1. Increase the base font size for the "Nutritional Insight" paragraph to at least `text-base` or `text-lg`.
+2. Ensure the line height is readable (use `leading-relaxed`).
+
+### STEP 3: REBUILD THE "RECOMMENDED / AVOID" SECTIONS
+STOP using pill/tag components for long strings of text. It breaks responsiveness and is hard to read.
+1. Remove the flex-wrap pill layout for "Recommended Foods" and "Avoid".
+2. Replace them with clean, modern Bulleted Lists OR a two-column Grid layout of simple cards.
+3. **Recommended Section:** Use a subtle green background for the list container or a green checkmark icon (`✓`) for each bullet item. Font size must be `text-base` minimum.
+4. **Avoid Section:** Use a subtle red background for the list container or a red cross icon (`×`) for each bullet item. Font size must be `text-base` minimum.
+
+### STEP 4: REDESIGN "WHEN TO SEE A DOCTOR"
+This blue box contains a dense paragraph with tiny text.
+1. Increase the font size to `text-base`.
+2. Convert the paragraph into a bulleted list of symptoms. (e.g., 
+   - Severe, persistent, or "thunderclap" headache.
+   - Accompanied by vision changes, confusion, or numbness.
+   - Fever or stiff neck.)
+3. Keep the subtle blue background but increase the padding (`p-4` or `p-5`) so the text can breathe.
+
+### STEP 5: BACKEND PROMPT UPDATE (CONCISENESS)
+If the text for this component is being generated dynamically by the Gemini LLM, you must update the system prompt for this specific route.
+1. Locate the route generating the Symptom Advisor text.
+2. Add this EXACT instruction to the LLM prompt: 
+   "OUTPUT FORMATTING RULE: You must be extremely concise. Use short, punchy sentences. ALWAYS output 'Recommended Foods', 'Foods to Avoid', and 'When to see a doctor' as strictly formatted bulleted lists. Never output dense paragraphs."
+
+### FINAL INSTRUCTIONS FOR AGENT:
+1. Ensure all Tailwind classes are mobile-responsive (`md:text-lg`, etc.).
+2. Do not break the state management that toggles the symptoms.
+3. Output a summary of the UI components modified.
+```
