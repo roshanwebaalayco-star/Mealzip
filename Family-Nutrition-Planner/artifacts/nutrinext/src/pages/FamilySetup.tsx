@@ -138,6 +138,7 @@ export default function FamilySetup() {
           state?: string;
           monthlyBudget?: number;
           dietaryType?: string;
+          appliances?: string[];
           members?: Array<{ name?: string; age?: number; gender?: string; role?: string; healthConditions?: string[] }>;
         };
         const newFamilyData = {
@@ -146,6 +147,7 @@ export default function FamilySetup() {
           ...(p.state ? { state: p.state } : {}),
           ...(p.monthlyBudget ? { monthlyBudget: p.monthlyBudget } : {}),
           ...(p.dietaryType ? { dietaryType: p.dietaryType as typeof familyData.dietaryType } : {}),
+          ...(p.appliances ? { appliances: p.appliances } : {}),
         };
         const newMembers: MemberDraft[] = (p.members ?? []).filter(m => m.name).map(m => ({
           _id: ++_memberIdCounter,
@@ -371,6 +373,7 @@ export default function FamilySetup() {
       ...(voiceData.dietaryType
         ? { dietaryType: voiceData.dietaryType as typeof familyData.dietaryType }
         : {}),
+      ...((voiceData as Record<string, unknown>).appliances ? { appliances: (voiceData as Record<string, unknown>).appliances as string[] } : {}),
     };
 
     const voiceMembers: MemberDraft[] = (voiceData.members ?? [])

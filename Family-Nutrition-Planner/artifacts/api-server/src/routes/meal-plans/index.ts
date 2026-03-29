@@ -18,7 +18,7 @@ import { getICMRNINTargets } from "../../lib/icmr-nin.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
 import { resolveDietPreference } from "../../lib/diet-tag.js";
 import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
-import { filterByAppliances } from "../../lib/appliance-filter.js";
+import { filterByAppliances, ALL_APPLIANCES, detectRequiredAppliances } from "../../lib/appliance-filter.js";
 import { getSeasonalIngredients, type Region, type Month } from "../../lib/seasonal-ingredients.js";
 
 const router: IRouter = Router();
@@ -570,22 +570,16 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
     if (filteredRecipes.length < 10) {
       req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes after appliance filter — relaxing budget constraint");
-      let relaxed = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
-      relaxed = filterByAppliances(relaxed, ownedAppliances);
-      filteredRecipes = relaxed;
+      let relaxed = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 150);
+      filteredRecipes = filterByAppliances(relaxed, ownedAppliances);
     }
     if (filteredRecipes.length < 10) {
-      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter");
-      let relaxed = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
-      relaxed = filterByAppliances(relaxed, ownedAppliances);
-      filteredRecipes = relaxed;
-    }
-    if (filteredRecipes.length < 10) {
-      req.log.info({ familyId, zone, count: filteredRecipes.length, ownedAppliances }, "Still too few after appliance filter — relaxing to unfiltered as soft fallback");
-      filteredRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter but keeping appliance filter");
+      let relaxed = await getFilteredRecipes(zone, [], 0, isFasting, null, 200);
+      filteredRecipes = filterByAppliances(relaxed, ownedAppliances);
     }
     if (filteredRecipes.length === 0) {
-      res.status(422).json({ error: "No recipes found in the database. Please seed the recipe database first.", retryable: false });
+      res.status(422).json({ error: "No recipes found matching your kitchen appliances. Try adding more appliances in your family profile.", retryable: false });
       return;
     }
 
@@ -601,6 +595,25 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
   const dislikedMeals = previousFeedback.filter(f => !f.liked).map(f => `${f.mealType} on Day ${f.dayIndex + 1}: ${f.skipReason || "disliked"}`);
   const likedMeals = previousFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4).map(f => `${f.mealType} on Day ${f.dayIndex + 1}`);
+
+  let flavorFatigueNote = "";
+  try {
+    const [lastPlan] = await db.select({ plan: mealPlansTable.plan })
+      .from(mealPlansTable)
+      .where(eq(mealPlansTable.familyId, familyId))
+      .orderBy(desc(mealPlansTable.createdAt))
+      .limit(1);
+    if (lastPlan?.plan) {
+      const lastDays = (lastPlan.plan as { days?: Array<{ meals?: Record<string, { base_dish_name?: string; recipeName?: string }> }> }).days ?? [];
+      const recentDishes = lastDays.slice(-3).flatMap(d => {
+        const meals = d.meals ?? {};
+        return Object.values(meals).map(m => m.base_dish_name || m.recipeName).filter(Boolean);
+      });
+      if (recentDishes.length > 0) {
+        flavorFatigueNote = `\n🔄 FLAVOR FATIGUE — AVOID repeating these dishes from last week's final days: ${recentDishes.slice(0, 12).join(", ")}. Use different flavor profiles and spice combinations.\n`;
+      }
+    }
+  } catch { /* non-critical */ }
 
   const memberSummaries = members.map(m => ({
     name: m.name, role: m.role, age: m.age, gender: m.gender,
@@ -641,7 +654,8 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
   const seasonalNote = `\n🌿 SEASONAL PRODUCE (${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][currentMonth - 1]}, ${zone} India): Vegetables: ${seasonalData.vegetables.join(", ")}. Fruits: ${seasonalData.fruits.join(", ")}. Grains: ${seasonalData.grains.join(", ")}.\nPREFER seasonal ingredients — they are fresher, cheaper, and more nutritious.\n`;
 
-  const applianceNote = `\n🍳 KITCHEN APPLIANCES AVAILABLE: ${ownedAppliances.join(", ")}.\nONLY suggest recipes that can be made with these appliances. Do NOT suggest recipes requiring oven, microwave, air fryer, idli stand, or blender/mixie unless listed above. For each meal slot, include "required_appliances":["tawa"] (array of appliances needed).\n`;
+  const missingAppliances = ALL_APPLIANCES.filter(a => !ownedAppliances.includes(a));
+  const applianceNote = `\n🍳 KITCHEN APPLIANCES AVAILABLE: ${ownedAppliances.join(", ")}.\nNEVER suggest recipes requiring: ${missingAppliances.join(", ")}.\nFor each meal slot, include "required_appliances":["tawa"] (array of appliances needed from the available list).\n`;
 
   const memberListForPrompt = memberSummaries.map(m => ({
     name: m.name, role: m.role, age: m.age, gender: m.gender,
@@ -729,13 +743,13 @@ ${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides
   if (ov.nonveg_days_override?.length) parts.push(`non-veg allowed on ${ov.nonveg_days_override.join(", ")} (type: ${ov.nonveg_type_override ?? "any"})`);
   return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
-${fastingNote}${pantryNote}${seasonalNote}${applianceNote}`.trim() : `
+${fastingNote}${pantryNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim() : `
 
 ══════════════════════════════════════════════════════════════════
 SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
 ══════════════════════════════════════════════════════════════════
 No weekly context provided. Use defaults from Section 1.
-${fastingNote}${pantryNote}${seasonalNote}${applianceNote}`.trim();
+${fastingNote}${pantryNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim();
 
   const masterPromptSection3 = `
 
@@ -833,9 +847,27 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       throw new Error(`Generated plan has structural issues after merge: ${issues}`);
     }
 
+    // Post-generation appliance enforcement: reject any meal slot declaring unavailable appliances
+    let applianceViolations = 0;
+    const candidateDays = mergedCandidate.days as Array<{ meals?: Record<string, { required_appliances?: string[]; base_dish_name?: string; recipeName?: string }> }>;
+    for (const day of candidateDays) {
+      if (!day.meals) continue;
+      for (const [, meal] of Object.entries(day.meals)) {
+        const declared = meal.required_appliances ?? [];
+        const violations = declared.filter(a => !ownedAppliances.includes(a));
+        if (violations.length > 0) {
+          applianceViolations++;
+          req.log.info({ dish: meal.base_dish_name ?? meal.recipeName, violations }, "Post-gen appliance violation detected — flagging");
+        }
+      }
+    }
+    if (applianceViolations > 0) {
+      req.log.info({ familyId, applianceViolations }, "Appliance violations found in generated plan — proceeding with warning");
+    }
+
     planData = mergedCandidate;
 
-    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: planModifications.length }, "Parallel meal plan generation succeeded");
+    req.log.info({ familyId, days1Count: days1.length, days2Count: days2.length, arbitrageSwaps: planModifications.length, applianceViolations }, "Parallel meal plan generation succeeded");
   } catch (err) {
     clearTimeout(timeoutHandle);
     req.log.error({ err }, "Meal plan generation failed after retry");
@@ -950,7 +982,8 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     let freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
     freshRecipes = filterByAppliances(freshRecipes, ownedAppliancesRegen);
     if (freshRecipes.length < 10) {
-      freshRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+      let relaxed = await getFilteredRecipes(zone, [], 0, isFasting, null, 200);
+      freshRecipes = filterByAppliances(relaxed, ownedAppliancesRegen);
     }
 
     const dislikedMeals = allFeedback.filter(f => !f.liked).map(f => f.mealType);
