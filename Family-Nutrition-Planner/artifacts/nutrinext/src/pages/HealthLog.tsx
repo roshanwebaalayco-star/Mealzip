@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Heart, Scale, Activity, AlertTriangle, User, Plus, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Heart, Scale, Activity, User, Plus, Sparkles, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ const COMMON_SYMPTOMS = ["Fatigue", "Headache", "Nausea", "Bloating", "Constipat
 const COMMON_SYMPTOMS_HI = ["थकान", "सिरदर्द", "मतली", "पेट फूलना", "कब्ज", "चक्कर", "कमजोरी", "भूख न लगना", "एसिडिटी", "जोड़ों का दर्द"];
 
 interface SymptomResult {
-  disclaimer: string;
+  disclaimer?: string;
   nutritionalInsight: string;
   dietarySuggestions: string[];
   recommendedFoods: string[];
@@ -256,18 +256,6 @@ export default function HealthLog() {
         <div className="flex items-center gap-2">
           <Heart className="w-4 h-4 text-red-500" />
           <h3 className="font-semibold">{t("Symptom Advisor", "लक्षण सलाहकार")}</h3>
-          <Badge variant="secondary" className="text-[10px]">{t("Nutrition guidance only", "केवल पोषण मार्गदर्शन")}</Badge>
-        </div>
-
-        {/* Persistent disclaimer — always visible */}
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-          <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-yellow-700">
-            {t(
-              "Not medical advice. This tool provides nutrition-based suggestions only. Always consult a qualified doctor for medical concerns.",
-              "यह चिकित्सा सलाह नहीं है। यह उपकरण केवल पोषण-आधारित सुझाव देता है। चिकित्सा समस्याओं के लिए हमेशा योग्य डॉक्टर से मिलें।"
-            )}
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -296,44 +284,63 @@ export default function HealthLog() {
         )}
 
         {symptomResult && (
-          <div className="space-y-3">
-            {/* Disclaimer always first */}
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-              <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-yellow-700">{symptomResult.disclaimer}</p>
-            </div>
-
+          <div className="space-y-4">
             <Badge className={urgencyColor[symptomResult.urgency] || ""}>
               {symptomResult.urgency === "routine" ? t("Routine check", "नियमित जांच") : symptomResult.urgency === "soon" ? t("See doctor soon", "जल्द डॉक्टर से मिलें") : t("See doctor urgently", "तुरंत डॉक्टर से मिलें")}
             </Badge>
 
-            <div className="p-3 rounded-xl bg-muted/30">
-              <p className="text-sm font-medium mb-1">{t("Nutritional Insight", "पोषण अंतर्दृष्टि")}</p>
-              <p className="text-sm text-muted-foreground">{symptomResult.nutritionalInsight}</p>
+            <div className="p-4 rounded-xl bg-muted/30">
+              <p className="text-base md:text-lg font-medium mb-2">{t("Nutritional Insight", "पोषण अंतर्दृष्टि")}</p>
+              <p className="text-base md:text-lg leading-relaxed text-muted-foreground">{symptomResult.nutritionalInsight}</p>
             </div>
 
             {symptomResult.recommendedFoods?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-green-700 mb-1">{t("Recommended Foods:", "अनुशंसित खाद्य पदार्थ:")}</p>
-                <div className="flex flex-wrap gap-1">
-                  {symptomResult.recommendedFoods.map(f => <Badge key={f} className="text-[10px] bg-green-500/20 text-green-700 border-green-500/30">{f}</Badge>)}
-                </div>
+              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                <p className="text-base md:text-lg font-semibold text-green-700 mb-3">{t("Recommended Foods", "अनुशंसित खाद्य पदार्थ")}</p>
+                <ul className="space-y-2">
+                  {symptomResult.recommendedFoods.map(f => (
+                    <li key={f} className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                      <span className="text-base md:text-lg text-green-800">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
             {symptomResult.avoidFoods?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-red-600 mb-1">{t("Avoid:", "से बचें:")}</p>
-                <div className="flex flex-wrap gap-1">
-                  {symptomResult.avoidFoods.map(f => <Badge key={f} className="text-[10px] bg-red-500/20 text-red-700 border-red-500/30">{f}</Badge>)}
-                </div>
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                <p className="text-base md:text-lg font-semibold text-red-700 mb-3">{t("Foods to Avoid", "से बचें")}</p>
+                <ul className="space-y-2">
+                  {symptomResult.avoidFoods.map(f => (
+                    <li key={f} className="flex items-start gap-2">
+                      <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <span className="text-base md:text-lg text-red-800">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
-            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
-              <p className="text-xs font-semibold text-blue-700 mb-1">{t("When to see a doctor:", "डॉक्टर से कब मिलें:")}</p>
-              <p className="text-xs text-blue-700">{symptomResult.seeDoctor}</p>
+            <div className="p-5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <p className="text-base md:text-lg font-semibold text-blue-700 mb-3">{t("When to see a doctor", "डॉक्टर से कब मिलें")}</p>
+              <ul className="space-y-2">
+                {(typeof symptomResult.seeDoctor === "string" ? symptomResult.seeDoctor : "").split(/\n|•/).filter(line => line.trim()).map((line, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-blue-500 font-bold mt-0.5">•</span>
+                    <span className="text-base md:text-lg text-blue-700">{line.trim()}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
+
+            {/* Single subtle disclaimer at the bottom */}
+            <p className="text-xs text-muted-foreground text-center pt-1">
+              {t(
+                "This is nutrition guidance only, not medical advice. Always consult a qualified doctor for medical concerns.",
+                "यह केवल पोषण मार्गदर्शन है, चिकित्सा सलाह नहीं। चिकित्सा समस्याओं के लिए हमेशा योग्य डॉक्टर से मिलें।"
+              )}
+            </p>
           </div>
         )}
       </div>

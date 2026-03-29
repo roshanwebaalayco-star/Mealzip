@@ -201,28 +201,28 @@ router.post("/symptom-check", async (req, res): Promise<void> => {
   const { symptoms, age, gender, existingConditions, language } = parsed.data;
 
   const lang = language === "hindi" ? "Hindi" : "English";
-  const prompt = `You are a nutrition-focused health advisor providing general guidance. IMPORTANT DISCLAIMER: You are NOT a doctor and cannot diagnose medical conditions.
+  const prompt = `You are a nutrition-focused health advisor providing general guidance. You are NOT a doctor and cannot diagnose medical conditions.
 
 Patient info: Age ${age || "adult"}, Gender ${gender || "unknown"}, Existing conditions: ${(existingConditions || []).join(", ") || "none"}
 Symptoms reported: ${symptoms.join(", ")}
 
-Respond in ${lang}. Provide:
-1. A brief nutritional angle on these symptoms (e.g., "iron deficiency can cause fatigue")
-2. Dietary suggestions that may help
-3. When to see a doctor (specific red flags)
+Respond in ${lang}. Be extremely concise. Use short, punchy sentences.
 
-CRITICAL: Always include disclaimer that this is nutrition guidance only, not medical diagnosis. Recommend consulting a doctor for any serious symptoms.
-
-Return JSON:
+Return ONLY valid JSON with these exact fields:
 {
-  "disclaimer": "This is nutrition guidance only, not medical advice...",
-  "nutritionalInsight": "...",
-  "dietarySuggestions": ["suggestion 1", "suggestion 2"],
-  "recommendedFoods": ["food 1", "food 2"],
-  "avoidFoods": ["food to avoid"],
-  "seeDoctor": "When to seek medical attention...",
+  "nutritionalInsight": "One or two short sentences on the nutritional angle of these symptoms.",
+  "dietarySuggestions": ["short suggestion 1", "short suggestion 2"],
+  "recommendedFoods": ["Food name or short phrase only", "Another food"],
+  "avoidFoods": ["Food name or short phrase only", "Another food"],
+  "seeDoctor": "• Red flag 1\n• Red flag 2\n• Red flag 3",
   "urgency": "routine|soon|urgent"
-}`;
+}
+
+STRICT RULES:
+- recommendedFoods and avoidFoods must be short food names or brief phrases (not full sentences).
+- seeDoctor must be bullet points separated by newlines, each starting with "•". Never write a paragraph.
+- urgency must be exactly one of: routine, soon, urgent.
+- Do NOT include a disclaimer field.`;
 
   try {
     const response = await ai.models.generateContent({
