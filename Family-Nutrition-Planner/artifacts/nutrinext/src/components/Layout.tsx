@@ -29,13 +29,12 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: Home, label: "Home", labelHi: "होम", href: "/" },
     { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
     { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
+    { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
   ];
 
   const moreItems = [
-    { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
-    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
   ];
 
   const moreIsActive = moreItems.some((i) => i.href === location);
