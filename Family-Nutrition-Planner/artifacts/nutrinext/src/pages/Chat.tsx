@@ -6,7 +6,7 @@ import { useLanguageStore } from "@/store/useLanguageStore";
 import { LANG_TO_BCP47 } from "@/lib/languages";
 import { useListGeminiConversations, useCreateGeminiConversation, useTranscribeVoice } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, MicOff, Send, Bot, Loader2, Sparkles, RefreshCcw, AlertTriangle, AudioLines, X } from "lucide-react";
+import { Mic, MicOff, SendHorizontal, Bot, Loader2, Sparkles, RefreshCcw, AlertTriangle, AudioLines, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api-fetch";
 import ReactMarkdown from "react-markdown";
@@ -492,9 +492,9 @@ export default function Chat() {
               <button
                 type="submit"
                 disabled={isStreaming || !input.trim()}
-                className="btn-brand w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
               >
-                <Send className="w-5 h-5" />
+                <SendHorizontal className="w-5 h-5" />
               </button>
             </form>
           </div>
