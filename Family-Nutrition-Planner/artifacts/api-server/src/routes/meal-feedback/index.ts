@@ -11,7 +11,7 @@ const MealFeedbackSchema = z.object({
   dayIndex: z.number({ required_error: "dayIndex is required" }).int().min(0).max(6),
   mealType: z.string({ required_error: "mealType is required" }).min(1),
   liked: z.boolean().optional().default(true),
-  rating: z.number().int().min(1).max(5).optional(),
+  rating: z.number().int().min(0).max(5).optional(),
   skipReason: z.string().optional(),
   notes: z.string().optional(),
   action: z.enum(["like", "dislike", "skip", "ate_out"]).optional(),
