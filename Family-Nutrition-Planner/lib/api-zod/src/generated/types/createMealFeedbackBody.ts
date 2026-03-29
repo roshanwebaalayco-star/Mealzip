@@ -5,6 +5,7 @@
  * NutriNext / ParivarSehat AI — Family Nutrition Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateMealFeedbackBodyAction } from "./createMealFeedbackBodyAction";
 
 export interface CreateMealFeedbackBody {
   familyId: number;
@@ -22,4 +23,5 @@ export interface CreateMealFeedbackBody {
   rating?: number;
   skipReason?: string;
   notes?: string;
+  action?: CreateMealFeedbackBodyAction;
 }

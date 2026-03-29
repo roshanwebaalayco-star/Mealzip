@@ -512,6 +512,16 @@ export interface MealFeedback {
   createdAt?: string;
 }
 
+export type CreateMealFeedbackBodyAction =
+  (typeof CreateMealFeedbackBodyAction)[keyof typeof CreateMealFeedbackBodyAction];
+
+export const CreateMealFeedbackBodyAction = {
+  like: "like",
+  dislike: "dislike",
+  skip: "skip",
+  ate_out: "ate_out",
+} as const;
+
 export interface CreateMealFeedbackBody {
   familyId: number;
   /**
@@ -528,6 +538,7 @@ export interface CreateMealFeedbackBody {
   rating?: number;
   skipReason?: string;
   notes?: string;
+  action?: CreateMealFeedbackBodyAction;
 }
 
 export type GroceryItemPriority =
@@ -911,6 +922,36 @@ export interface FoodScanDetectedItem {
   nutrition: FoodScanDetectedItemNutrition;
 }
 
+export interface LeftoverItem {
+  id: number;
+  familyId: number;
+  ingredientName: string;
+  quantityEstimate?: string | null;
+  usedUp: boolean;
+  expiresAt: string;
+  createdAt: string;
+  hoursRemaining: number;
+}
+
+export interface LogLeftoverBody {
+  familyId: number;
+  /** @minLength 1 */
+  ingredientName: string;
+  quantityEstimate?: string;
+}
+
+export type LogLeftoverBatchBodyItemsItem = {
+  /** @minLength 1 */
+  ingredientName: string;
+  quantityEstimate?: string;
+};
+
+export interface LogLeftoverBatchBody {
+  familyId: number;
+  /** @minItems 1 */
+  items: LogLeftoverBatchBodyItemsItem[];
+}
+
 export type ListRecipesParams = {
   /**
    * Search query (name or ingredient)
@@ -988,6 +1029,10 @@ export type ListFoodGiParams = {
 };
 
 export type ListFoodGi200Item = { [key: string]: unknown };
+
+export type ListActiveLeftoversParams = {
+  familyId: number;
+};
 
 export type ListGroceryListsParams = {
   familyId: number;

@@ -86,7 +86,10 @@ Family-Nutrition-Planner/
 - **Auth**: `useAuth` hook reads/writes JWT to localStorage; `setAuthTokenGetter` injects Bearer token into all API calls
 - **App state**: `AppStateContext` tracks active family (defaults to first family returned by API)
 
-**Key pages**: Dashboard, FamilySetup (multi-step wizard with 3 paths: voice / text-chat / manual form), MealPlan (weekly calendar view), RecipeExplorer (clickable cards → RecipeDetailModal), Chat (AI with SSE streaming + voice), Scanner (food detection with Gemini Vision pantry scan + quantity estimation), Grocery (ICMR health rationale per item), Nutrition (charts via Recharts), HealthLog, Login, Register
+**Key pages**: Dashboard, FamilySetup (multi-step wizard with 3 paths: voice / text-chat / manual form), MealPlan (weekly calendar view with Tonight's Prep reminders, ThaliScoreBadge, leftover logging, skip/ate-out), RecipeExplorer (clickable cards → RecipeDetailModal), Chat (AI with SSE streaming + voice), Scanner (food detection with Gemini Vision pantry scan + quantity estimation), Grocery (ICMR health rationale per item), Nutrition (charts via Recharts), HealthLog, Login, Register
+
+**Key client-side utilities**:
+- `prep-reminders.ts` — `PREP_REQUIREMENTS` static map: ingredient keyword → prep type (soak/ferment/sprout/marinate) → duration → clinical benefit (EN/HI). `getPrepsForMeals()` scans tomorrow's meals and returns matched reminders. Covers rajma, chana, moong, urad dal, dosa/idli, chicken, mutton, paneer, dhokla, toor dal, kidney bean.
 
 ### API Client Code Generation (Orval)
 

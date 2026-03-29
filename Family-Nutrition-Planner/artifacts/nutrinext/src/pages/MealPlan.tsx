@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import RecipeDetailModal from "@/components/RecipeDetailModal";
 import WeeklyContextModal, { type WeeklyContext } from "@/components/WeeklyContextModal";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
+import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 
 interface RecipeDetail {
   id: number;
@@ -340,10 +341,9 @@ export default function MealPlan() {
     },
   });
 
-  // Derive tomorrow's meals for biochem pre-processing alerts (hook level — before early returns)
-  const tomorrowMealsForPrep = useMemo(() => {
+  const tomorrowPrepReminders = useMemo((): PrepReminder[] => {
     const raw = plans?.[0]?.plan;
-    if (!raw) return null;
+    if (!raw) return [];
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
@@ -352,15 +352,20 @@ export default function MealPlan() {
       meals: Record<string, {
         ingredients?: string[];
         base_ingredients?: Array<{ ingredient: string; qty_grams?: number }>;
+        recipeName?: string;
+        base_dish_name?: string;
       }>;
     }> | undefined;
     const tomorrowData = dayArr?.find(d => d.day === tomorrowName);
-    if (!tomorrowData) return null;
-    return Object.entries(tomorrowData.meals).map(([mealType, meal]) => ({
+    if (!tomorrowData) return [];
+    const mealEntries = Object.entries(tomorrowData.meals).map(([mealType, meal]) => ({
       mealType,
       ingredients: meal.ingredients ?? [],
       base_ingredients: meal.base_ingredients ?? [],
+      recipeName: meal.recipeName,
+      base_dish_name: meal.base_dish_name,
     }));
+    return getPrepsForMeals(mealEntries);
   }, [plans]);
 
   const arbitrageData = useMemo(() => {
@@ -510,19 +515,6 @@ export default function MealPlan() {
     }
   };
 
-  const { data: prepAlertsData } = useQuery({
-    queryKey: ["prep-alerts", familyId, tomorrowMealsForPrep],
-    queryFn: async () => {
-      const res = await apiFetch("/api/market/prep-alerts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meals: tomorrowMealsForPrep }),
-      });
-      return res.json() as Promise<{ alerts: Array<{ ingredient: string; action: string; duration: string; benefit: string; benefitHindi: string; meal_context: string }> }>;
-    },
-    enabled: !!tomorrowMealsForPrep && tomorrowMealsForPrep.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
 
   if (!activeFamily) {
     return (
@@ -1605,8 +1597,7 @@ export default function MealPlan() {
         </div>
       )}
 
-      {/* ── Tonight's Prep (server-driven via /api/market/prep-alerts) ── */}
-      {prepAlertsData && prepAlertsData.alerts.length > 0 && (() => {
+      {tomorrowPrepReminders.length > 0 && (() => {
         const tomorrowName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][(new Date().getDay() + 1) % 7];
         return (
           <div className="glass-card rounded-3xl p-5 border border-violet-500/20" style={{ background: "rgba(245,240,255,0.55)" }}>
@@ -1616,35 +1607,37 @@ export default function MealPlan() {
                 {t(`Tonight's Prep for ${tomorrowName}`, `कल के लिए आज रात की तैयारी (${tomorrowName})`)}
               </h3>
               <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[9px] ml-auto">
-                🔬 {t("Biochemical Pre-Processing", "जैव-रसायन प्री-प्रोसेसिंग")}
+                {t("Prep reminder", "तैयारी रिमाइंडर")}
               </Badge>
             </div>
             <div className="space-y-2">
-              {prepAlertsData.alerts.map((alert, i) => (
+              {tomorrowPrepReminders.map((reminder, i) => (
                 <div key={i} className="flex items-start gap-3 bg-white/60 rounded-2xl px-3.5 py-3 border border-violet-200/50">
                   <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
-                    alert.action === "Soak" ? "bg-blue-100 text-blue-700" :
-                    alert.action === "Germinate" ? "bg-green-100 text-green-700" :
+                    reminder.prepType === "soak" ? "bg-blue-100 text-blue-700" :
+                    reminder.prepType === "sprout" ? "bg-green-100 text-green-700" :
+                    reminder.prepType === "marinate" ? "bg-orange-100 text-orange-700" :
                     "bg-amber-100 text-amber-700"
                   }`}>
-                    {alert.action === "Soak" ? "💧" : alert.action === "Germinate" ? "🌱" : "🧫"}
+                    {reminder.emoji}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs font-bold text-foreground capitalize">{alert.ingredient}</p>
+                      <p className="text-xs font-bold text-foreground capitalize">{reminder.ingredient}</p>
                       <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-                        alert.action === "Soak" ? "bg-blue-50 text-blue-700" :
-                        alert.action === "Germinate" ? "bg-green-50 text-green-700" :
+                        reminder.prepType === "soak" ? "bg-blue-50 text-blue-700" :
+                        reminder.prepType === "sprout" ? "bg-green-50 text-green-700" :
+                        reminder.prepType === "marinate" ? "bg-orange-50 text-orange-700" :
                         "bg-amber-50 text-amber-700"
                       }`}>
-                        {alert.action} {alert.duration}
+                        {reminder.prepType.charAt(0).toUpperCase() + reminder.prepType.slice(1)} {reminder.duration}
                       </span>
                       <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                        <Clock3 className="w-2.5 h-2.5" /> {t("for tomorrow", "कल के लिए")}
+                        <Clock3 className="w-2.5 h-2.5" /> {t("For best results", "सर्वोत्तम परिणामों के लिए")}
                       </span>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                      {lang === "hi" ? alert.benefitHindi : alert.benefit}
+                      {lang === "hi" ? reminder.benefitHi : reminder.benefit}
                     </p>
                   </div>
                 </div>

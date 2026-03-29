@@ -31,6 +31,8 @@ tags:
     description: Nutrition analysis
   - name: voice
     description: Sarvam AI voice operations
+  - name: leftovers
+    description: Leftover ingredient tracking and management
   - name: demo
     description: Demo and seed operations
   - name: gemini
@@ -2076,6 +2078,9 @@ components:
           type: string
         notes:
           type: string
+        action:
+          type: string
+          enum: [like, dislike, skip, ate_out]
       required:
         - familyId
         - dayIndex
@@ -2692,3 +2697,71 @@ components:
         - confidence
         - estimatedGrams
         - nutrition
+
+    # ── Leftovers ─────────────────────────────────────────────────────────────
+    LeftoverItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        familyId:
+          type: integer
+        ingredientName:
+          type: string
+        quantityEstimate:
+          type: string
+          nullable: true
+        usedUp:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        hoursRemaining:
+          type: number
+      required:
+        - id
+        - familyId
+        - ingredientName
+        - usedUp
+        - expiresAt
+        - createdAt
+        - hoursRemaining
+
+    LogLeftoverBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        ingredientName:
+          type: string
+          minLength: 1
+        quantityEstimate:
+          type: string
+      required:
+        - familyId
+        - ingredientName
+
+    LogLeftoverBatchBody:
+      type: object
+      properties:
+        familyId:
+          type: integer
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              ingredientName:
+                type: string
+                minLength: 1
+              quantityEstimate:
+                type: string
+            required:
+              - ingredientName
+      required:
+        - familyId
+        - items

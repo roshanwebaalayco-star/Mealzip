@@ -47,6 +47,8 @@ import type {
   GroceryList,
   HealthLog,
   HealthStatus,
+  LeftoverItem,
+  ListActiveLeftoversParams,
   ListFoodGi200Item,
   ListFoodGiParams,
   ListGroceryListsParams,
@@ -54,6 +56,8 @@ import type {
   ListMealPlansParams,
   ListNutritionLogsParams,
   ListRecipesParams,
+  LogLeftoverBatchBody,
+  LogLeftoverBody,
   LookupNutrition200,
   LookupNutritionParams,
   MealFeedback,
@@ -2110,6 +2114,362 @@ export const useParseVoiceProfile = <
   TContext
 > => {
   return useMutation(getParseVoiceProfileMutationOptions(options));
+};
+
+/**
+ * @summary List active (non-expired, non-used) leftover items for a family
+ */
+export const getListActiveLeftoversUrl = (
+  params: ListActiveLeftoversParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/leftovers?${stringifiedParams}`
+    : `/api/leftovers`;
+};
+
+export const listActiveLeftovers = async (
+  params: ListActiveLeftoversParams,
+  options?: RequestInit,
+): Promise<LeftoverItem[]> => {
+  return customFetch<LeftoverItem[]>(getListActiveLeftoversUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListActiveLeftoversQueryKey = (
+  params?: ListActiveLeftoversParams,
+) => {
+  return [`/api/leftovers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListActiveLeftoversQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActiveLeftovers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListActiveLeftoversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActiveLeftovers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActiveLeftoversQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActiveLeftovers>>
+  > = ({ signal }) =>
+    listActiveLeftovers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActiveLeftovers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActiveLeftoversQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActiveLeftovers>>
+>;
+export type ListActiveLeftoversQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active (non-expired, non-used) leftover items for a family
+ */
+
+export function useListActiveLeftovers<
+  TData = Awaited<ReturnType<typeof listActiveLeftovers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListActiveLeftoversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActiveLeftovers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActiveLeftoversQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a single leftover item
+ */
+export const getLogLeftoverUrl = () => {
+  return `/api/leftovers`;
+};
+
+export const logLeftover = async (
+  logLeftoverBody: LogLeftoverBody,
+  options?: RequestInit,
+): Promise<LeftoverItem> => {
+  return customFetch<LeftoverItem>(getLogLeftoverUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(logLeftoverBody),
+  });
+};
+
+export const getLogLeftoverMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logLeftover>>,
+    TError,
+    { data: BodyType<LogLeftoverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logLeftover>>,
+  TError,
+  { data: BodyType<LogLeftoverBody> },
+  TContext
+> => {
+  const mutationKey = ["logLeftover"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logLeftover>>,
+    { data: BodyType<LogLeftoverBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return logLeftover(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogLeftoverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logLeftover>>
+>;
+export type LogLeftoverMutationBody = BodyType<LogLeftoverBody>;
+export type LogLeftoverMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log a single leftover item
+ */
+export const useLogLeftover = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logLeftover>>,
+    TError,
+    { data: BodyType<LogLeftoverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logLeftover>>,
+  TError,
+  { data: BodyType<LogLeftoverBody> },
+  TContext
+> => {
+  return useMutation(getLogLeftoverMutationOptions(options));
+};
+
+/**
+ * @summary Log multiple leftover items at once
+ */
+export const getLogLeftoverBatchUrl = () => {
+  return `/api/leftovers/batch`;
+};
+
+export const logLeftoverBatch = async (
+  logLeftoverBatchBody: LogLeftoverBatchBody,
+  options?: RequestInit,
+): Promise<LeftoverItem[]> => {
+  return customFetch<LeftoverItem[]>(getLogLeftoverBatchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(logLeftoverBatchBody),
+  });
+};
+
+export const getLogLeftoverBatchMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logLeftoverBatch>>,
+    TError,
+    { data: BodyType<LogLeftoverBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logLeftoverBatch>>,
+  TError,
+  { data: BodyType<LogLeftoverBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["logLeftoverBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logLeftoverBatch>>,
+    { data: BodyType<LogLeftoverBatchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return logLeftoverBatch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogLeftoverBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logLeftoverBatch>>
+>;
+export type LogLeftoverBatchMutationBody = BodyType<LogLeftoverBatchBody>;
+export type LogLeftoverBatchMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log multiple leftover items at once
+ */
+export const useLogLeftoverBatch = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logLeftoverBatch>>,
+    TError,
+    { data: BodyType<LogLeftoverBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logLeftoverBatch>>,
+  TError,
+  { data: BodyType<LogLeftoverBatchBody> },
+  TContext
+> => {
+  return useMutation(getLogLeftoverBatchMutationOptions(options));
+};
+
+/**
+ * @summary Mark a leftover item as used up
+ */
+export const getDismissLeftoverUrl = (id: number) => {
+  return `/api/leftovers/${id}`;
+};
+
+export const dismissLeftover = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LeftoverItem> => {
+  return customFetch<LeftoverItem>(getDismissLeftoverUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getDismissLeftoverMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissLeftover>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissLeftover>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["dismissLeftover"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissLeftover>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return dismissLeftover(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissLeftoverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissLeftover>>
+>;
+
+export type DismissLeftoverMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Mark a leftover item as used up
+ */
+export const useDismissLeftover = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissLeftover>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dismissLeftover>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDismissLeftoverMutationOptions(options));
 };
 
 /**

@@ -942,6 +942,71 @@ export const ParseVoiceProfileResponse = zod.object({
 });
 
 /**
+ * @summary List active (non-expired, non-used) leftover items for a family
+ */
+export const ListActiveLeftoversQueryParams = zod.object({
+  familyId: zod.coerce.number(),
+});
+
+export const ListActiveLeftoversResponseItem = zod.object({
+  id: zod.number(),
+  familyId: zod.number(),
+  ingredientName: zod.string(),
+  quantityEstimate: zod.string().nullish(),
+  usedUp: zod.boolean(),
+  expiresAt: zod.date(),
+  createdAt: zod.date(),
+  hoursRemaining: zod.number(),
+});
+export const ListActiveLeftoversResponse = zod.array(
+  ListActiveLeftoversResponseItem,
+);
+
+/**
+ * @summary Log a single leftover item
+ */
+
+export const LogLeftoverBody = zod.object({
+  familyId: zod.number(),
+  ingredientName: zod.string().min(1),
+  quantityEstimate: zod.string().optional(),
+});
+
+/**
+ * @summary Log multiple leftover items at once
+ */
+
+export const LogLeftoverBatchBody = zod.object({
+  familyId: zod.number(),
+  items: zod
+    .array(
+      zod.object({
+        ingredientName: zod.string().min(1),
+        quantityEstimate: zod.string().optional(),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * @summary Mark a leftover item as used up
+ */
+export const DismissLeftoverParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DismissLeftoverResponse = zod.object({
+  id: zod.number(),
+  familyId: zod.number(),
+  ingredientName: zod.string(),
+  quantityEstimate: zod.string().nullish(),
+  usedUp: zod.boolean(),
+  expiresAt: zod.date(),
+  createdAt: zod.date(),
+  hoursRemaining: zod.number(),
+});
+
+/**
  * @summary Get Sharma family demo data (pre-seeded)
  */
 export const GetSharmaFamilyDemoResponse = zod.object({
@@ -1175,6 +1240,7 @@ export const CreateMealFeedbackBody = zod.object({
   rating: zod.number().min(1).max(createMealFeedbackBodyRatingMax).optional(),
   skipReason: zod.string().optional(),
   notes: zod.string().optional(),
+  action: zod.enum(["like", "dislike", "skip", "ate_out"]).optional(),
 });
 
 /**
