@@ -64,6 +64,7 @@ export * from "./groceryListDataBudgetStatus";
 export * from "./healthLog";
 export * from "./healthStatus";
 export * from "./leftoverItem";
+export * from "./leftoverItemRow";
 export * from "./listActiveLeftoversParams";
 export * from "./listFoodGi200Item";
 export * from "./listFoodGiParams";

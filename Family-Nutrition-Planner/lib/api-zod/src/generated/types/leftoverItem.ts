@@ -5,14 +5,8 @@
  * NutriNext / ParivarSehat AI — Family Nutrition Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { LeftoverItemRow } from "./leftoverItemRow";
 
-export interface LeftoverItem {
-  id: number;
-  familyId: number;
-  ingredientName: string;
-  quantityEstimate?: string | null;
-  usedUp: boolean;
-  expiresAt: Date;
-  createdAt: Date;
+export type LeftoverItem = LeftoverItemRow & {
   hoursRemaining: number;
-}
+};

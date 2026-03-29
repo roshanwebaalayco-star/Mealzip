@@ -664,11 +664,11 @@ paths:
               $ref: "#/components/schemas/LogLeftoverBody"
       responses:
         "201":
-          description: Logged leftover item
+          description: Logged leftover item (raw row without hoursRemaining)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LeftoverItem"
+                $ref: "#/components/schemas/LeftoverItemRow"
 
   /leftovers/batch:
     post:
@@ -683,13 +683,13 @@ paths:
               $ref: "#/components/schemas/LogLeftoverBatchBody"
       responses:
         "201":
-          description: Logged leftover items
+          description: Logged leftover items (raw rows without hoursRemaining)
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/LeftoverItem"
+                  $ref: "#/components/schemas/LeftoverItemRow"
 
   /leftovers/{id}:
     patch:
@@ -704,11 +704,11 @@ paths:
             type: integer
       responses:
         "200":
-          description: Updated leftover item
+          description: Updated leftover item (raw row without hoursRemaining)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LeftoverItem"
+                $ref: "#/components/schemas/LeftoverItemRow"
         "404":
           description: Not found
           content:
@@ -2699,7 +2699,7 @@ components:
         - nutrition
 
     # ── Leftovers ─────────────────────────────────────────────────────────────
-    LeftoverItem:
+    LeftoverItemRow:
       type: object
       properties:
         id:
@@ -2716,19 +2716,26 @@ components:
         expiresAt:
           type: string
           format: date-time
-        createdAt:
+        loggedAt:
           type: string
           format: date-time
-        hoursRemaining:
-          type: number
       required:
         - id
         - familyId
         - ingredientName
         - usedUp
         - expiresAt
-        - createdAt
-        - hoursRemaining
+        - loggedAt
+
+    LeftoverItem:
+      allOf:
+        - $ref: "#/components/schemas/LeftoverItemRow"
+        - type: object
+          properties:
+            hoursRemaining:
+              type: number
+          required:
+            - hoursRemaining
 
     LogLeftoverBody:
       type: object

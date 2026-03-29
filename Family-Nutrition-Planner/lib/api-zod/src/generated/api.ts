@@ -948,16 +948,21 @@ export const ListActiveLeftoversQueryParams = zod.object({
   familyId: zod.coerce.number(),
 });
 
-export const ListActiveLeftoversResponseItem = zod.object({
-  id: zod.number(),
-  familyId: zod.number(),
-  ingredientName: zod.string(),
-  quantityEstimate: zod.string().nullish(),
-  usedUp: zod.boolean(),
-  expiresAt: zod.date(),
-  createdAt: zod.date(),
-  hoursRemaining: zod.number(),
-});
+export const ListActiveLeftoversResponseItem = zod
+  .object({
+    id: zod.number(),
+    familyId: zod.number(),
+    ingredientName: zod.string(),
+    quantityEstimate: zod.string().nullish(),
+    usedUp: zod.boolean(),
+    expiresAt: zod.date(),
+    loggedAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      hoursRemaining: zod.number(),
+    }),
+  );
 export const ListActiveLeftoversResponse = zod.array(
   ListActiveLeftoversResponseItem,
 );
@@ -1002,8 +1007,7 @@ export const DismissLeftoverResponse = zod.object({
   quantityEstimate: zod.string().nullish(),
   usedUp: zod.boolean(),
   expiresAt: zod.date(),
-  createdAt: zod.date(),
-  hoursRemaining: zod.number(),
+  loggedAt: zod.date(),
 });
 
 /**

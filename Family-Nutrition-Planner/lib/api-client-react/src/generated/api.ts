@@ -48,6 +48,7 @@ import type {
   HealthLog,
   HealthStatus,
   LeftoverItem,
+  LeftoverItemRow,
   ListActiveLeftoversParams,
   ListFoodGi200Item,
   ListFoodGiParams,
@@ -2226,8 +2227,8 @@ export const getLogLeftoverUrl = () => {
 export const logLeftover = async (
   logLeftoverBody: LogLeftoverBody,
   options?: RequestInit,
-): Promise<LeftoverItem> => {
-  return customFetch<LeftoverItem>(getLogLeftoverUrl(), {
+): Promise<LeftoverItemRow> => {
+  return customFetch<LeftoverItemRow>(getLogLeftoverUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -2312,8 +2313,8 @@ export const getLogLeftoverBatchUrl = () => {
 export const logLeftoverBatch = async (
   logLeftoverBatchBody: LogLeftoverBatchBody,
   options?: RequestInit,
-): Promise<LeftoverItem[]> => {
-  return customFetch<LeftoverItem[]>(getLogLeftoverBatchUrl(), {
+): Promise<LeftoverItemRow[]> => {
+  return customFetch<LeftoverItemRow[]>(getLogLeftoverBatchUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -2398,8 +2399,8 @@ export const getDismissLeftoverUrl = (id: number) => {
 export const dismissLeftover = async (
   id: number,
   options?: RequestInit,
-): Promise<LeftoverItem> => {
-  return customFetch<LeftoverItem>(getDismissLeftoverUrl(id), {
+): Promise<LeftoverItemRow> => {
+  return customFetch<LeftoverItemRow>(getDismissLeftoverUrl(id), {
     ...options,
     method: "PATCH",
   });

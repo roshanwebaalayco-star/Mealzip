@@ -922,16 +922,19 @@ export interface FoodScanDetectedItem {
   nutrition: FoodScanDetectedItemNutrition;
 }
 
-export interface LeftoverItem {
+export interface LeftoverItemRow {
   id: number;
   familyId: number;
   ingredientName: string;
   quantityEstimate?: string | null;
   usedUp: boolean;
   expiresAt: string;
-  createdAt: string;
-  hoursRemaining: number;
+  loggedAt: string;
 }
+
+export type LeftoverItem = LeftoverItemRow & {
+  hoursRemaining: number;
+};
 
 export interface LogLeftoverBody {
   familyId: number;

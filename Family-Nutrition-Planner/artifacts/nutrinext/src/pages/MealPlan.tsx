@@ -23,6 +23,7 @@ import RecipeDetailModal from "@/components/RecipeDetailModal";
 import WeeklyContextModal, { type WeeklyContext } from "@/components/WeeklyContextModal";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 interface RecipeDetail {
   id: number;
@@ -1600,50 +1601,53 @@ export default function MealPlan() {
       {tomorrowPrepReminders.length > 0 && (() => {
         const tomorrowName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][(new Date().getDay() + 1) % 7];
         return (
-          <div className="glass-card rounded-3xl p-5 border border-violet-500/20" style={{ background: "rgba(245,240,255,0.55)" }}>
-            <div className="flex items-center gap-2 mb-4">
+          <Collapsible defaultOpen className="glass-card rounded-3xl p-5 border border-violet-500/20" style={{ background: "rgba(245,240,255,0.55)" }}>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full text-left cursor-pointer group">
               <FlaskConical className="w-4 h-4 text-violet-600" />
               <h3 className="font-semibold text-sm text-violet-900">
                 {t(`Tonight's Prep for ${tomorrowName}`, `कल के लिए आज रात की तैयारी (${tomorrowName})`)}
               </h3>
-              <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[9px] ml-auto">
+              <Badge className="bg-violet-500/15 text-violet-700 border-violet-500/20 text-[9px] ml-auto mr-1">
                 {t("Prep reminder", "तैयारी रिमाइंडर")}
               </Badge>
-            </div>
-            <div className="space-y-2">
-              {tomorrowPrepReminders.map((reminder, i) => (
-                <div key={i} className="flex items-start gap-3 bg-white/60 rounded-2xl px-3.5 py-3 border border-violet-200/50">
-                  <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
-                    reminder.prepType === "soak" ? "bg-blue-100 text-blue-700" :
-                    reminder.prepType === "sprout" ? "bg-green-100 text-green-700" :
-                    reminder.prepType === "marinate" ? "bg-orange-100 text-orange-700" :
-                    "bg-amber-100 text-amber-700"
-                  }`}>
-                    {reminder.emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs font-bold text-foreground capitalize">{reminder.ingredient}</p>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-                        reminder.prepType === "soak" ? "bg-blue-50 text-blue-700" :
-                        reminder.prepType === "sprout" ? "bg-green-50 text-green-700" :
-                        reminder.prepType === "marinate" ? "bg-orange-50 text-orange-700" :
-                        "bg-amber-50 text-amber-700"
-                      }`}>
-                        {reminder.prepType.charAt(0).toUpperCase() + reminder.prepType.slice(1)} {reminder.duration}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                        <Clock3 className="w-2.5 h-2.5" /> {t("For best results", "सर्वोत्तम परिणामों के लिए")}
-                      </span>
+              <ChevronDown className="w-4 h-4 text-violet-400 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              <div className="space-y-2">
+                {tomorrowPrepReminders.map((reminder, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-white/60 rounded-2xl px-3.5 py-3 border border-violet-200/50">
+                    <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${
+                      reminder.prepType === "soak" ? "bg-blue-100 text-blue-700" :
+                      reminder.prepType === "sprout" ? "bg-green-100 text-green-700" :
+                      reminder.prepType === "marinate" ? "bg-orange-100 text-orange-700" :
+                      "bg-amber-100 text-amber-700"
+                    }`}>
+                      {reminder.emoji}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-                      {lang === "hi" ? reminder.benefitHi : reminder.benefit}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-bold text-foreground capitalize">{reminder.ingredient}</p>
+                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                          reminder.prepType === "soak" ? "bg-blue-50 text-blue-700" :
+                          reminder.prepType === "sprout" ? "bg-green-50 text-green-700" :
+                          reminder.prepType === "marinate" ? "bg-orange-50 text-orange-700" :
+                          "bg-amber-50 text-amber-700"
+                        }`}>
+                          {reminder.prepType.charAt(0).toUpperCase() + reminder.prepType.slice(1)} {reminder.duration}
+                        </span>
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                          <Clock3 className="w-2.5 h-2.5" /> {t("For best results", "सर्वोत्तम परिणामों के लिए")}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                        {lang === "hi" ? reminder.benefitHi : reminder.benefit}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         );
       })()}
 
