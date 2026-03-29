@@ -1014,7 +1014,7 @@ export default function MealPlan() {
                 </span>
                 <button
                   onClick={() => dismissLeftoverMutation.mutate(item.id)}
-                  className="p-0.5 rounded-full hover:bg-emerald-100 text-emerald-400 hover:text-emerald-700 transition-colors"
+                  className="p-2 -m-1.5 rounded-full hover:bg-emerald-100 text-emerald-400 hover:text-emerald-700 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -1207,7 +1207,7 @@ export default function MealPlan() {
                             {t(meal, mealTranslations[meal] ?? meal)}
                           </p>
                           {isSkipped && (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${skipAction === "skip" ? "bg-orange-100 text-orange-600" : "bg-violet-100 text-violet-600"}`}>
+                            <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${skipAction === "skip" ? "bg-orange-100 text-orange-600" : "bg-violet-100 text-violet-600"}`}>
                               {skipAction === "skip" ? t("Skipped", "छोड़ा") : t("Ate Out", "बाहर खाया")}
                             </span>
                           )}
@@ -1226,7 +1226,7 @@ export default function MealPlan() {
                           )}
                         </button>
                         {displayMealName !== "—" && (
-                          <p className="text-[10px] text-secondary/60 leading-none -mt-0.5">
+                          <p className="text-[11px] text-secondary/60 leading-none -mt-0.5">
                             📚 ICMR-NIN 2024 · {t("Science-backed nutrition", "विज्ञान-आधारित पोषण")}
                           </p>
                         )}
@@ -1258,7 +1258,7 @@ export default function MealPlan() {
                         <button
                           type="button"
                           onClick={() => setRationaleExpanded(prev => ({ ...prev, [rationaleKey]: !prev[rationaleKey] }))}
-                          className="flex items-center gap-1 text-[11px] text-secondary/80 hover:text-secondary transition-colors"
+                          className="flex items-center gap-1 text-[11px] text-secondary/80 hover:text-secondary transition-colors min-h-[44px]"
                         >
                           <HelpCircle className="w-3 h-3 shrink-0" />
                           <span className="font-medium">{t("Why this dish?", "यह क्यों?")}</span>
@@ -1279,7 +1279,7 @@ export default function MealPlan() {
                         <button
                           type="button"
                           onClick={() => setInstructionsExpanded(prev => ({ ...prev, [instructionsKey]: !prev[instructionsKey] }))}
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors min-h-[44px]"
                         >
                           <BookOpen className="w-3 h-3 shrink-0" />
                           <span className="font-medium">{t("Steps", "विधि")}</span>
@@ -1290,7 +1290,7 @@ export default function MealPlan() {
                             {hasInstructions
                               ? cell.instructions!.map((step, si) => (
                                   <div key={si} className="flex gap-1.5 text-[11px] text-foreground/80">
-                                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">{si + 1}</span>
+                                    <span className="shrink-0 w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-bold">{si + 1}</span>
                                     <span className="leading-relaxed">{step.replace(/^Step \d+:\s*/i, "")}</span>
                                   </div>
                                 ))
@@ -1315,7 +1315,7 @@ export default function MealPlan() {
                                 const autoVariation = legacyVariation?.trim() || getMemberVariation(member, meal);
                                 if (!hasStructuredContent && !autoVariation) return null;
                                 return (
-                                  <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[10px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+                                  <div key={member.id} className={`rounded-xl border p-2 space-y-1 text-[11px] ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
                                     <p className="font-bold text-[11px] leading-none">{firstName}</p>
                                     {hasStructuredContent ? (
                                       <>
@@ -1363,7 +1363,7 @@ export default function MealPlan() {
                         {/* Leftover chain — all 3 steps */}
                         {isDinner && (cell.leftoverChain?.length ?? 0) > 0 && (
                           <div className="space-y-0.5 mt-0.5">
-                            <p className="text-[10px] font-bold text-amber-700 flex items-center gap-0.5 uppercase tracking-wide">
+                            <p className="text-[11px] font-bold text-amber-700 flex items-center gap-0.5 uppercase tracking-wide">
                               <Link2 className="w-2.5 h-2.5" /> {t("Leftover Plan", "बचे भोजन की योजना")}
                             </p>
                             {cell.leftoverChain!.slice(0, 3).map((lc, li) => (
@@ -1396,7 +1396,7 @@ export default function MealPlan() {
                                 {t("Adjusted for today's meals.", "आज के भोजन के लिए समायोजित।")}
                               </p>
                               <p className="text-[11px] text-blue-700/80">{lang === "hi" ? rebalanceBanner.suggestionHi : rebalanceBanner.suggestion}</p>
-                              <p className="text-[10px] text-blue-500 mt-0.5 font-medium">{t("Tap to apply", "लागू करने के लिए टैप करें")}</p>
+                              <p className="text-[11px] text-blue-500 mt-0.5 font-medium">{t("Tap to apply", "लागू करने के लिए टैप करें")}</p>
                             </div>
                           </button>
                         )}
@@ -1530,11 +1530,11 @@ export default function MealPlan() {
                           {(member.healthConditions ?? []).slice(0, 4).map(c => {
                             const badge = CONDITION_BADGES[c];
                             return badge ? (
-                              <span key={c} className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.color}`}>
+                              <span key={c} className={`text-[11px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.color}`}>
                                 {badge.icon} {lang === "hi" ? badge.labelHi : badge.label}
                               </span>
                             ) : (
-                              <span key={c} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
+                              <span key={c} className="text-[11px] px-1.5 py-0.5 rounded-full bg-white/60 border border-current/20 font-medium capitalize">
                                 {c.replace(/_/g, " ")}
                               </span>
                             );
@@ -1586,7 +1586,7 @@ export default function MealPlan() {
                     <Info className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-[11px] text-secondary/90 leading-relaxed">{mealCell.icmr_rationale}</p>
-                      <span className="inline-block mt-1 text-[10px] font-bold text-secondary/60 border border-secondary/20 px-1.5 py-0.5 rounded-full">
+                      <span className="inline-block mt-1 text-[11px] font-bold text-secondary/60 border border-secondary/20 px-1.5 py-0.5 rounded-full">
                         📚 ICMR-NIN 2024
                       </span>
                     </div>

@@ -340,7 +340,7 @@ export default function Chat() {
                               {f.food}
                               <span className="opacity-70">{f.kcal_per_serve}kcal</span>
                               {f.nova_group && (
-                                <span className={`text-[10px] font-bold px-1 rounded ${f.nova_group === 4 ? "bg-red-700 text-white" : f.nova_group === 3 ? "bg-orange-500 text-white" : "bg-green-600 text-white"}`}>
+                                <span className={`text-[11px] font-bold px-1 rounded ${f.nova_group === 4 ? "bg-red-700 text-white" : f.nova_group === 3 ? "bg-orange-500 text-white" : "bg-green-600 text-white"}`}>
                                   N{f.nova_group}
                                 </span>
                               )}

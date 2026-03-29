@@ -1000,7 +1000,7 @@ export default function Grocery() {
                           <td className="py-1.5 px-1 text-right">
                             <div className="flex flex-col items-end">
                               <span className={`font-bold ${isSurging ? "text-red-700" : "text-foreground"}`}>₹{row.retail_price}/{row.unit}</span>
-                              {margin > 0 && <span className="text-[10px] text-muted-foreground">+₹{margin} margin</span>}
+                              {margin > 0 && <span className="text-[11px] text-muted-foreground">+₹{margin} margin</span>}
                             </div>
                           </td>
                           <td className="py-1.5 px-1 text-center">
