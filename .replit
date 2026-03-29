@@ -21,10 +21,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5001
-externalPort = 3003
-
-[[ports]]
 localPort = 8080
 externalPort = 8080
 
@@ -65,5 +61,5 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @workspace/api-server run dev & PORT=5000 API_PORT=3000 pnpm --filter @workspace/nutrinext run dev & node -e \"const h=require('http'),d=process.env.REPLIT_DEV_DOMAIN||'';h.createServer((q,r)=>{r.writeHead(302,{'Location':'https://'+d+q.url});r.end()}).listen(8080,()=>console.log('port 8080 → main app'))\" & wait"
+args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @workspace/api-server run dev & PORT=5000 API_PORT=3000 pnpm --filter @workspace/nutrinext run dev & wait"
 waitForPort = 5000
