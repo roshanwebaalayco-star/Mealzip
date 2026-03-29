@@ -180,8 +180,83 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* ── Mobile Bottom Nav ── */}
+      {/* ── Mobile Bottom Nav + popup in one container ── */}
       <div className="md:hidden fixed bottom-5 left-4 right-4 z-50">
+
+        {/* Popup: absolute above the nav, right-aligned — inside the fixed container so no fixed-within-fixed issues */}
+        <div
+          className="absolute right-0 glass-card rounded-2xl shadow-2xl p-3"
+          style={{
+            bottom: "calc(100% + 10px)",
+            width: "14rem",
+            visibility: moreOpen ? "visible" : "hidden",
+            opacity: moreOpen ? 1 : 0,
+            transition: "opacity 0.15s ease, visibility 0.15s ease",
+            pointerEvents: moreOpen ? "auto" : "none",
+          }}
+        >
+          {/* 2×2 nav grid */}
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {moreItems.map((item) => {
+              const isActive = location === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl transition-all ${
+                    isActive
+                      ? "nav-active text-white"
+                      : "bg-muted/50 text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary"}`} />
+                  <span className="text-xs font-medium leading-none">
+                    {lang === "hi" ? item.labelHi : item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border/40 mb-2" />
+
+          {/* Language toggle */}
+          <button
+            onClick={() => { toggleLang(); setMoreOpen(false); }}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors mb-1.5"
+          >
+            <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium text-foreground">
+              {lang === "en" ? "Switch to हिंदी" : "Switch to English"}
+            </span>
+          </button>
+
+          {/* Auth */}
+          {user ? (
+            <button
+              onClick={() => { logout(); setMoreOpen(false); }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5 text-destructive shrink-0" />
+              <span className="text-xs font-medium text-destructive">
+                {lang === "hi" ? "लॉग आउट" : "Log out"}
+              </span>
+            </button>
+          ) : (
+            <Link href="/login" onClick={() => setMoreOpen(false)}>
+              <div className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
+                <LogIn className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-xs font-medium text-primary">
+                  {lang === "hi" ? "लॉग इन" : "Log in"}
+                </span>
+              </div>
+            </Link>
+          )}
+        </div>
+
+        {/* Nav pill */}
         <nav className="glass-nav-pill rounded-[2rem] px-2 py-2 flex justify-around items-center">
           {mobileMainItems.map((item) => {
             const isActive = location === item.href;
@@ -209,106 +284,25 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setMoreOpen((v) => !v)}
             className={`relative flex flex-col items-center justify-center min-w-[3.2rem] h-13 rounded-[1.5rem] transition-all duration-250 focus-ring ${
-              moreIsActive
+              moreIsActive || moreOpen
                 ? "nav-active text-white px-3 gap-0.5"
                 : "text-muted-foreground hover:text-foreground px-2"
             }`}
           >
-            <MoreHorizontal className={`w-5 h-5 shrink-0 ${moreIsActive ? "text-white" : ""}`} />
-            {moreIsActive && (
-              <span className="text-[0.55rem] font-semibold text-white leading-none">
-                {lang === "hi" ? "अधिक" : "More"}
-              </span>
-            )}
-            {!moreIsActive && (
-              <span className="text-[0.55rem] font-semibold leading-none mt-0.5">
-                {lang === "hi" ? "अधिक" : "More"}
-              </span>
-            )}
+            <MoreHorizontal className={`w-5 h-5 shrink-0 ${moreIsActive || moreOpen ? "text-white" : ""}`} />
+            <span className={`text-[0.55rem] font-semibold leading-none ${moreIsActive || moreOpen ? "text-white" : ""} mt-0.5`}>
+              {lang === "hi" ? "अधिक" : "More"}
+            </span>
           </button>
         </nav>
       </div>
 
-      {/* ── More Popup backdrop (always in DOM, toggled via pointer-events) ── */}
+      {/* Backdrop: below the nav (z-49) so nav stays interactive, above page content */}
       <div
-        className="fixed inset-0 z-[60]"
+        className="md:hidden fixed inset-0 z-[49]"
         style={{ pointerEvents: moreOpen ? "auto" : "none" }}
         onPointerDown={() => setMoreOpen(false)}
       />
-
-      {/* ── More Popup (always in DOM, shown/hidden via CSS) ── */}
-      <div
-        className="fixed z-[70] glass-card rounded-2xl shadow-2xl p-3"
-        style={{
-          bottom: "calc(5rem + 16px)",
-          right: "1rem",
-          width: "14rem",
-          visibility: moreOpen ? "visible" : "hidden",
-          opacity: moreOpen ? 1 : 0,
-          transition: "opacity 0.15s ease, visibility 0.15s ease",
-          pointerEvents: moreOpen ? "auto" : "none",
-        }}
-      >
-        {/* 2×2 nav grid */}
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          {moreItems.map((item) => {
-            const isActive = location === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMoreOpen(false)}
-                className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl transition-all ${
-                  isActive
-                    ? "nav-active text-white"
-                    : "bg-muted/50 text-foreground hover:bg-muted/80"
-                }`}
-              >
-                <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary"}`} />
-                <span className="text-xs font-medium leading-none">
-                  {lang === "hi" ? item.labelHi : item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-border/40 mb-2" />
-
-        {/* Language toggle */}
-        <button
-          onClick={() => { toggleLang(); setMoreOpen(false); }}
-          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors mb-1.5"
-        >
-          <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs font-medium text-foreground">
-            {lang === "en" ? "Switch to हिंदी" : "Switch to English"}
-          </span>
-        </button>
-
-        {/* Auth */}
-        {user ? (
-          <button
-            onClick={() => { logout(); setMoreOpen(false); }}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5 text-destructive shrink-0" />
-            <span className="text-xs font-medium text-destructive">
-              {lang === "hi" ? "लॉग आउट" : "Log out"}
-            </span>
-          </button>
-        ) : (
-          <Link href="/login" onClick={() => setMoreOpen(false)}>
-            <div className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
-              <LogIn className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="text-xs font-medium text-primary">
-                {lang === "hi" ? "लॉग इन" : "Log in"}
-              </span>
-            </div>
-          </Link>
-        )}
-      </div>
     </div>
   );
 }
