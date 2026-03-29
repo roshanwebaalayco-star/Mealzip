@@ -82,7 +82,7 @@ const MemberAdjustmentSchema = z.object({
   avoid: z.array(z.string()).optional().default([]),
 });
 
-const MealFieldsShape = {
+const MealCandidateSchema = z.object({
   recipeName: z.string().optional(),
   base_dish_name: z.string().optional(),
   recipeId: z.number().nullable().optional(),
@@ -97,28 +97,47 @@ const MealFieldsShape = {
   ingredients: z.union([z.array(z.string()), z.string()]).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
-};
+}).refine(
+  data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
+  { message: "Either recipeName or base_dish_name must be present" },
+).refine(
+  data => {
+    if (data.recipeId === null) {
+      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
+    }
+    return true;
+  },
+  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
+);
 
-const mealRefinements = <T extends { recipeName?: string; base_dish_name?: string; recipeId?: number | null; base_ingredients?: unknown[] }>(schema: z.ZodType<T>) =>
-  (schema as z.ZodObject<any>).refine(
-    (data: T) => (data.recipeName !== undefined || data.base_dish_name !== undefined),
-    { message: "Either recipeName or base_dish_name must be present" },
-  ).refine(
-    (data: T) => {
-      if (data.recipeId === null) {
-        return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
-      }
-      return true;
-    },
-    { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
-  );
-
-const MealCandidateSchema = mealRefinements(z.object(MealFieldsShape));
-
-const MealSlotSchema = mealRefinements(z.object({
-  ...MealFieldsShape,
-  candidates: z.array(mealRefinements(z.object(MealFieldsShape))).optional(),
-}));
+const MealSlotSchema = z.object({
+  recipeName: z.string().optional(),
+  base_dish_name: z.string().optional(),
+  recipeId: z.number().nullable().optional(),
+  nameHindi: z.string().optional(),
+  calories: z.number().optional(),
+  estimatedCost: z.number().optional(),
+  icmr_rationale: z.string().optional(),
+  required_appliances: z.array(z.string()).default([]),
+  member_plates: z.record(z.string(), z.unknown()).optional(),
+  member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
+  base_ingredients: z.array(BaseIngredientSchema).optional(),
+  ingredients: z.union([z.array(z.string()), z.string()]).optional(),
+  _hfssRebalance: z.unknown().optional(),
+  _arbitrageNote: z.unknown().optional(),
+  candidates: z.array(MealCandidateSchema).min(1).max(3).optional(),
+}).refine(
+  data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
+  { message: "Either recipeName or base_dish_name must be present" },
+).refine(
+  data => {
+    if (data.recipeId === null) {
+      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
+    }
+    return true;
+  },
+  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
+);
 
 const DayPlanSchema = z.object({
   day: z.string(),
@@ -1002,7 +1021,8 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       req.log.info({ familyId, candidateSelections, validationFallbacks, totalWarnings: validationWarnings.length }, "Validation sieve applied — candidates evaluated and selected");
     }
 
-    (mergedCandidate as Record<string, unknown>)._validationWarnings = validationWarnings.map(v => ({
+    const softWarnings = validationWarnings.filter(v => v.severity === "soft");
+    (mergedCandidate as Record<string, unknown>).warnings = softWarnings.map(v => ({
       severity: v.severity,
       member: v.member,
       rule: v.rule,
