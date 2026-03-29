@@ -1,0 +1,64 @@
+You are an Elite Staff Software Engineer and UX Architect building the 'NutriNext' Health OS. 
+
+CONTEXT: We are building a "Voice Setup" onboarding wizard. This allows users to set up their family profile by speaking in any of 11 Indian languages. The system uses the browser's MediaRecorder/AudioContext for capture, Sarvam AI (`saarika:v2.5`) for Speech-to-Text (STT), Gemini 2.5 Flash for state-machine data extraction, and Web Speech Synthesis for Text-to-Speech (TTS).
+
+Execute this massive feature EXACTLY step-by-step. Do not cut corners on the audio capture or silence detection logic.
+
+### STEP 1: UI WIRING (`artifacts/nutrinext/src/pages/FamilySetup.tsx`)
+1. Add a "Voice Setup" trigger card at the top of the first form step: `[Voice Setup: Speak in your language -> (Voice Button)]`.
+2. Create state: `const [voiceModalOpen, setVoiceModalOpen] = useState(false)`.
+3. When `voiceModalOpen` is true, mount `<VoiceAssistantModal />`, passing `language={familyData.primaryLanguage}` and an `onComplete` callback.
+4. The `onComplete` callback must receive the completed `VoiceFormData` object, merge it into the page's React state (`setFamilyData`, `setMembers`), and close the modal so the form is pre-filled.
+
+### STEP 2: FULL-SCREEN UI (`artifacts/nutrinext/src/components/VoiceAssistantModal.tsx`)
+Build a full-screen modal (fixed inset-0, w-screen, h-screen, z-50).
+1. **Header:** "ParivarSehat AI / Voice Setup" + Close 'X' button.
+2. **Body:** - Left side: Chat history column (auto-scrolls to bottom on new messages).
+   - Right side (hidden on mobile): Progress sidebar using `CheckCircle` (completed) and `Circle` (pending) icons for the profile fields.
+3. **Footer (The Controls):**
+   - 64px Circular Mic Button. Its state depends on `micState` (idle=orange/clickable, listening=red/ping-animation/clickable-to-stop, processing=grey/spinning, speaking=orange/disabled, complete=green/check).
+   - **AudioWaveform:** Render 20 `<div>` bars. Use a sine function for base height, scaled by `(volume / 80)`. Add a CSS `@keyframes waveBar` animation with a staggered `animation-delay` of `i * 0.04s`.
+   - Status Label: "Listening..." / "Processing..." etc.
+   - Escape Hatch: "Type instead" button to close.
+
+### STEP 3: THE CORE HOOK (`artifacts/nutrinext/src/hooks/useVoiceAssistant.ts`)
+This is a long-running async state machine.
+1. **State Enums:** - `MicState`: 'idle' | 'listening' | 'processing' | 'speaking' | 'complete'
+   - `ConvState`: 'idle' | 'ask_family_name' | 'ask_state' | 'ask_budget' | 'ask_dietary_type' | 'ask_member_start' | 'ask_member_conditions' | 'ask_more_members' | 'complete'
+2. **Refs:** `abortRef`, `isRunningRef`, `recorderRef`, `stopTimerRef` (8s hard cutoff), `silenceRafRef`, `stateHistoryRef` (for undo).
+3. **Audio Capture (`recordOnce` function):** THIS MUST BE EXACT.
+   - Request `getUserMedia({ audio: true })`.
+   - MIME Type priority: `audio/webm` -> `audio/mp4` -> default.
+   - Start `MediaRecorder`. Set an 8-second hard cutoff: `setTimeout(() => recorder.stop(), 8000)`.
+   - **Silence Detection (AudioContext):** Create an `AnalyserNode` (fftSize=256). In a `requestAnimationFrame` loop, calculate the RMS (Root Mean Square) from byte time-domain data (center=128). 
+   - Silence threshold = 8 RMS units. If RMS < 8 continuously for 1800ms (AFTER speech was detected), call `recorder.stop()` early.
+   - Push `Math.min(100, Math.round((rms / 30) * 100))` to a `volume` state to animate the UI waveform.
+   - On `recorder.onstop`, convert chunks to a Blob -> ArrayBuffer -> Base64 string.
+4. **TTS (`speakText` function):** Use `window.speechSynthesis`. Call `cancel()` first. Set `lang` to the BCP-47 code (e.g., 'hi-IN'). Set `rate=0.9`, `pitch=1.1`. Return a Promise that resolves on `onend`.
+5. **The Main Loop (`start` function):** - `while (!abortRef.current) { ... }`
+   - Speak text -> Pause 300ms -> Listen (`recordOnce`) -> Transcribe (call backend) -> Check Undo -> Process Logic (call Gemini) -> Update Data/State -> Repeat.
+
+### STEP 4: UNDO SYSTEM (In `useVoiceAssistant.ts`)
+1. Maintain `CORRECTION_TRIGGERS` keyed by language (e.g., Hindi: ["galat", "wapas", "wrong", "undo"]).
+2. Ignore single-word negatives ("nahi", "no") if the current state is `ask_more_members` or `ask_member_conditions` (as these are valid answers).
+3. If a correction is detected in the transcript, pop the last `{state, msg, formData}` from `stateHistoryRef`, revert local state to that snapshot, speak a localized "Let me ask again", and `continue` the loop without calling Gemini.
+
+### STEP 5: BACKEND STT ROUTE (`artifacts/api-server/src/routes/voice/transcribe.ts`)
+1. Accept POST with `{ audioBase64, languageCode }`.
+2. Decode base64 to Buffer. Implement Magic-Byte detection on the first 8 bytes to identify WebM, OGG, MP3, M4A, or WAV.
+3. Build a FormData multipart body with the audio blob, `language_code`, and `model: "saarika:v2.5"`.
+4. POST to `https://api.sarvam.ai/speech-to-text` with the `api-subscription-key` header.
+5. If Sarvam returns an empty transcript, do NOT crash. Return `{ transcript: "", retry: true }` (HTTP 200) so the frontend loop can gracefully ask the user to repeat.
+
+### STEP 6: BACKEND INTELLIGENCE ROUTE (`artifacts/api-server/src/routes/voice/chat-turn.ts`)
+1. Accept POST with `{ currentState, transcript, history, formData, language }`.
+2. Define a `LANG_CFG` map for 11 Indian languages containing: note (e.g., "Hindi in Devanagari script"), completion message, retry message, and cultural mappings (e.g., "pitaji" -> "father").
+3. Prompt Gemini 2.5 Flash to act as the state machine controller. Pass the `history` and `formData`. 
+4. Gemini MUST extract data based on the `currentState` (e.g., if `ask_budget`, extract `monthlyBudget` in INR converting spoken words to numbers) and determine the `nextState`.
+5. **Premature-Complete Guard:** If Gemini returns `isComplete: true`, the server code MUST verify that `familyName` and at least `1 member` exist in the data. If not, override Gemini and force the state back to the missing data collection step.
+6. Validate Gemini's JSON response strictly before returning it to the frontend.
+
+### FINAL INSTRUCTIONS FOR AGENT
+1. Build this systematically. Start with the backend routes, then the Hook, then the UI Modal, then wire it to FamilySetup.
+2. Ensure the AudioContext strictly cleans up after every turn to prevent memory leaks.
+3. Output a summary of all files created/modified.
