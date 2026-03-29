@@ -47,7 +47,7 @@ export function Layout({ children }: { children: ReactNode }) {
             className="w-full glass-card rounded-2xl px-4 py-2.5 flex items-center justify-between hover:bg-white/60 transition-all"
           >
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Language</span>
-            <span className="text-sm font-bold text-foreground">{lang === "en" ? "🇮🇳 हिंदी" : "🌐 English"}</span>
+            <span className="text-sm font-bold text-foreground">{lang === "en" ? "🌐 English" : "🇮🇳 हिंदी"}</span>
           </button>
         </div>
 

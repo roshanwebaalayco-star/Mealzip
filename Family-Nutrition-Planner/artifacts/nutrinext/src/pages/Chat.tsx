@@ -6,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown, RefreshCcw, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api-fetch";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const FOOD_LOG_PATTERNS = [/\b(ate|had|eaten|drank|consumed|just ate|just had|eating|drinking|finished)\b/i];
 const HFSS_LS_KEY = "nutrinext_hfss_log";
@@ -52,7 +54,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [voiceLang, setVoiceLang] = useState<string>(() =>
-    localStorage.getItem("chatVoiceLang") || "hi-IN"
+    localStorage.getItem("chatVoiceLang") || "en-IN"
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -161,20 +163,21 @@ export default function Chat() {
             <p className="text-[0.65rem] text-muted-foreground">Multilingual Nutrition Assistant</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <label className="relative flex items-center">
+            <label className="relative flex items-center gap-1" title="Voice input language">
+              <Mic className="w-3 h-3 text-muted-foreground shrink-0" />
               <select
                 value={voiceLang}
                 onChange={(e) => {
                   setVoiceLang(e.target.value);
                   localStorage.setItem("chatVoiceLang", e.target.value);
                 }}
-                className="appearance-none pl-2 pr-6 py-1 text-[0.65rem] font-medium rounded-full border border-white/80 bg-white/60 backdrop-blur-sm text-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
+                className="appearance-none pl-1 pr-5 py-1 text-[0.65rem] font-medium rounded-full border border-white/80 bg-white/60 backdrop-blur-sm text-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
               >
                 {VOICE_LANGUAGES.map(l => (
                   <option key={l.code} value={l.code}>{l.label}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-1.5 w-2.5 h-2.5 text-muted-foreground pointer-events-none" />
+              <ChevronDown className="absolute right-1 w-2.5 h-2.5 text-muted-foreground pointer-events-none" />
             </label>
             <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
               <Sparkles className="w-3 h-3" />
@@ -197,8 +200,11 @@ export default function Chat() {
               <div className="w-16 h-16 glass-panel rounded-3xl flex items-center justify-center mb-4">
                 <Bot className="w-8 h-8 text-primary/40" />
               </div>
-              <p className="text-sm max-w-xs mb-5 leading-relaxed">
-                Ask me anything about your family's nutrition, ICMR guidelines, or recipe suggestions.
+              <p className="text-sm max-w-xs mb-1 leading-relaxed">
+                Ask me anything about your family's nutrition, ICMR-NIN 2024 guidelines, or recipes.
+              </p>
+              <p className="text-xs text-muted-foreground/70 mb-5">
+                Type in any language · Tap 🎙️ to speak
               </p>
               <div className="flex flex-wrap justify-center gap-2 max-w-sm">
                 {hints.map((hint) => (
@@ -244,7 +250,15 @@ export default function Chat() {
                         : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
+                    {msg.role === "user" ? (
+                      <p className="whitespace-pre-wrap relative z-10">{msg.content}</p>
+                    ) : (
+                      <div className="relative z-10 prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-foreground prose-strong:font-semibold prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-h2:text-sm prose-h2:mt-2 prose-h2:mb-1 prose-table:text-xs prose-thead:bg-muted/40 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-td:border prose-td:border-border/40">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -304,10 +318,10 @@ export default function Chat() {
                 <Bot className="w-4 h-4 text-primary" />
               </div>
               <div className="max-w-[78%] glass-panel rounded-3xl rounded-tl-lg px-4 py-3 text-sm text-foreground">
-                <p className="whitespace-pre-wrap relative z-10">
-                  {currentMessage}
-                  <span className="inline-block w-1.5 h-4 bg-primary ml-1 rounded-sm animate-pulse" />
-                </p>
+                <div className="relative z-10 prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-foreground prose-strong:font-semibold prose-h3:text-sm prose-h2:text-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentMessage}</ReactMarkdown>
+                  <span className="inline-block w-1.5 h-4 bg-primary ml-0.5 rounded-sm animate-pulse align-middle" />
+                </div>
               </div>
             </motion.div>
           )}
