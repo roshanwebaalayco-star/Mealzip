@@ -1156,7 +1156,6 @@ export default function MealPlan() {
                     const hasPlates = !!(cell.member_plates && Object.keys(cell.member_plates).length > 0);
 
                     const cellKey = `${di}-${meal}`;
-                    const isLoadingThisRecipe = false;
                     const displayMealName = lang === "hi" && cell.nameHindi ? cell.nameHindi : (cell.recipeName || cell.name || "—");
                     const isSkipped = !!skippedMeals[feedbackKey];
                     const skipAction = skippedMeals[feedbackKey];
@@ -1181,9 +1180,7 @@ export default function MealPlan() {
                         >
                           <span className="flex-1">{displayMealName}</span>
                           {displayMealName !== "—" && (
-                            isLoadingThisRecipe
-                              ? <Loader2 className="w-3 h-3 animate-spin shrink-0 mt-0.5 text-primary" />
-                              : <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                            <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                           )}
                         </button>
                         {displayMealName !== "—" && (

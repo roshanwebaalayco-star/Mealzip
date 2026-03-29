@@ -138,7 +138,7 @@ export default function WeeklyContextPage() {
   const [pantryInput, setPantryInput] = useState(() => (ctx.pantry_items ?? []).join(", "));
 
   useEffect(() => {
-    if (familyId && members.length > 0) {
+    if (familyId) {
       const profileDefaults = buildProfileDefaults(members, defaultBudget);
       try {
         const stored = localStorage.getItem(lsKey(familyId));
