@@ -209,7 +209,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
           {/* More button */}
           <button
-            onClick={() => setMoreOpen(true)}
+            onClick={() => setMoreOpen((v) => !v)}
             className={`relative flex flex-col items-center justify-center min-w-[3.2rem] h-13 rounded-[1.5rem] transition-all duration-250 focus-ring ${
               moreIsActive
                 ? "nav-active text-white px-3 gap-0.5"
@@ -237,7 +237,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <>
             {/* Invisible backdrop to close on outside tap */}
             <div
-              className="md:hidden fixed inset-0 z-[60]"
+              className="fixed inset-0 z-[60]"
               onClick={() => setMoreOpen(false)}
             />
 
@@ -248,7 +248,7 @@ export function Layout({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.88, y: 10 }}
               transition={{ type: "spring", damping: 22, stiffness: 320 }}
-              className="md:hidden fixed z-[70] glass-card rounded-2xl shadow-xl p-2.5"
+              className="fixed z-[70] glass-card rounded-2xl shadow-xl p-2.5"
               style={{ bottom: "calc(5rem + 20px)", right: "1rem", width: "13rem", transformOrigin: "bottom right" }}
             >
               {/* 2×2 nav grid */}
