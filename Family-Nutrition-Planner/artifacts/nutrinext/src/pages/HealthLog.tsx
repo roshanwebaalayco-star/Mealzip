@@ -290,7 +290,16 @@ export default function HealthLog() {
       </div>
 
       {activeTab === "nutrition" && (
-      <div className="space-y-4">
+      <div className="space-y-4" role="tabpanel" aria-label={t("Nutrition", "पोषण")}>
+        <div className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          <h2 className="font-display font-bold text-lg text-foreground">
+            {t("Nutrition Tracker", "पोषण ट्रैकर")}
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            {t("ICMR-NIN 2024 targets vs actual intake today", "आज के लिए ICMR-NIN 2024 लक्ष्य बनाम वास्तविक सेवन")}
+          </span>
+        </div>
 
         {nutritionLoading && (
           <div className="glass-card rounded-3xl p-8 text-center">
@@ -496,7 +505,16 @@ export default function HealthLog() {
       )}
 
       {activeTab === "health" && (
-      <div className="space-y-4">
+      <div className="space-y-4" role="tabpanel" aria-label={t("Health", "स्वास्थ्य")}>
+        <div className="flex items-center gap-2">
+          <Heart className="w-5 h-5 text-red-500" />
+          <h2 className="font-display font-bold text-lg text-foreground">
+            {t("Health Log", "स्वास्थ्य लॉग")}
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            {t("Track vitals & get nutrition-based symptom insights", "स्वास्थ्य संकेतक ट्रैक करें और लक्षण अंतर्दृष्टि पाएं")}
+          </span>
+        </div>
 
         {showLogForm && (
           <div className="glass-card rounded-3xl p-5 space-y-4">
