@@ -1,6 +1,6 @@
 import { useState, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, Globe } from "lucide-react";
+import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { activeFamily } = useAppState();
-  const { lang, toggleLang } = useLanguage();
+  const { lang } = useLanguage();
   const { user, logout } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -53,17 +53,6 @@ export function Layout({ children }: { children: ReactNode }) {
             <h1 className="font-display font-bold text-[1.12rem] leading-tight text-foreground">NutriNext</h1>
             <p className="text-[0.65rem] text-muted-foreground font-semibold uppercase tracking-[0.12em] mt-0.5">ParivarSehat AI</p>
           </div>
-        </div>
-
-        {/* Language Toggle */}
-        <div className="px-5 pb-3">
-          <button
-            onClick={toggleLang}
-            className="w-full glass-card rounded-2xl px-4 py-2.5 flex items-center justify-between hover:bg-white/60 transition-all"
-          >
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Language</span>
-            <span className="text-sm font-bold text-foreground">{lang === "en" ? "🌐 English" : "🇮🇳 हिंदी"}</span>
-          </button>
         </div>
 
         {/* Family pill */}
@@ -151,12 +140,11 @@ export function Layout({ children }: { children: ReactNode }) {
               {activeFamily.name}
             </div>
           )}
-          <button
-            onClick={toggleLang}
-            className="text-xs font-bold px-2.5 py-1 rounded-full border border-border bg-background/50"
-          >
-            {lang === "en" ? "हिं" : "EN"}
-          </button>
+          <Link href="/profile">
+            <div className="p-1.5 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-primary transition-colors">
+              <UserCircle className="w-3.5 h-3.5" />
+            </div>
+          </Link>
           {user ? (
             <button
               onClick={() => logout()}
@@ -188,7 +176,7 @@ export function Layout({ children }: { children: ReactNode }) {
           className="absolute right-0 glass-card rounded-2xl shadow-2xl p-3"
           style={{
             bottom: "calc(100% + 10px)",
-            width: "14rem",
+            width: "100%",
             visibility: moreOpen ? "visible" : "hidden",
             opacity: moreOpen ? 1 : 0,
             transition: "opacity 0.15s ease, visibility 0.15s ease",
@@ -196,7 +184,7 @@ export function Layout({ children }: { children: ReactNode }) {
           }}
         >
           {/* 2×2 nav grid */}
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-2">
             {moreItems.map((item) => {
               const isActive = location === item.href;
               return (
@@ -218,42 +206,6 @@ export function Layout({ children }: { children: ReactNode }) {
               );
             })}
           </div>
-
-          {/* Divider */}
-          <div className="border-t border-border/40 mb-2" />
-
-          {/* Language toggle */}
-          <button
-            onClick={() => { toggleLang(); setMoreOpen(false); }}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors mb-1.5"
-          >
-            <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs font-medium text-foreground">
-              {lang === "en" ? "Switch to हिंदी" : "Switch to English"}
-            </span>
-          </button>
-
-          {/* Auth */}
-          {user ? (
-            <button
-              onClick={() => { logout(); setMoreOpen(false); }}
-              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5 text-destructive shrink-0" />
-              <span className="text-xs font-medium text-destructive">
-                {lang === "hi" ? "लॉग आउट" : "Log out"}
-              </span>
-            </button>
-          ) : (
-            <Link href="/login" onClick={() => setMoreOpen(false)}>
-              <div className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
-                <LogIn className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span className="text-xs font-medium text-primary">
-                  {lang === "hi" ? "लॉग इन" : "Log in"}
-                </span>
-              </div>
-            </Link>
-          )}
         </div>
 
         {/* Nav pill */}
