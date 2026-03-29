@@ -871,7 +871,7 @@ export default function Grocery() {
                                 size="sm"
                                 disabled={isSwapLoading}
                                 onClick={() => handleCheaperSwap(latest.id, i, item)}
-                                className="h-5 px-2 text-xs gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
+                                className="h-11 px-3 text-xs gap-1 text-green-600 hover:text-green-800 hover:bg-green-50 disabled:opacity-50"
                               >
                                 <ArrowLeftRight className={`w-2.5 h-2.5 ${isSwapLoading ? "animate-spin" : ""}`} />
                                 {isSwapLoading

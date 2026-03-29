@@ -1405,40 +1405,40 @@ export default function MealPlan() {
                         <div className="flex gap-1 pt-0.5 flex-wrap">
                           <button
                             onClick={() => handleFeedback(di, meal, true)}
-                            className={`p-1.5 rounded-lg transition-colors ${feedback === true ? "text-green-600 bg-green-100" : "text-muted-foreground hover:text-green-600 hover:bg-green-50"}`}
+                            className={`p-2.5 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${feedback === true ? "text-green-600 bg-green-100" : "text-muted-foreground hover:text-green-600 hover:bg-green-50"}`}
                             title={t("Like", "पसंद")}
                           >
-                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <ThumbsUp className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleFeedback(di, meal, false)}
-                            className={`p-1.5 rounded-lg transition-colors ${feedback === false ? "text-red-500 bg-red-100" : "text-muted-foreground hover:text-red-500 hover:bg-red-50"}`}
+                            className={`p-2.5 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${feedback === false ? "text-red-500 bg-red-100" : "text-muted-foreground hover:text-red-500 hover:bg-red-50"}`}
                             title={t("Dislike", "नापसंद")}
                           >
-                            <ThumbsDown className="w-3.5 h-3.5" />
+                            <ThumbsDown className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleLogMeal(cell, meal, logKey)}
                             disabled={loggingMeal === logKey}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                            className="p-2.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40 min-h-[44px] min-w-[44px] flex items-center justify-center"
                             title={t("Log meal", "लॉग करें")}
                           >
-                            {loggingMeal === logKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                            {loggingMeal === logKey ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                           </button>
                           <div className="border-l border-muted-foreground/20 mx-0.5" />
                           <button
                             onClick={() => handleSkipMeal(di, meal, "skip")}
                             disabled={!!skippedMeals[feedbackKey]}
-                            className={`p-1.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "skip" ? "text-orange-600 bg-orange-100" : "text-muted-foreground hover:text-orange-600 hover:bg-orange-50"} disabled:opacity-50`}
+                            className={`px-2 py-2.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-1 min-h-[44px] ${skippedMeals[feedbackKey] === "skip" ? "text-orange-600 bg-orange-100" : "text-muted-foreground hover:text-orange-600 hover:bg-orange-50"} disabled:opacity-50`}
                             title={t("Skip", "छोड़ें")}
                           >
-                            <SkipForward className="w-3 h-3" />
+                            <SkipForward className="w-3.5 h-3.5" />
                             {t("Skip", "छोड़ें")}
                           </button>
                           <button
                             onClick={() => handleSkipMeal(di, meal, "ate_out")}
                             disabled={!!skippedMeals[feedbackKey]}
-                            className={`p-1.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "ate_out" ? "text-violet-600 bg-violet-100" : "text-muted-foreground hover:text-violet-600 hover:bg-violet-50"} disabled:opacity-50`}
+                            className={`px-2 py-2.5 rounded-lg transition-colors text-[11px] font-medium flex items-center gap-1 min-h-[44px] ${skippedMeals[feedbackKey] === "ate_out" ? "text-violet-600 bg-violet-100" : "text-muted-foreground hover:text-violet-600 hover:bg-violet-50"} disabled:opacity-50`}
                             title={t("Ate Out", "बाहर खाया")}
                           >
                             <UtensilsCrossed className="w-3 h-3" />

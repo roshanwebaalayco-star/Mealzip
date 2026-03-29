@@ -91,7 +91,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+              className="absolute top-3 right-3 w-11 h-11 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
