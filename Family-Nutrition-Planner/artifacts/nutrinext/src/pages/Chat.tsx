@@ -215,22 +215,22 @@ export default function Chat() {
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => (voiceMode ? stopVoiceLoop() : startVoiceLoop())}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold transition-all border ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all border ${
                 voiceMode
                   ? "bg-red-50 text-red-600 border-red-200/60 hover:bg-red-100"
-                  : "bg-violet-50 text-violet-600 border-violet-200/60 hover:bg-violet-100"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-300/60 hover:bg-emerald-100"
               }`}
               title={voiceMode ? "Exit voice mode" : "Enter voice chat mode"}
             >
               {voiceMode ? (
                 <>
-                  <MicOff className="w-3 h-3" />
-                  <span className="hidden sm:inline">Exit Voice</span>
+                  <MicOff className="w-4 h-4" />
+                  Stop
                 </>
               ) : (
                 <>
-                  <AudioLines className="w-3 h-3" />
-                  <span className="hidden sm:inline">Voice Chat</span>
+                  <AudioLines className="w-4 h-4" />
+                  Talk
                 </>
               )}
             </button>
@@ -492,9 +492,9 @@ export default function Chat() {
               <button
                 type="submit"
                 disabled={isStreaming || !input.trim()}
-                className="btn-brand w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-brand w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
               </button>
             </form>
           </div>
