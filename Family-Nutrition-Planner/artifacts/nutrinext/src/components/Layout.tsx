@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, X, Globe } from "lucide-react";
@@ -13,6 +13,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { lang, toggleLang } = useLanguage();
   const { user, logout } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = moreOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [moreOpen]);
 
   const navItems = [
     { icon: Home, label: "Home", labelHi: "होम", href: "/" },
@@ -183,7 +188,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
 
       {/* ── Mobile Bottom Nav ── */}
-      <div className="md:hidden fixed bottom-5 left-4 right-4 z-50">
+      <div className={`md:hidden fixed bottom-5 left-4 right-4 z-50 transition-opacity duration-200 ${moreOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
         <nav className="glass-nav-pill rounded-[2rem] px-2 py-2 flex justify-around items-center">
           {mobileMainItems.map((item) => {
             const isActive = location === item.href;
