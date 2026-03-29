@@ -31,13 +31,17 @@ interface GeminiContent {
   parts: Array<{ text: string }>;
 }
 
-interface GeminiGenerateContentRequest {
+interface GeminiGenerationConfig {
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+  temperature?: number;
+}
+
+interface GeminiRequestParams {
+  model: string;
   contents: GeminiContent[];
-  generationConfig?: {
-    maxOutputTokens?: number;
-    responseMimeType?: string;
-    temperature?: number;
-  };
+  config?: GeminiGenerationConfig;
+  abortSignal?: AbortSignal;
   systemInstruction?: { parts: Array<{ text: string }> };
 }
 
@@ -51,51 +55,51 @@ interface GeminiResponse {
   text?: string;
 }
 
-async function modelfarmGenerateContent(
+interface StreamChunk {
+  text: string;
+}
+
+async function modelfarmFetch(
   model: string,
-  request: GeminiGenerateContentRequest,
+  contents: GeminiContent[],
+  generationConfig: GeminiGenerationConfig | undefined,
   abortSignal?: AbortSignal,
-): Promise<GeminiResponse> {
+): Promise<{ json: () => Promise<{ candidates?: GeminiCandidate[] }>; ok: boolean; status: number; text: () => Promise<string> }> {
   const url = `${integrationBaseUrl}/models/${model}:generateContent`;
-  const resp = await fetch(url, {
+  return fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-goog-api-key": integrationApiKey!,
     },
-    body: JSON.stringify({
-      contents: request.contents,
-      generationConfig: request.generationConfig,
-      systemInstruction: request.systemInstruction,
-    }),
+    body: JSON.stringify({ contents, generationConfig }),
     signal: abortSignal,
-  });
+  }) as ReturnType<typeof fetch>;
+}
+
+async function modelfarmGenerateContent(params: GeminiRequestParams): Promise<GeminiResponse> {
+  const resp = await modelfarmFetch(params.model, params.contents, params.config as GeminiGenerationConfig, params.abortSignal);
   if (!resp.ok) {
     const errText = await resp.text();
     throw new Error(`Modelfarm HTTP ${resp.status}: ${errText}`);
   }
-  const data = (await resp.json()) as { candidates?: GeminiCandidate[] };
+  const data = await resp.json() as { candidates?: GeminiCandidate[] };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   return { candidates: data.candidates, text };
 }
 
+async function* modelfarmGenerateContentStream(params: GeminiRequestParams): AsyncIterable<StreamChunk> {
+  const response = await modelfarmGenerateContent(params);
+  const text = response.text ?? "";
+  if (text) {
+    yield { text };
+  }
+}
+
 const modelfarmProxy = {
   models: {
-    generateContent: async (params: {
-      model: string;
-      contents: GeminiContent[];
-      config?: { maxOutputTokens?: number; responseMimeType?: string; temperature?: number };
-      abortSignal?: AbortSignal;
-    }) => {
-      return modelfarmGenerateContent(
-        params.model,
-        {
-          contents: params.contents,
-          generationConfig: params.config as GeminiGenerateContentRequest["generationConfig"],
-        },
-        params.abortSignal,
-      );
-    },
+    generateContent: (params: GeminiRequestParams) => modelfarmGenerateContent(params),
+    generateContentStream: (params: GeminiRequestParams) => modelfarmGenerateContentStream(params),
   },
 };
 

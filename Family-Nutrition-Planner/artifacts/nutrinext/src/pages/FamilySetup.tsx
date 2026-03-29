@@ -5,6 +5,7 @@ import { useCreateFamily, useAddFamilyMember } from "@workspace/api-client-react
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -808,29 +809,32 @@ export default function FamilySetup() {
                   <div className="grid grid-cols-1 gap-3">
                     <div>
                       <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
-                      <Input
+                      <Textarea
                         value={familyData.sharedTypicalBreakfast}
                         onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalBreakfast: e.target.value }))}
                         placeholder={t("e.g. Paratha with curd and chai", "जैसे पराठा, दही और चाय")}
-                        className="mt-1 rounded-xl bg-background"
+                        className="mt-1 rounded-xl bg-background resize-none"
+                        rows={2}
                       />
                     </div>
                     <div>
                       <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
-                      <Input
+                      <Textarea
                         value={familyData.sharedTypicalLunch}
                         onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalLunch: e.target.value }))}
                         placeholder={t("e.g. Dal chawal, sabzi, roti", "जैसे दाल चावल, सब्जी, रोटी")}
-                        className="mt-1 rounded-xl bg-background"
+                        className="mt-1 rounded-xl bg-background resize-none"
+                        rows={2}
                       />
                     </div>
                     <div>
                       <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
-                      <Input
+                      <Textarea
                         value={familyData.sharedTypicalDinner}
                         onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalDinner: e.target.value }))}
                         placeholder={t("e.g. Roti, sabzi, dal", "जैसे रोटी, सब्जी, दाल")}
-                        className="mt-1 rounded-xl bg-background"
+                        className="mt-1 rounded-xl bg-background resize-none"
+                        rows={2}
                       />
                     </div>
                   </div>
@@ -1181,29 +1185,32 @@ export default function FamilySetup() {
                     <div className="grid grid-cols-1 gap-3">
                       <div>
                         <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
-                        <Input
+                        <Textarea
                           value={member.individualTypicalBreakfast}
                           onChange={e => handleUpdateMember(idx, "individualTypicalBreakfast", e.target.value)}
                           placeholder={t("e.g. Poha and tea", "जैसे पोहा और चाय")}
-                          className="mt-1 rounded-xl text-sm"
+                          className="mt-1 rounded-xl text-sm resize-none"
+                          rows={2}
                         />
                       </div>
                       <div>
                         <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
-                        <Input
+                        <Textarea
                           value={member.individualTypicalLunch}
                           onChange={e => handleUpdateMember(idx, "individualTypicalLunch", e.target.value)}
                           placeholder={t("e.g. Tiffin box with rice and sabzi", "जैसे टिफिन बॉक्स")}
-                          className="mt-1 rounded-xl text-sm"
+                          className="mt-1 rounded-xl text-sm resize-none"
+                          rows={2}
                         />
                       </div>
                       <div>
                         <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
-                        <Input
+                        <Textarea
                           value={member.individualTypicalDinner}
                           onChange={e => handleUpdateMember(idx, "individualTypicalDinner", e.target.value)}
                           placeholder={t("e.g. Light roti and dal", "जैसे रोटी और दाल")}
-                          className="mt-1 rounded-xl text-sm"
+                          className="mt-1 rounded-xl text-sm resize-none"
+                          rows={2}
                         />
                       </div>
                     </div>
