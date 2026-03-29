@@ -4,6 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, X, Volume2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { useVoiceAssistant, type VoiceFormData } from "@/hooks/use-voice-assistant";
 
+const VOICE_LANGUAGES = [
+  { key: "hindi", label: "हिंदी" },
+  { key: "english", label: "English" },
+  { key: "bengali", label: "বাংলা" },
+  { key: "tamil", label: "தமிழ்" },
+  { key: "telugu", label: "తెలుగు" },
+  { key: "marathi", label: "मराठी" },
+  { key: "gujarati", label: "ગુજરાતી" },
+  { key: "kannada", label: "ಕನ್ನಡ" },
+  { key: "malayalam", label: "മലയാളം" },
+  { key: "punjabi", label: "ਪੰਜਾਬੀ" },
+  { key: "odia", label: "ଓଡ଼ିଆ" },
+];
+
 interface Props {
   open: boolean;
   language: string;
@@ -75,18 +89,19 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
+  const [pickedLang, setPickedLang] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open && !hasStarted) {
-      setHasStarted(true);
-      start(language, onComplete);
-    }
-  }, [open]);
+  const handlePickLanguage = (lang: string) => {
+    setPickedLang(lang);
+    setHasStarted(true);
+    start(lang, onComplete);
+  };
 
   useEffect(() => {
     if (!open) {
       stop();
       setHasStarted(false);
+      setPickedLang(null);
     }
   }, [open]);
 
@@ -141,6 +156,42 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
         >
           <DialogTitle className="sr-only">Voice Setup</DialogTitle>
           <p className="sr-only" id="voice-setup-desc">Set up your family profile using voice</p>
+
+          {!pickedLang ? (
+            <div className="flex flex-col items-center justify-center flex-1 px-6 py-10 gap-6">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
+                  AI
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold mb-1">🙏 Namaste!</p>
+                <p className="text-sm text-muted-foreground">Select your preferred language to continue:</p>
+                <p className="text-xs text-muted-foreground">अपनी भाषा चुनें:</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2.5 max-w-sm">
+                {VOICE_LANGUAGES.map(l => (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => handlePickLanguage(l.key)}
+                    className="px-4 py-2 text-sm font-medium rounded-full bg-white border border-secondary/30 hover:bg-secondary/10 hover:border-secondary/60 transition-colors shadow-sm"
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground mt-4"
+                onClick={handleClose}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+          <>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b bg-primary/5 shrink-0">
             <div className="flex items-center gap-2">
@@ -317,6 +368,8 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
               </Button>
             </div>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

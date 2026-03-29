@@ -407,6 +407,8 @@ Indian states (colloquial → official):
 3. assistantMessage = brief warm confirmation of what you heard + next question
 4. Completion message: "${cfg.completeMsg}"
 5. For ask_member_conditions with no useful input: "${cfg.conditionsPrompt}"
+6. LANGUAGE CHANGE PROHIBITION: You CANNOT change the spoken language mid-conversation. The language was chosen by the user before the conversation started and is locked. If the user asks to switch to English or any other language, you MUST reply in the CURRENT language (${language}): "I cannot change languages during our conversation. Please close this voice setup, pick your preferred language on the language selection screen, and tap Voice again." Do NOT pretend you changed the language.
+7. CODE-SWITCHING TOLERANCE: Indian users frequently mix English words into their native language (Hinglish, Tanglish, etc.). For example "mera family ka naam Sharma hai" or "naan Chennai la irukken". You MUST understand this naturally and extract the relevant data without asking for clarification. Always respond in ${language} but accept English-mixed input gracefully.
 
 Return ONLY valid JSON, no markdown:
 {

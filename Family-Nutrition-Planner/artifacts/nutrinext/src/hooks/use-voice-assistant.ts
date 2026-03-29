@@ -62,19 +62,62 @@ const GREETING: Record<string, string> = {
   odia: "ନମସ୍କାର! ମୁଁ ParivarSehat AI। ଆପଣଙ୍କ ପରିବାର ପାଇଁ meal plan ତିଆରି କରିବାରେ ସାହାଯ୍ୟ କରିବି। ଆପଣଙ୍କ ପରିବାରର ନାମ କ'ଣ?",
 };
 
-// Localised "didn't catch" and "error" prompts — shown as chat bubbles and spoken aloud
-const RETRY_MSG: Record<string, string> = {
-  hindi: "क्या आप दोबारा बोल सकते हैं? मुझे सुनाई नहीं दिया।",
-  english: "Could you please repeat that? I didn't catch it.",
-  bengali: "আবার বলবেন? আমি বুঝতে পারিনি।",
-  tamil: "மன்னிக்கவும், மீண்டும் சொல்ல முடியுமா? கேட்கவில்லை.",
-  telugu: "క్షమించండి, మళ్ళీ చెప్పగలరా? వినిపించలేదు.",
-  marathi: "पुन्हा सांगाल का? मला ऐकू आले नाही.",
-  gujarati: "ફરી કહેશો? મને સંભળાઈ નહીં.",
-  kannada: "ದಯವಿಟ್ಟು ಮತ್ತೆ ಹೇಳಬಹುದೇ? ಕೇಳಿಸಲಿಲ್ಲ.",
-  malayalam: "ഒന്നു കൂടി പറയാമോ? കേൾക്കാൻ കഴിഞ്ഞില്ല.",
-  punjabi: "ਕੀ ਤੁਸੀਂ ਦੁਬਾਰਾ ਕਹਿ ਸਕਦੇ ਹੋ? ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤਾ।",
-  odia: "ଦୟାକରି ପୁଣି ଥରେ କହିବେ? ଶୁଣିପାରିଲି ନାହିଁ।",
+const RETRY_MSGS: Record<string, string[]> = {
+  hindi: [
+    "माफ़ कीजिए, मुझे साफ़ सुनाई नहीं दिया। क्या आप दोबारा बोल सकते हैं?",
+    "मुझे अभी भी सुनने में दिक्कत हो रही है। ज़रा ज़ोर से या फ़ोन के पास बोलकर देखें।",
+    "लगता है माइक में कुछ दिक्कत है। कृपया 'Type instead' बटन दबाकर जानकारी लिख दें।",
+  ],
+  english: [
+    "Sorry, I couldn't hear that clearly. Could you say it again?",
+    "I'm still having trouble hearing you. Try speaking a bit louder or holding the phone closer.",
+    "It seems there's a microphone issue. Please tap 'Type instead' to enter your details manually.",
+  ],
+  bengali: [
+    "মাফ করবেন, পরিষ্কার শুনতে পাইনি। আবার বলবেন?",
+    "এখনও শুনতে পাচ্ছি না। একটু জোরে বা ফোনের কাছে এসে বলুন।",
+    "মনে হচ্ছে মাইকে সমস্যা। দয়া করে 'Type instead' বোতাম টিপে লিখে দিন।",
+  ],
+  tamil: [
+    "மன்னிக்கவும், தெளிவாக கேட்கவில்லை. மீண்டும் சொல்ல முடியுமா?",
+    "இன்னும் கேட்பதில் சிரமம் உள்ளது. கொஞ்சம் சத்தமாக அல்லது போனை அருகில் வைத்து பேசுங்கள்.",
+    "மைக்கில் ஏதோ பிரச்சனை இருக்கிறது. 'Type instead' பொத்தானை அழுத்தி தகவலை டைப் செய்யுங்கள்.",
+  ],
+  telugu: [
+    "క్షమించండి, స్పష్టంగా వినిపించలేదు. మళ్ళీ చెప్పగలరా?",
+    "ఇంకా వినడంలో ఇబ్బంది ఉంది. కాస్త గట్టిగా లేదా ఫోన్ దగ్గరగా పెట్టి మాట్లాడండి.",
+    "మైక్‌లో ఏదో సమస్య ఉన్నట్లుంది. 'Type instead' బటన్ నొక్కి వివరాలు టైప్ చేయండి.",
+  ],
+  marathi: [
+    "माफ करा, स्पष्ट ऐकू आले नाही. पुन्हा सांगाल का?",
+    "अजूनही ऐकण्यात अडचण येतेय. थोडं मोठ्याने किंवा फोन जवळ धरून बोला.",
+    "मायक्रोफोनमध्ये काहीतरी अडचण दिसतेय. कृपया 'Type instead' बटण दाबा आणि लिहून द्या.",
+  ],
+  gujarati: [
+    "માફ કરજો, સ્પષ્ટ સંભળાયું નહીં. ફરી કહેશો?",
+    "હજી સાંભળવામાં તકલીફ થઈ રહી છે. થોડું મોટેથી અથવા ફોન નજીક રાખીને બોલો.",
+    "માઇકમાં કંઈક તકલીફ લાગે છે. કૃપા કરી 'Type instead' બટન દબાવીને લખી આપો.",
+  ],
+  kannada: [
+    "ಕ್ಷಮಿಸಿ, ಸ್ಪಷ್ಟವಾಗಿ ಕೇಳಿಸಲಿಲ್ಲ. ಮತ್ತೆ ಹೇಳಬಹುದೇ?",
+    "ಇನ್ನೂ ಕೇಳಲು ಕಷ್ಟವಾಗುತ್ತಿದೆ. ಸ್ವಲ್ಪ ಜೋರಾಗಿ ಅಥವಾ ಫೋನ್ ಹತ್ತಿರ ಹಿಡಿದು ಮಾತನಾಡಿ.",
+    "ಮೈಕ್‌ನಲ್ಲಿ ಸಮಸ್ಯೆ ಇರುವಂತಿದೆ. ದಯವಿಟ್ಟು 'Type instead' ಬಟನ್ ಒತ್ತಿ ಮಾಹಿತಿ ಟೈಪ್ ಮಾಡಿ.",
+  ],
+  malayalam: [
+    "ക്ഷമിക്കണം, വ്യക്തമായി കേൾക്കാൻ കഴിഞ്ഞില്ല. ഒന്നു കൂടി പറയാമോ?",
+    "ഇപ്പോഴും കേൾക്കാൻ ബുദ്ധിമുട്ട് ഉണ്ട്. അല്പം ഉറക്കെ അല്ലെങ്കിൽ ഫോൺ അടുത്ത് പിടിച്ച് സംസാരിക്കൂ.",
+    "മൈക്കിൽ എന്തോ പ്രശ്നം ഉണ്ടെന്ന് തോന്നുന്നു. ദയവായി 'Type instead' ബട്ടൺ ടാപ്പ് ചെയ്ത് ടൈപ്പ് ചെയ്യൂ.",
+  ],
+  punjabi: [
+    "ਮਾਫ਼ ਕਰਨਾ, ਸਾਫ਼ ਸੁਣਾਈ ਨਹੀਂ ਦਿੱਤਾ। ਕੀ ਤੁਸੀਂ ਦੁਬਾਰਾ ਕਹੋਗੇ?",
+    "ਅਜੇ ਵੀ ਸੁਣਨ ਵਿੱਚ ਮੁਸ਼ਕਲ ਆ ਰਹੀ ਹੈ। ਥੋੜ੍ਹਾ ਉੱਚੀ ਜਾਂ ਫ਼ੋਨ ਨੇੜੇ ਰੱਖ ਕੇ ਬੋਲੋ।",
+    "ਲੱਗਦਾ ਹੈ ਮਾਈਕ ਵਿੱਚ ਕੋਈ ਦਿੱਕਤ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ 'Type instead' ਬਟਨ ਦਬਾ ਕੇ ਲਿਖੋ।",
+  ],
+  odia: [
+    "କ୍ଷମା କରନ୍ତୁ, ସ୍ପଷ୍ଟ ଶୁଣିପାରିଲି ନାହିଁ। ଦୟାକରି ପୁଣି ଥରେ କୁହନ୍ତୁ।",
+    "ଏପର୍ଯ୍ୟନ୍ତ ଶୁଣିବାରେ ଅସୁବିଧା ହେଉଛି। ଟିକେ ଜୋରରେ ବା ଫୋନ ପାଖରେ ଧରି କୁହନ୍ତୁ।",
+    "ମାଇକରେ କିଛି ଅସୁବିଧା ଲାଗୁଛି। ଦୟାକରି 'Type instead' ବଟନ ଦବାଇ ଲେଖି ଦିଅନ୍ତୁ।",
+  ],
 };
 
 const ERROR_MSG: Record<string, string> = {
@@ -212,6 +255,7 @@ export function useVoiceAssistant() {
   const silenceRafRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const consecutiveFailsRef = useRef(0);
   const stateHistoryRef = useRef<Array<{ state: ConvState; msg: string; fd: VoiceFormData }>>([]);
 
   const start = useCallback(
@@ -442,11 +486,28 @@ export function useVoiceAssistant() {
           setVolume(0);
 
           if (!transcript.trim()) {
-            nextMsg = RETRY_MSG[language] ?? RETRY_MSG.english;
+            consecutiveFailsRef.current += 1;
+            const failIdx = Math.min(consecutiveFailsRef.current - 1, 2);
+            const retryArr = RETRY_MSGS[language] ?? RETRY_MSGS.english;
+            nextMsg = retryArr[failIdx];
             msgs = [...msgs, { role: "user", text: "..." }, { role: "assistant", text: nextMsg }];
             setMessages([...msgs]);
+            if (consecutiveFailsRef.current >= 3) {
+              setMicState("speaking");
+              await speakText(nextMsg);
+              abortRef.current = true;
+              isRunningRef.current = false;
+              if (streamRef.current) {
+                streamRef.current.getTracks().forEach((t) => t.stop());
+                streamRef.current = null;
+              }
+              setMicState("idle");
+              break;
+            }
             continue;
           }
+
+          consecutiveFailsRef.current = 0;
 
           // Correction intent: user said "galat", "wrong", "go back" etc. — go back to previous question.
           // detectCorrection skips YES_NO_STATES so "no" / "nahi" are never intercepted there.
@@ -521,6 +582,7 @@ export function useVoiceAssistant() {
     abortRef.current = true;
     isRunningRef.current = false;
     stateHistoryRef.current = [];
+    consecutiveFailsRef.current = 0;
     try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
     if (ttsAudioRef.current) {
       try { ttsAudioRef.current.pause(); ttsAudioRef.current.src = ""; } catch { /* ignore */ }
