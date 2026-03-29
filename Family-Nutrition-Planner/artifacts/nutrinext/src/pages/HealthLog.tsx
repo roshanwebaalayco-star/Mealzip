@@ -276,6 +276,7 @@ export default function HealthLog() {
   const checkSymptoms = async () => {
     if (selectedSymptoms.length === 0) return;
     setCheckingSymptoms(true);
+    setSymptomResult(null);
     try {
       const res = await apiFetch("/api/symptom-check", {
         method: "POST",
@@ -288,10 +289,16 @@ export default function HealthLog() {
           language: lang === "hi" ? "hindi" : "english",
         }),
       });
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
       const data = await res.json();
+      if (!data || !data.nutritionalInsight) {
+        throw new Error("Invalid response");
+      }
       setSymptomResult(data);
     } catch {
-      toast({ title: t("Error", "त्रुटि"), description: t("Symptom check failed", "लक्षण जांच विफल"), variant: "destructive" });
+      toast({ title: t("Error", "त्रुटि"), description: t("Symptom check failed. Please try again.", "लक्षण जांच विफल। कृपया पुनः प्रयास करें।"), variant: "destructive" });
     } finally {
       setCheckingSymptoms(false);
     }
@@ -843,6 +850,7 @@ export default function HealthLog() {
             </div>
           )}
         </div>
+        <div className="h-4 md:hidden" />
       </div>
       )}
     </div>
