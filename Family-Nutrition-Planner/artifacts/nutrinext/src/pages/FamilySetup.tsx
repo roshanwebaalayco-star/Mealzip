@@ -36,6 +36,9 @@ type MemberDraft = Omit<
   dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
+  individualTypicalBreakfast: string;
+  individualTypicalLunch: string;
+  individualTypicalDinner: string;
 };
 
 type MemberErrors = { name?: string; age?: string };
@@ -65,6 +68,10 @@ export default function FamilySetup() {
     dietaryType: "vegetarian" as "vegetarian" | "non-vegetarian" | "vegan" | "jain",
     healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
     fastingDays: [] as string[],
+    mealsAreShared: true,
+    sharedTypicalBreakfast: "",
+    sharedTypicalLunch: "",
+    sharedTypicalDinner: "",
   });
 
   const [members, setMembers] = useState<MemberDraft[]>([
@@ -74,6 +81,7 @@ export default function FamilySetup() {
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+      individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
     }
   ]);
 
@@ -164,12 +172,9 @@ export default function FamilySetup() {
           dietaryType: newFamilyData.dietaryType,
           memberFastingDays: [],
           foodAllergies: "",
-          goalPace: "none",
-          tiffinType: "none",
-          religiousRules: "none",
-          ingredientDislikes: [],
-          nonVegDays: [],
-          nonVegTypes: [],
+          individualTypicalBreakfast: "",
+          individualTypicalLunch: "",
+          individualTypicalDinner: "",
         }));
         setFamilyData(newFamilyData);
         if (newMembers.length > 0) setMembers(newMembers);
@@ -219,6 +224,7 @@ export default function FamilySetup() {
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+      individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
     }]);
   };
 
@@ -338,6 +344,9 @@ export default function FamilySetup() {
               ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
               nonVegDays: member.nonVegDays.length > 0 ? member.nonVegDays : undefined,
               nonVegTypes: member.nonVegTypes.length > 0 ? member.nonVegTypes : undefined,
+              individualTypicalBreakfast: member.individualTypicalBreakfast || undefined,
+              individualTypicalLunch: member.individualTypicalLunch || undefined,
+              individualTypicalDinner: member.individualTypicalDinner || undefined,
             }
           });
         }
@@ -386,6 +395,7 @@ export default function FamilySetup() {
         foodAllergies: "",
         goalPace: "none", tiffinType: "none", religiousRules: "none",
         ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+        individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
       }));
 
     const finalMembers = voiceMembers.length > 0 ? voiceMembers : members;
@@ -433,12 +443,9 @@ export default function FamilySetup() {
           dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
           memberFastingDays: [],
           foodAllergies: "",
-          goalPace: "none",
-          tiffinType: "none",
-          religiousRules: "none",
-          ingredientDislikes: [],
-          nonVegDays: [],
-          nonVegTypes: [],
+          individualTypicalBreakfast: "",
+          individualTypicalLunch: "",
+          individualTypicalDinner: "",
         }))
       );
     }
@@ -781,7 +788,62 @@ export default function FamilySetup() {
                 </div>
               </div>
 
-              <div className="pt-6 flex justify-end">
+              <div className="pt-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Current Dietary Baseline", "वर्तमान आहार दिनचर्या")} <span className="normal-case font-normal text-muted-foreground">({t("optional — helps AI improve your meals", "वैकल्पिक — AI को आपके भोजन सुधारने में मदद मिलेगी")})</span></p>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setFamilyData(fd => ({ ...fd, mealsAreShared: !fd.mealsAreShared }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${familyData.mealsAreShared ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${familyData.mealsAreShared ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                  <Label className="cursor-pointer" onClick={() => setFamilyData(fd => ({ ...fd, mealsAreShared: !fd.mealsAreShared }))}>
+                    {t("All family members eat the same meals", "सभी सदस्य एक जैसा खाना खाते हैं")}
+                  </Label>
+                </div>
+
+                {familyData.mealsAreShared && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
+                      <Input
+                        value={familyData.sharedTypicalBreakfast}
+                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalBreakfast: e.target.value }))}
+                        placeholder={t("e.g. Paratha with curd and chai", "जैसे पराठा, दही और चाय")}
+                        className="mt-1 rounded-xl bg-background"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
+                      <Input
+                        value={familyData.sharedTypicalLunch}
+                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalLunch: e.target.value }))}
+                        placeholder={t("e.g. Dal chawal, sabzi, roti", "जैसे दाल चावल, सब्जी, रोटी")}
+                        className="mt-1 rounded-xl bg-background"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
+                      <Input
+                        value={familyData.sharedTypicalDinner}
+                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalDinner: e.target.value }))}
+                        placeholder={t("e.g. Roti, sabzi, dal", "जैसे रोटी, सब्जी, दाल")}
+                        className="mt-1 rounded-xl bg-background"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!familyData.mealsAreShared && (
+                  <p className="text-sm text-muted-foreground bg-secondary/10 rounded-xl px-4 py-3">
+                    {t("You can enter each member's individual meals on the next step.", "अगले चरण में प्रत्येक सदस्य का अलग भोजन दर्ज कर सकते हैं।")}
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-4 flex justify-end">
                 <Button 
                   size="lg" 
                   className="rounded-xl h-12 px-8" 
@@ -1112,6 +1174,41 @@ export default function FamilySetup() {
                     </div>
                   )}
                 </div>
+
+                {!familyData.mealsAreShared && (
+                  <div className="mt-4 pt-4 border-t border-dashed border-border">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Individual Meal Baseline", "व्यक्तिगत भोजन दिनचर्या")} <span className="normal-case font-normal">({t("optional", "वैकल्पिक")})</span></p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
+                        <Input
+                          value={member.individualTypicalBreakfast}
+                          onChange={e => handleUpdateMember(idx, "individualTypicalBreakfast", e.target.value)}
+                          placeholder={t("e.g. Poha and tea", "जैसे पोहा और चाय")}
+                          className="mt-1 rounded-xl text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
+                        <Input
+                          value={member.individualTypicalLunch}
+                          onChange={e => handleUpdateMember(idx, "individualTypicalLunch", e.target.value)}
+                          placeholder={t("e.g. Tiffin box with rice and sabzi", "जैसे टिफिन बॉक्स")}
+                          className="mt-1 rounded-xl text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
+                        <Input
+                          value={member.individualTypicalDinner}
+                          onChange={e => handleUpdateMember(idx, "individualTypicalDinner", e.target.value)}
+                          placeholder={t("e.g. Light roti and dal", "जैसे रोटी और दाल")}
+                          className="mt-1 rounded-xl text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 

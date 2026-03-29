@@ -643,6 +643,30 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   // ── Master Prompt Architecture ─────────────────────────────────────────────────
   // Three explicit labeled sections as per ICMR-NIN 2024 guardrails design pattern.
   // Section priority order (highest→lowest): WEEKLY CONTEXT OVERRIDES > STATIC PROFILE > CLINICAL GUARDRAILS
+  const baselineLines: string[] = [];
+  if (family.mealsAreShared && (family.sharedTypicalBreakfast || family.sharedTypicalLunch || family.sharedTypicalDinner)) {
+    baselineLines.push("CURRENT DIETARY BASELINE — shared by all members (IMPROVE upon this, keep familiar where possible):");
+    if (family.sharedTypicalBreakfast) baselineLines.push(`  Breakfast: ${family.sharedTypicalBreakfast}`);
+    if (family.sharedTypicalLunch) baselineLines.push(`  Lunch: ${family.sharedTypicalLunch}`);
+    if (family.sharedTypicalDinner) baselineLines.push(`  Dinner: ${family.sharedTypicalDinner}`);
+  } else if (!family.mealsAreShared) {
+    const memberBaselines = members
+      .filter(m => m.individualTypicalBreakfast || m.individualTypicalLunch || m.individualTypicalDinner)
+      .map(m => {
+        const parts: string[] = [];
+        if (m.individualTypicalBreakfast) parts.push(`Breakfast: ${m.individualTypicalBreakfast}`);
+        if (m.individualTypicalLunch) parts.push(`Lunch: ${m.individualTypicalLunch}`);
+        if (m.individualTypicalDinner) parts.push(`Dinner: ${m.individualTypicalDinner}`);
+        return parts.length > 0 ? `  ${m.name}: ${parts.join(" | ")}` : "";
+      })
+      .filter(Boolean);
+    if (memberBaselines.length > 0) {
+      baselineLines.push("CURRENT DIETARY BASELINE — per member (IMPROVE upon this, keep familiar where possible):");
+      baselineLines.push(...memberBaselines);
+    }
+  }
+  const baselineNote = baselineLines.length > 0 ? `\n${baselineLines.join("\n")}\n` : "";
+
   const masterPromptSection1 = `
 ══════════════════════════════════════════════════════════════════
 SECTION 1 — STATIC FAMILY PROFILE (permanent dietary contract)
@@ -655,7 +679,7 @@ Cuisine preference: ${(family.cuisinePreferences ?? []).join(", ") || "North Ind
 
 FAMILY MEMBERS (permanent profile — always apply):
 ${JSON.stringify(memberListForPrompt)}
-
+${baselineNote}
 AVAILABLE RECIPES (prefer these IDs; recipeId:null = AI-invented):
 ${JSON.stringify(recipeListForPrompt)}
 ${festivalContext}${feedbackNote}`.trim();

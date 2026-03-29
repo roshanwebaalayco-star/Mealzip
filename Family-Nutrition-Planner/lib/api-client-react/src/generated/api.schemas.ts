@@ -26,6 +26,10 @@ export interface Family {
   /** Preferred cuisines */
   cuisinePreferences?: string[];
   isDemo?: boolean;
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
   createdAt: string;
 }
 
@@ -58,6 +62,9 @@ export interface FamilyMember {
   ingredientDislikes?: string[];
   nonVegDays?: string[];
   nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
   createdAt: string;
 }
 
@@ -72,6 +79,10 @@ export interface CreateFamilyBody {
   monthlyBudget: number;
   primaryLanguage: string;
   cuisinePreferences?: string[];
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
 }
 
 export interface UpdateFamilyBody {
@@ -81,6 +92,10 @@ export interface UpdateFamilyBody {
   monthlyBudget?: number;
   primaryLanguage?: string;
   cuisinePreferences?: string[];
+  mealsAreShared?: boolean;
+  sharedTypicalBreakfast?: string;
+  sharedTypicalLunch?: string;
+  sharedTypicalDinner?: string;
 }
 
 export interface CreateMemberBody {
@@ -102,6 +117,9 @@ export interface CreateMemberBody {
   ingredientDislikes?: string[];
   nonVegDays?: string[];
   nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
 }
 
 export interface UpdateMemberBody {
@@ -123,6 +141,9 @@ export interface UpdateMemberBody {
   ingredientDislikes?: string[];
   nonVegDays?: string[];
   nonVegTypes?: string[];
+  individualTypicalBreakfast?: string;
+  individualTypicalLunch?: string;
+  individualTypicalDinner?: string;
 }
 
 export interface Recipe {

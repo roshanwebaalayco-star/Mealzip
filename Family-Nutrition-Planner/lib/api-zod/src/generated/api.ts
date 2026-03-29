@@ -45,6 +45,10 @@ export const CreateFamilyBody = zod.object({
   monthlyBudget: zod.number(),
   primaryLanguage: zod.string(),
   cuisinePreferences: zod.array(zod.string()).optional(),
+  mealsAreShared: zod.boolean().optional(),
+  sharedTypicalBreakfast: zod.string().optional(),
+  sharedTypicalLunch: zod.string().optional(),
+  sharedTypicalDinner: zod.string().optional(),
 });
 
 /**
@@ -125,6 +129,10 @@ export const UpdateFamilyBody = zod.object({
   monthlyBudget: zod.number().optional(),
   primaryLanguage: zod.string().optional(),
   cuisinePreferences: zod.array(zod.string()).optional(),
+  mealsAreShared: zod.boolean().optional(),
+  sharedTypicalBreakfast: zod.string().optional(),
+  sharedTypicalLunch: zod.string().optional(),
+  sharedTypicalDinner: zod.string().optional(),
 });
 
 export const UpdateFamilyResponse = zod.object({
@@ -221,6 +229,9 @@ export const AddFamilyMemberBody = zod.object({
   ingredientDislikes: zod.array(zod.string()).optional(),
   nonVegDays: zod.array(zod.string()).optional(),
   nonVegTypes: zod.array(zod.string()).optional(),
+  individualTypicalBreakfast: zod.string().optional(),
+  individualTypicalLunch: zod.string().optional(),
+  individualTypicalDinner: zod.string().optional(),
 });
 
 /**
@@ -250,6 +261,9 @@ export const UpdateFamilyMemberBody = zod.object({
   ingredientDislikes: zod.array(zod.string()).optional(),
   nonVegDays: zod.array(zod.string()).optional(),
   nonVegTypes: zod.array(zod.string()).optional(),
+  individualTypicalBreakfast: zod.string().optional(),
+  individualTypicalLunch: zod.string().optional(),
+  individualTypicalDinner: zod.string().optional(),
 });
 
 export const UpdateFamilyMemberResponse = zod.object({

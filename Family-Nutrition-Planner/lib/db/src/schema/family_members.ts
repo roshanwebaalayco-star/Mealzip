@@ -25,6 +25,9 @@ export const familyMembersTable = pgTable("family_members", {
   ingredientDislikes: text("ingredient_dislikes").array(),
   nonVegDays: text("non_veg_days").array(),
   nonVegTypes: text("non_veg_types").array(),
+  individualTypicalBreakfast: text("individual_typical_breakfast"),
+  individualTypicalLunch: text("individual_typical_lunch"),
+  individualTypicalDinner: text("individual_typical_dinner"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("family_members_family_id_idx").on(table.familyId),

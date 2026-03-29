@@ -13,6 +13,10 @@ export const familiesTable = pgTable("families", {
   primaryLanguage: text("primary_language").notNull().default("hindi"),
   cuisinePreferences: text("cuisine_preferences").array(),
   isDemo: boolean("is_demo").notNull().default(false),
+  mealsAreShared: boolean("meals_are_shared").notNull().default(true),
+  sharedTypicalBreakfast: text("shared_typical_breakfast"),
+  sharedTypicalLunch: text("shared_typical_lunch"),
+  sharedTypicalDinner: text("shared_typical_dinner"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("families_user_id_idx").on(table.userId),
