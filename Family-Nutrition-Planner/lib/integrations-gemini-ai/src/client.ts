@@ -64,21 +64,24 @@ async function modelfarmFetch(
   contents: GeminiContent[],
   generationConfig: GeminiGenerationConfig | undefined,
   abortSignal?: AbortSignal,
+  systemInstruction?: { parts: Array<{ text: string }> },
 ): Promise<{ json: () => Promise<{ candidates?: GeminiCandidate[] }>; ok: boolean; status: number; text: () => Promise<string> }> {
   const url = `${integrationBaseUrl}/models/${model}:generateContent`;
+  const body: Record<string, unknown> = { contents, generationConfig };
+  if (systemInstruction) body.systemInstruction = systemInstruction;
   return fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-goog-api-key": integrationApiKey!,
     },
-    body: JSON.stringify({ contents, generationConfig }),
+    body: JSON.stringify(body),
     signal: abortSignal,
   }) as ReturnType<typeof fetch>;
 }
 
 async function modelfarmGenerateContent(params: GeminiRequestParams): Promise<GeminiResponse> {
-  const resp = await modelfarmFetch(params.model, params.contents, params.config as GeminiGenerationConfig, params.abortSignal);
+  const resp = await modelfarmFetch(params.model, params.contents, params.config as GeminiGenerationConfig, params.abortSignal, params.systemInstruction);
   if (!resp.ok) {
     const errText = await resp.text();
     throw new Error(`Modelfarm HTTP ${resp.status}: ${errText}`);

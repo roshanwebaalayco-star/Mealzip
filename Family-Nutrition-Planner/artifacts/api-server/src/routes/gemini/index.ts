@@ -16,14 +16,30 @@ import { generateImage } from "@workspace/integrations-gemini-ai/image";
 
 const router: IRouter = Router();
 
-const SYSTEM_PROMPT = `You are NutriNext AI / ParivarSehat AI — a friendly, expert India-centric family nutrition assistant.
-You follow ICMR-NIN 2024 Dietary Reference Values for all nutritional recommendations.
-You respond in the language the user writes in (Hindi or English or both).
-You know about Indian cuisines from all regions: North Indian, South Indian, East Indian (Jharkhand, Bihar, Bengal), Maharashtrian, Gujarati, etc.
-You understand Indian health contexts: diabetes, hypertension, anaemia, obesity, malnutrition.
-You give practical, affordable meal suggestions using ingredients available in Indian markets.
-Always cite ICMR-NIN 2024 when giving nutritional targets.
-Keep responses concise and practical.
+const SYSTEM_PROMPT = `You are the NutriNext Clinical Intelligence AI — an elite Indian nutrition expert and the central Knowledge Base for this family's health. You operate strictly under ICMR-NIN 2024 Dietary Reference Values.
+
+You respond in the language the user writes in (Hindi, English, or Hinglish). You know all regional Indian cuisines: North Indian, South Indian, East Indian (Jharkhand, Bihar, Bengal), Maharashtrian, Gujarati, Rajasthani, and more. You understand Indian health contexts: diabetes, hypertension, anaemia, obesity, malnutrition, PCOS, thyroid.
+
+CRITICAL BEHAVIORAL RULES (MUST OBEY):
+1. ZERO SYCOPHANCY: You are forbidden from apologizing. NEVER say "I am sorry," "My apologies," or "You are absolutely right." If you made a previous error, immediately provide the correct answer with zero filler.
+2. PRONOUN RESOLUTION: If the user says "He is going mad" or "She is confused" or "he is confusing X things", cross-reference the family profile. They are talking about a family member, NOT criticizing you. Do not assume user frustration is directed at you.
+3. TONE: Be direct, clinically accurate, empathetic, and authoritative. You are an elite nutritionist, not a customer service rep.
+
+YOUR THREE JOBS — route every user message into exactly one:
+
+JOB 1 — THE EDUCATOR (ingredient / nutrition science queries):
+- Explain ingredients and food science accurately per ICMR-NIN 2024.
+- When the subject is a child: frame the explanation so the parent can relay it to the child. Example: "Palm oil is high in saturated fats, often found in packaged biscuits. For an 8-year-old like Arjun, explain it as a 'sometimes food' — it makes our heart work too hard if we eat it every day."
+- Always cite the relevant ICMR-NIN 2024 guideline or RDA value.
+
+JOB 2 — THE ADJUSTER (cheat meal / HFSS food mentions):
+- When the user mentions eating outside the plan (e.g. "we had samosas", "ate at McDonald's"), do NOT scold.
+- Estimate the approximate caloric and sodium impact using any matched recipe data available.
+- Output a specific clinical adjustment for the next 24-48 hours: "I have noted the samosas (~300 kcal, high sodium). Tomorrow's breakfast should be a low-sodium Moong Dal Chilla to rebalance [member]'s weekly intake."
+
+JOB 3 — THE KITCHEN ASSISTANT (current meal plan questions):
+- When asked about today's or this week's meals, cross-reference the CURRENT MEAL PLAN context provided.
+- For health condition queries (e.g. "can my diabetic dad eat tonight's dal?"), check the specific member's conditions from the family profile against the dish's nutritional values.
 
 GROCERY SUGGESTIONS FORMAT:
 When the user asks for a grocery list, shopping list, kirana list, or weekly ingredients, always respond in this exact Kirana receipt format:
@@ -212,8 +228,9 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     } catch { /* non-critical — continue without recipe context */ }
   }
 
-  // Build family context block if a familyId was provided
-  let familyContext = "";
+  // Build family context + meal plan context for systemInstruction
+  let dynamicContext = "";
+  let familyGreeting = "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?";
   const { familyId } = parsed.data;
   if (familyId) {
     try {
@@ -235,7 +252,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
           if (m.religiousRules && m.religiousRules !== "none") parts.push(`  Religious rules: ${m.religiousRules}`);
           return parts.join("\n");
         });
-        familyContext = `\n\nFAMILY PROFILE — USE THIS AS YOUR KNOWLEDGE BASE:
+        dynamicContext = `\n\n--- ACTIVE FAMILY CONTEXT ---
 Family name: ${family.name}
 Location: ${family.city ? `${family.city}, ` : ""}${family.state}
 Monthly food budget: ₹${family.monthlyBudget} (≈ ₹${Math.round(family.monthlyBudget / 4)}/week)
@@ -243,10 +260,32 @@ Cuisine preferences: ${(family.cuisinePreferences ?? []).join(", ") || "Not spec
 Members (${members.length}):
 ${memberLines.join("\n")}
 
-You KNOW these family members well. When the user refers to any member by name, use the above profile to give personalised, accurate advice. Never say you don't know who they are.`;
+When the user refers to any member by name or pronoun (he/she/they/uska/unka), immediately cross-reference the above list to identify them. Do NOT ask who they are talking about — you already know.
+-----------------------------`;
+
+        // Set family-aware greeting (hardcoded string — not LLM generated)
+        familyGreeting = `Namaste ${family.name} family! I see your profile is loaded with ${members.length} member${members.length !== 1 ? "s" : ""}. How can I help with your nutrition today?`;
+
+        // Fetch latest meal plan for this family (Kitchen Assistant context)
+        try {
+          const [latestPlan] = await db.select()
+            .from(mealPlansTable)
+            .where(eq(mealPlansTable.familyId, familyId))
+            .orderBy(desc(mealPlansTable.createdAt))
+            .limit(1);
+          if (latestPlan?.meals) {
+            const mealsStr = typeof latestPlan.meals === "string"
+              ? latestPlan.meals
+              : JSON.stringify(latestPlan.meals, null, 2);
+            dynamicContext += `\n\nCURRENT MEAL PLAN (use for Kitchen Assistant queries — cross-reference member health conditions when answering meal-specific questions):\n${mealsStr.slice(0, 4000)}`;
+          }
+        } catch { /* non-critical */ }
       }
     } catch { /* non-critical — continue without family context */ }
   }
+
+  // Build the full system instruction: base prompt + dynamic context + recipe context
+  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + (recipeContext ? `\n\n${recipeContext}` : "");
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -264,9 +303,10 @@ You KNOW these family members well. When the user refers to any member by name, 
   try {
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
+      systemInstruction: { parts: [{ text: fullSystemInstruction }] },
       contents: [
-        { role: "user", parts: [{ text: SYSTEM_PROMPT + familyContext + recipeContext }] },
-        { role: "model", parts: [{ text: "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?" }] },
+        { role: "user", parts: [{ text: "Hello" }] },
+        { role: "model", parts: [{ text: familyGreeting }] },
         ...chatMessages.map(m => ({
           role: m.role === "assistant" ? "model" : "user" as "user" | "model",
           parts: [{ text: m.content }],
