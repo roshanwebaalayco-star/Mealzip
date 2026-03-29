@@ -230,12 +230,18 @@ STRICT RULES:
   A single headache or mild symptom should NEVER be "urgent".
 - Do NOT include a disclaimer field.`;
 
+  const cleanArr = (arr: unknown, defaults: string[]): string[] => {
+    if (!Array.isArray(arr)) return defaults;
+    const filtered = arr.map((s) => (typeof s === "string" ? s.trim() : "")).filter(Boolean);
+    return filtered.length > 0 ? filtered : defaults;
+  };
+
   const safeFallback = (result: Record<string, unknown> = {}) => ({
-    nutritionalInsight: (typeof result.nutritionalInsight === "string" && result.nutritionalInsight) || "Could not generate a detailed insight. Please try again or consult a healthcare professional.",
-    dietarySuggestions: Array.isArray(result.dietarySuggestions) && result.dietarySuggestions.length > 0 ? result.dietarySuggestions : ["Maintain a balanced diet with whole grains and vegetables", "Stay well hydrated throughout the day"],
-    recommendedFoods: Array.isArray(result.recommendedFoods) && result.recommendedFoods.length > 0 ? result.recommendedFoods : ["Fresh seasonal fruits", "Green leafy vegetables", "Dal and legumes"],
-    avoidFoods: Array.isArray(result.avoidFoods) && result.avoidFoods.length > 0 ? result.avoidFoods : ["Highly processed foods", "Excessive sugar and refined flour"],
-    seeDoctor: (typeof result.seeDoctor === "string" && result.seeDoctor) || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
+    nutritionalInsight: (typeof result.nutritionalInsight === "string" && result.nutritionalInsight.trim()) || "Could not generate a detailed insight. Please try again or consult a healthcare professional.",
+    dietarySuggestions: cleanArr(result.dietarySuggestions, ["Maintain a balanced diet with whole grains and vegetables", "Stay well hydrated throughout the day"]),
+    recommendedFoods: cleanArr(result.recommendedFoods, ["Fresh seasonal fruits", "Green leafy vegetables", "Dal and legumes"]),
+    avoidFoods: cleanArr(result.avoidFoods, ["Highly processed foods", "Excessive sugar and refined flour"]),
+    seeDoctor: (typeof result.seeDoctor === "string" && result.seeDoctor.trim()) || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
     urgency: (typeof result.urgency === "string" && ["routine", "soon", "urgent"].includes(result.urgency)) ? result.urgency : "routine",
   });
 
@@ -249,11 +255,12 @@ STRICT RULES:
     let result: Record<string, unknown> = {};
     try {
       result = JSON.parse(raw);
-    } catch {
-      // AI returned malformed JSON — use safe defaults
+    } catch (parseErr) {
+      req.log.warn({ raw: raw.slice(0, 200) }, "Symptom-check AI returned malformed JSON, using fallback");
     }
     res.json(safeFallback(result));
   } catch (err) {
+    req.log.error({ err }, "Symptom-check AI call failed, returning fallback");
     res.json(safeFallback());
   }
 });
