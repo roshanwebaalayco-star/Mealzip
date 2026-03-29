@@ -1,0 +1,755 @@
+# Features #12, #13, #14 — Complete Implementation Prompt
+**Paste into Cursor. Read entire codebase before touching anything.**
+
+---
+
+## EXECUTION ORDER (STRICT)
+1. Feature #12 — Appliance Filter + Seasonal Awareness (foundation)
+2. Feature #13 — Validation Gate + Thali Score (depends on #12's prompt changes)
+3. Feature #14 — Leftover Router + Skip Engine (depends on #12's DB patterns)
+
+---
+
+# FEATURE #12 — APPLIANCE FILTER & SEASONAL INGREDIENT AWARENESS
+
+## Step 1: Database Schema
+
+```typescript
+// lib/db/src/schema/families.ts — ADD to existing families table
+appliances: text('appliances').array().default([
+  'tawa', 'pressure_cooker', 'kadai'
+]).notNull(),
+```
+
+Run migration:
+```sql
+ALTER TABLE families 
+ADD COLUMN IF NOT EXISTS appliances text[] 
+NOT NULL DEFAULT ARRAY['tawa','pressure_cooker','kadai'];
+```
+
+## Step 2: Appliance Keyword Map
+
+```typescript
+// artifacts/api-server/src/lib/appliance-filter.ts
+// NEW FILE
+
+export const APPLIANCE_KEYWORDS: Record<string, string[]> = {
+  oven: ['bake', 'baked', 'oven', 'roast at', 'preheat', '180°c', '200°c'],
+  microwave: ['microwave', 'microwave-safe', 'nuke'],
+  blender_mixie: ['blend', 'blender', 'mixie', 'grind', 'food processor', 'puree'],
+  idli_stand: ['idli stand', 'idli mould', 'steam in idli'],
+  air_fryer: ['air fry', 'air fryer', 'air-fry'],
+  pressure_cooker: ['pressure cook', 'pressure cooker', 'whistle', '3 whistles'],
+  kadai: ['kadai', 'kadhai', 'wok', 'deep fry', 'fry in'],
+  tawa: ['tawa', 'griddle', 'flat pan', 'skillet'],
+};
+
+export const ALL_APPLIANCES = Object.keys(APPLIANCE_KEYWORDS);
+
+// Returns appliances a recipe REQUIRES based on keyword scan
+export const detectRequiredAppliances = (
+  instructions: string,
+  ingredients: string
+): string[] => {
+  const text = `${instructions} ${ingredients}`.toLowerCase();
+  return ALL_APPLIANCES.filter(appliance =>
+    APPLIANCE_KEYWORDS[appliance].some(kw => text.includes(kw))
+  );
+};
+
+// Hard filter — removes recipes needing appliances user doesn't own
+export const filterByAppliances = (
+  recipes: RecipeRow[],
+  ownedAppliances: string[]
+): RecipeRow[] => {
+  return recipes.filter(recipe => {
+    const required = detectRequiredAppliances(
+      recipe.instructions ?? '',
+      recipe.ingredients ?? ''
+    );
+    // Pass if ALL required appliances are owned
+    return required.every(a => ownedAppliances.includes(a));
+  });
+};
+```
+
+## Step 3: Seasonal Ingredient Calendar
+
+```typescript
+// artifacts/api-server/src/lib/seasonal-ingredients.ts
+// NEW FILE — static, no external API needed
+
+export type Region = 'north' | 'south' | 'east' | 'west' | 'central';
+export type Month = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+export const SEASONAL_CALENDAR: Record<Region, Record<Month, {
+  vegetables: string[];
+  fruits: string[];
+  grains: string[];
+}>> = {
+  north: {
+    1:  { vegetables: ['spinach','methi','sarson','cauliflower','carrot','radish','peas'], fruits: ['amla','guava','orange'], grains: ['bajra','makka'] },
+    2:  { vegetables: ['spinach','methi','broccoli','cabbage','peas','beetroot'], fruits: ['strawberry','guava','orange'], grains: ['wheat','barley'] },
+    3:  { vegetables: ['raw mango','spring onion','cucumber','ash gourd'], fruits: ['mango (raw)','lychee (early)'], grains: ['wheat','chana'] },
+    4:  { vegetables: ['bitter gourd','bottle gourd','raw mango','tinda'], fruits: ['mango','lychee','jackfruit'], grains: ['wheat','jowar'] },
+    5:  { vegetables: ['lauki','tinda','karela','bhindi','tori'], fruits: ['mango','watermelon','muskmelon'], grains: ['jowar','bajra'] },
+    6:  { vegetables: ['lauki','bhindi','arbi','green chilli'], fruits: ['mango','jamun','watermelon'], grains: ['jowar','rice'] },
+    7:  { vegetables: ['bhindi','tinda','parwal','lauki','arbi'], fruits: ['jamun','pear','plum'], grains: ['rice','bajra'] },
+    8:  { vegetables: ['parwal','lauki','tinda','bhindi'], fruits: ['pear','apple (early)','pomegranate'], grains: ['rice','maize'] },
+    9:  { vegetables: ['arbi','parwal','ridge gourd','snake gourd'], fruits: ['pomegranate','apple','fig'], grains: ['rice','jowar'] },
+    10: { vegetables: ['cauliflower (early)','pumpkin','sweet potato'], fruits: ['pomegranate','apple','grapes'], grains: ['rice','bajra'] },
+    11: { vegetables: ['cauliflower','peas','carrot','radish'], fruits: ['amla','guava','orange'], grains: ['wheat','barley'] },
+    12: { vegetables: ['sarson','methi','spinach','carrot','peas'], fruits: ['amla','guava','orange'], grains: ['bajra','wheat'] },
+  },
+  south: {
+    1:  { vegetables: ['drumstick','raw banana','elephant yam','colocasia'], fruits: ['sapota','guava','papaya'], grains: ['rice','ragi'] },
+    2:  { vegetables: ['raw mango','drumstick','snake gourd','ridge gourd'], fruits: ['mango (raw)','jackfruit (early)'], grains: ['ragi','jowar'] },
+    3:  { vegetables: ['raw mango','ash gourd','bitter gourd'], fruits: ['mango','jackfruit','pineapple'], grains: ['rice','ragi'] },
+    4:  { vegetables: ['bitter gourd','ash gourd','raw jackfruit'], fruits: ['mango','jackfruit','pineapple'], grains: ['rice','jowar'] },
+    5:  { vegetables: ['raw jackfruit','drumstick','cluster beans'], fruits: ['mango','banana','coconut'], grains: ['rice','ragi'] },
+    6:  { vegetables: ['colocasia','drumstick leaves','moringa'], fruits: ['banana','papaya','coconut'], grains: ['rice','ragi'] },
+    7:  { vegetables: ['ash gourd','drumstick','ridge gourd'], fruits: ['banana','papaya'], grains: ['rice','ragi'] },
+    8:  { vegetables: ['snake gourd','ridge gourd','ivy gourd'], fruits: ['banana','pomegranate'], grains: ['rice','jowar'] },
+    9:  { vegetables: ['brinjal','cluster beans','drumstick'], fruits: ['sapota','guava','pomegranate'], grains: ['rice','finger millet'] },
+    10: { vegetables: ['drumstick','beans','raw banana'], fruits: ['guava','sapota','orange'], grains: ['rice','ragi'] },
+    11: { vegetables: ['drumstick','moringa leaves','beans'], fruits: ['sapota','guava','orange'], grains: ['rice','ragi'] },
+    12: { vegetables: ['raw banana','colocasia','yam','drumstick'], fruits: ['sapota','guava','orange'], grains: ['rice','ragi'] },
+  },
+  east: {
+    1:  { vegetables: ['pointed gourd','spinach','mustard greens','radish'], fruits: ['guava','orange'], grains: ['rice','lentils'] },
+    2:  { vegetables: ['spinach','mustard greens','cauliflower','cabbage'], fruits: ['guava','orange'], grains: ['rice','mustard'] },
+    3:  { vegetables: ['raw mango','spring onion','parwal'], fruits: ['mango (raw)','jackfruit (early)'], grains: ['rice','wheat'] },
+    4:  { vegetables: ['parwal','raw jackfruit','bitter gourd'], fruits: ['mango','jackfruit','litchi (early)'], grains: ['rice'] },
+    5:  { vegetables: ['parwal','bitter gourd','raw jackfruit'], fruits: ['mango','litchi','jackfruit'], grains: ['rice','lentils'] },
+    6:  { vegetables: ['hilsa season (fish)','parwal','bottle gourd'], fruits: ['mango','jamun'], grains: ['rice'] },
+    7:  { vegetables: ['parwal','taro','pointed gourd','colocasia'], fruits: ['jamun','plum'], grains: ['rice','kodo millet'] },
+    8:  { vegetables: ['taro','colocasia','ridge gourd'], fruits: ['pear','plum','fig'], grains: ['rice'] },
+    9:  { vegetables: ['pointed gourd','pumpkin','sweet potato'], fruits: ['pomegranate','pear'], grains: ['rice','lentils'] },
+    10: { vegetables: ['sweet potato','elephant yam','pumpkin'], fruits: ['pomegranate','guava'], grains: ['rice','lentils'] },
+    11: { vegetables: ['spinach','radish','carrot','cauliflower'], fruits: ['guava','orange'], grains: ['rice','lentils'] },
+    12: { vegetables: ['mustard greens','spinach','radish','carrot'], fruits: ['guava','orange','amla'], grains: ['rice','lentils'] },
+  },
+  west: {
+    1:  { vegetables: ['methi','spinach','carrot','green peas','cauliflower'], fruits: ['guava','orange','strawberry'], grains: ['wheat','bajra','jowar'] },
+    2:  { vegetables: ['methi','spinach','carrot','peas'], fruits: ['strawberry','orange'], grains: ['wheat','jowar'] },
+    3:  { vegetables: ['raw mango','cucumber','spring onion'], fruits: ['mango (raw)','chikoo'], grains: ['wheat','jowar'] },
+    4:  { vegetables: ['bitter gourd','raw mango','tinda'], fruits: ['mango','chikoo','sitaphal'], grains: ['bajra','jowar'] },
+    5:  { vegetables: ['lauki','tinda','bhindi','cluster beans'], fruits: ['mango','watermelon'], grains: ['bajra','jowar'] },
+    6:  { vegetables: ['lauki','bhindi','tinda','karela'], fruits: ['mango','jamun','watermelon'], grains: ['bajra','rice'] },
+    7:  { vegetables: ['bhindi','tinda','val beans','cluster beans'], fruits: ['jamun','papaya'], grains: ['rice','bajra'] },
+    8:  { vegetables: ['val beans','tinda','ridge gourd'], fruits: ['papaya','pear'], grains: ['rice','jowar'] },
+    9:  { vegetables: ['surti papdi','flat beans','brinjal'], fruits: ['pomegranate','chikoo'], grains: ['jowar','rice'] },
+    10: { vegetables: ['surti papdi','cabbage','cauliflower (early)'], fruits: ['pomegranate','apple','chikoo'], grains: ['jowar','wheat'] },
+    11: { vegetables: ['methi','cauliflower','carrot','green peas'], fruits: ['guava','orange','chikoo'], grains: ['wheat','bajra'] },
+    12: { vegetables: ['methi','spinach','carrot','green peas'], fruits: ['guava','orange','strawberry'], grains: ['wheat','bajra','jowar'] },
+  },
+  central: {
+    1:  { vegetables: ['spinach','methi','cauliflower','carrot','peas'], fruits: ['amla','guava','orange'], grains: ['wheat','gram','lentils'] },
+    2:  { vegetables: ['spinach','cauliflower','cabbage','peas'], fruits: ['guava','orange'], grains: ['wheat','gram'] },
+    3:  { vegetables: ['raw mango','cucumber','spring onion'], fruits: ['mango (raw)'], grains: ['wheat','gram'] },
+    4:  { vegetables: ['raw mango','bitter gourd','tinda'], fruits: ['mango','jamun (early)'], grains: ['jowar','moong'] },
+    5:  { vegetables: ['lauki','tinda','bhindi','karela'], fruits: ['mango','watermelon'], grains: ['jowar','moong'] },
+    6:  { vegetables: ['lauki','bhindi','tinda'], fruits: ['mango','jamun'], grains: ['jowar','rice'] },
+    7:  { vegetables: ['bhindi','arbi','parwal'], fruits: ['jamun','pear'], grains: ['rice','soybean'] },
+    8:  { vegetables: ['parwal','ridge gourd','snake gourd'], fruits: ['pear','plum'], grains: ['rice','soybean'] },
+    9:  { vegetables: ['arbi','pumpkin','sweet potato'], fruits: ['pomegranate','apple'], grains: ['rice','lentils'] },
+    10: { vegetables: ['sweet potato','yam','pumpkin','cauliflower (early)'], fruits: ['pomegranate','guava'], grains: ['wheat','lentils'] },
+    11: { vegetables: ['cauliflower','peas','carrot','spinach'], fruits: ['amla','guava','orange'], grains: ['wheat','gram'] },
+    12: { vegetables: ['sarson','spinach','methi','carrot','peas'], fruits: ['amla','guava','orange'], grains: ['wheat','bajra','gram'] },
+  },
+};
+
+export const getSeasonalIngredients = (region: Region, month: Month) => {
+  return SEASONAL_CALENDAR[region]?.[month] ?? SEASONAL_CALENDAR.north[month];
+};
+```
+
+## Step 4: Wire Into Meal Plan Generation Route
+
+```typescript
+// artifacts/api-server/src/routes/meal-plans/index.ts
+// MODIFY getFilteredRecipes() — add after existing filters
+
+import { filterByAppliances } from '../../lib/appliance-filter';
+import { getSeasonalIngredients } from '../../lib/seasonal-ingredients';
+
+// After existing recipe filtering:
+const ownedAppliances = family.appliances ?? ['tawa', 'pressure_cooker', 'kadai'];
+let filteredRecipes = filterByAppliances(candidateRecipes, ownedAppliances);
+
+// Log how many were removed
+console.log(`[appliance-filter] Removed ${candidateRecipes.length - filteredRecipes.length} recipes. ${filteredRecipes.length} remain.`);
+
+// Seasonal data injection into prompt
+const currentMonth = (new Date().getMonth() + 1) as Month;
+const seasonal = getSeasonalIngredients(zone as Region, currentMonth);
+const seasonalPromptSection = `
+SEASONAL INGREDIENTS (${new Date().toLocaleString('en-IN', { month: 'long' })}, ${zone} India):
+Prefer these IN-SEASON ingredients:
+- Vegetables: ${seasonal.vegetables.join(', ')}
+- Fruits: ${seasonal.fruits.join(', ')}
+- Grains: ${seasonal.grains.join(', ')}
+Out-of-season alternatives should only be used if no seasonal option works for the health condition.
+`;
+
+// Add to Gemini prompt
+const prompt = buildMealPlanPrompt({
+  ...existingParams,
+  applianceConstraint: `NEVER suggest recipes requiring: ${
+    ALL_APPLIANCES.filter(a => !ownedAppliances.includes(a)).join(', ')
+  }. Family only has: ${ownedAppliances.join(', ')}.`,
+  seasonalIngredients: seasonalPromptSection,
+});
+```
+
+## Step 5: Appliance Picker UI
+
+```tsx
+// artifacts/nutrinext/src/pages/FamilySetup.tsx — ADD appliance step
+
+const APPLIANCE_OPTIONS = [
+  { id: 'tawa',            label: 'Tawa',           labelHi: 'तवा',           icon: '🫓' },
+  { id: 'pressure_cooker', label: 'Pressure Cooker', labelHi: 'प्रेशर कुकर',   icon: '🫕' },
+  { id: 'kadai',           label: 'Kadai',           labelHi: 'कड़ाई',          icon: '🍳' },
+  { id: 'microwave',       label: 'Microwave',       labelHi: 'माइक्रोवेव',    icon: '📦' },
+  { id: 'blender_mixie',   label: 'Mixie/Blender',   labelHi: 'मिक्सी',         icon: '🥤' },
+  { id: 'oven',            label: 'Oven',             labelHi: 'ओवन',           icon: '🔥' },
+  { id: 'idli_stand',      label: 'Idli Stand',      labelHi: 'इडली स्टैंड',   icon: '🫙' },
+  { id: 'air_fryer',       label: 'Air Fryer',       labelHi: 'एयर फ्रायर',    icon: '💨' },
+];
+
+const AppliancePicker = ({ selected, onChange, lang }) => (
+  <div>
+    <h3 className="text-sm font-semibold mb-3">
+      {lang === 'hi' ? 'रसोई के उपकरण / Kitchen Appliances' : 'Kitchen Appliances'}
+    </h3>
+    <p className="text-xs text-gray-500 mb-3">
+      {lang === 'hi' 
+        ? 'आपके पास क्या है? हम केवल उन्हीं व्यंजनों का सुझाव देंगे।'
+        : 'What do you own? We\'ll only suggest recipes you can actually make.'}
+    </p>
+    <div className="grid grid-cols-4 gap-2">
+      {APPLIANCE_OPTIONS.map(a => (
+        <button
+          key={a.id}
+          type="button"
+          onClick={() => onChange(
+            selected.includes(a.id) 
+              ? selected.filter(x => x !== a.id)
+              : [...selected, a.id]
+          )}
+          className={`flex flex-col items-center p-2 rounded-xl border text-xs transition-all ${
+            selected.includes(a.id)
+              ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+              : 'border-gray-700 text-gray-500'
+          }`}
+        >
+          <span className="text-2xl mb-1">{a.icon}</span>
+          <span>{lang === 'hi' ? a.labelHi : a.label}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+```
+
+---
+
+# FEATURE #13 — POST-GENERATION VALIDATION GATE & THALI COMPLETENESS
+
+## Step 1: Validation Engine
+
+```typescript
+// artifacts/api-server/src/lib/meal-plan-validator.ts
+// NEW FILE
+
+export interface ValidationViolation {
+  severity: 'hard' | 'soft';
+  memberId: string;
+  memberName: string;
+  mealRef: string; // e.g., "Day 2 Lunch"
+  rule: string;
+  detail: string;
+  correctionHint: string;
+}
+
+// GI estimation by ingredient keywords
+const estimateGI = (ingredients: string): 'low' | 'medium' | 'high' => {
+  const text = ingredients.toLowerCase();
+  const highGI = ['white rice', 'maida', 'white bread', 'sugar', 'potato', 'cornflakes', 'poha'];
+  const lowGI  = ['oats', 'ragi', 'barley', 'rajma', 'dal', 'lentil', 'chana', 'moong', 'sprouts'];
+  if (highGI.some(k => text.includes(k))) return 'high';
+  if (lowGI.some(k => text.includes(k))) return 'low';
+  return 'medium';
+};
+
+// Sodium estimation by meal type keywords
+const estimateSodiumMg = (ingredients: string, recipeName: string): number => {
+  const text = `${ingredients} ${recipeName}`.toLowerCase();
+  if (text.includes('pickle') || text.includes('papad') || text.includes('processed')) return 800;
+  if (text.includes('salt') && text.includes('curry')) return 400;
+  return 250; // average Indian meal
+};
+
+const JAIN_FORBIDDEN = ['onion', 'garlic', 'potato', 'carrot', 'radish', 'beetroot', 'turnip'];
+
+export const validateMealPlan = (
+  plan: GeneratedMealPlan,
+  members: FamilyMember[]
+): ValidationViolation[] => {
+  const violations: ValidationViolation[] = [];
+
+  for (const day of plan.days) {
+    for (const [mealName, meal] of Object.entries(day.meals)) {
+      const mealRef = `Day ${day.day} ${mealName}`;
+      const ingredients = (meal.ingredients ?? []).join(' ').toLowerCase();
+      const recipeName = meal.recipeName?.toLowerCase() ?? '';
+
+      for (const member of members) {
+        const conditions = member.healthConditions ?? [];
+        const diet = member.dietaryRestrictions ?? [];
+
+        // DIABETIC — GI check
+        if (conditions.includes('diabetes')) {
+          const gi = estimateGI(ingredients);
+          if (gi === 'high') {
+            violations.push({
+              severity: 'hard',
+              memberId: member.id,
+              memberName: member.name,
+              mealRef,
+              rule: 'diabetic_gi',
+              detail: `High-GI ingredients detected for diabetic member ${member.name}`,
+              correctionHint: 'Replace white rice/potato with ragi, oats, or brown rice. Add dal for low-GI protein.',
+            });
+          }
+        }
+
+        // HYPERTENSION — Sodium check
+        if (conditions.includes('hypertension')) {
+          const sodiumEstimate = estimateSodiumMg(ingredients, recipeName);
+          if (sodiumEstimate > 600) {
+            violations.push({
+              severity: 'hard',
+              memberId: member.id,
+              memberName: member.name,
+              mealRef,
+              rule: 'hypertension_sodium',
+              detail: `High sodium estimated (~${sodiumEstimate}mg) for BP member ${member.name}`,
+              correctionHint: 'Remove pickle/papad. Reduce salt by 50%. Avoid processed ingredients.',
+            });
+          }
+        }
+
+        // JAIN — Forbidden ingredients
+        if (diet.includes('jain')) {
+          const forbidden = JAIN_FORBIDDEN.filter(f => ingredients.includes(f) || recipeName.includes(f));
+          if (forbidden.length > 0) {
+            violations.push({
+              severity: 'hard',
+              memberId: member.id,
+              memberName: member.name,
+              mealRef,
+              rule: 'jain_restriction',
+              detail: `Jain-forbidden ingredients found: ${forbidden.join(', ')}`,
+              correctionHint: `Replace ${forbidden.join(', ')} with capsicum, tomato, or seasonal vegetables.`,
+            });
+          }
+        }
+
+        // ALLERGY check
+        const allergies = (member.allergies ?? '').toLowerCase().split(',').map(a => a.trim());
+        for (const allergen of allergies) {
+          if (allergen && ingredients.includes(allergen)) {
+            violations.push({
+              severity: 'hard',
+              memberId: member.id,
+              memberName: member.name,
+              mealRef,
+              rule: 'allergy',
+              detail: `Allergen "${allergen}" found for ${member.name}`,
+              correctionHint: `Remove ${allergen} entirely from this meal.`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+};
+```
+
+## Step 2: Auto-Regeneration Loop
+
+```typescript
+// In meal plan generation route — WRAP existing Gemini call
+
+const MAX_VALIDATION_RETRIES = 2;
+let plan = await callGeminiWithJsonRetry(prompt);
+let violations = validateMealPlan(plan, members);
+let attempt = 0;
+
+while (violations.filter(v => v.severity === 'hard').length > 0 && attempt < MAX_VALIDATION_RETRIES) {
+  attempt++;
+  const correctionInstructions = violations
+    .map(v => `CORRECTION REQUIRED - ${v.mealRef} for ${v.memberName}: ${v.correctionHint}`)
+    .join('\n');
+
+  const correctionPrompt = `
+${prompt}
+
+CRITICAL CORRECTIONS FROM PREVIOUS GENERATION (attempt ${attempt}):
+${correctionInstructions}
+
+Fix ALL of the above before generating. Do not repeat any of these violations.
+`;
+
+  plan = await callGeminiWithJsonRetry(correctionPrompt);
+  violations = validateMealPlan(plan, members);
+  console.log(`[validator] Attempt ${attempt}: ${violations.length} violations remain`);
+}
+
+// Attach validation results to plan response
+plan._validationWarnings = violations.filter(v => v.severity === 'soft');
+plan._validationFailed = violations.filter(v => v.severity === 'hard');
+```
+
+## Step 3: Thali Completeness Scorer
+
+```typescript
+// artifacts/api-server/src/lib/thali-scorer.ts
+// NEW FILE
+
+const CATEGORY_KEYWORDS = {
+  carb:      ['rice', 'roti', 'paratha', 'bread', 'poha', 'upma', 'idli', 'dosa', 'wheat', 'oats', 'ragi'],
+  protein:   ['dal', 'lentil', 'paneer', 'egg', 'chicken', 'fish', 'curd', 'tofu', 'soya', 'rajma', 'chana', 'moong'],
+  fat:       ['ghee', 'oil', 'butter', 'coconut', 'nuts', 'seeds', 'groundnut', 'til'],
+  fiber:     ['vegetable', 'salad', 'sprouts', 'greens', 'spinach', 'methi', 'sabzi', 'bhindi', 'brinjal', 'lauki'],
+  vegetable: ['sabzi', 'curry', 'vegetable', 'spinach', 'tomato', 'onion', 'carrot', 'peas', 'beans', 'gourd'],
+};
+
+const COMPLETION_SUGGESTIONS: Record<string, string> = {
+  carb:      '+ Add roti, rice, or poha',
+  protein:   '+ Add curd/raita, dal, or paneer',
+  fat:       '+ Add a teaspoon of ghee or a few nuts',
+  fiber:     '+ Add salad or sprouts',
+  vegetable: '+ Add any sabzi or stir-fried vegetable',
+};
+
+export interface ThaliScore {
+  score: number; // out of 5
+  present: string[];
+  missing: string[];
+  suggestions: string[];
+}
+
+export const scoreThaliCompleteness = (
+  recipeName: string,
+  ingredients: string[]
+): ThaliScore => {
+  const text = `${recipeName} ${ingredients.join(' ')}`.toLowerCase();
+  const present: string[] = [];
+  const missing: string[] = [];
+
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(kw => text.includes(kw))) {
+      present.push(category);
+    } else {
+      missing.push(category);
+    }
+  }
+
+  return {
+    score: present.length,
+    present,
+    missing,
+    suggestions: missing.map(m => COMPLETION_SUGGESTIONS[m]),
+  };
+};
+```
+
+## Step 4: Thali Badge UI Component
+
+```tsx
+// artifacts/nutrinext/src/components/ThaliScore.tsx
+// NEW FILE
+
+const CATEGORY_ICONS = {
+  carb: '🌾', protein: '💪', fat: '✨', fiber: '🥦', vegetable: '🥗'
+};
+
+export const ThaliScoreBadge = ({ thali }: { thali: ThaliScore }) => {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const color = thali.score >= 4 ? 'text-green-400' : thali.score >= 3 ? 'text-orange-400' : 'text-red-400';
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setShowSuggestions(!showSuggestions)}
+        className="flex items-center gap-2 text-xs"
+      >
+        <span className={`font-bold ${color}`}>
+          Thali {thali.score}/5
+        </span>
+        {Object.keys(CATEGORY_ICONS).map(cat => (
+          <span
+            key={cat}
+            className={thali.present.includes(cat) ? 'opacity-100' : 'opacity-25'}
+            title={cat}
+          >
+            {CATEGORY_ICONS[cat]}
+          </span>
+        ))}
+        {thali.missing.length > 0 && (
+          <span className="text-orange-400 ml-1">▼</span>
+        )}
+      </button>
+
+      {showSuggestions && thali.suggestions.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {thali.suggestions.map((s, i) => (
+            <p key={i} className="text-xs text-orange-300 pl-2 border-l border-orange-500">
+              {s}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+# FEATURE #14 — LEFTOVER ROUTER & SKIP/REPLAN ENGINE
+
+## Step 1: Database Schema
+
+```typescript
+// lib/db/src/schema/leftover-items.ts
+// NEW FILE
+
+export const leftoverItemsTable = pgTable('leftover_items', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  familyId:         uuid('family_id').notNull().references(() => familiesTable.id),
+  ingredientName:   text('ingredient_name').notNull(),
+  quantityEstimate: text('quantity_estimate'), // "half bowl", "2 cups" — freeform
+  loggedAt:         timestamp('logged_at').notNull().defaultNow(),
+  expiresAt:        timestamp('expires_at').notNull(), // loggedAt + 48h
+  usedUp:           boolean('used_up').notNull().default(false),
+});
+```
+
+Migration:
+```sql
+CREATE TABLE IF NOT EXISTS leftover_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id uuid NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  ingredient_name text NOT NULL,
+  quantity_estimate text,
+  logged_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  used_up boolean NOT NULL DEFAULT false
+);
+CREATE INDEX leftover_family_idx ON leftover_items(family_id, expires_at);
+```
+
+## Step 2: Leftover API Endpoints
+
+```typescript
+// artifacts/api-server/src/routes/leftovers.ts
+// NEW FILE
+
+// POST /api/leftovers — log new leftover
+router.post('/', authenticateToken, async (req, res) => {
+  const { familyId, ingredientName, quantityEstimate } = req.body;
+  const loggedAt = new Date();
+  const expiresAt = new Date(loggedAt.getTime() + 48 * 60 * 60 * 1000);
+
+  const item = await db.insert(leftoverItemsTable).values({
+    familyId, ingredientName, quantityEstimate, loggedAt, expiresAt
+  }).returning();
+  res.json(item[0]);
+});
+
+// GET /api/leftovers/active?familyId= — get non-expired, non-used leftovers
+router.get('/active', authenticateToken, async (req, res) => {
+  const { familyId } = req.query;
+  const items = await db.select().from(leftoverItemsTable).where(
+    and(
+      eq(leftoverItemsTable.familyId, familyId as string),
+      eq(leftoverItemsTable.usedUp, false),
+      gt(leftoverItemsTable.expiresAt, new Date())
+    )
+  );
+  res.json(items);
+});
+
+// PATCH /api/leftovers/:id/used — mark as used
+router.patch('/:id/used', authenticateToken, async (req, res) => {
+  await db.update(leftoverItemsTable)
+    .set({ usedUp: true })
+    .where(eq(leftoverItemsTable.id, req.params.id));
+  res.json({ ok: true });
+});
+```
+
+## Step 3: Leftover Prompt Injection
+
+```typescript
+// In meal plan generation — ADD after active leftover fetch
+const activeLeftovers = await db.select()
+  .from(leftoverItemsTable)
+  .where(
+    and(
+      eq(leftoverItemsTable.familyId, family.id),
+      eq(leftoverItemsTable.usedUp, false),
+      gt(leftoverItemsTable.expiresAt, new Date())
+    )
+  );
+
+const leftoverPromptSection = activeLeftovers.length > 0
+  ? `
+LEFTOVER PRIORITY (USE THESE FIRST — family has leftovers):
+${activeLeftovers.map(l => `- ${l.ingredientName}${l.quantityEstimate ? ` (${l.quantityEstimate})` : ''} — logged ${Math.round((Date.now() - l.loggedAt.getTime()) / 3600000)}h ago`).join('\n')}
+Design Day 1 meals to creatively use ALL of the above leftovers before introducing new ingredients.
+`
+  : '';
+```
+
+## Step 4: Skip/Ate-Out UI
+
+```tsx
+// In MealPlan.tsx — ADD to each meal card
+
+const [skippedMeals, setSkippedMeals] = useState<Set<string>>(new Set());
+
+const handleSkip = async (dayIndex: number, mealName: string, reason: 'skip' | 'ate_out') => {
+  const key = `${dayIndex}-${mealName}`;
+  setSkippedMeals(prev => new Set([...prev, key]));
+  
+  // Post to feedback endpoint
+  await apiPost('/api/meal-feedback', {
+    mealPlanId: plan.id,
+    dayIndex,
+    mealName,
+    action: reason,
+    timestamp: new Date().toISOString(),
+  });
+  
+  // Recalculate remaining nutrition for the day
+  recalculateDayNutrition(dayIndex);
+};
+
+// On each meal card
+{!skippedMeals.has(`${dayIndex}-${mealName}`) ? (
+  <div className="flex gap-2 mt-2">
+    <button
+      onClick={() => handleSkip(dayIndex, mealName, 'skip')}
+      className="text-xs text-gray-500 border border-gray-700 rounded-lg px-2 py-1"
+    >
+      Skip meal
+    </button>
+    <button
+      onClick={() => handleSkip(dayIndex, mealName, 'ate_out')}
+      className="text-xs text-gray-500 border border-gray-700 rounded-lg px-2 py-1"
+    >
+      Ate out
+    </button>
+  </div>
+) : (
+  <div className="mt-2 text-xs text-gray-600 italic">
+    ✓ Adjusted for today's meals
+  </div>
+)}
+```
+
+## Step 5: Leftover Logger UI
+
+```tsx
+// Add floating section to MealPlan page
+
+const QUICK_LEFTOVERS = ['Rice', 'Dal', 'Roti', 'Sabzi', 'Curry', 'Dosa batter', 'Curd', 'Paneer'];
+
+const LeftoverLogger = ({ familyId }) => {
+  const [input, setInput] = useState('');
+  const [active, setActive] = useState<LeftoverItem[]>([]);
+
+  const logLeftover = async (name: string) => {
+    await apiPost('/api/leftovers', { familyId, ingredientName: name });
+    setInput('');
+    refreshActive();
+  };
+
+  return (
+    <div className="glass-card p-4 mt-4">
+      <h3 className="text-sm font-bold mb-2">
+        ♻️ Log Leftovers
+        <span className="text-xs text-gray-500 ml-2">Used in your next plan</span>
+      </h3>
+
+      {/* Quick add chips */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {QUICK_LEFTOVERS.map(item => (
+          <button
+            key={item}
+            onClick={() => logLeftover(item)}
+            className="text-xs border border-orange-500/40 text-orange-400 rounded-full px-3 py-1"
+          >
+            + {item}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom input */}
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Custom leftover..."
+          className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm"
+          onKeyDown={e => e.key === 'Enter' && input && logLeftover(input)}
+        />
+        <button onClick={() => input && logLeftover(input)}
+          className="btn-liquid px-3 text-sm">Add</button>
+      </div>
+
+      {/* Active leftovers */}
+      {active.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {active.map(item => {
+            const hoursLeft = Math.round((new Date(item.expiresAt).getTime() - Date.now()) / 3600000);
+            return (
+              <span key={item.id} className="flex items-center gap-1 text-xs bg-orange-500/10 text-orange-300 rounded-full px-3 py-1">
+                {item.ingredientName}
+                <span className="text-orange-500/60">{hoursLeft}h</span>
+                <button onClick={() => markUsed(item.id)} className="text-gray-600 hover:text-red-400">×</button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+## FINAL CHECKLIST
+
+- [ ] `appliances` column exists in families table with default value
+- [ ] `filterByAppliances()` removes recipes BEFORE Gemini sees them
+- [ ] `SEASONAL_CALENDAR` covers all 5 regions × 12 months
+- [ ] Seasonal ingredients injected into every meal plan prompt
+- [ ] `validateMealPlan()` catches GI, sodium, Jain, and allergy violations
+- [ ] Auto-regeneration retries up to 2× with violation correction hints
+- [ ] `scoreThaliCompleteness()` returns 0–5 score per meal
+- [ ] Thali badge visible on every meal card with tap-to-expand suggestions
+- [ ] `leftover_items` table created with 48h expiry logic
+- [ ] Active leftovers injected as MUST USE FIRST in prompt
+- [ ] Skip + Ate Out buttons on every meal card
+- [ ] Skipped meals show "Adjusted for today's meals" — no guilt language
+- [ ] All new endpoints added to OpenAPI spec + Orval codegen re-run
