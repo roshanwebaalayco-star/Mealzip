@@ -13,6 +13,10 @@ JWT_SECRET = "2e612f0f617094ec9b7dd866abeaf9ac8ff685930af9ca014a0601d6e8f53fa01a
 DEMO_MODE = "true"
 
 [[ports]]
+localPort = 3000
+externalPort = 3002
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
@@ -49,5 +53,5 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd Family-Nutrition-Planner && PORT=5000 DEMO_MODE=true pnpm --filter @workspace/api-server run dev & PORT=24170 pnpm --filter @workspace/nutrinext run dev & wait"
+args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @workspace/api-server run dev & PORT=5000 API_PORT=3000 pnpm --filter @workspace/nutrinext run dev & wait"
 waitForPort = 5000
