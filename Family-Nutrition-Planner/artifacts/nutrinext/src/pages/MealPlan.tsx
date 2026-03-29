@@ -708,7 +708,7 @@ export default function MealPlan() {
       {/* Header */}
       <div className="glass-panel rounded-3xl p-5 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
         <div className="relative z-10">
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
             {t("Weekly Plan", "साप्ताहिक योजना")}
           </p>
           <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground leading-tight">
@@ -805,7 +805,7 @@ export default function MealPlan() {
           </button>
 
           <div className="glass-card rounded-2xl px-4 py-3 flex flex-col items-center">
-            <p className="text-[0.58rem] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2">
               {t("Harmony Score", "सामंजस्य स्कोर")}
             </p>
             <HarmonyScore score={currentPlan.harmonyScore} size="md" />
@@ -1086,7 +1086,7 @@ export default function MealPlan() {
           <div className="glass-card rounded-2xl p-3 flex flex-wrap gap-2 items-center">
             <span className="text-xs font-bold text-muted-foreground mr-1">{t("Plate variations:", "थाली बदलाव:")}</span>
             {familyMembers.map((member, idx) => (
-              <span key={member.id} className={`text-[0.65rem] font-semibold px-2 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
+              <span key={member.id} className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
                 {member.name.split(" ")[0]}
               </span>
             ))}

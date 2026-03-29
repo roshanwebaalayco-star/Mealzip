@@ -474,7 +474,7 @@ export default function Scanner() {
     >
       {/* Header */}
       <div className="text-center">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
           AI Vision
         </p>
         <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">
@@ -816,7 +816,7 @@ export default function Scanner() {
                         { label: t("Fat", "वसा"), val: scanMutation.data.totalNutrition.fat, unit: "g" },
                       ].map(({ label, val, unit }) => (
                         <div key={label} className="bg-white/65 rounded-xl p-2.5 text-center">
-                          <p className="text-[0.6rem] uppercase font-bold text-muted-foreground">{label}</p>
+                          <p className="text-[11px] uppercase font-bold text-muted-foreground">{label}</p>
                           <p className="font-bold text-sm mt-0.5">{val}{unit}</p>
                         </div>
                       ))}

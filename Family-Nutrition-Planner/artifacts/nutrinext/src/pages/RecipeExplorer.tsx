@@ -72,7 +72,7 @@ export default function RecipeExplorer() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
           Database
         </p>
         <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground leading-tight">

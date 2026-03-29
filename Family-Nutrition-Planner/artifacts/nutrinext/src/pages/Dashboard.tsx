@@ -228,7 +228,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
           <h3 className="font-display font-bold text-base leading-none">
             {t("Kal Kya Banayein?", "कल क्या बनाएं?")}
           </h3>
-          <p className="text-[0.65rem] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {t("Ask your family nutrition assistant", "अपने पोषण सहायक से पूछें")}
           </p>
         </div>
@@ -241,7 +241,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
             key={label}
             onClick={() => sendMessage(q)}
             disabled={loading}
-            className="text-[0.68rem] px-2.5 py-1 rounded-full border border-primary/20 bg-white/60 hover:bg-primary/5 hover:border-primary/40 transition-colors font-medium text-foreground/80 disabled:opacity-40"
+            className="text-[11px] px-2.5 py-1 rounded-full border border-primary/20 bg-white/60 hover:bg-primary/5 hover:border-primary/40 transition-colors font-medium text-foreground/80 disabled:opacity-40"
           >
             {label}
           </button>
@@ -372,11 +372,11 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
 
         {/* Harmony Score */}
         <div className="relative z-10 glass-card rounded-3xl p-5 flex flex-col items-center min-w-[140px]">
-          <p className="text-[0.6rem] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">
             {t("Harmony Score", "सामंजस्य स्कोर")}
           </p>
           <HarmonyScore score={latestPlan?.harmonyScore || 0} size="lg" />
-          <p className="mt-3 text-[0.65rem] text-center text-muted-foreground max-w-[130px] leading-snug">
+          <p className="mt-3 text-[11px] text-center text-muted-foreground max-w-[130px] leading-snug">
             {t("Balances every member's needs at once", "हर सदस्य की जरूरतें एक साथ")}
           </p>
         </div>
@@ -444,13 +444,13 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                 <div className="text-right">
                   {member.icmrCaloricTarget && member.weightKg && member.heightCm && (member.primaryGoal === "weight_loss" || member.primaryGoal === "muscle_gain") ? (
                     <div className="flex items-center justify-end gap-1 mb-0.5">
-                      <span className="text-[0.6rem] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full leading-none">ICMR</span>
+                      <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full leading-none">ICMR</span>
                       <span className="text-xs font-semibold text-foreground/80">{member.icmrCaloricTarget ?? member.calorieTarget ?? "—"} kcal</span>
                     </div>
                   ) : null}
                   <div className="flex gap-1 mt-0.5 justify-end flex-wrap">
                     {member.healthConditions?.slice(0, 2).map((h) => (
-                      <span key={h} className="text-[0.55rem] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 leading-none">{h}</span>
+                      <span key={h} className="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 leading-none">{h}</span>
                     ))}
                   </div>
                 </div>

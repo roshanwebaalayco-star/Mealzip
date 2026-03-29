@@ -261,7 +261,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                 <h2 className="text-lg font-display font-bold">{t("This Week's Context", "इस हफ्ते का विवरण")}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">{t("What's different this week? AI adapts accordingly.", "इस हफ्ते क्या अलग है? AI उसी के अनुसार ढलेगी।")}</p>
               </div>
-              <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-xl hover:bg-muted transition-colors">
+              <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-2.5 rounded-xl hover:bg-muted transition-colors -mr-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -297,9 +297,9 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                   <button
                     type="button"
                     onClick={() => updateField("budget_inr", Math.max(500, (ctx.budget_inr ?? 1000) - 250))}
-                    className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0"
+                    className="w-11 h-11 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0"
                   >
-                    <Minus className="w-3 h-3" />
+                    <Minus className="w-4 h-4" />
                   </button>
                   <Slider
                     min={500}
@@ -312,9 +312,9 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                   <button
                     type="button"
                     onClick={() => updateField("budget_inr", Math.min(10000, (ctx.budget_inr ?? 1000) + 250))}
-                    className="w-7 h-7 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0"
+                    className="w-11 h-11 rounded-full bg-muted flex items-center justify-center hover:bg-primary/10 transition-colors shrink-0"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground mt-1 px-10">

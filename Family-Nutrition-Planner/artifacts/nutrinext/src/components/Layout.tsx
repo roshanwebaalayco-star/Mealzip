@@ -54,7 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <div>
             <h1 className="font-display font-bold text-[1.12rem] leading-tight text-foreground">NutriNext</h1>
-            <p className="text-[0.65rem] text-muted-foreground font-semibold uppercase tracking-[0.12em] mt-0.5">ParivarSehat AI</p>
+            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-[0.12em] mt-0.5">ParivarSehat AI</p>
           </div>
         </div>
 
@@ -62,7 +62,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-5 pb-4">
           {activeFamily ? (
             <div className="glass-card rounded-2xl px-4 py-3">
-              <p className="text-[0.6rem] text-primary font-bold uppercase tracking-[0.14em] mb-0.5">Active Family</p>
+              <p className="text-[11px] text-primary font-bold uppercase tracking-[0.14em] mb-0.5">Active Family</p>
               <h3 className="font-display font-semibold text-foreground text-sm relative z-10">{activeFamily.name}</h3>
             </div>
           ) : (
@@ -119,7 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <UserCircle className="w-7 h-7 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-foreground truncate">{user.name}</p>
-                  <p className="text-[0.6rem] text-muted-foreground truncate">{user.email}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
                 </div>
                 <button
                   onClick={() => logout()}
@@ -139,7 +139,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </Link>
           )}
           <div className="glass-card rounded-2xl px-4 py-2.5 text-center">
-            <p className="text-[0.6rem] text-muted-foreground leading-relaxed relative z-10">
+            <p className="text-[11px] text-muted-foreground leading-relaxed relative z-10">
               Powered by <span className="font-semibold text-foreground/70">Gemini AI</span> &amp;{" "}
               <span className="font-semibold text-secondary">ICMR-NIN 2024</span>
             </p>
@@ -259,7 +259,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? "text-white" : ""}`} />
                 {isActive && (
-                  <span className="text-[0.55rem] font-semibold text-white leading-none">
+                  <span className="text-[11px] font-semibold text-white leading-none">
                     {lang === "hi" ? item.labelHi : item.label}
                   </span>
                 )}
@@ -277,7 +277,7 @@ export function Layout({ children }: { children: ReactNode }) {
             }`}
           >
             <MoreHorizontal className={`w-5 h-5 shrink-0 ${moreIsActive || moreOpen ? "text-white" : ""}`} />
-            <span className={`text-[0.55rem] font-semibold leading-none ${moreIsActive || moreOpen ? "text-white" : ""} mt-0.5`}>
+            <span className={`text-[11px] font-semibold leading-none ${moreIsActive || moreOpen ? "text-white" : ""} mt-0.5`}>
               {lang === "hi" ? "अधिक" : "More"}
             </span>
           </button>

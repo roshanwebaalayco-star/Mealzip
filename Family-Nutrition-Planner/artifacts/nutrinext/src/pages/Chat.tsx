@@ -210,12 +210,12 @@ export default function Chat() {
           </div>
           <div>
             <h2 className="font-display font-bold text-base leading-tight">Swasthya Sahayak (AI)</h2>
-            <p className="text-[0.65rem] text-muted-foreground">Multilingual Nutrition Assistant</p>
+            <p className="text-[11px] text-muted-foreground">Multilingual Nutrition Assistant</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => (voiceMode ? stopVoiceLoop() : startVoiceLoop())}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.65rem] font-semibold transition-all border ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
                 voiceMode
                   ? "bg-red-50 text-red-600 border-red-200/60 hover:bg-red-100"
                   : "bg-violet-50 text-violet-600 border-violet-200/60 hover:bg-violet-100"
@@ -234,7 +234,7 @@ export default function Chat() {
                 </>
               )}
             </button>
-            <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
               <Sparkles className="w-3 h-3" />
               Gemini AI
             </div>
@@ -447,7 +447,7 @@ export default function Chat() {
                     onClick={() => {
                       bargeIn();
                     }}
-                    className="text-[0.6rem] text-violet-600 hover:text-violet-800 font-medium underline underline-offset-2"
+                    className="text-[11px] text-violet-600 hover:text-violet-800 font-medium underline underline-offset-2"
                   >
                     Tap to interrupt
                   </button>
