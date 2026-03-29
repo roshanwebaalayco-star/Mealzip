@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
-import { eq, and, or, inArray, lte, sql, desc, ilike } from "drizzle-orm";
+import { eq, and, or, gt, inArray, lte, sql, desc, ilike } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
 import {
   familiesTable, familyMembersTable, mealPlansTable, recipesTable, mealFeedbackTable,
+  leftoverItemsTable,
 } from "@workspace/db";
 import {
   GenerateMealPlanBody,
@@ -596,6 +597,26 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   const dislikedMeals = previousFeedback.filter(f => !f.liked).map(f => `${f.mealType} on Day ${f.dayIndex + 1}: ${f.skipReason || "disliked"}`);
   const likedMeals = previousFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4).map(f => `${f.mealType} on Day ${f.dayIndex + 1}`);
 
+  let activeLeftovers: Array<{ ingredientName: string; quantityEstimate: string | null; hoursAge: number }> = [];
+  try {
+    const now = new Date();
+    const rawLeftovers = await db.select().from(leftoverItemsTable)
+      .where(and(
+        eq(leftoverItemsTable.familyId, familyId),
+        eq(leftoverItemsTable.usedUp, false),
+        gt(leftoverItemsTable.expiresAt, now),
+      ));
+    activeLeftovers = rawLeftovers.map(l => ({
+      ingredientName: l.ingredientName,
+      quantityEstimate: l.quantityEstimate,
+      hoursAge: Math.round((now.getTime() - l.loggedAt.getTime()) / (1000 * 60 * 60)),
+    }));
+  } catch { /* non-critical */ }
+
+  const skippedMeals = previousFeedback
+    .filter(f => f.skipReason === "skipped" || f.skipReason === "ate_out")
+    .map(f => `${f.mealType} on Day ${f.dayIndex + 1} (${f.skipReason})`);
+
   let flavorFatigueNote = "";
   try {
     const [lastPlan] = await db.select({ plan: mealPlansTable.plan })
@@ -646,6 +667,14 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
   const pantryNote = pantryIngredients.length > 0
     ? `\n🏠 PANTRY ITEMS (already at home): ${pantryIngredients.join(", ")}.\nPREFER recipes that use these ingredients to minimise shopping. Incorporate them into breakfast/lunch/dinner where nutritionally appropriate.\n`
+    : "";
+
+  const leftoverNote = activeLeftovers.length > 0
+    ? `\n♻️ LEFTOVER PRIORITY (USE THESE FIRST): ${activeLeftovers.map(l => `${l.ingredientName}${l.quantityEstimate ? ` (${l.quantityEstimate})` : ""} — logged ${l.hoursAge}h ago`).join(", ")}.\nDesign Day 1 meals to creatively use ALL of these before introducing new ingredients. Examples: leftover rice → lemon rice/curd rice/fried rice; leftover dal → dal paratha/dal chawal; leftover sabzi → stuffed paratha/wrap.\n`
+    : "";
+
+  const skippedMealsNote = skippedMeals.length > 0
+    ? `\n⏭️ SKIPPED/ATE-OUT MEALS last plan: ${skippedMeals.join(", ")}. Adjust nutrition targets to compensate for missed meals.\n`
     : "";
 
   const feedbackNote = dislikedMeals.length > 0
@@ -743,13 +772,13 @@ ${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides
   if (ov.nonveg_days_override?.length) parts.push(`non-veg allowed on ${ov.nonveg_days_override.join(", ")} (type: ${ov.nonveg_type_override ?? "any"})`);
   return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
-${fastingNote}${pantryNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim() : `
+${fastingNote}${pantryNote}${leftoverNote}${skippedMealsNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim() : `
 
 ══════════════════════════════════════════════════════════════════
 SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
 ══════════════════════════════════════════════════════════════════
 No weekly context provided. Use defaults from Section 1.
-${fastingNote}${pantryNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim();
+${fastingNote}${pantryNote}${leftoverNote}${skippedMealsNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim();
 
   const masterPromptSection3 = `
 

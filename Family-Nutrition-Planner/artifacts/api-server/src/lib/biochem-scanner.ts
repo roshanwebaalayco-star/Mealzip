@@ -93,6 +93,55 @@ const BIOCHEM_DB: Record<string, Omit<PrepAlert, "ingredient" | "meal_context">>
     benefit: "Germination reduces tannins and doubles calcium bioavailability — critical for bone health",
     benefitHindi: "टैनिन कम होते हैं, कैल्शियम उपलब्धता दोगुनी — हड्डियों के लिए बेहतर",
   },
+  "toor dal": {
+    ingredientHindi: "तूर दाल",
+    action: "Soak",
+    duration: "4h",
+    benefit: "Reduces cooking time by 50% and lowers phytic acid — improves zinc absorption",
+    benefitHindi: "पकाने का समय 50% कम, फाइटिक एसिड घटता है — जिंक अवशोषण बढ़ता है",
+  },
+  "masoor dal": {
+    ingredientHindi: "मसूर दाल",
+    action: "Soak",
+    duration: "2h",
+    benefit: "Quick soak reduces anti-nutrients, boosts iron bioavailability for anemia prevention",
+    benefitHindi: "शीघ्र भिगोने से पोषण-रोधी तत्व कम होते हैं, आयरन अवशोषण बढ़ता है",
+  },
+  "methi": {
+    ingredientHindi: "मेथी",
+    action: "Soak",
+    duration: "12h",
+    benefit: "Soaking activates galactomannan fiber which helps regulate blood sugar — ideal for diabetes",
+    benefitHindi: "भिगोने से गैलेक्टोमैनन फाइबर सक्रिय होता है जो रक्त शर्करा नियंत्रित करता है — मधुमेह में लाभकारी",
+  },
+  "paneer": {
+    ingredientHindi: "पनीर",
+    action: "Soak",
+    duration: "1h",
+    benefit: "Soaking in warm water makes paneer softer and more digestible — preserves calcium content",
+    benefitHindi: "गुनगुने पानी में भिगोने से पनीर नरम और पचने में आसान होता है — कैल्शियम बना रहता है",
+  },
+  "meat": {
+    ingredientHindi: "मीट",
+    action: "Soak",
+    duration: "4h",
+    benefit: "Marinating in curd/lemon tenderizes protein and adds probiotics — reduces heterocyclic amines on cooking",
+    benefitHindi: "दही/नींबू में मैरिनेट करने से प्रोटीन नरम होता है और प्रोबायोटिक्स मिलते हैं",
+  },
+  "chicken": {
+    ingredientHindi: "चिकन",
+    action: "Soak",
+    duration: "4h",
+    benefit: "Marinating in curd reduces cooking time and creates a probiotic-rich gravy base",
+    benefitHindi: "दही में मैरिनेट करने से पकाने का समय कम और प्रोबायोटिक्स बढ़ते हैं",
+  },
+  "sabudana": {
+    ingredientHindi: "साबूदाना",
+    action: "Soak",
+    duration: "6h",
+    benefit: "Soaking ensures even texture and prevents lumping — essential for sabudana khichdi",
+    benefitHindi: "भिगोने से समान बनावट आती है — साबूदाना खिचड़ी के लिए जरूरी",
+  },
 };
 
 const QTY_PREFIX_RE = /^[\d/.][\d/.]*\s*(g|grams?|kg|ml|l|litres?|liters?|tsp|tbsp|cups?|pieces?|nos?|handful|pinch)\s*/i;

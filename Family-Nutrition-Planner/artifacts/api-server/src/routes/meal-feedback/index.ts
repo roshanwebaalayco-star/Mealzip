@@ -14,6 +14,7 @@ const MealFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5).optional(),
   skipReason: z.string().optional(),
   notes: z.string().optional(),
+  action: z.enum(["like", "dislike", "skip", "ate_out"]).optional(),
 });
 
 router.get("/meal-plans/:mealPlanId/feedback", async (req, res): Promise<void> => {
@@ -39,17 +40,24 @@ router.post("/meal-plans/:mealPlanId/feedback", async (req, res): Promise<void> 
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
     return;
   }
-  const { familyId, dayIndex, mealType, liked, rating, skipReason, notes } = parsed.data;
+  const { familyId, dayIndex, mealType, liked, rating, skipReason, notes, action } = parsed.data;
+
+  const isSkipOrAteOut = action === "skip" || action === "ate_out";
+  const effectiveLiked = isSkipOrAteOut ? false : liked;
+  const effectiveRating = isSkipOrAteOut ? 0 : (rating ?? (liked ? 5 : 1));
+  const effectiveSkipReason = isSkipOrAteOut
+    ? (action === "skip" ? (skipReason || "skipped") : "ate_out")
+    : (skipReason ?? null);
 
   const [feedback] = await db.insert(mealFeedbackTable).values({
     familyId,
     mealPlanId,
     dayIndex,
     mealType,
-    liked,
-    rating: rating ?? (liked ? 5 : 1),
-    skipReason: skipReason ?? null,
-    notes: notes ?? null,
+    liked: effectiveLiked,
+    rating: effectiveRating,
+    skipReason: effectiveSkipReason,
+    notes: notes ?? (isSkipOrAteOut ? action : null),
   }).onConflictDoNothing().returning();
 
   res.status(201).json(feedback || { message: "Feedback recorded" });

@@ -8,8 +8,10 @@ import {
   Loader2, Sparkles, Utensils, Info, RefreshCw, ThumbsUp, ThumbsDown,
   CalendarDays, Moon, Leaf, Link2, Camera, ChevronDown, ChevronUp,
   CheckCircle2, AlertTriangle, XCircle, BookOpen, HelpCircle, ExternalLink,
-  FlaskConical, Clock3, RefreshCcw, TrendingDown
+  FlaskConical, Clock3, RefreshCcw, TrendingDown, Mic, SkipForward, UtensilsCrossed,
+  X, Plus, Timer
 } from "lucide-react";
+import { recordOnce } from "@/lib/audio-utils";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
 import { HarmonyScore } from "@/components/HarmonyScore";
 import { motion } from "framer-motion";
@@ -191,6 +193,10 @@ export default function MealPlan() {
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
   const [showContextModal, setShowContextModal] = useState(false);
   const [lastWeeklyContext, setLastWeeklyContext] = useState<WeeklyContext | null>(null);
+  const [leftoverInput, setLeftoverInput] = useState("");
+  const [isRecordingLeftover, setIsRecordingLeftover] = useState(false);
+  const [skippedMeals, setSkippedMeals] = useState<Record<string, "skip" | "ate_out">>({});
+  const [rebalanceBanner, setRebalanceBanner] = useState<{ dayIndex: number; nextMealType: string; suggestion: string; suggestionHi: string } | null>(null);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -354,6 +360,145 @@ export default function MealPlan() {
     const mods = (Array.isArray(parsed?.arbitrageMods) ? parsed.arbitrageMods : []) as Array<{ original: string; substituted: string; savingPerKg: number }>;
     return { mods, saving: Number(parsed?.arbitrageSaving ?? 0) };
   }, [plans]);
+
+  interface LeftoverItemData {
+    id: number;
+    ingredientName: string;
+    quantityEstimate?: string | null;
+    hoursRemaining: number;
+  }
+  const { data: activeLeftovers, refetch: refetchLeftovers } = useQuery<LeftoverItemData[]>({
+    queryKey: ["leftovers", familyId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/leftovers?familyId=${familyId}`);
+      return res.json() as Promise<LeftoverItemData[]>;
+    },
+    enabled: !!familyId,
+  });
+
+  const quickChips = useMemo(() => {
+    const raw = plans?.[0]?.plan;
+    if (!raw) return [];
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const todayName = dayNames[new Date().getDay()];
+    const dayArr = parsed?.days as DayData[] | undefined;
+    const todayData = dayArr?.find(d => d.day === todayName);
+    if (!todayData) return [];
+    const chips = new Set<string>();
+    Object.values(todayData.meals).forEach((cell: MealCell) => {
+      const ingredients = cell.ingredients ?? [];
+      ingredients.forEach((ing: string) => {
+        const cleaned = ing.replace(/^[\d./]+\s*(g|grams?|kg|ml|cups?|tsp|tbsp|pieces?)\s*/i, "").trim();
+        if (cleaned.length > 2 && !["salt", "water", "oil", "ghee", "sugar", "haldi", "mirch"].includes(cleaned.toLowerCase())) {
+          chips.add(cleaned.split(",")[0].trim().slice(0, 30));
+        }
+      });
+      const name = cell.recipeName ?? cell.name;
+      if (name && name !== "—") {
+        const parts = name.split(/\s+/);
+        parts.forEach(p => {
+          const lower = p.toLowerCase();
+          if (["rice", "dal", "roti", "sabzi", "paneer", "chicken", "rajma", "chole", "chawal", "dosa", "idli", "paratha", "poha"].includes(lower)) {
+            chips.add(p);
+          }
+        });
+      }
+    });
+    return Array.from(chips).slice(0, 12);
+  }, [plans]);
+
+  const leftoverLogMutation = useMutation({
+    mutationFn: async (items: Array<{ ingredientName: string; quantityEstimate?: string }>) => {
+      const res = await apiFetch("/api/leftovers/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ familyId, items }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLeftovers();
+      setLeftoverInput("");
+      toast({ title: t("Leftovers logged!", "बचा खाना लॉग हो गया!") });
+    },
+  });
+
+  const dismissLeftoverMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiFetch(`/api/leftovers/${id}`, { method: "PATCH" });
+      return res.json();
+    },
+    onSuccess: () => refetchLeftovers(),
+  });
+
+  const handleLogLeftoverChip = (chip: string) => {
+    leftoverLogMutation.mutate([{ ingredientName: chip }]);
+  };
+
+  const handleLogLeftoverText = () => {
+    const items = leftoverInput.split(",").map(s => s.trim()).filter(Boolean).map(s => ({ ingredientName: s }));
+    if (items.length > 0) leftoverLogMutation.mutate(items);
+  };
+
+  const handleVoiceLeftover = async () => {
+    setIsRecordingLeftover(true);
+    try {
+      const transcript = await recordOnce({ languageCode: "hi-IN", maxDurationMs: 6000 });
+      if (transcript) {
+        const items = transcript.split(/[,;]+/).map(s => s.trim()).filter(s => s.length > 1).map(s => ({ ingredientName: s }));
+        if (items.length > 0) leftoverLogMutation.mutate(items);
+        else setLeftoverInput(transcript);
+      }
+    } catch {
+      toast({ title: t("Voice input failed", "वॉइस इनपुट विफल"), variant: "destructive" });
+    } finally {
+      setIsRecordingLeftover(false);
+    }
+  };
+
+  const REBALANCE_SUGGESTIONS: Record<string, { en: string; hi: string }> = {
+    protein: { en: "Add a boiled egg + curd to compensate for protein", hi: "प्रोटीन की भरपाई के लिए उबला अंडा + दही जोड़ें" },
+    carbs: { en: "Add extra roti or rice to meet energy needs", hi: "ऊर्जा की जरूरत के लिए अतिरिक्त रोटी या चावल जोड़ें" },
+    balanced: { en: "Add a banana + handful of nuts for balanced nutrition", hi: "संतुलित पोषण के लिए एक केला + मुट्ठी भर मेवे जोड़ें" },
+    light: { en: "Add a glass of buttermilk + fruit for easy nutrition", hi: "आसान पोषण के लिए एक गिलास छाछ + फल जोड़ें" },
+  };
+
+  const handleSkipMeal = (dayIndex: number, mealType: string, action: "skip" | "ate_out") => {
+    const key = `${dayIndex}-${mealType}`;
+    setSkippedMeals(prev => ({ ...prev, [key]: action }));
+
+    if (currentPlan) {
+      feedbackMutation.mutate({
+        dayIndex,
+        mealType,
+        liked: false,
+        mealPlanId: currentPlan.id,
+      }, {
+        onSuccess: () => {
+          apiFetch(`/api/meal-plans/${currentPlan.id}/feedback`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ familyId, dayIndex, mealType, liked: false, action }),
+          }).catch(() => {});
+        },
+      });
+    }
+
+    const mealOrder = ["Breakfast", "Mid Morning", "Lunch", "Evening Snack", "Dinner"];
+    const currentIndex = mealOrder.indexOf(mealType);
+    const nextMeal = currentIndex < mealOrder.length - 1 ? mealOrder[currentIndex + 1] : null;
+    if (nextMeal) {
+      const mealCell = getDayMeal(days[dayIndex] || "", mealType);
+      const calories = mealCell?.calories ?? 0;
+      let sugType = "balanced";
+      if (calories > 400) sugType = "protein";
+      else if (mealType === "Breakfast" || mealType === "Lunch") sugType = "carbs";
+      else sugType = "light";
+      const sug = REBALANCE_SUGGESTIONS[sugType];
+      setRebalanceBanner({ dayIndex, nextMealType: nextMeal, suggestion: sug.en, suggestionHi: sug.hi });
+    }
+  };
 
   const { data: prepAlertsData } = useQuery({
     queryKey: ["prep-alerts", familyId, tomorrowMealsForPrep],
@@ -800,6 +945,86 @@ export default function MealPlan() {
         </div>
       )}
 
+      {/* ♻️ Leftover Router — Log what's left in the fridge */}
+      <div className="glass-card rounded-3xl p-5 border border-emerald-200/60" style={{ background: "rgba(236,253,245,0.65)" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <RefreshCcw className="w-4 h-4 text-emerald-600" />
+          <h3 className="font-bold text-sm text-emerald-800">{t("Log Leftovers", "बचा खाना लॉग करें")}</h3>
+          {(activeLeftovers?.length ?? 0) > 0 && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 ml-auto">
+              {activeLeftovers!.length} {t("active", "सक्रिय")}
+            </span>
+          )}
+        </div>
+
+        {quickChips.length > 0 && (
+          <div className="mb-3">
+            <p className="text-[10px] text-emerald-700/70 mb-1.5 font-medium">{t("Quick add from today's plan:", "आज की योजना से जल्दी जोड़ें:")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {quickChips.map(chip => (
+                <button
+                  key={chip}
+                  onClick={() => handleLogLeftoverChip(chip)}
+                  disabled={leftoverLogMutation.isPending}
+                  className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                >
+                  + {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={leftoverInput}
+            onChange={e => setLeftoverInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleLogLeftoverText()}
+            placeholder={t("Type: rice, dal, sabzi...", "टाइप करें: चावल, दाल, सब्जी...")}
+            className="flex-1 text-xs bg-white/80 border border-emerald-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 placeholder:text-emerald-400"
+          />
+          <button
+            onClick={handleLogLeftoverText}
+            disabled={!leftoverInput.trim() || leftoverLogMutation.isPending}
+            className="p-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleVoiceLeftover}
+            disabled={isRecordingLeftover}
+            className={`p-2 rounded-xl transition-colors ${isRecordingLeftover ? "bg-red-500 text-white animate-pulse" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}
+            title={t("Voice input", "वॉइस इनपुट")}
+          >
+            <Mic className="w-4 h-4" />
+          </button>
+        </div>
+
+        {(activeLeftovers?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {activeLeftovers!.map(item => (
+              <div key={item.id} className="flex items-center gap-1 text-[10px] bg-white border border-emerald-200 rounded-full pl-2.5 pr-1 py-0.5">
+                <span className="font-medium text-emerald-800">{item.ingredientName}</span>
+                <span className="text-emerald-500 flex items-center gap-0.5">
+                  <Timer className="w-2.5 h-2.5" />{item.hoursRemaining}h
+                </span>
+                <button
+                  onClick={() => dismissLeftoverMutation.mutate(item.id)}
+                  className="p-0.5 rounded-full hover:bg-emerald-100 text-emerald-400 hover:text-emerald-700 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[9px] text-emerald-600/60 mt-2 italic">
+          {t("Leftovers auto-expire after 48h. They'll be prioritized in your next plan regeneration.", "बचा खाना 48 घंटे बाद स्वतः समाप्त हो जाता है। अगली योजना में इसे प्राथमिकता दी जाएगी।")}
+        </p>
+      </div>
+
       {/* ♻️ Leftover Intelligence panel — collapsible */}
       {(() => {
         const chains: { day: string; meal: string; dish: string; isLeftover: boolean; icmrVerified: boolean }[] = [];
@@ -969,16 +1194,25 @@ export default function MealPlan() {
                     const cellKey = `${di}-${meal}`;
                     const isLoadingThisRecipe = loadingRecipeId === cellKey;
                     const displayMealName = lang === "hi" && cell.nameHindi ? cell.nameHindi : (cell.recipeName || cell.name || "—");
+                    const isSkipped = !!skippedMeals[feedbackKey];
+                    const skipAction = skippedMeals[feedbackKey];
 
                     return (
-                      <div key={meal} className={`p-3 space-y-1.5 ${mealColors[mi]}`}>
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                          {t(meal, mealTranslations[meal] ?? meal)}
-                        </p>
+                      <div key={meal} className={`p-3 space-y-1.5 ${mealColors[mi]} ${isSkipped ? "opacity-60" : ""}`}>
+                        <div className="flex items-center gap-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            {t(meal, mealTranslations[meal] ?? meal)}
+                          </p>
+                          {isSkipped && (
+                            <span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full ${skipAction === "skip" ? "bg-orange-100 text-orange-600" : "bg-violet-100 text-violet-600"}`}>
+                              {skipAction === "skip" ? t("Skipped", "छोड़ा") : t("Ate Out", "बाहर खाया")}
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => displayMealName !== "—" && openMealDetail(cell, cellKey)}
-                          className="text-left text-sm font-medium leading-snug text-foreground hover:text-primary transition-colors group flex items-start gap-1 w-full"
+                          className={`text-left text-sm font-medium leading-snug hover:text-primary transition-colors group flex items-start gap-1 w-full ${isSkipped ? "line-through text-muted-foreground" : "text-foreground"}`}
                           title={t("View recipe details", "रेसिपी विवरण देखें")}
                         >
                           <span className="flex-1">{displayMealName}</span>
@@ -1136,8 +1370,28 @@ export default function MealPlan() {
                           </div>
                         )}
 
-                        {/* Feedback + log actions */}
-                        <div className="flex gap-1 pt-0.5">
+                        {/* Rebalance banner — shown above next meal after skip */}
+                        {rebalanceBanner && rebalanceBanner.dayIndex === di && rebalanceBanner.nextMealType === meal && (
+                          <button
+                            onClick={() => {
+                              toast({ title: t("Suggestion applied to your plan!", "सुझाव आपकी योजना में लागू!") });
+                              setRebalanceBanner(null);
+                            }}
+                            className="w-full flex items-start gap-2 p-2 rounded-xl bg-blue-50 border border-blue-200 text-left transition-colors hover:bg-blue-100"
+                          >
+                            <Info className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-[10px] font-semibold text-blue-800">
+                                {t("Adjusted for today's meals.", "आज के भोजन के लिए समायोजित।")}
+                              </p>
+                              <p className="text-[9px] text-blue-700/80">{lang === "hi" ? rebalanceBanner.suggestionHi : rebalanceBanner.suggestion}</p>
+                              <p className="text-[8px] text-blue-500 mt-0.5 font-medium">{t("Tap to apply", "लागू करने के लिए टैप करें")}</p>
+                            </div>
+                          </button>
+                        )}
+
+                        {/* Feedback + log + skip actions */}
+                        <div className="flex gap-1 pt-0.5 flex-wrap">
                           <button
                             onClick={() => handleFeedback(di, meal, true)}
                             className={`p-1.5 rounded-lg transition-colors ${feedback === true ? "text-green-600 bg-green-100" : "text-muted-foreground hover:text-green-600 hover:bg-green-50"}`}
@@ -1160,13 +1414,25 @@ export default function MealPlan() {
                           >
                             {loggingMeal === logKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                           </button>
-                          <Link
-                            href="/scanner"
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors text-[9px] font-bold flex items-center"
-                            title={t("I ate something else", "कुछ और खाया")}
+                          <div className="border-l border-muted-foreground/20 mx-0.5" />
+                          <button
+                            onClick={() => handleSkipMeal(di, meal, "skip")}
+                            disabled={!!skippedMeals[feedbackKey]}
+                            className={`p-1.5 rounded-lg transition-colors text-[9px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "skip" ? "text-orange-600 bg-orange-100" : "text-muted-foreground hover:text-orange-600 hover:bg-orange-50"} disabled:opacity-50`}
+                            title={t("Skip", "छोड़ें")}
                           >
-                            +alt
-                          </Link>
+                            <SkipForward className="w-3 h-3" />
+                            {t("Skip", "छोड़ें")}
+                          </button>
+                          <button
+                            onClick={() => handleSkipMeal(di, meal, "ate_out")}
+                            disabled={!!skippedMeals[feedbackKey]}
+                            className={`p-1.5 rounded-lg transition-colors text-[9px] font-medium flex items-center gap-0.5 ${skippedMeals[feedbackKey] === "ate_out" ? "text-violet-600 bg-violet-100" : "text-muted-foreground hover:text-violet-600 hover:bg-violet-50"} disabled:opacity-50`}
+                            title={t("Ate Out", "बाहर खाया")}
+                          >
+                            <UtensilsCrossed className="w-3 h-3" />
+                            {t("Ate Out", "बाहर खाया")}
+                          </button>
                         </div>
                       </div>
                     );

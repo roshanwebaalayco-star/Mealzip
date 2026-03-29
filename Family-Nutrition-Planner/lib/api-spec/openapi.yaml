@@ -629,6 +629,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/ParsedVoiceProfile"
 
+  # ── Leftovers ─────────────────────────────────────────────────────────────
+  /leftovers:
+    get:
+      operationId: listActiveLeftovers
+      tags: [leftovers]
+      summary: List active (non-expired, non-used) leftover items for a family
+      parameters:
+        - name: familyId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active leftover items with hours remaining
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeftoverItem"
+    post:
+      operationId: logLeftover
+      tags: [leftovers]
+      summary: Log a single leftover item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogLeftoverBody"
+      responses:
+        "201":
+          description: Logged leftover item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeftoverItem"
+
+  /leftovers/batch:
+    post:
+      operationId: logLeftoverBatch
+      tags: [leftovers]
+      summary: Log multiple leftover items at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogLeftoverBatchBody"
+      responses:
+        "201":
+          description: Logged leftover items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeftoverItem"
+
+  /leftovers/{id}:
+    patch:
+      operationId: dismissLeftover
+      tags: [leftovers]
+      summary: Mark a leftover item as used up
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated leftover item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeftoverItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   # ── Demo ───────────────────────────────────────────────────────────────────
   /demo/sharma-family:
     get:
