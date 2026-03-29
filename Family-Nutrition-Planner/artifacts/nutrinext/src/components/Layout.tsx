@@ -253,7 +253,8 @@ export function Layout({ children }: { children: ReactNode }) {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] glass-panel rounded-t-3xl px-4 pt-3 pb-8 shadow-2xl"
+              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] glass-panel rounded-t-3xl px-4 pt-3 shadow-2xl overflow-y-auto"
+              style={{ maxHeight: "60vh", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
             >
               {/* Handle */}
               <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
