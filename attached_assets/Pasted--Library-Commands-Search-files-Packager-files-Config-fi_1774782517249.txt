@@ -1,0 +1,52 @@
+
+Library
+Commands
+Search files
+Packager files
+Config files
+#14 - Leftover Router, Skip/Replan Engine & Prep Reminders
+What & Why
+Indian households routinely reuse leftovers — yesterday's dal becomes today's dal paratha, leftover rice becomes lemon rice or curd rice. Currently, the leftover chain logic only works at generation time. This upgrade adds three real-time features:
+
+Leftover Router: Users can log what's left in the fridge. The system immediately prioritizes recipes that use those ingredients for the next meal, with a 48-hour expiry window. To minimize friction (typing "1 katori cooked rice" is tedious at 9 PM), the UI provides two low-effort input methods:
+
+Voice input: Reuse the existing Sarvam STT integration — user taps mic and says "Raat ki thodi sabzi aur chawal bache hain" (some sabzi and rice are left from tonight).
+Smart quick-chips: Auto-generate clickable chips based on the current meal plan. If today's plan suggested Rajma Chawal for lunch, the leftover UI auto-suggests [Rajma] and [Rice] chips — one tap to log.
+Skip/Replan with 1-Tap Rebalance: When a user skips a meal or eats out, the remaining day's nutrition targets auto-recalculate. Instead of just showing adjusted numbers, show an actionable banner above the next meal: "Lunch skipped. Tap here to auto-add a boiled egg and curd to tonight's dinner to hit your protein goal." This makes the recalculation actionable, not just informational. No guilt language — just neutral adjustments ("Adjusted for today's meals").
+
+D-1 Biochemical Prep Chain: Indian cooking relies heavily on advance preparation (soaking, fermenting, sprouting) that alters nutrient bioavailability. If the AI schedules Dosa for Tuesday, the app shows a reminder on Monday evening: "Reminder: Soak and grind dosa batter tonight. Fermentation reduces phytates and increases B-vitamin availability." This proves deep clinical understanding and reduces meal-plan abandonment from "I forgot to prep."
+
+Done looks like
+A leftover_items table tracks logged leftovers with familyId, ingredient name, quantity estimate, timestamp, 48-hour expiry, and used-up flag
+Leftover logging UI on the meal plan page with:
+Smart quick-chips auto-generated from the current day's planned meals (one tap to log)
+Voice input via existing Sarvam STT (tap mic, speak in any supported language)
+Custom text input for anything not in quick chips
+Active leftovers shown as tags with hours-remaining indicator and dismiss button
+When generating or regenerating a meal plan, active leftovers are injected into the Gemini prompt as "MUST USE FIRST" priority ingredients
+Each meal card has "Skip" and "Ate Out" buttons
+Skipping a meal triggers:
+A real-time visual recalculation of the day's remaining nutrition targets
+A contextual 1-tap rebalance banner above the next meal suggesting specific additions to compensate (e.g., "Add boiled egg + curd to dinner for protein")
+D-1 Prep reminders section on the meal plan page showing next-day prep tasks with clinical rationale (e.g., "Soak rajma tonight — reduces anti-nutrients, unlocks 30% more iron for Mom's anemia")
+Skipped/eaten-out meals are factored into the next plan regeneration
+The UI never uses guilt-based language
+Out of scope
+Push notifications or system-level reminders (prep reminders are in-app only)
+Automatic image-based leftover detection (manual + voice logging only)
+Full mid-day instant AI regeneration of all remaining meals (too expensive — show adjusted targets + 1-tap rebalance suggestions instead)
+Tasks
+Leftover tracking schema + API — Create a leftover_items table (id, familyId, ingredientName, quantityEstimate, loggedAt, expiresAt = loggedAt + 48h, usedUp boolean). Create API endpoints: POST to log, GET active (non-expired, non-used) for a family, PATCH to mark used. Add index on (familyId, expiresAt).
+Smart quick-chips leftover UI — Add a leftover logging section on the meal plan page. Auto-generate quick-chip suggestions from today's planned meal ingredients (parse the current plan's base_ingredients). Include voice input button (reuse Sarvam STT hook) and a custom text input. Show active leftovers as tags with hours-remaining and dismiss button.
+Leftover prompt injection — When generating a meal plan, query active leftovers for the family. Inject as a high-priority section: "LEFTOVER PRIORITY (USE THESE FIRST): [list with quantities and age in hours]. Design Day 1 meals to creatively use ALL of these before introducing new ingredients."
+Skip/eat-out tracking + 1-tap rebalance — Add "Skip" and "Ate Out" buttons on each meal card. On action: store in meal_feedback, visually strike through the meal, recalculate remaining day nutrition on the frontend. Show a contextual banner above the next meal with a specific rebalance suggestion (protein-heavy skip → suggest adding egg/curd to dinner; carb-heavy skip → suggest adding rice/roti). Make the banner tappable to apply the suggestion.
+D-1 Prep reminders — Analyze tomorrow's planned meals for prep-dependent ingredients (soaking: rajma/chana/dal; fermenting: dosa/idli batter; sprouting: moong; marinating: meat). Display a "Tonight's Prep" section with reminders that include clinical rationale (bioavailability improvements, anti-nutrient reduction). Use a static map of ingredient → prep requirement → health benefit.
+OpenAPI + codegen — Update the OpenAPI spec with new leftover endpoints and skip/ate-out action fields on meal feedback. Regenerate client hooks via Orval.
+Relevant files
+Family-Nutrition-Planner/lib/db/src/schema/
+Family-Nutrition-Planner/artifacts/api-server/src/routes/meal-plans/index.ts
+Family-Nutrition-Planner/artifacts/api-server/src/routes/meal-feedback.ts
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/MealPlan.tsx
+Family-Nutrition-Planner/lib/api-spec/openapi.yaml
+Family-Nutrition-Planner/artifacts/api-server/src/routes/voice.ts
+Dependencies

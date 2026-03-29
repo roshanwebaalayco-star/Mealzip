@@ -1,0 +1,43 @@
+#13 - Post-Generation Validation Gate & Thali Completeness Score
+What & Why
+Currently, clinical safety rules (diabetic GI limits, hypertension sodium caps, Jain ingredient restrictions) are enforced only through the Gemini prompt — relying on the LLM to never make mistakes. LLMs hallucinate; hard rules do not. This task adds an algorithmic post-generation validation layer that checks every generated meal plan against hard clinical and cultural constraints before the user ever sees it.
+
+Critical architectural decision — Over-Generation, not Retry Loops: The original plan used synchronous retry loops (generate → validate → regenerate up to 2×). At ~6 seconds per Gemini call, 3 retries mean an 18-second loading screen — users will abandon the app. Instead, use an Over-Generation & Sieve approach:
+
+Instruct Gemini to generate 3 candidate base meals per slot in a single API call (not 3 separate calls).
+Run the validation engine over all 3 candidates simultaneously.
+Serve the first candidate that passes 100% of hard checks.
+If all 3 fail (rare), immediately serve a pre-vetted hardcoded safe recipe from the database (e.g., Moong Dal Khichdi, Roti-Dal-Sabzi), styled exactly like an AI suggestion. The user never sees an error or a 20-second loader.
+Thali Completeness Score: Every meal is scored on whether it covers carb + protein + fat + fiber + vegetable (5 categories). Incomplete meals get auto-suggestions to complete the balance. This gives users a quick visual indicator of meal quality beyond just calories.
+
+Done looks like
+Gemini generates 3 candidate meals per slot in a single call
+A validateMealPlan() function runs hard checks per member per meal:
+Diabetic members: high-GI ingredient keywords (white rice, maida, potato, sugar) trigger rejection
+Hypertension members: high-sodium keywords (pickle, papad, processed) trigger rejection
+Jain profiles: onion, garlic, root vegetables (potato, carrot, radish, beetroot, turnip) trigger rejection
+Allergy cross-check: any declared allergen found in ingredients triggers rejection
+First passing candidate is served; if all fail, a hardcoded safe fallback is used instantly
+Each meal in the plan shows a Thali Completeness badge (e.g., "4/5" with filled/unfilled icons for carb 🌾, protein 💪, fat ✨, fiber 🥦, vegetable 🥗)
+Incomplete thalis show tap-to-expand suggestions like "+ Add curd/raita for protein" or "+ Add salad for fiber"
+Validation warnings (soft violations) are attached to the plan response for UI display
+Out of scope
+Real-time GI database lookup (use keyword-based GI estimation: high/medium/low categories)
+Sodium calculation from actual ingredient weights (use category-based estimation from meal type keywords)
+Rewriting the entire prompt architecture — this is a post-processing + schema change layer
+Tasks
+Validation engine — Create meal-plan-validator.ts with a validateMealPlan() function. Takes a generated plan + family member profiles, runs hard checks: diabetic GI estimation (keyword lists for high-GI and low-GI ingredients), hypertension sodium estimation (keyword-based: pickle/papad = ~800mg, standard curry = ~400mg, average = ~250mg), Jain forbidden ingredient list, and allergy cross-check. Returns a structured list of violations with severity (hard/soft), affected member, meal reference, rule name, detail, and correction hint.
+Over-generation prompt schema — Modify the Gemini JSON output schema to accept 3 candidate meals per slot (array of 3 options per meal). Update the prompt to instruct: "For each meal slot, provide exactly 3 different recipe options ranked by your confidence." Keep total token budget manageable by allowing shorter instructions for options 2 and 3.
+Sieve + fallback selection — After Gemini returns, run validateMealPlan() on each candidate. Select the first fully-passing option per slot. If all 3 fail for a slot, substitute a hardcoded safe recipe from a curated fallback map (keyed by meal type: breakfast/lunch/dinner × dietary preference). Attach any remaining soft violations as warnings.
+Thali completeness scorer — Create thali-scorer.ts with a scoreThaliCompleteness() function. Categorizes each meal's ingredients into 5 buckets (carb/protein/fat/fiber/vegetable) using keyword matching. Returns score out of 5, present categories, missing categories, and static suggestions for each missing category (e.g., missing protein → "Add curd/raita, dal, or paneer").
+Frontend thali badges — Create a ThaliScoreBadge component showing the score with category icons (filled = present, faded = missing). Tap to expand shows suggestions for missing categories. Integrate into each meal card on the MealPlan page. Color-code: green (4-5), orange (3), red (0-2).
+Relevant files
+Family-Nutrition-Planner/artifacts/api-server/src/routes/meal-plans/index.ts
+Family-Nutrition-Planner/artifacts/api-server/src/lib/icmr-nin.ts
+Family-Nutrition-Planner/artifacts/api-server/src/lib/festival-fasting.ts
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/MealPlan.tsx
+Dependencies
+
+
+
+
