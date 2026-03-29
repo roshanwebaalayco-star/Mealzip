@@ -1,0 +1,73 @@
+You are completely right to be frustrated. The conversation feels robotic, repetitive, and the AI is outright lying to you about changing the language. 
+
+Here is exactly what is going wrong under the hood:
+1. **The "Language Change" Hallucination:** The Gemini LLM doesn't control the frontend's text-to-speech engine (which is currently locked to Hindi based on your initial UI selection). When you say "change to English," Gemini, wanting to be helpful, says "Okay, changed!" but it actually has no power to change the browser's speech synthesizer voice. If it *did* start outputting English text, the Hindi voice engine would try to read it with a thick, broken accent.
+2. **The "Rude" Retry Loop:** When the microphone picks up background noise but no clear words, Sarvam AI returns an empty transcript. Your frontend hook currently handles this by blindly repeating the exact same hardcoded string (`"क्या आप दोबारा बोल सकते हैं?"`) infinitely.
+
+To fix this, we need to make the AI self-aware of its limitations and build a "Graceful Fallback" into the voice loop so it stops harassing the user after a few failed attempts.
+
+Here is the exact **Elite Master Prompt** to feed into Replit to fix both the hallucination and the rude loop.
+
+***
+
+### 📋 COPY AND PASTE THIS TO REPLIT 📋
+
+```text
+You are an Elite Staff Software Engineer building the 'NutriNext' Health OS. 
+
+CONTEXT: We have two critical UX bugs in our Voice Setup feature:
+1. **LLM State Hallucination:** Users are asking the AI to "Change language to English". The Gemini LLM agrees, but because the frontend Text-to-Speech (TTS) is locked to the language selected in the UI, it breaks. We need to instruct Gemini to handle this gracefully.
+2. **Infinite "Rude" Retry Loop:** When Sarvam STT returns empty transcripts (due to background noise), the app repeats the exact same hardcoded retry message infinitely ("I couldn't hear you"). This feels extremely rude. We need progressive fallbacks and an auto-abort.
+
+Execute these exact fixes step-by-step:
+
+### STEP 1: FIX THE LANGUAGE HALLUCINATION (`artifacts/api-server/src/routes/voice/chat-turn.ts`)
+We must explicitly forbid Gemini from pretending it can change the language mid-stream. 
+
+1. Locate the Gemini system prompt instructions inside `chat-turn.ts`.
+2. Add this EXACT behavioral rule to the system prompt:
+```javascript
+"CRITICAL RULE: You CANNOT change the spoken language mid-conversation. If the user asks you to switch to English or any other language, you MUST reply in the CURRENT active language: 'I cannot change languages mid-conversation. Please tap the Type Instead button, select your preferred language on the screen, and start the voice setup again.' Do NOT pretend to change the language."
+```
+
+### STEP 2: FIX THE RUDE RETRY LOOP (`artifacts/nutrinext/src/hooks/use-voice-assistant.ts` & `LANG_CFG`)
+We need to track consecutive transcription failures and abort gracefully if the mic isn't picking up the user.
+
+1. **In `LANG_CFG` (Backend or wherever the retry messages are defined):** Change `retryMsg` from a single string to an array of progressively helpful strings. 
+*Example for Hindi:* `retryMsgs: ["क्या आप दोबारा बोल सकते हैं?", "माफ़ करें, मुझे साफ़ नहीं सुनाई दिया।", "शायद नेटवर्क या माइक में कुछ दिक्कत है, क्या आप फिर से कहेंगे?"]`
+
+2. **In `useVoiceAssistant.ts`:**
+Add a `consecutiveFails` ref to track empty transcripts.
+```typescript
+const consecutiveFailsRef = useRef(0);
+```
+
+3. **Update the Main Loop Logic:**
+When the transcript is empty (or Sarvam returns a retry flag):
+```typescript
+if (!transcript || transcript.trim() === "") {
+  consecutiveFailsRef.current += 1;
+  
+  if (consecutiveFailsRef.current >= 3) {
+    // Abort gracefully after 3 fails
+    await speakText("मुझे आपकी आवाज़ नहीं मिल पा रही है। कृपया 'Type instead' बटन दबाकर जानकारी लिख दें।");
+    stop(); // Halt the voice assistant
+    break; 
+  } else {
+    // Pick a progressive retry message based on the fail count
+    const retryArray = currentLangConfig.retryMsgs; 
+    const fallbackMsg = retryArray[Math.min(consecutiveFailsRef.current - 1, retryArray.length - 1)];
+    await speakText(fallbackMsg);
+    continue; // Restart the mic listening phase
+  }
+} else {
+  // Reset fails on successful transcription
+  consecutiveFailsRef.current = 0; 
+}
+```
+
+### FINAL INSTRUCTIONS FOR AGENT:
+1. Ensure the `LANG_CFG` is updated for the primary languages to include the array of retry messages.
+2. Ensure the voice assistant cleanly unmounts or enters an "error/idle" state if the `consecutiveFails` threshold is hit.
+3. Output a summary of the modified files.
+```
