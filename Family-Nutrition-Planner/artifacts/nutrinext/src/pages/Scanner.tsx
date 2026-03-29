@@ -180,9 +180,9 @@ function PantryScanner({ familyId }: { familyId: number }) {
       <div className="glass-card rounded-3xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <Package className="w-5 h-5 text-primary" />
-          <h3 className="font-display font-bold">{t("Scan Your Pantry", "अपनी पेंट्री स्कैन करें")}</h3>
+          <h3 className="font-medium" style={{ letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>{t("Scan Your Pantry", "अपनी पेंट्री स्कैन करें")}</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+        <p className="text-xs mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t(
             "Take a photo of your fridge, pantry shelf, or vegetables. AI identifies ingredients and updates your grocery list.",
             "अपने फ्रिज, पेंट्री शेल्फ या सब्जियों की फोटो लें। AI सामग्री पहचानेगा और किराने की सूची अपडेट करेगा।"
@@ -470,23 +470,23 @@ export default function Scanner() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
-      className="p-4 md:p-8 max-w-2xl mx-auto space-y-5"
+      className="p-4 md:p-8 max-w-2xl mx-auto space-y-5 animate-fade-up"
     >
       {/* Header */}
       <div className="text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+        <p className="label-caps mb-1" style={{ color: 'var(--brand-600)' }}>
           AI Vision
         </p>
-        <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground">
+        <h1 className="text-2xl md:text-3xl font-semibold" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
           {mode === "food-log" ? t("Food Scanner", "फूड स्कैनर") : t("Pantry Scanner", "पेंट्री स्कैनर")}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
           {t("Powered by YOLOv11 & ICMR-NIN Data", "YOLOv11 और ICMR-NIN डेटा द्वारा संचालित")}
         </p>
       </div>
 
       {/* Mode tabs */}
-      <div className="glass-panel rounded-2xl p-1.5 flex gap-1">
+      <div className="glass-card rounded-2xl p-1.5 flex gap-1">
         <button
           onClick={() => setMode("food-log")}
           className={`flex-1 py-2 px-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${mode === "food-log" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
@@ -511,7 +511,7 @@ export default function Scanner() {
       {mode === "food-log" && <>
 
       {/* Meal type selector */}
-      <div className="glass-panel rounded-2xl p-3">
+      <div className="glass-card rounded-2xl p-3">
         <p className="text-xs font-semibold text-muted-foreground mb-2">{t("Log as:", "लॉग करें:")}</p>
         <div className="flex gap-2 flex-wrap">
           {(["breakfast", "lunch", "dinner", "snack"] as const).map(type => (
@@ -560,7 +560,7 @@ export default function Scanner() {
                   </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 glass-panel text-foreground/80 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-white/70 transition-colors"
+                    className="inline-flex items-center gap-2 glass-card text-foreground/80 text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-white/70 transition-colors"
                   >
                     <Camera className="w-4 h-4" />
                     {t("Take Photo", "फोटो लें")}
@@ -660,7 +660,7 @@ export default function Scanner() {
                 {scanMutation.isPending && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                     <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3" />
-                    <p className="font-display font-bold">{t("Analyzing food…", "भोजन की जांच हो रही है…")}</p>
+                    <p className="font-medium">{t("Analyzing food…", "भोजन की जांच हो रही है…")}</p>
                     <p className="text-xs text-white/60 mt-1">YOLOv11 detection</p>
                   </div>
                 )}
@@ -764,7 +764,7 @@ export default function Scanner() {
               {scanMutation.isSuccess && highConfidenceFoods.length > 0 && (
                 <div className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-display font-bold text-base">{t("Detected Items", "पहचाने गए भोजन")}</h3>
+                    <h3 className="font-medium text-base">{t("Detected Items", "पहचाने गए भोजन")}</h3>
                     <Badge className="text-xs bg-green-500/20 text-green-700">
                       {t("High confidence", "उच्च विश्वसनीयता")}
                     </Badge>
@@ -880,7 +880,7 @@ export default function Scanner() {
       </div>
 
       {/* Info note */}
-      <div className="glass-panel rounded-2xl p-4 flex gap-3">
+      <div className="glass-card rounded-2xl p-4 flex gap-3">
         <Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <p className="text-xs text-muted-foreground leading-relaxed">
           {t(

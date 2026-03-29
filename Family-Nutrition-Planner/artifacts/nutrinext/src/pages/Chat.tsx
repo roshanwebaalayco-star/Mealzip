@@ -200,17 +200,17 @@ export default function Chat() {
   const micPulseSize = Math.max(1, 1 + (volume / 100) * 0.6);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-screen p-4 md:p-6 w-full">
-      <div className="glass-card flex-1 rounded-3xl flex flex-col overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-screen p-4 md:p-6 w-full animate-fade-up">
+      <div className="glass-elevated flex-1 rounded-3xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="relative z-10 flex items-center gap-3 p-4 md:p-5 border-b border-white/60">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-orange-500 shadow shadow-primary/30">
+          <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl shadow" style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}>
             <Bot className="w-5 h-5 text-white" />
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <div>
-            <h2 className="font-display font-bold text-base leading-tight">Swasthya Sahayak (AI)</h2>
-            <p className="text-[11px] text-muted-foreground">Multilingual Nutrition Assistant</p>
+            <h2 className="font-medium text-base leading-tight" style={{ letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>Swasthya Sahayak (AI)</h2>
+            <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Multilingual Nutrition Assistant</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -252,13 +252,13 @@ export default function Chat() {
               animate={{ opacity: 1, y: 0 }}
               className="h-full flex flex-col items-center justify-center text-center text-muted-foreground"
             >
-              <div className="w-16 h-16 glass-panel rounded-3xl flex items-center justify-center mb-4">
-                <Bot className="w-8 h-8 text-primary/40" />
+              <div className="w-16 h-16 glass-elevated rounded-3xl flex items-center justify-center mb-4">
+                <Bot className="w-8 h-8" style={{ color: 'var(--brand-300)' }} />
               </div>
-              <p className="text-sm max-w-xs mb-1 leading-relaxed">
+              <p className="text-sm max-w-xs mb-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 Ask me anything about your family's nutrition, ICMR-NIN 2024 guidelines, or recipes.
               </p>
-              <p className="text-xs text-muted-foreground/70 mb-5">
+              <p className="text-xs mb-5" style={{ color: 'var(--text-tertiary)' }}>
                 Type in any language or tap Voice Chat to speak
               </p>
               <div className="flex flex-wrap justify-center gap-2 max-w-sm">
@@ -266,7 +266,7 @@ export default function Chat() {
                   <button
                     key={hint}
                     onClick={() => { setInput(hint); inputRef.current?.focus(); }}
-                    className="px-3.5 py-1.5 glass-card rounded-full text-xs font-medium text-foreground/70 hover:text-primary transition-colors"
+                    className="pill px-3.5 py-1.5 rounded-full text-xs font-medium hover:text-primary transition-colors"
                   >
                     "{hint}"
                   </button>
@@ -301,8 +301,8 @@ export default function Chat() {
                   <div
                     className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-gradient-to-br from-primary to-orange-500 text-white rounded-3xl rounded-tr-lg shadow-md shadow-primary/20"
-                        : "glass-panel rounded-3xl rounded-tl-lg text-foreground"
+                        ? "rounded-3xl rounded-tr-lg text-white shadow-md bg-gradient-to-br from-[var(--brand-400)] to-[var(--brand-600)]"
+                        : "glass-card rounded-3xl rounded-tl-lg"
                     }`}
                   >
                     {msg.role === "user" ? (
@@ -372,7 +372,7 @@ export default function Chat() {
               <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                 <Bot className="w-4 h-4 text-primary" />
               </div>
-              <div className="max-w-[78%] glass-panel rounded-3xl rounded-tl-lg px-4 py-3 text-sm text-foreground">
+              <div className="max-w-[78%] glass-card rounded-3xl rounded-tl-lg px-4 py-3 text-sm">
                 <div className="relative z-10 prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-foreground prose-strong:font-semibold prose-h3:text-sm prose-h2:text-sm">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentMessage}</ReactMarkdown>
                   <span className="inline-block w-1.5 h-4 bg-primary ml-0.5 rounded-sm animate-pulse align-middle" />
@@ -462,7 +462,7 @@ export default function Chat() {
           <div className="relative z-10 p-3 md:p-4 border-t border-white/60">
             <form
               onSubmit={handleSubmit}
-              className="flex items-center gap-2 bg-white/55 backdrop-blur-sm border border-white/80 rounded-2xl px-3 py-2 shadow-inner"
+              className="flex items-center gap-2 glass-card rounded-2xl px-3 py-2"
             >
               <button
                 type="button"
@@ -486,13 +486,13 @@ export default function Chat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Type your message or tap mic to speak…"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 py-1"
+                className="flex-1 bg-transparent text-sm outline-none py-1 placeholder:text-[var(--text-tertiary)]"
                 disabled={isStreaming}
               />
               <button
                 type="submit"
                 disabled={isStreaming || !input.trim()}
-                className="btn-liquid w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-brand w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
               </button>

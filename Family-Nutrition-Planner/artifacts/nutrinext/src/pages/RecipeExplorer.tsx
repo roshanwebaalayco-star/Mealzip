@@ -28,31 +28,31 @@ export default function RecipeExplorer() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 animate-fade-up">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+        <p className="label-caps mb-1" style={{ color: 'var(--brand-600)' }}>
           Database
         </p>
-        <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground leading-tight">
+        <h1 className="text-2xl md:text-3xl font-semibold leading-tight" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
           NutriNext Recipes
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
           Explore 58,000+ Indian recipes evaluated against ICMR-NIN 2024 standards.
         </p>
       </motion.div>
 
       {/* Search bar + filters */}
-      <div className="glass-panel rounded-2xl p-3 flex flex-col sm:flex-row gap-3 sticky top-0 z-30">
+      <div className="glass-elevated rounded-2xl p-3 flex flex-col sm:flex-row gap-3 sticky top-0 z-30">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
           <input
             type="text"
-            className="w-full bg-white/70 border border-white/80 rounded-xl pl-9 pr-4 h-11 text-sm placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+            className="input-glass w-full pl-9 pr-4 h-11 text-sm rounded-xl"
             placeholder="Search by ingredient or dish name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -65,8 +65,8 @@ export default function RecipeExplorer() {
               onClick={() => setDietFilter(diet)}
               className={`flex-shrink-0 h-11 px-4 rounded-xl text-sm font-semibold transition-all ${
                 dietFilter === diet
-                  ? "bg-secondary text-white shadow-sm shadow-secondary/20"
-                  : "bg-white/60 border border-white/80 text-foreground/70 hover:bg-white/90"
+                  ? "pill-active"
+                  : "pill"
               }`}
             >
               {dietLabels[diet]}
@@ -81,7 +81,7 @@ export default function RecipeExplorer() {
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 stagger">
           {data?.recipes?.map((recipe, i) => (
             <motion.div
               key={recipe.id}
@@ -126,7 +126,7 @@ export default function RecipeExplorer() {
 
               {/* Info */}
               <div className="p-4 relative z-10">
-                <h3 className="font-display font-bold text-sm line-clamp-1 text-foreground">
+                <h3 className="font-medium text-sm line-clamp-1" style={{ color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
                   {recipe.name}
                 </h3>
                 {recipe.nameHindi && (
@@ -135,11 +135,11 @@ export default function RecipeExplorer() {
                   </p>
                 )}
                 <div className="flex items-center gap-2.5 mt-3">
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 bg-orange-50 px-2 py-1 rounded-lg">
+                  <span className="pill-brand inline-flex items-center gap-1 text-xs">
                     <Flame className="w-3 h-3" />
                     {recipe.calories} kcal
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/60 px-2 py-1 rounded-lg">
+                  <span className="pill inline-flex items-center gap-1 text-xs">
                     <Clock className="w-3 h-3" />
                     {(recipe.prepTimeMin || 0) + (recipe.cookTimeMin || 0)}m
                   </span>
@@ -150,8 +150,8 @@ export default function RecipeExplorer() {
           ))}
 
           {data?.recipes?.length === 0 && (
-            <div className="col-span-full py-20 text-center text-sm text-muted-foreground">
-              No recipes found. Try a different search or filter.
+            <div className="col-span-full py-20 text-center glass-card rounded-3xl flex flex-col items-center justify-center p-12">
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No recipes found. Try a different search or filter.</p>
             </div>
           )}
         </div>

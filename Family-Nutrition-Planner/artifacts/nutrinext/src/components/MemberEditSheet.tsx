@@ -140,7 +140,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
     <Sheet open={!!member} onOpenChange={open => { if (!open) onClose(); }}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl">
         <SheetHeader className="mb-4">
-          <SheetTitle className="text-lg font-display font-bold">
+          <SheetTitle className="text-lg font-sans font-bold">
             {t("Edit Profile", "प्रोफाइल संपादित करें")} — {member.name}
           </SheetTitle>
         </SheetHeader>

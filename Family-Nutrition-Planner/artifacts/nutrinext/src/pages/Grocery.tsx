@@ -366,7 +366,7 @@ export default function Grocery() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="glass-card rounded-3xl p-8 text-center max-w-sm">
           <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="font-display font-bold text-xl mb-2">{t("No Family Selected", "परिवार नहीं चुना गया")}</h2>
+          <h2 className="font-medium text-xl mb-2">{t("No Family Selected", "परिवार नहीं चुना गया")}</h2>
           <p className="text-muted-foreground text-sm">{t("Please set up your family first.", "पहले अपना परिवार सेट करें।")}</p>
         </div>
       </div>
@@ -374,7 +374,7 @@ export default function Grocery() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 animate-fade-up">
       {/* Hidden scan file input */}
       <input
         ref={pantryScanInputRef}
@@ -388,10 +388,10 @@ export default function Grocery() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 print:hidden">
         <div>
-          <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground">
+          <h1 className="font-semibold text-2xl md:text-3xl" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
             {t("Kitchen Inventory", "रसोई इन्वेंटरी")}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
             {t("Track your pantry & generate smart shopping lists", "पेंट्री ट्रैक करें और स्मार्ट खरीदारी सूची बनाएं")}
           </p>
         </div>
@@ -630,7 +630,7 @@ export default function Grocery() {
       {activeTab === "list" && !isLoading && !latest && (
         <div className="glass-card rounded-3xl p-8 text-center space-y-4">
           <ShoppingCart className="w-16 h-16 text-muted-foreground/50 mx-auto" />
-          <h2 className="font-display font-bold text-xl">{t("No Grocery List Yet", "अभी तक कोई सूची नहीं")}</h2>
+          <h2 className="font-medium text-xl">{t("No Grocery List Yet", "अभी तक कोई सूची नहीं")}</h2>
           <p className="text-muted-foreground text-sm">
             {t("Generate a grocery list based on your meal plan with AI-powered budget tips.", "AI द्वारा बजट टिप्स के साथ अपनी मील योजना के आधार पर खरीदारी सूची बनाएं।")}
           </p>
@@ -690,7 +690,7 @@ export default function Grocery() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="glass-card rounded-2xl p-4">
               <p className="text-xs text-muted-foreground mb-1">{t("Est. Total", "अनुमानित कुल")}</p>
-              <p className="font-display font-bold text-xl text-foreground">
+              <p className="font-medium text-xl text-foreground">
                 ₹{latest.totalEstimatedCost || latest.items?.totalEstimatedCost || 0}
               </p>
             </div>
@@ -702,7 +702,7 @@ export default function Grocery() {
             </div>
             <div className="glass-card rounded-2xl p-4">
               <p className="text-xs text-muted-foreground mb-1">{t("Checked Off", "खरीदा गया")}</p>
-              <p className="font-display font-bold text-xl text-foreground">{checkedCount}/{totalItems}</p>
+              <p className="font-medium text-xl text-foreground">{checkedCount}/{totalItems}</p>
             </div>
             <div className="glass-card rounded-2xl p-4">
               <p className="text-xs text-muted-foreground mb-1">{t("Week Of", "सप्ताह")}</p>
@@ -1051,13 +1051,13 @@ export default function Grocery() {
               <div className={`rounded-2xl border-2 p-5 flex flex-col gap-2 print:break-inside-avoid ${isOver ? "border-red-400/50 bg-red-50/60" : "border-green-400/50 bg-green-50/60"}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <IndianRupee className={`w-5 h-5 ${isOver ? "text-red-600" : "text-green-600"}`} />
-                  <h3 className="font-display font-bold text-base text-foreground">
+                  <h3 className="font-medium text-base text-foreground">
                     {t("Total Estimated Kirana Bill", "कुल अनुमानित किराना बिल")}
                   </h3>
                 </div>
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className={`font-display font-bold text-3xl ${isOver ? "text-red-700" : "text-green-700"}`}>
+                    <p className={`font-medium text-3xl ${isOver ? "text-red-700" : "text-green-700"}`}>
                       ₹{totalCost}
                     </p>
                     <p className={`text-sm font-medium mt-0.5 ${isOver ? "text-red-600" : "text-green-700"}`}>

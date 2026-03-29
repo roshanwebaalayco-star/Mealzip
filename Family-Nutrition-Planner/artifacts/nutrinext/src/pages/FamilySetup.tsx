@@ -452,9 +452,9 @@ export default function FamilySetup() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto animate-fade-up">
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-foreground">
+        <h1 className="text-3xl font-semibold" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
           {step === 1 ? t("Family Details", "परिवार का विवरण") : t("Family Members", "सदस्य")}
         </h1>
         <div className="flex gap-2 mt-4">
@@ -919,7 +919,7 @@ export default function FamilySetup() {
                   </button>
                 )}
                 
-                <h3 className="font-display font-bold text-lg mb-4">{t("Member", "सदस्य")} #{idx + 1}</h3>
+                <h3 className="font-medium text-lg mb-4">{t("Member", "सदस्य")} #{idx + 1}</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">

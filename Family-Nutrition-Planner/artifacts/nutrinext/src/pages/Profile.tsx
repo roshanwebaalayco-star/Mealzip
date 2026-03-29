@@ -233,7 +233,7 @@ export default function Profile() {
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
+        <h1 className="text-3xl font-medium text-foreground flex items-center gap-3">
           <User className="w-7 h-7 text-primary" />
           {t("Family Profiles", "परिवार प्रोफाइल")}
         </h1>

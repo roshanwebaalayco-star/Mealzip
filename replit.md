@@ -11,7 +11,7 @@ Key differentiators:
 - **YOLOv11 food scanner** (`DEMO_MODE=true` in dev returns mock data; production requires `YOLOV11_INFERENCE_URL`)
 - **Sarvam AI multilingual voice** support (Hindi, Bhojpuri, Bengali, Tamil, etc.)
 - **Multi-faith fasting calendar** covering Hindu, Islamic (Ramadan), Jain, and Sikh fasts
-- **Liquid Glass 2025+** design system with Framer Motion animations
+- **Apple-tier Glass Design System** — complete visual overhaul with Inter typography, design tokens (--brand-*, --text-*, --glass-*), glass-card/glass-elevated/glass-sidebar primitives, animate-fade-up/animate-scale-in animations, label-caps/pill/pill-brand component classes, input-glass form styling, btn-primary/btn-brand buttons, gradient-mesh background, and stagger grid animations
 
 ## User Preferences
 

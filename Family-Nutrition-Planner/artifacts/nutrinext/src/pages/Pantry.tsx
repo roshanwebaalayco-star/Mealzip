@@ -241,7 +241,7 @@ export default function Pantry() {
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-display font-bold text-foreground">
+        <h1 className="text-3xl font-medium text-foreground">
           My Pantry / मेरी पेंट्री
         </h1>
         <p className="text-muted-foreground text-sm">

@@ -337,10 +337,10 @@ export default function HealthLog() {
   const urgencyColor = { routine: "bg-green-500/20 text-green-700", soon: "bg-yellow-500/20 text-yellow-700", urgent: "bg-red-500/20 text-red-700" };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6 animate-fade-up">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display font-bold text-2xl md:text-3xl text-foreground">
+          <h1 className="font-semibold text-2xl md:text-3xl" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
             {t("Health & Nutrition", "स्वास्थ्य और पोषण")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -407,7 +407,7 @@ export default function HealthLog() {
       <div className="space-y-4" role="tabpanel" aria-label={t("Nutrition", "पोषण")}>
         <div className="flex items-center gap-2">
           <Target className="w-5 h-5 text-primary" />
-          <h2 className="font-display font-bold text-lg text-foreground">
+          <h2 className="font-medium text-lg text-foreground">
             {t("Nutrition Tracker", "पोषण ट्रैकर")}
           </h2>
           <span className="text-xs text-muted-foreground">
@@ -436,11 +436,11 @@ export default function HealthLog() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-display font-bold text-xl">{overallScore}%</span>
+                  <span className="font-medium text-xl">{overallScore}%</span>
                 </div>
               </div>
               <div className="flex-1">
-                <h3 className="font-display font-bold text-lg text-foreground">
+                <h3 className="font-medium text-lg text-foreground">
                   {summary.member.name} — {t("Today's Progress", "आज की प्रगति")}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -609,7 +609,7 @@ export default function HealthLog() {
         {!nutritionLoading && !summary && activeMemberId && (
           <div className="glass-card rounded-3xl p-8 text-center space-y-3">
             <ActivitySquare className="w-12 h-12 text-muted-foreground/50 mx-auto" />
-            <h2 className="font-display font-bold text-xl">{t("No Nutrition Data Today", "आज कोई पोषण डेटा नहीं")}</h2>
+            <h2 className="font-medium text-xl">{t("No Nutrition Data Today", "आज कोई पोषण डेटा नहीं")}</h2>
             <p className="text-muted-foreground text-sm">
               {t("Log your meals in the Chat or Scanner to see nutrition progress.", "पोषण प्रगति देखने के लिए चैट या स्कैनर में अपना भोजन लॉग करें।")}
             </p>
@@ -622,7 +622,7 @@ export default function HealthLog() {
       <div className="space-y-4" role="tabpanel" aria-label={t("Health", "स्वास्थ्य")}>
         <div className="flex items-center gap-2">
           <Heart className="w-5 h-5 text-red-500" />
-          <h2 className="font-display font-bold text-lg text-foreground">
+          <h2 className="font-medium text-lg text-foreground">
             {t("Health Log", "स्वास्थ्य लॉग")}
           </h2>
           <span className="text-xs text-muted-foreground">
@@ -687,7 +687,7 @@ export default function HealthLog() {
           !showLogForm && (
             <div className="glass-card rounded-3xl p-8 text-center space-y-3">
               <ClipboardList className="w-12 h-12 text-muted-foreground/40 mx-auto" />
-              <h3 className="font-display font-bold text-lg">{t("No Health Records Yet", "अभी तक कोई स्वास्थ्य रिकॉर्ड नहीं")}</h3>
+              <h3 className="font-medium text-lg">{t("No Health Records Yet", "अभी तक कोई स्वास्थ्य रिकॉर्ड नहीं")}</h3>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
                 {t(
                   "Start tracking your weight, blood pressure, and blood sugar to see trends and get personalized insights.",

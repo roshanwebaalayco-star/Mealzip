@@ -537,7 +537,7 @@ export default function MealPlan() {
           <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <Utensils className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-display font-bold mb-2 relative z-10">{t("No Meal Plan Yet", "अभी कोई भोजन योजना नहीं")}</h2>
+          <h2 className="text-2xl font-medium mb-2 relative z-10">{t("No Meal Plan Yet", "अभी कोई भोजन योजना नहीं")}</h2>
           <p className="text-sm text-muted-foreground mb-8 leading-relaxed relative z-10">
             {t("Generate an AI-powered 7-day plan optimized for your family's health, budget & tastes using ICMR-NIN 2024 guidelines.", "ICMR-NIN 2024 दिशानिर्देशों का उपयोग करके आपके परिवार के स्वास्थ्य, बजट और स्वाद के लिए AI-संचालित 7-दिवसीय योजना बनाएं।")}
           </p>
@@ -667,15 +667,15 @@ export default function MealPlan() {
         </div>
       )}
       {/* Header */}
-      <div className="glass-panel rounded-3xl p-5 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
+      <div className="glass-elevated rounded-3xl p-5 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
         <div className="relative z-10">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary mb-1">
+          <p className="label-caps mb-1" style={{ color: 'var(--brand-600)' }}>
             {t("Weekly Plan", "साप्ताहिक योजना")}
           </p>
-          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground leading-tight">
+          <h1 className="text-2xl md:text-3xl font-semibold leading-tight" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
             {t("Weekly Meal Plan", "साप्ताहिक भोजन योजना")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
             {format(new Date(currentPlan.weekStartDate), "MMM d, yyyy")}
           </p>
           {/* Budget tracker — green < 80%, orange 80-100%, red > 100% */}

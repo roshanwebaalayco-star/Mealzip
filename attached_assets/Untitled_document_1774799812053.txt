@@ -1,0 +1,1086 @@
+﻿You are the Lead Design Engineer at a world-class product studio.
+Your only job right now is a complete visual overhaul of the
+ParivarSehat AI app. You are not touching any logic, state,
+API calls, routing, or backend. You are only upgrading the
+visual layer to Apple-tier quality.
+
+
+Read every instruction completely before writing a single line.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE GUARDRAILS — NEVER VIOLATE THESE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+1. Zero logic changes. Do not touch useState, useEffect,
+   useRef, useContext, API calls, event handlers, routing,
+   or any TypeScript logic. Only className strings change.
+
+
+2. Do not remove any id, data-testid, aria-label, or
+   accessibility attributes.
+
+
+3. Do not rename, move, or delete any component files.
+
+
+4. Do not change any shadcn/ui component's internal logic.
+   Only wrap them or override their className props.
+
+
+5. After every file change, confirm the file compiles
+   without TypeScript errors before moving to the next file.
+
+
+6. Work through files in the exact order listed below.
+   Do not skip ahead.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — DESIGN TOKEN FOUNDATION
+File: client/src/index.css or globals.css
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Replace the entire CSS variables block with this
+complete design token system:
+
+
+:root {
+  /* Core backgrounds */
+  --bg-page: #f2f1ed;
+  --bg-surface: rgba(255, 255, 255, 0.65);
+  --bg-surface-hover: rgba(255, 255, 255, 0.80);
+  --bg-elevated: rgba(255, 255, 255, 0.85);
+  --bg-overlay: rgba(255, 255, 255, 0.40);
+
+
+  /* Glass treatment */
+  --glass-blur: blur(24px);
+  --glass-border: rgba(255, 255, 255, 0.30);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06),
+                  0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.10),
+                        0 2px 4px rgba(0, 0, 0, 0.06);
+
+
+  /* Typography */
+  --text-primary: #1a1915;
+  --text-secondary: #5c5a52;
+  --text-tertiary: #9c9a90;
+  --text-inverse: #ffffff;
+
+
+  /* Brand — warm saffron palette (Indian identity) */
+  --brand-50:  #fff8ed;
+  --brand-100: #ffefd0;
+  --brand-200: #ffd899;
+  --brand-400: #f5a623;
+  --brand-600: #d4820a;
+  --brand-800: #7c4a06;
+  --brand-900: #3d2503;
+
+
+  /* Semantic */
+  --success: #2d7a4f;
+  --success-bg: #eaf5ee;
+  --warning: #b45309;
+  --warning-bg: #fef3c7;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --info: #1d4ed8;
+  --info-bg: #eff6ff;
+
+
+  /* Spacing rhythm */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+
+  /* Motion */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+
+.dark {
+  --bg-page: #0f0f0d;
+  --bg-surface: rgba(28, 27, 24, 0.70);
+  --bg-surface-hover: rgba(36, 35, 30, 0.85);
+  --bg-elevated: rgba(44, 43, 38, 0.90);
+  --bg-overlay: rgba(20, 20, 16, 0.50);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.40);
+  --glass-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.60);
+  --text-primary: #f0ede4;
+  --text-secondary: #a8a49a;
+  --text-tertiary: #5c5a52;
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — TYPOGRAPHY SYSTEM
+File: client/src/index.css (continued)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Add the following to the HTML head in index.html:
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600&display=swap" rel="stylesheet">
+
+
+Then add these global typography rules to globals.css:
+
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+
+h1 {
+  font-size: clamp(24px, 4vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+
+h2 {
+  font-size: clamp(19px, 3vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+
+h3 {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+
+p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+
+.label-caps {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+
+.number-display {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  letter-spacing: -0.02em;
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — REUSABLE GLASS UTILITY CLASSES
+File: client/src/index.css (continued)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Add these utility classes. Every card, modal, panel,
+and floating element in the app must use one of these.
+Never use a plain white or solid background again.
+
+
+.glass-card {
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--duration-normal) var(--ease-smooth),
+              transform var(--duration-normal) var(--ease-smooth),
+              background var(--duration-normal) var(--ease-smooth);
+}
+
+
+.glass-card:hover {
+  background: var(--bg-surface-hover);
+  box-shadow: var(--glass-shadow-hover);
+  transform: translateY(-2px);
+}
+
+
+.glass-elevated {
+  background: var(--bg-elevated);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-hover);
+  border-radius: var(--radius-xl);
+}
+
+
+.glass-overlay {
+  background: var(--bg-overlay);
+  backdrop-filter: blur(48px);
+  -webkit-backdrop-filter: blur(48px);
+  border: 1px solid var(--glass-border);
+}
+
+
+.glass-nav {
+  background: rgba(242, 241, 237, 0.80);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+
+/* Animated gradient background behind glass elements */
+.gradient-mesh {
+  background:
+    radial-gradient(ellipse at 20% 20%,
+      rgba(245, 166, 35, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%,
+      rgba(45, 122, 79, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 50%,
+      rgba(29, 78, 216, 0.04) 0%, transparent 70%),
+    var(--bg-page);
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — COMPONENT PRIMITIVES
+File: client/src/index.css (continued)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-spring);
+}
+
+
+.btn-primary:hover {
+  transform: scale(1.02) translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.20);
+}
+
+
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-smooth);
+}
+
+
+.btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.20);
+  transform: scale(1.01);
+}
+
+
+.btn-brand {
+  background: linear-gradient(135deg,
+    var(--brand-400) 0%,
+    var(--brand-600) 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 16px rgba(245, 166, 35, 0.30);
+}
+
+
+.btn-brand:hover {
+  box-shadow: 0 8px 28px rgba(245, 166, 35, 0.45);
+  transform: scale(1.02) translateY(-1px);
+}
+
+
+/* Inputs */
+.input-glass {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.50);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all var(--duration-normal) var(--ease-smooth);
+}
+
+
+.input-glass::placeholder {
+  color: var(--text-tertiary);
+}
+
+
+.input-glass:focus {
+  background: rgba(255, 255, 255, 0.80);
+  border-color: var(--brand-400);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.12);
+}
+
+
+/* Pills and tags */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-smooth);
+  cursor: pointer;
+}
+
+
+.pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+
+
+.pill-active {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: white;
+}
+
+
+.pill-brand {
+  background: var(--brand-50);
+  border-color: var(--brand-200);
+  color: var(--brand-800);
+}
+
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.06) 20%,
+    rgba(0, 0, 0, 0.06) 80%,
+    transparent 100%);
+  border: none;
+  margin: var(--space-lg) 0;
+}
+
+
+/* Progress bars */
+.progress-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 600ms var(--ease-spring);
+}
+
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-danger  { background: var(--danger-bg);  color: var(--danger);  }
+.badge-info    { background: var(--info-bg);    color: var(--info);    }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — ANIMATION SYSTEM
+File: client/src/index.css (continued)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+
+.animate-fade-up {
+  animation: fadeUp var(--duration-slow) var(--ease-spring) forwards;
+}
+
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-spring) forwards;
+}
+
+
+.animate-slide-right {
+  animation: slideInRight var(--duration-normal) var(--ease-smooth) forwards;
+}
+
+
+/* Staggered children */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — MAIN LAYOUT WRAPPER
+File: client/src/App.tsx or main layout file
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Find the outermost wrapper div of the entire app.
+Add these classes to it:
+  gradient-mesh min-h-screen
+
+
+Find the main content area wrapper.
+Add:
+  max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8
+
+
+Do not change any routing logic or component tree.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — NAVIGATION / SIDEBAR
+File: Navigation component or Sidebar component
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Apply glass-nav to the navigation container.
+
+
+For the app logo/brand text:
+- Font weight 600
+- Letter spacing -0.04em
+- Add a small saffron dot or accent next to the
+  name: color var(--brand-400)
+
+
+For nav items:
+- Default state: color var(--text-tertiary),
+  font-weight 450, no background
+- Hover state: color var(--text-primary),
+  background rgba(0,0,0,0.04),
+  border-radius var(--radius-md),
+  transition all 200ms ease
+- Active state: color var(--text-primary),
+  font-weight 500,
+  background rgba(0,0,0,0.06)
+
+
+Remove all harsh borders from the sidebar.
+Use the divider class between nav sections.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — DASHBOARD PAGE
+File: client/src/pages/Dashboard.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Page wrapper: Add animate-fade-up to the main container.
+
+
+Harmony Score card:
+- Apply glass-elevated
+- The score number: font-size 64px, font-weight 300,
+  letter-spacing -0.05em, color var(--text-primary)
+- The label below it: label-caps class
+- Add a soft circular progress ring around the number
+  using SVG stroke-dasharray. Color: var(--brand-400)
+  for filled portion, rgba(0,0,0,0.06) for track.
+
+
+Member nutrition cards:
+- Apply glass-card to each card
+- Add stagger class to the cards container
+- Each card gets animate-fade-up
+- Member name: font-weight 500, font-size 15px
+- Progress bars: use progress-track and progress-fill
+- Color the fill based on completion:
+  Under 50%: var(--danger)
+  50-80%: var(--warning)
+  Over 80%: var(--success)
+
+
+Quick AI chat widget:
+- Apply glass-elevated
+- Input: input-glass class
+- Send button: btn-brand class
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9 — FAMILY SETUP PAGE
+File: client/src/pages/FamilySetup.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Multi-step form container: glass-elevated, max-w-2xl mx-auto
+
+
+Step indicator at the top:
+- Small dots or pills showing current step
+- Active step: pill-brand
+- Completed step: pill-active
+- Inactive step: pill
+- Connect dots with a thin line
+  rgba(0,0,0,0.08), 1px height
+
+
+Each form section heading:
+- h3 tag styling applies automatically
+- Add a small brand-colored left border accent:
+  border-left: 2px solid var(--brand-400)
+  padding-left: 12px
+
+
+All text inputs: input-glass class
+All select dropdowns: input-glass class
+All checkboxes: accent-color var(--brand-400) in CSS
+All radio buttons: accent-color var(--brand-400)
+
+
+Dietary type selector and other option groups:
+- Replace any dropdown or radio group with
+  pill-based selectors
+- Use pill class for unselected
+- Use pill-active for selected
+- Arrange in a flex-wrap row with gap-2
+
+
+Member card (each family member):
+- glass-card
+- Member avatar: a circle with initials,
+  background var(--brand-50),
+  color var(--brand-800),
+  font-weight 600,
+  width 44px height 44px
+
+
+Primary CTA button at the bottom: btn-primary
+Secondary/back button: btn-secondary
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10 — MEAL PLAN PAGE
+File: client/src/pages/MealPlan.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Page header area:
+- "This Week's Plan" heading: h1 styling
+- Week date range: label-caps class
+- Generate button: btn-brand
+- Add a small loading spinner inside the
+  generate button when it is in pending state
+
+
+7-day calendar grid:
+- Each day column header: label-caps class
+- Day name in the column: font-weight 500
+
+
+Each meal card:
+- glass-card
+- Meal type label (Breakfast/Lunch/Dinner): label-caps
+- Recipe name: font-weight 500, font-size 15px,
+  letter-spacing -0.01em
+- Calorie count: number-display, font-size 13px,
+  color var(--text-tertiary)
+- Cuisine/zone pill: pill-brand
+- Thumbs up/down buttons:
+  Default: color var(--text-tertiary)
+  Hover: scale(1.1) transition
+  Active liked: color var(--success)
+  Active disliked: color var(--danger)
+
+
+Harmony Score section:
+- Full-width glass-elevated panel
+- Same treatment as dashboard score
+
+
+Member plate breakdown cards:
+- glass-card per member
+- Each member gets a colored left border using
+  a unique color from the brand palette rotated
+  per member index
+
+
+Leftover chain connectors:
+- Small pill between connected meals
+- Background var(--brand-50)
+- Border var(--brand-200)
+- Font-size 11px
+- A subtle arrow icon connecting the two meals
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 11 — MEAL GENERATION POPUP
+File: Meal generation popup/modal component
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Modal overlay: glass-overlay + animate-fade-in
+Modal container: glass-elevated + animate-scale-in
+  max-w-lg mx-auto, max-h-[85vh], overflow-y-auto
+
+
+Modal header:
+- Title: h2 styling
+- Subtitle: p styling, font-size 14px
+- Close button: btn-secondary, padding 8px,
+  border-radius var(--radius-full)
+
+
+Each section inside the popup:
+- Separated by divider class
+- Section label: label-caps
+
+
+Budget input: input-glass with ₹ prefix
+  displayed as a glass-inset label
+
+
+Per-member sections:
+- Each member in a glass-card
+- Member avatar circle (same as family setup)
+- Member name: font-weight 500
+- Their controls below in a clean column
+
+
+Special request textarea:
+- input-glass
+- min-height 80px
+- Character counter in bottom right:
+  font-size 12px, color var(--text-tertiary)
+
+
+Confirm button: btn-brand, full width, height 52px
+  font-size 16px, font-weight 500
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 12 — CHAT PAGE
+File: client/src/pages/Chat.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Page layout: Two column on desktop —
+  Left sidebar: conversation list, glass-nav treatment
+  Right main: chat window
+
+
+Conversation list items:
+- pill treatment for each item
+- Active conversation: glass-card background
+- Hover: background rgba(0,0,0,0.03)
+
+
+Chat window:
+- glass-card for the overall container
+- Background slightly lighter than the page
+
+
+User messages:
+- background var(--text-primary)
+- color white
+- border-radius: var(--radius-lg) var(--radius-sm)
+  var(--radius-lg) var(--radius-lg)
+- max-width 72%, margin-left auto
+- font-size 15px
+
+
+AI messages:
+- background rgba(255,255,255,0.70)
+- backdrop-filter blur(8px)
+- border: 1px solid var(--glass-border)
+- border-radius: var(--radius-sm) var(--radius-lg)
+  var(--radius-lg) var(--radius-lg)
+- max-width 80%, margin-right auto
+
+
+Streaming/typing indicator:
+- Three dots with pulse-soft animation
+- Same bubble style as AI messages
+
+
+Message input area at bottom:
+- glass-elevated panel
+- input-glass for the text field
+- Send button: btn-brand, circular 40x40px
+- Mic/attach icons: color var(--text-tertiary)
+  hover color var(--text-primary)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 13 — NUTRITION TRACKER PAGE
+File: client/src/pages/Nutrition.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Daily summary card: glass-elevated, full width
+- Calorie ring: large SVG donut chart,
+  brand color fill, gray track
+- Total consumed: number-display,
+  font-size 48px, font-weight 300
+- Target below: label-caps
+
+
+Individual nutrient progress bars:
+- glass-card per nutrient
+- Nutrient name: font-weight 500, font-size 14px
+- Amount: number-display, font-size 13px,
+  color var(--text-secondary)
+- Bar: progress-track + progress-fill
+  Color by nutrient type:
+  Calories: var(--brand-400)
+  Protein: var(--info)
+  Carbs: var(--warning)
+  Fat: var(--success)
+  Iron: var(--danger)
+  Calcium: #7c3aed
+
+
+Meal breakdown tabs:
+- pill-based tab selector
+- Active: pill-active
+- Inactive: pill
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 14 — GROCERY PAGE
+File: client/src/pages/Grocery.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Total budget bar at top: glass-elevated
+- Budget used vs total:
+  Large progress-track, height 10px
+  Fill: var(--brand-400)
+- Numbers: number-display class
+
+
+Category sections:
+- label-caps for category heading
+- Subtle left border accent per category:
+  Vegetables: var(--success)
+  Grains: var(--warning)
+  Dairy: var(--info)
+  Protein: var(--danger)
+
+
+Each grocery item row:
+- No card per item — keep it list-like
+- Checkbox: accent-color var(--brand-400)
+- Item name: font-weight 450
+- Cost: number-display, color var(--text-tertiary)
+- Swap button: pill class, very small
+- Checked items: text-decoration line-through,
+  color var(--text-tertiary), opacity 0.5
+- Transition the strikethrough: 300ms ease
+
+
+Cheaper alternative pill:
+- pill-brand class
+- Small downward arrow icon before the text
+- "Save ₹X" text in var(--success)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 15 — HEALTH LOG PAGE
+File: client/src/pages/Health.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Vitals entry cards: glass-card per vital type
+- Icon area: 40x40px circle,
+  background var(--brand-50)
+- Vital name: label-caps
+- Current value: number-display,
+  font-size 32px, font-weight 300
+- Unit: font-size 14px, color var(--text-tertiary)
+- Status badge: badge-success / badge-warning
+  / badge-danger based on value range
+
+
+Trend chart area: glass-elevated
+- Chart lines: var(--brand-400) for primary metric
+- Grid lines: rgba(0,0,0,0.04)
+- Axis labels: label-caps
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 16 — RECIPE EXPLORER PAGE
+File: client/src/pages/Recipes.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Search input: input-glass, full width,
+  height 52px, font-size 16px
+
+
+Filter pills row: pill selectors for
+  cuisine zone / diet type / course
+  Use pill / pill-active / pill-brand
+
+
+Recipe cards grid: 3 columns desktop,
+  2 tablet, 1 mobile
+  Each card: glass-card + stagger animation
+
+
+Each recipe card:
+- Recipe name: h3 styling
+- Zone pill: pill-brand, font-size 11px
+- Diet badge: badge class
+- Key stats row (time, calories, cost):
+  label-caps for labels, number-display
+  for values, arranged in 3 mini columns
+- Bottom border: 1px solid var(--glass-border)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 17 — LOGIN AND REGISTER PAGES
+File: Login.tsx and Register.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Full page: gradient-mesh background
+
+
+Center card: glass-elevated,
+  max-width 420px, margin auto,
+  padding 40px, animate-scale-in
+
+
+App name/logo at top:
+- font-size 28px, font-weight 600,
+  letter-spacing -0.04em
+- Saffron accent dot or icon
+
+
+Tagline: font-size 15px, color var(--text-secondary)
+  letter-spacing -0.01em
+
+
+Google login button:
+- btn-secondary full width height 48px
+- Google icon on the left
+- "Continue with Google" text
+- On hover: glass-card shadow treatment
+
+
+Divider between options:
+- divider class with "or" text centered
+- Text: label-caps, padding 0 12px
+
+
+All form inputs: input-glass
+
+
+Submit/primary CTA: btn-primary full width height 48px
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 18 — EMPTY STATES AND LOADING STATES
+Apply across all pages
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Every page that can have an empty state should show:
+- glass-card centered container
+- A large thin-line icon (opacity 0.15)
+- Heading: h3 styling, color var(--text-secondary)
+- Subtext: p styling, font-size 14px
+- CTA button: btn-primary
+
+
+Every loading skeleton:
+- Use skeleton class on placeholder divs
+- Match the shape of what will load
+  (a skeleton card should be same height as real card)
+- Wrap skeletons in glass-card containers
+
+
+Page transition:
+- Every page component gets animate-fade-up
+  on its outermost wrapper div
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL VERIFICATION CHECKLIST
+Run through this after all steps are complete
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+□ App starts without TypeScript or console errors
+□ All pages load without blank screens
+□ Glass effect is visible — not rendering as plain white
+  (check that gradient-mesh background is applied to root)
+□ No solid white cards remain anywhere in the app
+□ Buttons have hover and active states working
+□ Inputs show focus ring when clicked
+□ Mobile view is not broken — all glass cards
+  are responsive
+□ Dark mode renders correctly — no white text
+  on white backgrounds
+□ Animations do not cause layout shift
+□ All onClick handlers still fire correctly —
+  test generate meal plan, submit form,
+  send chat message
+□ No id or data-testid attributes were removed
+□ Font is rendering as Inter, not system default —
+  confirm in browser DevTools
+
+
+Output a summary listing every file changed
+and the primary classes applied to each.
+Do not output the full file contents —
+only the summary.
+```

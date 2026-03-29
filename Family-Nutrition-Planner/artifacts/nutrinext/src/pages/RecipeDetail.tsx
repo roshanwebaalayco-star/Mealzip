@@ -156,7 +156,7 @@ export default function RecipeDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="absolute bottom-4 left-4 right-4">
-          <h1 className="text-white font-display font-bold text-xl sm:text-2xl leading-tight drop-shadow">
+          <h1 className="text-white font-medium text-xl sm:text-2xl leading-tight drop-shadow">
             {recipe.name}
           </h1>
           {recipe.nameHindi && (
@@ -265,7 +265,7 @@ export default function RecipeDetailPage() {
 
           {ingredients.length > 0 && (
             <div>
-              <h3 className="font-display font-bold text-base mb-3 flex items-center gap-2">
+              <h3 className="font-medium text-base mb-3 flex items-center gap-2">
                 <ChefHat className="w-4 h-4 text-primary" />
                 Ingredients
               </h3>
@@ -282,7 +282,7 @@ export default function RecipeDetailPage() {
 
           {steps.length > 0 && (
             <div>
-              <h3 className="font-display font-bold text-base mb-3">
+              <h3 className="font-medium text-base mb-3">
                 Cooking Steps
               </h3>
               <ol className="space-y-3">

@@ -42,11 +42,11 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" as const }}
-        className="flex flex-col items-center justify-center p-8 min-h-[82vh] text-center"
+        className="flex flex-col items-center justify-center p-8 min-h-[82vh] text-center animate-fade-up"
       >
         <div className="relative mb-10">
           <div className="absolute inset-0 scale-110 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-          <div className="relative w-40 h-40 rounded-full glass-panel flex items-center justify-center">
+          <div className="relative w-40 h-40 rounded-full glass-elevated flex items-center justify-center">
             <img
               src={`${import.meta.env.BASE_URL}images/logo.png`}
               alt="NutriNext"
@@ -55,10 +55,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <h1 className="font-display font-bold text-4xl md:text-5xl text-foreground mb-3 leading-tight">
+        <h1 className="font-semibold text-4xl md:text-5xl mb-3 leading-tight" style={{ letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
           ParivarSehat AI
         </h1>
-        <p className="text-base text-muted-foreground max-w-sm mx-auto mb-10 leading-relaxed">
+        <p className="text-base max-w-sm mx-auto mb-10 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           India's first family-centric meal planner. Balancing nutrition, budget &amp; taste with ICMR-NIN 2024 science.
         </p>
 
@@ -225,7 +225,7 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
           <Bot className="w-4 h-4 text-primary" />
         </span>
         <div>
-          <h3 className="font-display font-bold text-base leading-none">
+          <h3 className="font-sans font-bold text-base leading-none">
             {t("Kal Kya Banayein?", "कल क्या बनाएं?")}
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -330,12 +330,12 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="p-4 md:p-8 space-y-5"
+      className="p-4 md:p-8 space-y-5 animate-fade-up"
     >
       {/* ── Hero Banner ── */}
       <motion.div
         variants={item}
-        className="relative rounded-3xl overflow-hidden glass-panel p-6 md:p-8 flex flex-col md:flex-row items-center gap-6"
+        className="relative rounded-3xl overflow-hidden glass-elevated p-6 md:p-8 flex flex-col md:flex-row items-center gap-6"
       >
         <img
           src={`${import.meta.env.BASE_URL}images/hero-spices.png`}
@@ -345,10 +345,10 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
         <div className="absolute inset-0 bg-gradient-to-r from-white/80 via-white/70 to-white/30 pointer-events-none" />
 
         <div className="relative z-10 flex-1">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary mb-2">
+          <p className="label-caps mb-2" style={{ color: 'var(--brand-600)' }}>
             {t("Family Dashboard", "पारिवारिक डैशबोर्ड")}
           </p>
-          <h2 className="text-2xl md:text-3xl font-display font-bold mb-1.5">
+          <h2 className="text-2xl md:text-3xl font-semibold mb-1.5" style={{ letterSpacing: '-0.025em' }}>
             {t("Namaste", "नमस्ते")}, {familyInfo?.name}!
           </h2>
           <p className="text-sm text-muted-foreground mb-6 max-w-xs leading-relaxed">
@@ -372,7 +372,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
 
         {/* Harmony Score */}
         <div className="relative z-10 glass-card rounded-3xl p-5 flex flex-col items-center min-w-[140px]">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">
+          <p className="label-caps mb-3">
             {t("Harmony Score", "सामंजस्य स्कोर")}
           </p>
           <HarmonyScore score={latestPlan?.harmonyScore || 0} size="lg" />
@@ -388,11 +388,11 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
       </motion.div>
 
       {/* ── Cards Row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 stagger">
         {/* Family Members */}
-        <motion.div variants={item} className="glass-card rounded-3xl p-6">
+        <motion.div variants={item} className="glass-card rounded-3xl p-6 animate-fade-up">
           <div className="flex items-center justify-between mb-5 relative z-10">
-            <h3 className="font-display font-bold text-base flex items-center gap-2">
+            <h3 className="font-medium text-base flex items-center gap-2" style={{ letterSpacing: '-0.015em' }}>
               <span className="w-7 h-7 rounded-xl bg-secondary/10 flex items-center justify-center">
                 <Users className="w-4 h-4 text-secondary" />
               </span>
@@ -431,7 +431,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                 className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-white/70 hover:bg-white/80 transition-colors text-left"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/80 to-orange-400 flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold" style={{ background: 'var(--brand-50)', color: 'var(--brand-800)', width: '44px', height: '44px' }}>
                     {member.name.charAt(0)}
                   </div>
                   <div>
@@ -462,14 +462,14 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
         {/* AI Insights */}
         <motion.div
           variants={item}
-          className="glass-card rounded-3xl p-6"
+          className="glass-card rounded-3xl p-6 animate-fade-up"
           style={{ background: 'rgba(240,253,248,0.70)' }}
         >
           <div className="flex items-center gap-2 mb-4 relative z-10">
             <span className="w-7 h-7 rounded-xl bg-secondary/10 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-secondary" />
             </span>
-            <h3 className="font-display font-bold text-base">{t("AI Insights", "AI अंतर्दृष्टि")}</h3>
+            <h3 className="font-medium text-base" style={{ letterSpacing: '-0.015em' }}>{t("AI Insights", "AI अंतर्दृष्टि")}</h3>
           </div>
 
           {latestPlan?.aiInsights ? (

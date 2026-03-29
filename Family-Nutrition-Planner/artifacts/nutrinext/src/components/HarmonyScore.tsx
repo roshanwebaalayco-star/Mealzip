@@ -108,7 +108,7 @@ export function HarmonyScore({ score, size = "md" }: HarmonyScoreProps) {
       </svg>
 
       {/* Score text */}
-      <div className={`relative z-10 flex flex-col items-center justify-center font-display ${getTextColor(score)}`}>
+      <div className={`relative z-10 flex flex-col items-center justify-center font-sans ${getTextColor(score)}`}>
         <span className={`font-bold leading-none ${text}`}>{score}</span>
         {sub && (
           <>

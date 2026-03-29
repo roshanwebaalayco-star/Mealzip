@@ -247,7 +247,7 @@ export default function WeeklyContextPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-xl sm:text-2xl font-display font-bold">{t("This Week's Context", "इस हफ्ते का विवरण")}</h1>
+          <h1 className="text-xl sm:text-2xl font-medium">{t("This Week's Context", "इस हफ्ते का विवरण")}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{t("What's different this week? AI adapts accordingly.", "इस हफ्ते क्या अलग है? AI उसी के अनुसार ढलेगी।")}</p>
         </div>
       </div>

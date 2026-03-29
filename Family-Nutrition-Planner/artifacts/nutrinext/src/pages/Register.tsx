@@ -65,22 +65,24 @@ export default function Register() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="flex flex-col items-center justify-center p-6 min-h-[82vh]"
+      className="flex flex-col items-center justify-center p-6 min-h-[82vh] animate-fade-up"
     >
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl glass-panel flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl glass-elevated flex items-center justify-center mx-auto mb-4">
             <img
               src={`${import.meta.env.BASE_URL}images/logo.png`}
               alt="ParivarSehat"
               className="w-10 h-10 object-contain"
             />
           </div>
-          <h1 className="font-display font-bold text-2xl text-foreground">Create Account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start your family's nutrition journey</p>
+          <h1 className="font-semibold text-2xl" style={{ letterSpacing: '-0.04em', color: 'var(--text-primary)' }}>
+            Create Account<span style={{ color: 'var(--brand-400)' }}> ·</span>
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)', letterSpacing: '-0.01em' }}>Start your family's nutrition journey</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="glass-panel rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="glass-elevated rounded-2xl p-6 space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="name">Full Name</Label>
             <Input
@@ -90,7 +92,7 @@ export default function Register() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="rounded-xl"
+              className="input-glass rounded-xl"
             />
           </div>
 
@@ -103,14 +105,14 @@ export default function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="rounded-xl"
+              className="input-glass rounded-xl"
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="language">Preferred Language</Label>
             <Select value={primaryLanguage} onValueChange={setPrimaryLanguage}>
-              <SelectTrigger className="rounded-xl">
+              <SelectTrigger className="input-glass rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -133,12 +135,13 @@ export default function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                className="rounded-xl pr-10"
+                className="input-glass rounded-xl pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: 'var(--text-tertiary)' }}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -154,13 +157,13 @@ export default function Register() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
-              className="rounded-xl"
+              className="input-glass rounded-xl"
             />
           </div>
 
           <Button
             type="submit"
-            className="w-full rounded-xl h-11 font-semibold"
+            className="btn-primary w-full h-12"
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -168,9 +171,9 @@ export default function Register() {
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-4">
+        <p className="text-center text-sm mt-4" style={{ color: 'var(--text-secondary)' }}>
           Already have an account?{" "}
-          <Link href="/login" className="text-primary font-medium hover:underline">
+          <Link href="/login" className="font-medium hover:underline" style={{ color: 'var(--brand-400)' }}>
             Log in
           </Link>
         </p>
