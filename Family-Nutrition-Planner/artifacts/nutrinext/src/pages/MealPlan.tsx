@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api-fetch";
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useListMealPlans, useGenerateMealPlan, getListMealPlansQueryKey } from "@workspace/api-client-react";
@@ -19,8 +19,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import RecipeDetailModal from "@/components/RecipeDetailModal";
-import WeeklyContextModal, { type WeeklyContext } from "@/components/WeeklyContextModal";
+import type { WeeklyContext } from "@/components/WeeklyContextModal";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -198,12 +197,10 @@ export default function MealPlan() {
   const [rationaleExpanded, setRationaleExpanded] = useState<Record<string, boolean>>({});
   const [instructionsExpanded, setInstructionsExpanded] = useState<Record<string, boolean>>({});
   const [activeMealTab, setActiveMealTab] = useState("lunch");
-  const [detailRecipe, setDetailRecipe] = useState<RecipeDetail | null>(null);
-  const [loadingRecipeId, setLoadingRecipeId] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
   const [leftoverPanelOpen, setLeftoverPanelOpen] = useState(true);
   const [cachedPlan, setCachedPlan] = useState<Record<string, unknown> | null>(null);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
-  const [showContextModal, setShowContextModal] = useState(false);
   const [lastWeeklyContext, setLastWeeklyContext] = useState<WeeklyContext | null>(null);
   const [leftoverInput, setLeftoverInput] = useState("");
   const [isRecordingLeftover, setIsRecordingLeftover] = useState(false);
@@ -547,7 +544,6 @@ export default function MealPlan() {
         },
       });
       refetch();
-      setShowContextModal(false);
     } catch (e) {
       console.error(e);
     }
@@ -567,7 +563,7 @@ export default function MealPlan() {
           <div className="flex flex-col gap-3">
             <button
               className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3.5 rounded-2xl relative z-10 disabled:opacity-60"
-              onClick={() => setShowContextModal(true)}
+              onClick={() => setLocation("/meal-plan/context")}
               disabled={generate.isPending}
             >
               {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -575,15 +571,6 @@ export default function MealPlan() {
             </button>
           </div>
         </div>
-        <WeeklyContextModal
-          open={showContextModal}
-          familyId={activeFamily.id}
-          members={familyMembers ?? []}
-          defaultBudget={activeFamily.monthlyBudget ?? 5000}
-          onClose={() => setShowContextModal(false)}
-          onGenerate={(isFasting, ctx) => handleGenerate(isFasting, ctx)}
-          isPending={generate.isPending}
-        />
       </div>
     );
   }
@@ -650,7 +637,7 @@ export default function MealPlan() {
     logMealMutation.mutate({ memberId: firstMember.id, meal, mealType });
   };
 
-  const openMealDetail = async (cell: MealCell, cellKey: string) => {
+  const openMealDetail = (cell: MealCell, cellKey: string) => {
     const name = cell.recipeName ?? cell.name ?? "Unknown";
     const basic: RecipeDetail = {
       id: cell.recipeId ?? -1,
@@ -662,19 +649,12 @@ export default function MealPlan() {
       ingredients: cell.ingredients ? cell.ingredients.join(" | ") : null,
       icmr_rationale: cell.icmr_rationale,
     };
-    setDetailRecipe(basic);
     if (cell.recipeId && cell.recipeId > 0) {
-      setLoadingRecipeId(cellKey);
-      try {
-        const res = await apiFetch(`/api/recipes/${cell.recipeId}`);
-        if (res.ok) {
-          const detail = await res.json() as RecipeDetail;
-          setDetailRecipe({ ...detail, icmr_rationale: detail.icmr_rationale ?? cell.icmr_rationale });
-        }
-      } catch {
-      } finally {
-        setLoadingRecipeId(null);
-      }
+      sessionStorage.setItem("pending_recipe_detail", JSON.stringify(basic));
+      setLocation(`/recipes/${cell.recipeId}`);
+    } else {
+      sessionStorage.setItem("pending_recipe_detail", JSON.stringify({ ...basic, id: 0 }));
+      setLocation(`/recipes/0`);
     }
   };
 
@@ -772,7 +752,7 @@ export default function MealPlan() {
 
         <div className="flex items-center gap-3 relative z-10 flex-wrap">
           <button
-            onClick={() => setShowContextModal(true)}
+            onClick={() => setLocation("/meal-plan/context")}
             disabled={generate.isPending}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary glass-card px-3.5 py-2 rounded-xl hover:bg-white/80 transition-colors disabled:opacity-50"
           >
@@ -1195,7 +1175,7 @@ export default function MealPlan() {
                     const hasPlates = !!(cell.member_plates && Object.keys(cell.member_plates).length > 0);
 
                     const cellKey = `${di}-${meal}`;
-                    const isLoadingThisRecipe = loadingRecipeId === cellKey;
+                    const isLoadingThisRecipe = false;
                     const displayMealName = lang === "hi" && cell.nameHindi ? cell.nameHindi : (cell.recipeName || cell.name || "—");
                     const isSkipped = !!skippedMeals[feedbackKey];
                     const skipAction = skippedMeals[feedbackKey];
@@ -1708,19 +1688,6 @@ export default function MealPlan() {
         </div>
       </div>
 
-      {/* Recipe Detail Modal */}
-      <RecipeDetailModal recipe={detailRecipe} onClose={() => setDetailRecipe(null)} />
-
-      {/* Weekly Context Modal */}
-      <WeeklyContextModal
-        open={showContextModal}
-        familyId={activeFamily.id}
-        members={familyMembers ?? []}
-        defaultBudget={activeFamily.monthlyBudget ?? 5000}
-        onClose={() => setShowContextModal(false)}
-        onGenerate={(isFasting, ctx) => handleGenerate(isFasting, ctx)}
-        isPending={generate.isPending}
-      />
     </motion.div>
   );
 }

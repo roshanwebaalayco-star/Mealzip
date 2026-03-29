@@ -22,6 +22,8 @@ import PantryScan from "@/pages/PantryScan";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
+import WeeklyContext from "@/pages/WeeklyContext";
+import RecipeDetail from "@/pages/RecipeDetail";
 import NotFound from "@/pages/not-found";
 
 const TOKEN_KEY = "auth_token";
@@ -72,6 +74,8 @@ function Router() {
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
         <Route path="/family-setup" component={() => <ProtectedRoute component={FamilySetup} />} />
         <Route path="/meal-plan" component={() => <ProtectedRoute component={MealPlan} />} />
+        <Route path="/meal-plan/context" component={() => <ProtectedRoute component={WeeklyContext} />} />
+        <Route path="/recipes/:id" component={() => <ProtectedRoute component={RecipeDetail} />} />
         <Route path="/recipes" component={() => <ProtectedRoute component={RecipeExplorer} />} />
         <Route path="/chat" component={() => <ProtectedRoute component={Chat} />} />
         <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
