@@ -3231,7 +3231,7 @@ export function useListMealFeedback<
 }
 
 /**
- * @summary Submit thumbs-up/down feedback for a meal
+ * @summary Submit feedback for a meal (like, dislike, skip, or ate_out)
  */
 export const getCreateMealFeedbackUrl = (mealPlanId: number) => {
   return `/api/meal-plans/${mealPlanId}/feedback`;
@@ -3295,7 +3295,7 @@ export type CreateMealFeedbackMutationBody = BodyType<CreateMealFeedbackBody>;
 export type CreateMealFeedbackMutationError = ErrorType<unknown>;
 
 /**
- * @summary Submit thumbs-up/down feedback for a meal
+ * @summary Submit feedback for a meal (like, dislike, skip, or ate_out)
  */
 export const useCreateMealFeedback = <
   TError = ErrorType<unknown>,

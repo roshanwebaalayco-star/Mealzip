@@ -1201,6 +1201,7 @@ export const ListMealFeedbackParams = zod.object({
 export const listMealFeedbackResponseDayIndexMin = 0;
 export const listMealFeedbackResponseDayIndexMax = 6;
 
+export const listMealFeedbackResponseRatingMin = 0;
 export const listMealFeedbackResponseRatingMax = 5;
 
 export const ListMealFeedbackResponseItem = zod.object({
@@ -1213,7 +1214,11 @@ export const ListMealFeedbackResponseItem = zod.object({
     .max(listMealFeedbackResponseDayIndexMax),
   mealType: zod.string(),
   liked: zod.boolean(),
-  rating: zod.number().min(1).max(listMealFeedbackResponseRatingMax).optional(),
+  rating: zod
+    .number()
+    .min(listMealFeedbackResponseRatingMin)
+    .max(listMealFeedbackResponseRatingMax)
+    .optional(),
   skipReason: zod.string().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.date().optional(),
@@ -1221,7 +1226,7 @@ export const ListMealFeedbackResponseItem = zod.object({
 export const ListMealFeedbackResponse = zod.array(ListMealFeedbackResponseItem);
 
 /**
- * @summary Submit thumbs-up/down feedback for a meal
+ * @summary Submit feedback for a meal (like, dislike, skip, or ate_out)
  */
 export const CreateMealFeedbackParams = zod.object({
   mealPlanId: zod.coerce.number(),
@@ -1231,6 +1236,7 @@ export const createMealFeedbackBodyDayIndexMin = 0;
 export const createMealFeedbackBodyDayIndexMax = 6;
 
 export const createMealFeedbackBodyLikedDefault = true;
+export const createMealFeedbackBodyRatingMin = 0;
 export const createMealFeedbackBodyRatingMax = 5;
 
 export const CreateMealFeedbackBody = zod.object({
@@ -1241,7 +1247,11 @@ export const CreateMealFeedbackBody = zod.object({
     .max(createMealFeedbackBodyDayIndexMax),
   mealType: zod.string(),
   liked: zod.boolean().default(createMealFeedbackBodyLikedDefault),
-  rating: zod.number().min(1).max(createMealFeedbackBodyRatingMax).optional(),
+  rating: zod
+    .number()
+    .min(createMealFeedbackBodyRatingMin)
+    .max(createMealFeedbackBodyRatingMax)
+    .optional(),
   skipReason: zod.string().optional(),
   notes: zod.string().optional(),
   action: zod.enum(["like", "dislike", "skip", "ate_out"]).optional(),

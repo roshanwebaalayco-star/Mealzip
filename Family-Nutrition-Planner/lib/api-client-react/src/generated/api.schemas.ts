@@ -503,7 +503,7 @@ export interface MealFeedback {
   mealType: string;
   liked: boolean;
   /**
-   * @minimum 1
+   * @minimum 0
    * @maximum 5
    */
   rating?: number;
@@ -532,7 +532,7 @@ export interface CreateMealFeedbackBody {
   mealType: string;
   liked?: boolean;
   /**
-   * @minimum 1
+   * @minimum 0
    * @maximum 5
    */
   rating?: number;

@@ -886,7 +886,7 @@ paths:
     post:
       operationId: createMealFeedback
       tags: [meal-feedback]
-      summary: Submit thumbs-up/down feedback for a meal
+      summary: Submit feedback for a meal (like, dislike, skip, or ate_out)
       parameters:
         - name: mealPlanId
           in: path
@@ -2037,7 +2037,7 @@ components:
           type: boolean
         rating:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 5
         skipReason:
           type: string
@@ -2072,7 +2072,7 @@ components:
           default: true
         rating:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 5
         skipReason:
           type: string
