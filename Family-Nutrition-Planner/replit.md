@@ -156,7 +156,7 @@ This means the Replit preview (which uses external port 80) correctly serves the
 - `AI_INTEGRATIONS_GEMINI_BASE_URL` — Gemini AI endpoint (auto-set by Replit AI Integration)
 - `AI_INTEGRATIONS_GEMINI_API_KEY` — Gemini AI key (auto-set by Replit AI Integration, dummy value)
 - `JWT_SECRET` — JWT signing secret (auto-generated, stored in shared env)
-- `SARVAM_API_KEY` — Sarvam AI voice (set as secret; voice/transcribe returns 503 if missing)
+- `SARVAM_API_KEY` — Sarvam AI voice STT + TTS (set as secret; voice/transcribe and voice/tts return 503 if missing)
 - `YOLOV11_INFERENCE_URL` — YOLOv11 service URL (optional; 503 if missing in production)
 - `DEMO_MODE=true` — **development only** — enables mock scanner data when YOLO URL missing
 - `PORT` — set by Replit per artifact

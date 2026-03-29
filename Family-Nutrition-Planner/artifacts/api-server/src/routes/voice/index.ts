@@ -480,4 +480,63 @@ Return ONLY valid JSON, no markdown:
   }
 });
 
+const TtsBody = z.object({
+  text: z.string().min(1).max(2000),
+  languageCode: z.string().default("hi-IN"),
+});
+
+router.post("/voice/tts", async (req, res): Promise<void> => {
+  const parsed = TtsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { text, languageCode } = parsed.data;
+  const sarvamApiKey = process.env.SARVAM_API_KEY;
+
+  if (!sarvamApiKey) {
+    res.status(503).json({ error: "TTS service not configured", code: "SARVAM_KEY_MISSING" });
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.sarvam.ai/text-to-speech", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-subscription-key": sarvamApiKey,
+      },
+      body: JSON.stringify({
+        inputs: [text],
+        target_language_code: languageCode,
+        speaker: "meera",
+        model: "bulbul:v2",
+        enable_preprocessing: true,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorBody: string;
+      try { errorBody = await response.text(); } catch { errorBody = "(could not read)"; }
+      req.log.error({ status: response.status, sarvamError: errorBody }, "Sarvam TTS HTTP error");
+      res.status(502).json({ error: "TTS failed", detail: `Sarvam returned ${response.status}` });
+      return;
+    }
+
+    const data = await response.json() as { audios?: string[] };
+    const audioBase64 = data.audios?.[0] ?? "";
+
+    if (!audioBase64) {
+      res.status(502).json({ error: "TTS returned empty audio" });
+      return;
+    }
+
+    res.json({ audioBase64 });
+  } catch (err) {
+    req.log.error({ err }, "Sarvam TTS failed");
+    res.status(502).json({ error: "TTS service unavailable" });
+  }
+});
+
 export default router;

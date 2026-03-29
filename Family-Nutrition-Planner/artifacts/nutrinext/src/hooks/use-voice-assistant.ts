@@ -211,7 +211,7 @@ export function useVoiceAssistant() {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceRafRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  // State history stack for correction/undo: tracks { state, question, formData } triples
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const stateHistoryRef = useRef<Array<{ state: ConvState; msg: string; fd: VoiceFormData }>>([]);
 
   const start = useCallback(
@@ -237,21 +237,43 @@ export function useVoiceAssistant() {
       let nextMsg = greeting;
       stateHistoryRef.current = [];
 
-      const speakText = (text: string): Promise<void> =>
-        new Promise((resolve) => {
-          if (abortRef.current || !window.speechSynthesis) {
-            resolve();
-            return;
-          }
-          window.speechSynthesis.cancel();
-          const utt = new SpeechSynthesisUtterance(text);
-          utt.lang = ttsLang;
-          utt.rate = 0.9;
-          utt.pitch = 1.1;
-          utt.onend = () => resolve();
-          utt.onerror = () => resolve();
-          window.speechSynthesis.speak(utt);
-        });
+      const speakText = async (text: string): Promise<void> => {
+        if (abortRef.current) return;
+        try {
+          const res = await apiFetch("/api/voice/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, languageCode: langCode }),
+          });
+          if (!res.ok) throw new Error("TTS request failed");
+          const data = (await res.json()) as { audioBase64: string };
+          if (abortRef.current || !data.audioBase64) return;
+          const audioBytes = Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0));
+          const blob = new Blob([audioBytes], { type: "audio/wav" });
+          const url = URL.createObjectURL(blob);
+          await new Promise<void>((resolveAudio) => {
+            const audio = new Audio(url);
+            ttsAudioRef.current = audio;
+            audio.onended = () => { ttsAudioRef.current = null; URL.revokeObjectURL(url); resolveAudio(); };
+            audio.onerror = () => { ttsAudioRef.current = null; URL.revokeObjectURL(url); resolveAudio(); };
+            if (abortRef.current) { ttsAudioRef.current = null; URL.revokeObjectURL(url); resolveAudio(); return; }
+            audio.play().catch(() => { ttsAudioRef.current = null; URL.revokeObjectURL(url); resolveAudio(); });
+          });
+        } catch {
+          if (abortRef.current) return;
+          if (!window.speechSynthesis) return;
+          await new Promise<void>((resolve) => {
+            window.speechSynthesis.cancel();
+            const utt = new SpeechSynthesisUtterance(text);
+            utt.lang = ttsLang;
+            utt.rate = 0.9;
+            utt.pitch = 1.1;
+            utt.onend = () => resolve();
+            utt.onerror = () => resolve();
+            window.speechSynthesis.speak(utt);
+          });
+        }
+      };
 
       const recordOnce = (): Promise<string> =>
         new Promise(async (resolve, reject) => {
@@ -500,6 +522,10 @@ export function useVoiceAssistant() {
     isRunningRef.current = false;
     stateHistoryRef.current = [];
     try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+    if (ttsAudioRef.current) {
+      try { ttsAudioRef.current.pause(); ttsAudioRef.current.src = ""; } catch { /* ignore */ }
+      ttsAudioRef.current = null;
+    }
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     if (silenceRafRef.current) {
       cancelAnimationFrame(silenceRafRef.current);

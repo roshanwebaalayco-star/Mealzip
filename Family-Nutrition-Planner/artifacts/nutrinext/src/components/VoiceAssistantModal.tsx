@@ -137,8 +137,10 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
         <DialogContent
           className="fixed inset-0 w-screen h-screen max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 flex flex-col p-0 gap-0 overflow-hidden"
           hideCloseButton
+          aria-describedby="voice-setup-desc"
         >
           <DialogTitle className="sr-only">Voice Setup</DialogTitle>
+          <p className="sr-only" id="voice-setup-desc">Set up your family profile using voice</p>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b bg-primary/5 shrink-0">
             <div className="flex items-center gap-2">
