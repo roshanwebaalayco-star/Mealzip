@@ -230,6 +230,15 @@ STRICT RULES:
   A single headache or mild symptom should NEVER be "urgent".
 - Do NOT include a disclaimer field.`;
 
+  const safeFallback = (result: Record<string, unknown> = {}) => ({
+    nutritionalInsight: (typeof result.nutritionalInsight === "string" && result.nutritionalInsight) || "Could not generate a detailed insight. Please try again or consult a healthcare professional.",
+    dietarySuggestions: Array.isArray(result.dietarySuggestions) && result.dietarySuggestions.length > 0 ? result.dietarySuggestions : ["Maintain a balanced diet with whole grains and vegetables", "Stay well hydrated throughout the day"],
+    recommendedFoods: Array.isArray(result.recommendedFoods) && result.recommendedFoods.length > 0 ? result.recommendedFoods : ["Fresh seasonal fruits", "Green leafy vegetables", "Dal and legumes"],
+    avoidFoods: Array.isArray(result.avoidFoods) && result.avoidFoods.length > 0 ? result.avoidFoods : ["Highly processed foods", "Excessive sugar and refined flour"],
+    seeDoctor: (typeof result.seeDoctor === "string" && result.seeDoctor) || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
+    urgency: (typeof result.urgency === "string" && ["routine", "soon", "urgent"].includes(result.urgency)) ? result.urgency : "routine",
+  });
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -237,18 +246,15 @@ STRICT RULES:
       config: { responseMimeType: "application/json" },
     });
     const raw = response.text ?? "{}";
-    const result = JSON.parse(raw);
-    const fallback = {
-      nutritionalInsight: result.nutritionalInsight || "Could not generate insight. Please try again.",
-      dietarySuggestions: Array.isArray(result.dietarySuggestions) && result.dietarySuggestions.length > 0 ? result.dietarySuggestions : ["Maintain a balanced diet", "Stay hydrated"],
-      recommendedFoods: Array.isArray(result.recommendedFoods) && result.recommendedFoods.length > 0 ? result.recommendedFoods : ["Fresh fruits", "Green vegetables"],
-      avoidFoods: Array.isArray(result.avoidFoods) && result.avoidFoods.length > 0 ? result.avoidFoods : ["Processed foods", "Excessive sugar"],
-      seeDoctor: result.seeDoctor || "• If symptoms persist for more than a week\n• If symptoms worsen suddenly",
-      urgency: ["routine", "soon", "urgent"].includes(result.urgency) ? result.urgency : "routine",
-    };
-    res.json(fallback);
+    let result: Record<string, unknown> = {};
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      // AI returned malformed JSON — use safe defaults
+    }
+    res.json(safeFallback(result));
   } catch (err) {
-    res.status(500).json({ error: "Symptom check failed", details: String(err) });
+    res.json(safeFallback());
   }
 });
 

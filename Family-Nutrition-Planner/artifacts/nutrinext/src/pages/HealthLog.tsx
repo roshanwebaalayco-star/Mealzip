@@ -74,9 +74,9 @@ function getBloodSugarRange(val: number): { label: string; labelHi: string; colo
 
 function getBpRange(sys: number, dia: number): { label: string; labelHi: string; color: string; bg: string } {
   if (sys < 90 || dia < 60) return { label: "Low", labelHi: "कम", color: "text-blue-700", bg: "bg-blue-100" };
+  if (sys >= 140 || dia >= 90) return { label: "High", labelHi: "उच्च", color: "text-red-700", bg: "bg-red-100" };
   if (sys <= 120 && dia <= 80) return { label: "Normal", labelHi: "सामान्य", color: "text-green-700", bg: "bg-green-100" };
-  if (sys <= 139 || dia <= 89) return { label: "Elevated", labelHi: "बढ़ा हुआ", color: "text-amber-700", bg: "bg-amber-100" };
-  return { label: "High", labelHi: "उच्च", color: "text-red-700", bg: "bg-red-100" };
+  return { label: "Elevated", labelHi: "बढ़ा हुआ", color: "text-amber-700", bg: "bg-amber-100" };
 }
 
 interface HealthLogFormProps {
