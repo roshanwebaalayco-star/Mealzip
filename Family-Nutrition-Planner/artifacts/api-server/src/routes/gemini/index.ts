@@ -148,6 +148,8 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
     return;
   }
 
+  const requestedLanguage: string | undefined = (req.body as Record<string, unknown>)?.language as string | undefined;
+
   let conv: typeof import("@workspace/db").conversationsTable.$inferSelect | undefined;
   let allMessages: Array<typeof import("@workspace/db").messagesTable.$inferSelect>;
   try {
@@ -285,8 +287,12 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
     } catch { /* non-critical — continue without family context */ }
   }
 
-  // Build the full system instruction: base prompt + dynamic context + recipe context
-  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + (recipeContext ? `\n\n${recipeContext}` : "");
+  // Build the full system instruction: base prompt + dynamic context + recipe context + language
+  let languageInstruction = "";
+  if (requestedLanguage && requestedLanguage !== "english") {
+    languageInstruction = `\n\nCRITICAL LANGUAGE RULE: The user has selected "${requestedLanguage}" as their language. You MUST respond entirely in ${requestedLanguage} using its native script. Do NOT use English unless the selected language is English. Keep technical nutrition terms in English only when no native equivalent exists.`;
+  }
+  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

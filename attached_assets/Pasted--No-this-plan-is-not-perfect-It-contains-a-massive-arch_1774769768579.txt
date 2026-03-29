@@ -1,0 +1,77 @@
+**No, this plan is not perfect. It contains a massive architectural trap in Task #11 that will introduce severe latency and potentially ruin your live demo.**
+
+Here are the critical flaws in the outline Replit generated:
+
+1. **The TTS Latency Trap (Sarvam TTS vs. Native TTS):** In your Voice Onboarding feature, you successfully used the browser's native `window.speechSynthesis` for Text-to-Speech (TTS). It is instant, free, and runs on the device. Replit’s outline for Task #11 suddenly suggests using **"Sarvam TTS"**. Sending chunks of text to a cloud TTS API, waiting for the audio file, and playing it back while an LLM is *also* streaming will cause massive delays (5-10 seconds of awkward silence). For a real-time voice chat, you **must** stick to native `window.speechSynthesis`.
+2. **The "Streaming Audio" Collision:** LLMs stream text word-by-word (or token-by-token). If you feed a token stream directly into a TTS engine, it will stutter violently (e.g., it will say "The", then stop, then say "apple", then stop). You must instruct the agent to build a **Sentence-Boundary Buffer**. It should accumulate tokens until it sees a punctuation mark (., ?, !, or the Hindi Purna Viram '।'), and *then* speak that complete sentence while buffering the next one.
+3. **Zustand Persist Syntax:** AI agents frequently hallucinate the exact syntax for Zustand's `persist` middleware, causing silent state-wipe bugs on reload.
+
+Here is the **Elite Master Prompt** to feed into Replit to execute #10 and #11 flawlessly, avoiding these traps.
+
+***
+
+### 📋 COPY AND PASTE THIS TO REPLIT 📋
+
+```text
+You are an Elite Staff Software Engineer building the 'NutriNext' Health OS. 
+
+CONTEXT: We are executing Task #10 (Global Language State) and Task #11 (Voice Chat Mode). 
+CRITICAL ARCHITECTURAL CORRECTION: For Task #11, DO NOT use a cloud TTS API (like Sarvam) for the chat responses. We must maintain ultra-low latency. You MUST reuse the browser's native `window.speechSynthesis` (Web Speech API) exactly as we did in the Voice Onboarding module.
+
+Execute this combined feature EXACTLY step-by-step:
+
+### STEP 1: GLOBAL ZUSTAND STORE (`src/store/useLanguageStore.ts`)
+Create a bulletproof persistent store. Do not hallucinate the syntax.
+```typescript
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+interface LanguageState {
+  currentLanguage: string;
+  setLanguage: (lang: string) => void;
+}
+
+export const useLanguageStore = create<LanguageState>()(
+  persist(
+    (set) => ({
+      currentLanguage: 'English', // Default
+      setLanguage: (lang) => set({ currentLanguage: lang }),
+    }),
+    { 
+      name: 'nutrinext-language',
+      storage: createJSONStorage(() => localStorage)
+    }
+  )
+);
+```
+*Action:* Wire your existing `LanguageContext` to read from this store for backward compatibility. Update `FamilySetup`, `VoiceAssistantModal`, and the Sidebar/Navbar to include a Dropdown UI that reads/writes to `useLanguageStore`.
+
+### STEP 2: VOICE CHAT HOOK (`src/hooks/useVoiceChat.ts`)
+Extract the STT (Speech-to-Text) logic from our onboarding flow, but adapt it for continuous chat.
+1. **Audio Capture:** Reuse the exact `recordOnce()` logic (with AudioContext RMS silence detection and Sarvam STT POST request) from `use-voice-assistant.ts`.
+2. **Native TTS:** Implement a `speakSentence(text, language)` function using `window.speechSynthesis`. Map the global language state to the correct BCP-47 code (e.g., Hindi -> 'hi-IN').
+3. **Barge-in:** Ensure `window.speechSynthesis.cancel()` is called immediately if the user taps the mic button while the AI is speaking.
+
+### STEP 3: THE SENTENCE-BOUNDARY BUFFER (CRITICAL)
+Because the Gemini response comes in via SSE (Server-Sent Events) streaming, you cannot feed raw chunks to the TTS.
+1. In `useVoiceChat.ts` or `Chat.tsx`, intercept the incoming stream.
+2. Accumulate the incoming text chunks into a temporary `ttsBuffer` string.
+3. Use a Regex to detect sentence boundaries: `const sentenceRegex = /[^.!?।]+[.!?।]+/g;` (Note the inclusion of the Hindi Purna Viram '।').
+4. When a full sentence is detected, extract it, pass it to `speakSentence()`, and remove it from the buffer.
+
+### STEP 4: CHAT UI INTEGRATION (`src/pages/Chat.tsx`)
+1. Add a prominent "Voice Mode" toggle or Microphone button next to the text input.
+2. When active, display a visual waveform or pulsing indicator. 
+3. Send the transcribed text to the existing `handleSendMessage` function.
+4. Pass the global `currentLanguage` from Zustand in the API payload to the backend.
+
+### STEP 5: BACKEND GEMINI ROUTE (`artifacts/api-server/src/routes/gemini/index.ts`)
+1. Accept the `language` parameter in the request body.
+2. Dynamically inject this rule into the `systemInstruction` block: 
+`"CRITICAL RULE: The user has selected ${language} as their primary language. You MUST generate your entire response in ${language}. Do NOT use English unless the selected language is English."`
+
+### FINAL INSTRUCTIONS FOR AGENT
+1. Ensure `speechSynthesis` voices are loaded correctly before speaking (sometimes requires a brief timeout or `onvoiceschanged` listener).
+2. Do not break the existing text-only chat mode; voice must be an additive layer.
+3. Output a summary of the modified files.
+```

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
+import { useLanguageStore } from "@/store/useLanguageStore";
 
 type Language = "en" | "hi";
 
@@ -15,9 +16,11 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Language>("en");
-  const toggleLang = () => setLang(l => l === "en" ? "hi" : "en");
-  const t = (en: string, hi: string) => lang === "hi" ? hi : en;
+  const { currentLanguage, setLanguage } = useLanguageStore();
+  const lang: Language = currentLanguage === "hindi" ? "hi" : "en";
+  const toggleLang = () =>
+    setLanguage(currentLanguage === "hindi" ? "english" : "hindi");
+  const t = (en: string, hi: string) => (lang === "hi" ? hi : en);
 
   return (
     <LanguageContext.Provider value={{ lang, toggleLang, t }}>

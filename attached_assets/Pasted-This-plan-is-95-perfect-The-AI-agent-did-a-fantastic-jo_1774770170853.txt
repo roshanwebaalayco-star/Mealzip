@@ -1,0 +1,43 @@
+This plan is **95% perfect**. The AI agent did a fantastic job, especially with the decision to extract the complex `recordOnce()` logic into a shared `audio-utils.ts` file so it doesn't duplicate code. 
+
+However, as a Senior Engineer, I can tell you that **Task #11 will fail in production on Safari and mobile devices** if you let the AI build it exactly as written. 
+
+Browser audio APIs (`window.speechSynthesis` and `AudioContext`) have severe, hidden quirks that AI agents almost never account for. If you don't give it these final guardrails, the voice loop will randomly stop working, or iOS will mute the microphone silently.
+
+Here is the **Final Approval Prompt** you must give to Replit to ensure the code is bulletproof across all devices.
+
+***
+
+### 📋 COPY AND PASTE THIS TO REPLIT 📋
+
+```text
+This plan is excellent. The decision to extract `recordOnce` to `src/lib/audio-utils.ts` is highly approved.
+
+You are cleared to execute Task #10 and Task #11. HOWEVER, you must implement these 4 CRITICAL BROWSER GUARDRAILS, otherwise the Web Audio APIs will fail in production (especially on iOS/Safari):
+
+### GUARDRAIL 1: The Safari Garbage Collection Bug (TTS)
+In Safari and Chrome, if a `SpeechSynthesisUtterance` is not kept in memory, the browser's garbage collector will delete it mid-speech, and the `onend` event will NEVER fire, breaking our continuous loop.
+*Fix:* In `useVoiceChat.ts`, you MUST store the active utterance in a ref: `const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);` and assign the utterance to it before calling `speechSynthesis.speak()`.
+
+### GUARDRAIL 2: The React Closure Trap (SSE Buffer)
+Because the Gemini response arrives via a continuous SSE stream, if you use `useState` for the `ttsBuffer` or sentence queue, React will capture stale closures and the sentences will fragment.
+*Fix:* You MUST use `useRef` for the accumulator: `const ttsBufferRef = useRef("")`. Append chunks directly to `ttsBufferRef.current` and run your regex extraction against the ref.
+
+### GUARDRAIL 3: iOS AudioContext Unlocking
+iOS strictly forbids microphone access or AudioContext creation unless it is triggered DIRECTLY by a user click. If you try to re-open the mic automatically in the continuous loop without unlocking it first, iOS will mute it.
+*Fix:* When the user initially clicks the "Voice Mode" mic button, you MUST initialize or resume the `AudioContext` in that exact click handler function: `if (audioCtx.state === 'suspended') await audioCtx.resume();`
+
+### GUARDRAIL 4: Voice Loading Race Condition
+`window.speechSynthesis.getVoices()` is loaded asynchronously by the browser. If you just set `utt.lang = 'hi-IN'` before voices are loaded, the browser will use an English robotic voice to read Hindi text, which sounds terrible.
+*Fix:* Write a robust voice selector function. If `getVoices()` is empty, attach a listener to `speechSynthesis.onvoiceschanged` to ensure the correct native voice (e.g., 'hi-IN' or 'ta-IN') is explicitly attached to `utt.voice` before speaking.
+
+Execute the build according to the plan and these 4 guardrails. Let me know when ready for testing.
+```
+
+***
+
+### Why these 4 guardrails save your project:
+1. **Garbage Collection:** Without this, the AI will speak one sentence and then freeze forever, and the mic will never reopen.
+2. **React Closures:** Without this, the SSE stream will overwrite itself, and the AI will only speak the very last word of its response.
+3. **iOS Unlocking:** Judges at the BIC 2025 finale will likely test this on their iPhones or iPads. Without Guardrail 3, the voice mode simply won't work on Apple devices. 
+4. **Voice Loading:** Hearing an American robotic voice try to read Hindi words is a terrible UX. Guardrail 4 ensures it actually sounds like an Indian assistant.

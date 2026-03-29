@@ -1,0 +1,37 @@
+#11 - Voice Chat Mode in AI Chat
+What & Why
+The AI Chat page currently only supports text input (with basic voice-to-text transcription). We need a full voice assistant mode where the user can have a spoken conversation with the AI — the assistant speaks responses aloud via TTS, listens via STT, and streams responses just like text chat but with audio. The user should be able to toggle between text mode and voice mode within the same chat. The language for voice comes from the global language store.
+
+Done looks like
+The AI Chat page has a prominent "Voice Mode" toggle/button that switches between text chat and voice assistant mode
+In voice mode: the user speaks, their speech is transcribed (Sarvam STT), sent to Gemini (using the existing SSE streaming chat endpoint), and the AI response is spoken back (Sarvam TTS) — all in the user's selected language from the global store
+Voice mode shows visual feedback: mic animation while listening, a speaking indicator while TTS plays, and the transcribed/responded text appears in the chat history alongside text messages
+The user can seamlessly switch between typing and speaking within the same conversation
+A language selector is visible in the chat header, pre-filled from the global language store, and changing it updates the global store
+The existing text chat continues to work exactly as before
+The Gemini backend responds in the language selected by the user (language is sent with the chat request)
+Out of scope
+Separate voice-only conversation history (voice messages appear in the same chat thread)
+Wake word / always-on listening
+Video or screen sharing
+Tasks
+Create useVoiceChat hook — A new hook (separate from use-voice-assistant.ts which is for onboarding) that handles the voice loop for general AI chat: record audio → Sarvam STT → send transcript as a chat message via the existing streaming endpoint → collect streamed response → Sarvam TTS → play audio → listen again. Must handle interruption (user taps to stop), errors, and silence detection.
+
+Update Chat.tsx UI for voice mode — Add a voice mode toggle button. In voice mode, show mic controls (record/stop), visual audio feedback (waveform or pulsing indicator), and a "speaking" state while TTS plays. Chat messages from voice input should be visually identical to typed messages but can show a small mic icon.
+
+Wire language from global store — The voice chat hook reads the language from the global language store for STT language code, TTS target language, and passes it to the Gemini endpoint so responses come back in the correct language.
+
+Update Gemini chat endpoint for language — Modify the /api/gemini/conversations/:id/messages endpoint to accept an optional language parameter. When present, append an instruction to the system prompt telling Gemini to respond in that language. Default behavior (English) remains unchanged when no language is specified.
+
+TTS for streamed responses — Since chat responses are SSE-streamed, implement a strategy to speak the response: collect the full streamed response, then send it to Sarvam TTS. For long responses, consider chunking by sentence for faster first-audio.
+
+Relevant files
+artifacts/nutrinext/src/pages/Chat.tsx
+artifacts/nutrinext/src/hooks/use-chat-stream.ts
+artifacts/nutrinext/src/hooks/use-voice-assistant.ts
+artifacts/nutrinext/src/hooks/use-app-state.ts
+artifacts/api-server/src/routes/gemini/index.ts
+artifacts/api-server/src/routes/voice/index.ts
+artifacts/nutrinext/src/lib/languages.ts
+Dependencies
+Global Language State & Sidebar Switcher

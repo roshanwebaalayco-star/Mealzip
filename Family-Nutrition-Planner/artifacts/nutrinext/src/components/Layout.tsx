@@ -1,15 +1,18 @@
 import { useState, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal } from "lucide-react";
+import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, Globe } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguageStore } from "@/store/useLanguageStore";
+import { INDIAN_LANGUAGES } from "@/lib/languages";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { activeFamily } = useAppState();
   const { lang } = useLanguage();
   const { user, logout } = useAuth();
+  const { currentLanguage, setLanguage } = useLanguageStore();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = [
@@ -90,6 +93,24 @@ export function Layout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
+        {/* Language Switcher */}
+        <div className="px-5 pb-2">
+          <label className="flex items-center gap-2 glass-card rounded-2xl px-3 py-2.5 cursor-pointer">
+            <Globe className="w-4 h-4 text-primary shrink-0" />
+            <select
+              value={currentLanguage}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="flex-1 bg-transparent text-xs font-medium text-foreground outline-none cursor-pointer appearance-none"
+            >
+              {INDIAN_LANGUAGES.map((l) => (
+                <option key={l.key} value={l.key}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         {/* User / Auth Footer */}
         <div className="px-5 py-5 space-y-2">
           {user ? (
@@ -140,6 +161,20 @@ export function Layout({ children }: { children: ReactNode }) {
               {activeFamily.name}
             </div>
           )}
+          <label className="relative flex items-center p-1.5 rounded-full border border-border bg-background/50">
+            <Globe className="w-3.5 h-3.5 text-primary shrink-0" />
+            <select
+              value={currentLanguage}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              {INDIAN_LANGUAGES.map((l) => (
+                <option key={l.key} value={l.key}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <Link href="/profile">
             <div className="p-1.5 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-primary transition-colors">
               <UserCircle className="w-3.5 h-3.5" />

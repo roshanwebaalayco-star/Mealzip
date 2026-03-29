@@ -239,6 +239,27 @@ Liquid Glass 2025+ (`artifacts/nutrinext/src/index.css`):
 - Language toggle button (English ↔ हिंदी) in grocery list header — switches all item names to Hindi when available
 - Language toggle uses the existing app-wide LanguageContext (`toggleLang`)
 
+### Global Language State (Task #10)
+- Zustand store (`src/store/useLanguageStore.ts`) with `persist` middleware (key: `nutrinext-language`, default: `english`)
+- Supports all 11 Indian languages: English, Hindi, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia
+- `INDIAN_LANGUAGES` array and `LANG_TO_BCP47` map centralized in `src/lib/languages.ts`
+- LanguageContext (`src/contexts/language-context.tsx`) derives `lang` from Zustand store (hindi→"hi", else→"en")
+- Sidebar language switcher: desktop (Globe icon + dropdown above footer), mobile (Globe icon in top bar)
+- Removed per-page `voiceLang` state and `VOICE_LANGUAGES` dropdown from Chat.tsx
+
+### Voice Chat Mode in AI Chat (Task #11)
+- `useVoiceChat` hook (`src/hooks/use-voice-chat.ts`) — full voice conversation loop with 4 browser guardrails:
+  1. Safari GC bug: utterance stored in `activeUtteranceRef` before `speak()`
+  2. React closure trap: SSE buffer managed via `useRef` (not `useState`)
+  3. iOS AudioContext unlock: persistent AudioContext created on user gesture
+  4. Voice loading race: `onvoiceschanged` listener + explicit `utt.voice` assignment
+- Shared audio utilities (`src/lib/audio-utils.ts`): `recordOnce()`, `getVoiceForLang()`, `waitForVoices()`
+- Browser-native `window.speechSynthesis` for TTS (sentence-boundary buffering via regex `/[^.!?।\n]+[.!?।]+/g`)
+- Sarvam STT via `/api/voice/transcribe` with AudioContext RMS silence detection (1800ms threshold)
+- `useChatStream` updated: accepts `language` param, `onChunk`/`onDone` callbacks for real-time TTS feeding
+- Gemini backend: optional `language` field in POST body → injected as `CRITICAL LANGUAGE RULE` in system instruction
+- Voice Chat UI: toggle button in chat header, animated mic orb with volume pulse, state indicators (listening/processing/speaking), barge-in support
+
 ## Known Limitations
 
 - **Fasting calendar is 2026-centric**: Festival/fasting dates are hardcoded for 2026 (Gregorian). For other years, the API falls back to 2026 data and sets `isFallbackYear: true` in the response; the UI shows an amber note when this happens. A dynamic Indian calendar calculation engine would be needed for multi-year correctness.

@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppState, useVoiceRecorder } from "@/hooks/use-app-state";
 import { useChatStream } from "@/hooks/use-chat-stream";
+import { useVoiceChat } from "@/hooks/use-voice-chat";
+import { useLanguageStore } from "@/store/useLanguageStore";
+import { LANG_TO_BCP47 } from "@/lib/languages";
 import { useListGeminiConversations, useCreateGeminiConversation, useTranscribeVoice } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { Mic, Send, Bot, Loader2, Sparkles, ChevronDown, RefreshCcw, AlertTriangle } from "lucide-react";
+import { Mic, MicOff, Send, Bot, Loader2, Sparkles, RefreshCcw, AlertTriangle, AudioLines, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api-fetch";
 import ReactMarkdown from "react-markdown";
@@ -29,37 +32,37 @@ function recordHFSSEvent() {
   } catch { /* non-critical */ }
 }
 
-const VOICE_LANGUAGES = [
-  { code: "hi-IN", label: "हिन्दी" },
-  { code: "en-IN", label: "English" },
-  { code: "bn-IN", label: "বাংলা" },
-  { code: "ta-IN", label: "தமிழ்" },
-  { code: "te-IN", label: "తెలుగు" },
-  { code: "mr-IN", label: "मराठी" },
-  { code: "gu-IN", label: "ગુજરાતી" },
-  { code: "kn-IN", label: "ಕನ್ನಡ" },
-  { code: "ml-IN", label: "മലയാളം" },
-  { code: "pa-IN", label: "ਪੰਜਾਬੀ" },
-  { code: "or-IN", label: "ଓଡ଼ିଆ" },
-];
-
 export default function Chat() {
   const { toast } = useToast();
   const { activeFamily } = useAppState();
   const { data: convos } = useListGeminiConversations();
   const createConvo = useCreateGeminiConversation();
-  const { streamMessage, isStreaming, currentMessage } = useChatStream();
+  const { streamMessage, isStreaming, currentMessage, setOnChunk, setOnDone } = useChatStream();
+  const { currentLanguage } = useLanguageStore();
+
+  const {
+    voiceMode,
+    micState,
+    volume,
+    setMicState,
+    startVoiceMode,
+    stopVoiceMode,
+    bargeIn,
+    listenOnce,
+    feedChunk,
+    flushBuffer,
+    resetStreamState,
+    waitForSpeechDone,
+  } = useVoiceChat();
 
   const [activeConvoId, setActiveConvoId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
-  const [voiceLang, setVoiceLang] = useState<string>(() =>
-    localStorage.getItem("chatVoiceLang") || "en-IN"
-  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { isRecording, startRecording, stopRecording } = useVoiceRecorder();
   const transcribe = useTranscribeVoice();
+  const voiceModeLoopRef = useRef(false);
 
   type HFSSFoodEntry = { food: string; kcal_per_serve: number; sodium_mg: number; fat_g: number; is_hfss: boolean; nova_group?: number; kcal_per_100g?: number; sodium_mg_per_serve?: number; fat_g_per_100g?: number; sugar_g_per_100g?: number };
   type HFSSResult = { isHFSS: boolean; items: string[]; foodLog?: HFSSFoodEntry[]; totalKcal?: number; totalSodiumMg?: number; rebalanceSuggestion: string | null; rebalance_strategy?: string | null; patchedSlot?: { day: string; mealType: string; planId: number } | null };
@@ -83,29 +86,43 @@ export default function Chat() {
     }
   }, [messages, currentMessage]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || !activeConvoId || isStreaming) return;
-    const userMsg = input.trim();
-    setInput("");
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || !activeConvoId || isStreaming) return;
+    const userMsg = text.trim();
 
     const isFoodLog = FOOD_LOG_PATTERNS.some(p => p.test(userMsg));
 
     setMessages((prev) => {
-      const nextIdx = prev.length + 1; // +1 because AI response will be at this index
+      const nextIdx = prev.length + 1;
       if (isFoodLog) {
         pendingHFSSMsg.current = { msgIndex: nextIdx, text: userMsg };
       }
       return [...prev, { role: "user", content: userMsg }];
     });
 
-    await streamMessage(activeConvoId, userMsg, activeFamily?.id ?? null);
+    if (voiceMode) {
+      resetStreamState();
+      setOnChunk(feedChunk);
+      setOnDone(flushBuffer);
+    } else {
+      setOnChunk(null);
+      setOnDone(null);
+    }
+
+    await streamMessage(activeConvoId, userMsg, activeFamily?.id ?? null, currentLanguage);
+  }, [activeConvoId, isStreaming, activeFamily, currentLanguage, voiceMode, streamMessage, feedChunk, flushBuffer, resetStreamState, setOnChunk, setOnDone]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim()) return;
+    const msg = input.trim();
+    setInput("");
+    await sendMessage(msg);
   };
 
   useEffect(() => {
     if (!isStreaming && currentMessage) {
       setMessages((prev) => [...prev, { role: "model", content: currentMessage }]);
-      // Fire HFSS classify for the pending food log message
       if (pendingHFSSMsg.current) {
         const { msgIndex, text } = pendingHFSSMsg.current;
         pendingHFSSMsg.current = null;
@@ -128,8 +145,9 @@ export default function Chat() {
     if (isRecording) {
       const base64 = await stopRecording();
       if (base64) {
+        const bcp47 = LANG_TO_BCP47[currentLanguage] ?? "en-IN";
         try {
-          const res = await transcribe.mutateAsync({ data: { audioBase64: base64, languageCode: voiceLang } });
+          const res = await transcribe.mutateAsync({ data: { audioBase64: base64, languageCode: bcp47 } });
           if (res.transcript) setInput(res.transcript);
         } catch (e) {
           const detail = (e as { detail?: string; message?: string })?.detail
@@ -143,11 +161,43 @@ export default function Chat() {
     }
   };
 
+  const startVoiceLoop = useCallback(async () => {
+    await startVoiceMode();
+    voiceModeLoopRef.current = true;
+
+    const loop = async () => {
+      while (voiceModeLoopRef.current) {
+        const transcript = await listenOnce();
+        if (!voiceModeLoopRef.current) break;
+        if (!transcript) continue;
+        setMicState("processing");
+        await sendMessage(transcript);
+        await waitForSpeechDone();
+        if (!voiceModeLoopRef.current) break;
+      }
+    };
+    loop().catch(() => { /* voice loop ended */ });
+  }, [startVoiceMode, listenOnce, sendMessage, setMicState, waitForSpeechDone]);
+
+  const stopVoiceLoop = useCallback(() => {
+    voiceModeLoopRef.current = false;
+    stopVoiceMode();
+  }, [stopVoiceMode]);
+
+  useEffect(() => {
+    return () => {
+      voiceModeLoopRef.current = false;
+      stopVoiceMode();
+    };
+  }, [stopVoiceMode]);
+
   const hints = [
     "Suggest diabetic friendly snacks",
     "मुझे आज का खाना बताओ",
     "Why do I need 500g veggies?",
   ];
+
+  const micPulseSize = Math.max(1, 1 + (volume / 100) * 0.6);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-screen p-4 md:p-6 w-full">
@@ -163,22 +213,27 @@ export default function Chat() {
             <p className="text-[0.65rem] text-muted-foreground">Multilingual Nutrition Assistant</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <label className="relative flex items-center gap-1" title="Voice input language">
-              <Mic className="w-3 h-3 text-muted-foreground shrink-0" />
-              <select
-                value={voiceLang}
-                onChange={(e) => {
-                  setVoiceLang(e.target.value);
-                  localStorage.setItem("chatVoiceLang", e.target.value);
-                }}
-                className="appearance-none pl-1 pr-5 py-1 text-[0.65rem] font-medium rounded-full border border-white/80 bg-white/60 backdrop-blur-sm text-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
-              >
-                {VOICE_LANGUAGES.map(l => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-1 w-2.5 h-2.5 text-muted-foreground pointer-events-none" />
-            </label>
+            <button
+              onClick={() => (voiceMode ? stopVoiceLoop() : startVoiceLoop())}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.65rem] font-semibold transition-all border ${
+                voiceMode
+                  ? "bg-red-50 text-red-600 border-red-200/60 hover:bg-red-100"
+                  : "bg-violet-50 text-violet-600 border-violet-200/60 hover:bg-violet-100"
+              }`}
+              title={voiceMode ? "Exit voice mode" : "Enter voice chat mode"}
+            >
+              {voiceMode ? (
+                <>
+                  <MicOff className="w-3 h-3" />
+                  Exit Voice
+                </>
+              ) : (
+                <>
+                  <AudioLines className="w-3 h-3" />
+                  Voice Chat
+                </>
+              )}
+            </button>
             <div className="flex items-center gap-1.5 text-[0.65rem] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
               <Sparkles className="w-3 h-3" />
               Gemini AI
@@ -204,7 +259,7 @@ export default function Chat() {
                 Ask me anything about your family's nutrition, ICMR-NIN 2024 guidelines, or recipes.
               </p>
               <p className="text-xs text-muted-foreground/70 mb-5">
-                Type in any language · Tap 🎙️ to speak
+                Type in any language or tap Voice Chat to speak
               </p>
               <div className="flex flex-wrap justify-center gap-2 max-w-sm">
                 {hints.map((hint) => (
@@ -262,7 +317,7 @@ export default function Chat() {
                   </div>
                 </div>
 
-                {/* HFSS Rebalance Card — shown below the AI response that follows the food log */}
+                {/* HFSS Rebalance Card */}
                 {msg.role === "model" && hfssResults[i] && (
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
@@ -271,7 +326,7 @@ export default function Chat() {
                   >
                     <div className="flex items-center gap-1.5 mb-2 text-green-800 font-semibold">
                       <RefreshCcw className="w-3 h-3" />
-                      🔄 HFSS Detected — ICMR Rebalance
+                      HFSS Detected — ICMR Rebalance
                       {hfssResults[i].totalKcal && (
                         <span className="ml-auto text-[9px] font-normal text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">
                           ~{hfssResults[i].totalKcal} kcal · {hfssResults[i].totalSodiumMg}mg Na
@@ -299,7 +354,7 @@ export default function Chat() {
                     <p className="text-green-900 leading-snug">{hfssResults[i].rebalance_strategy ?? hfssResults[i].rebalanceSuggestion}</p>
                     {hfssResults[i].patchedSlot && (
                       <p className="mt-1.5 text-[9px] text-teal-700 bg-teal-50 rounded-full px-2 py-0.5 inline-flex items-center gap-1">
-                        ✅ {hfssResults[i].patchedSlot!.day} {hfssResults[i].patchedSlot!.mealType} rebalanced in your meal plan
+                        {hfssResults[i].patchedSlot!.day} {hfssResults[i].patchedSlot!.mealType} rebalanced in your meal plan
                       </p>
                     )}
                   </motion.div>
@@ -327,46 +382,123 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Input bar */}
-        <div className="relative z-10 p-3 md:p-4 border-t border-white/60">
-          <form
-            onSubmit={handleSubmit}
-            className="flex items-center gap-2 bg-white/55 backdrop-blur-sm border border-white/80 rounded-2xl px-3 py-2 shadow-inner"
-          >
-            <button
-              type="button"
-              onClick={handleVoice}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all focus-ring ${
-                isRecording
-                  ? "bg-red-100 text-red-500 animate-pulse"
-                  : "text-muted-foreground hover:text-primary hover:bg-primary/5"
-              }`}
+        {/* Voice Mode Overlay */}
+        <AnimatePresence>
+          {voiceMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="relative z-10 px-4 py-5 border-t border-white/60 bg-gradient-to-t from-violet-50/80 to-transparent"
             >
-              {transcribe.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-            </button>
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      className="absolute rounded-full bg-violet-400/20 transition-transform duration-150"
+                      style={{
+                        width: 56,
+                        height: 56,
+                        transform: `scale(${micPulseSize})`,
+                      }}
+                    />
+                    <div
+                      className={`relative w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors ${
+                        micState === "listening"
+                          ? "bg-gradient-to-br from-violet-500 to-purple-600"
+                          : micState === "speaking"
+                          ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                          : micState === "processing"
+                          ? "bg-gradient-to-br from-amber-500 to-orange-600"
+                          : "bg-gradient-to-br from-gray-400 to-gray-500"
+                      }`}
+                    >
+                      {micState === "processing" ? (
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                      ) : micState === "speaking" ? (
+                        <AudioLines className="w-6 h-6 text-white" />
+                      ) : (
+                        <Mic className="w-6 h-6 text-white" />
+                      )}
+                    </div>
+                  </div>
 
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message or tap mic to speak…"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 py-1"
-              disabled={isStreaming}
-            />
-            <button
-              type="submit"
-              disabled={isStreaming || !input.trim()}
-              className="btn-liquid w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  <button
+                    onClick={stopVoiceLoop}
+                    className="w-10 h-10 rounded-full bg-red-100 text-red-500 hover:bg-red-200 flex items-center justify-center transition-colors"
+                    title="Exit voice mode"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <p className="text-xs font-medium text-muted-foreground">
+                  {micState === "listening"
+                    ? "Listening..."
+                    : micState === "processing"
+                    ? "Processing..."
+                    : micState === "speaking"
+                    ? "Speaking..."
+                    : "Ready"}
+                </p>
+
+                {micState === "speaking" && (
+                  <button
+                    onClick={() => {
+                      bargeIn();
+                    }}
+                    className="text-[0.6rem] text-violet-600 hover:text-violet-800 font-medium underline underline-offset-2"
+                  >
+                    Tap to interrupt
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Input bar — hidden when voice mode is active */}
+        {!voiceMode && (
+          <div className="relative z-10 p-3 md:p-4 border-t border-white/60">
+            <form
+              onSubmit={handleSubmit}
+              className="flex items-center gap-2 bg-white/55 backdrop-blur-sm border border-white/80 rounded-2xl px-3 py-2 shadow-inner"
             >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
+              <button
+                type="button"
+                onClick={handleVoice}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all focus-ring ${
+                  isRecording
+                    ? "bg-red-100 text-red-500 animate-pulse"
+                    : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                {transcribe.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your message or tap mic to speak…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 py-1"
+                disabled={isStreaming}
+              />
+              <button
+                type="submit"
+                disabled={isStreaming || !input.trim()}
+                className="btn-liquid w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

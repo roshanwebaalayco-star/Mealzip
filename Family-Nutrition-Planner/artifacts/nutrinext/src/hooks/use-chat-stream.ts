@@ -5,6 +5,8 @@ export function useChatStream() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const onChunkRef = useRef<((chunk: string) => void) | null>(null);
+  const onDoneRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
@@ -12,7 +14,12 @@ export function useChatStream() {
     };
   }, []);
 
-  const streamMessage = async (conversationId: number, content: string, familyId?: number | null) => {
+  const streamMessage = async (
+    conversationId: number,
+    content: string,
+    familyId?: number | null,
+    language?: string
+  ) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -20,11 +27,24 @@ export function useChatStream() {
     setIsStreaming(true);
     setCurrentMessage("");
 
+    let doneFired = false;
+    const fireDone = () => {
+      if (doneFired) return;
+      doneFired = true;
+      if (onDoneRef.current) onDoneRef.current();
+    };
+
+    let sseBuffer = "";
+
     try {
       const res = await apiFetch(`/api/gemini/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, familyId: familyId ?? null }),
+        body: JSON.stringify({
+          content,
+          familyId: familyId ?? null,
+          ...(language && language !== "english" ? { language } : {}),
+        }),
         signal: controller.signal,
       });
 
@@ -37,20 +57,26 @@ export function useChatStream() {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data: '));
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() ?? "";
 
         for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line.replace('data: ', ''));
+            const data = JSON.parse(trimmed.slice(6));
             if (data.done) {
+              fireDone();
               break;
             }
             if (data.content) {
               setCurrentMessage(prev => prev + data.content);
+              if (onChunkRef.current) onChunkRef.current(data.content);
             }
-          } catch (e) {
-            console.error("SSE parse error", e);
+          } catch {
+            /* partial JSON — will be completed on next chunk */
           }
         }
       }
@@ -60,8 +86,17 @@ export function useChatStream() {
       }
     } finally {
       setIsStreaming(false);
+      fireDone();
     }
   };
 
-  return { streamMessage, isStreaming, currentMessage, setCurrentMessage };
+  const setOnChunk = (cb: ((chunk: string) => void) | null) => {
+    onChunkRef.current = cb;
+  };
+
+  const setOnDone = (cb: (() => void) | null) => {
+    onDoneRef.current = cb;
+  };
+
+  return { streamMessage, isStreaming, currentMessage, setCurrentMessage, setOnChunk, setOnDone };
 }
