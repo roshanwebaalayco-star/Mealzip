@@ -19,7 +19,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { WeeklyContext } from "@/types/weekly-context";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -201,7 +200,6 @@ export default function MealPlan() {
   const [leftoverPanelOpen, setLeftoverPanelOpen] = useState(true);
   const [cachedPlan, setCachedPlan] = useState<Record<string, unknown> | null>(null);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
-  const [lastWeeklyContext, setLastWeeklyContext] = useState<WeeklyContext | null>(null);
   const [leftoverInput, setLeftoverInput] = useState("");
   const [isRecordingLeftover, setIsRecordingLeftover] = useState(false);
   const [skippedMeals, setSkippedMeals] = useState<Record<string, "skip" | "ate_out">>({});
@@ -531,23 +529,6 @@ export default function MealPlan() {
   }
 
   const currentPlan = plans?.[0] ?? (showOfflineBanner ? cachedPlan as unknown as NonNullable<typeof plans>[number] : undefined);
-
-  const handleGenerate = async (isFasting = false, weeklyCtx?: WeeklyContext) => {
-    try {
-      if (weeklyCtx) setLastWeeklyContext(weeklyCtx);
-      await generate.mutateAsync({
-        data: {
-          familyId: activeFamily.id,
-          weekStartDate: new Date().toISOString(),
-          preferences: isFasting ? { isFasting: true } : undefined,
-          weeklyContext: weeklyCtx,
-        },
-      });
-      refetch();
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   if (!currentPlan) {
     return (
@@ -1658,15 +1639,6 @@ export default function MealPlan() {
           <p className="text-[11px] text-amber-700/70 mt-3 leading-relaxed">
             {t("Ingredients auto-swapped based on today's mandi's best prices.", "आज की मंडी की सबसे अच्छी कीमतों के आधार पर सामग्री स्वचालित रूप से बदली गई।")}
           </p>
-        </div>
-      )}
-
-      {/* Weekly Context Used Banner */}
-      {lastWeeklyContext && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-primary/20 bg-primary/5 text-primary text-xs font-medium">
-          <RefreshCcw className="w-3.5 h-3.5 shrink-0" />
-          <span>{t("🔄 Plan generated with your weekly context. Budget, prep time, and member overrides applied.", "🔄 साप्ताहिक विवरण के साथ योजना बनाई। बजट, समय, और सदस्य बदलाव लागू।")}</span>
-          <button onClick={() => setLastWeeklyContext(null)} className="ml-auto text-muted-foreground hover:text-foreground">✕</button>
         </div>
       )}
 
