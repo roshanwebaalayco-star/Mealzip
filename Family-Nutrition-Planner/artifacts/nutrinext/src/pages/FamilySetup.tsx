@@ -98,7 +98,7 @@ export default function FamilySetup() {
 
   type ChatMsg = { role: "user" | "model"; content: string };
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatLang, setChatLang] = useState<string | null>(globalLang);
+  const [chatLang, setChatLang] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -501,11 +501,9 @@ export default function FamilySetup() {
                       variant="outline"
                       onClick={() => {
                         setChatOpen(true);
+                        setChatLang(null);
                         setChatMessages([]);
                         setChatComplete(false);
-                        const lang = globalLang;
-                        setChatLang(lang);
-                        if (lang) startChat(lang);
                       }}
                       className="gap-1.5 shrink-0 ml-2 border-secondary/40 text-secondary hover:bg-secondary/10"
                     >
@@ -538,7 +536,6 @@ export default function FamilySetup() {
                         </button>
                       </div>
 
-                      {/* Language selection */}
                       {!chatLang && (
                         <div className="p-4">
                           <p className="text-sm font-semibold mb-1">🙏 Namaste!</p>
@@ -549,7 +546,11 @@ export default function FamilySetup() {
                                 key={l.key}
                                 type="button"
                                 onClick={() => startChat(l.key)}
-                                className="px-3 py-1.5 text-xs font-medium rounded-full bg-white border border-secondary/30 hover:bg-secondary/10 hover:border-secondary/60 transition-colors"
+                                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                                  l.key === globalLang
+                                    ? "bg-secondary/20 border-secondary text-secondary-foreground ring-1 ring-secondary/40"
+                                    : "bg-white border-secondary/30 hover:bg-secondary/10 hover:border-secondary/60"
+                                }`}
                               >
                                 {l.label}
                               </button>
