@@ -18,6 +18,8 @@ import { getICMRNINTargets } from "../../lib/icmr-nin.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
 import { resolveDietPreference } from "../../lib/diet-tag.js";
 import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
+import { filterByAppliances } from "../../lib/appliance-filter.js";
+import { getSeasonalIngredients, type Region, type Month } from "../../lib/seasonal-ingredients.js";
 
 const router: IRouter = Router();
 
@@ -86,6 +88,7 @@ const MealSlotSchema = z.object({
   calories: z.number().optional(),
   estimatedCost: z.number().optional(),
   icmr_rationale: z.string().optional(),
+  required_appliances: z.array(z.string()).optional(),
   member_plates: z.record(z.string(), z.unknown()).optional(),
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   // For AI-invented recipes: structured objects only (no plain strings)
@@ -273,6 +276,7 @@ async function getFilteredRecipes(
     zone: recipesTable.zone,
     totalTimeMin: recipesTable.totalTimeMin,
     ingredients: recipesTable.ingredients,
+    instructions: recipesTable.instructions,
   } as const;
 
   let recipes = await localDb.select(RECIPE_SELECT)
@@ -552,18 +556,32 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     return;
   }
 
+  const ownedAppliances = family.appliances ?? ["tawa", "pressure_cooker", "kadai"];
+
+  const currentMonth = (new Date().getMonth() + 1) as Month;
+  const seasonalData = getSeasonalIngredients(zone as Region, currentMonth);
+
   let filteredRecipes: Awaited<ReturnType<typeof getFilteredRecipes>>;
   let previousFeedback: Array<typeof mealFeedbackTable.$inferSelect>;
   try {
     filteredRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
 
-    // 5d: Progressive fallback when recipe filter is too restrictive
+    filteredRecipes = filterByAppliances(filteredRecipes, ownedAppliances);
+
     if (filteredRecipes.length < 10) {
-      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes — relaxing budget constraint");
-      filteredRecipes = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
+      req.log.info({ familyId, zone, count: filteredRecipes.length }, "Too few recipes after appliance filter — relaxing budget constraint");
+      let relaxed = await getFilteredRecipes(zone, allRestrictions, 0, isFasting, null, 100);
+      relaxed = filterByAppliances(relaxed, ownedAppliances);
+      filteredRecipes = relaxed;
     }
     if (filteredRecipes.length < 10) {
       req.log.info({ familyId, zone, count: filteredRecipes.length }, "Still too few — removing dietary filter");
+      let relaxed = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+      relaxed = filterByAppliances(relaxed, ownedAppliances);
+      filteredRecipes = relaxed;
+    }
+    if (filteredRecipes.length < 10) {
+      req.log.info({ familyId, zone, count: filteredRecipes.length, ownedAppliances }, "Still too few after appliance filter — relaxing to unfiltered as soft fallback");
       filteredRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
     }
     if (filteredRecipes.length === 0) {
@@ -620,6 +638,10 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   const feedbackNote = dislikedMeals.length > 0
     ? `\nPREVIOUS FEEDBACK - AVOID these types:\n${dislikedMeals.slice(0, 10).join("\n")}\nCONTINUE these popular meals:\n${likedMeals.slice(0, 5).join("\n")}\n`
     : "";
+
+  const seasonalNote = `\n🌿 SEASONAL PRODUCE (${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][currentMonth - 1]}, ${zone} India): Vegetables: ${seasonalData.vegetables.join(", ")}. Fruits: ${seasonalData.fruits.join(", ")}. Grains: ${seasonalData.grains.join(", ")}.\nPREFER seasonal ingredients — they are fresher, cheaper, and more nutritious.\n`;
+
+  const applianceNote = `\n🍳 KITCHEN APPLIANCES AVAILABLE: ${ownedAppliances.join(", ")}.\nONLY suggest recipes that can be made with these appliances. Do NOT suggest recipes requiring oven, microwave, air fryer, idli stand, or blender/mixie unless listed above. For each meal slot, include "required_appliances":["tawa"] (array of appliances needed).\n`;
 
   const memberListForPrompt = memberSummaries.map(m => ({
     name: m.name, role: m.role, age: m.age, gender: m.gender,
@@ -707,13 +729,13 @@ ${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides
   if (ov.nonveg_days_override?.length) parts.push(`non-veg allowed on ${ov.nonveg_days_override.join(", ")} (type: ${ov.nonveg_type_override ?? "any"})`);
   return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
-${fastingNote}${pantryNote}`.trim() : `
+${fastingNote}${pantryNote}${seasonalNote}${applianceNote}`.trim() : `
 
 ══════════════════════════════════════════════════════════════════
 SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
 ══════════════════════════════════════════════════════════════════
 No weekly context provided. Use defaults from Section 1.
-${fastingNote}${pantryNote}`.trim();
+${fastingNote}${pantryNote}${seasonalNote}${applianceNote}`.trim();
 
   const masterPromptSection3 = `
 
@@ -924,11 +946,15 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     const maxCookTimeMin = cookingTimePref
       ? cookingTimePref.includes("quick") ? 30 : cookingTimePref.includes("moderate") ? 60 : null
       : null;
-    const freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+    const ownedAppliancesRegen = family.appliances ?? ["tawa", "pressure_cooker", "kadai"];
+    let freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
+    freshRecipes = filterByAppliances(freshRecipes, ownedAppliancesRegen);
+    if (freshRecipes.length < 10) {
+      freshRecipes = await getFilteredRecipes(zone, [], 0, isFasting, null, 120);
+    }
 
     const dislikedMeals = allFeedback.filter(f => !f.liked).map(f => f.mealType);
 
-    // Further filter out recipes matching disliked meal types
     const constrainedRecipes = freshRecipes.filter(r => {
       const course = (r.course ?? "").toLowerCase();
       return !dislikedMeals.some(dm => course.includes(dm.toLowerCase()));

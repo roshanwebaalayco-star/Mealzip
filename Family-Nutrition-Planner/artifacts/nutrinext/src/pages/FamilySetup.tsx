@@ -72,6 +72,7 @@ export default function FamilySetup() {
     dietaryType: "vegetarian" as "vegetarian" | "non-vegetarian" | "vegan" | "jain",
     healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
     fastingDays: [] as string[],
+    appliances: ["tawa", "pressure_cooker", "kadai"] as string[],
     mealsAreShared: true,
     sharedTypicalBreakfast: "",
     sharedTypicalLunch: "",
@@ -305,7 +306,7 @@ export default function FamilySetup() {
         ...fd.fastingDays.map(d => `fasting:${d}`),
       ];
       const fam = await createFamily.mutateAsync({
-        data: { ...fd, cuisinePreferences: enrichedPreferences },
+        data: { ...fd, cuisinePreferences: enrichedPreferences, appliances: fd.appliances },
       });
 
       for (const member of mems) {
@@ -759,6 +760,41 @@ export default function FamilySetup() {
                       <SelectItem value="manage_thyroid">Manage Thyroid / थायरॉइड नियंत्रण</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-base">{t("Kitchen Appliances", "किचन उपकरण")}</Label>
+                <p className="text-sm text-muted-foreground mb-3">{t("Select appliances you have — meal plans will only use these", "अपने उपकरण चुनें — भोजन योजना इन्हीं से बनेगी")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: "tawa", en: "Tawa / Griddle", hi: "तवा" },
+                    { key: "pressure_cooker", en: "Pressure Cooker", hi: "प्रेशर कुकर" },
+                    { key: "kadai", en: "Kadai / Wok", hi: "कड़ाही" },
+                    { key: "oven", en: "Oven / OTG", hi: "ओवन" },
+                    { key: "microwave", en: "Microwave", hi: "माइक्रोवेव" },
+                    { key: "blender_mixie", en: "Blender / Mixie", hi: "मिक्सी" },
+                    { key: "idli_stand", en: "Idli Stand", hi: "इडली स्टैंड" },
+                    { key: "air_fryer", en: "Air Fryer", hi: "एयर फ्रायर" },
+                  ].map(({ key, en, hi }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFamilyData(fd => ({
+                        ...fd,
+                        appliances: fd.appliances.includes(key)
+                          ? fd.appliances.filter(a => a !== key)
+                          : [...fd.appliances, key],
+                      }))}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        familyData.appliances.includes(key)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:border-primary"
+                      }`}
+                    >
+                      {t(en, hi)}
+                    </button>
+                  ))}
                 </div>
               </div>
 

@@ -13,4 +13,6 @@ export interface UpdateFamilyBody {
   monthlyBudget?: number;
   primaryLanguage?: string;
   cuisinePreferences?: string[];
+  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
+  appliances?: string[];
 }

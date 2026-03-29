@@ -26,10 +26,8 @@ export interface Family {
   /** Preferred cuisines */
   cuisinePreferences?: string[];
   isDemo?: boolean;
-  mealsAreShared?: boolean;
-  sharedTypicalBreakfast?: string;
-  sharedTypicalLunch?: string;
-  sharedTypicalDinner?: string;
+  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
+  appliances?: string[];
   createdAt: string;
 }
 
@@ -53,18 +51,6 @@ export interface FamilyMember {
   allergies?: string[];
   /** Daily calorie target (ICMR-NIN 2024 based) */
   calorieTarget?: number;
-  /** ICMR-NIN 2024 caloric target computed by Responsible AI rules */
-  icmrCaloricTarget?: number;
-  primaryGoal?: string;
-  goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  individualTypicalBreakfast?: string;
-  individualTypicalLunch?: string;
-  individualTypicalDinner?: string;
   createdAt: string;
 }
 
@@ -79,10 +65,8 @@ export interface CreateFamilyBody {
   monthlyBudget: number;
   primaryLanguage: string;
   cuisinePreferences?: string[];
-  mealsAreShared?: boolean;
-  sharedTypicalBreakfast?: string;
-  sharedTypicalLunch?: string;
-  sharedTypicalDinner?: string;
+  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
+  appliances?: string[];
 }
 
 export interface UpdateFamilyBody {
@@ -92,10 +76,8 @@ export interface UpdateFamilyBody {
   monthlyBudget?: number;
   primaryLanguage?: string;
   cuisinePreferences?: string[];
-  mealsAreShared?: boolean;
-  sharedTypicalBreakfast?: string;
-  sharedTypicalLunch?: string;
-  sharedTypicalDinner?: string;
+  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
+  appliances?: string[];
 }
 
 export interface CreateMemberBody {
@@ -110,16 +92,6 @@ export interface CreateMemberBody {
   dietaryRestrictions?: string[];
   allergies?: string[];
   calorieTarget?: number;
-  primaryGoal?: string;
-  goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  individualTypicalBreakfast?: string;
-  individualTypicalLunch?: string;
-  individualTypicalDinner?: string;
 }
 
 export interface UpdateMemberBody {
@@ -134,16 +106,6 @@ export interface UpdateMemberBody {
   dietaryRestrictions?: string[];
   allergies?: string[];
   calorieTarget?: number;
-  primaryGoal?: string;
-  goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  individualTypicalBreakfast?: string;
-  individualTypicalLunch?: string;
-  individualTypicalDinner?: string;
 }
 
 export interface Recipe {
@@ -209,48 +171,13 @@ export type GenerateMealPlanBodyPreferences = {
   maxBudget?: number;
   /** Generate a fasting-mode plan (Navratri, Ekadashi, etc.) */
   isFasting?: boolean;
-  /** Ingredients already available at home; prefer recipes that use these. */
-  pantryIngredients?: string[];
-  /** Name of festival/fast (e.g. Navratri, Ramadan, Ekadashi) for contextual meal planning. */
-  festivalType?: string;
 };
-
-export interface WeeklyContextMemberOverride {
-  memberId: number;
-  /** Free-text wellness note for the week */
-  feeling_this_week?: string;
-  fasting_days?: string[];
-  tiffin_override?: boolean;
-  spice_override?: "mild" | "medium" | "spicy";
-  /** Current weight update for calorie target recalculation */
-  weight_kg?: number;
-  /** Non-veg day overrides for this week */
-  nonveg_days_override?: string[];
-  /** Non-veg type for this week (chicken/fish/eggs/mutton/any) */
-  nonveg_type_override?: string;
-}
-
-export interface WeeklyContext {
-  budget_inr?: number;
-  dining_out_freq?: number;
-  /** Weekday cook-time budget: "<20" | "20-40" | "nolimit" */
-  weekday_prep_time?: "<20" | "20-40" | "nolimit";
-  /** Weekend cook-time budget: "quick" | "elaborate" | "nopref" */
-  weekend_prep_time?: "quick" | "elaborate" | "nopref";
-  special_request?: string;
-  /** Keys are memberId as string (e.g. "42") */
-  member_overrides?: Record<string, WeeklyContextMemberOverride>;
-  /** Ingredients already at home; prefer recipes using these */
-  pantry_items?: string[];
-}
 
 export interface GenerateMealPlanBody {
   familyId: number;
   /** ISO 8601 date-time string (e.g. 2026-03-23T00:00:00.000Z). Accepted as string from JSON body. */
   weekStartDate: string;
   preferences?: GenerateMealPlanBodyPreferences;
-  /** Per-week context overrides: budget, prep time, member check-ins */
-  weeklyContext?: WeeklyContext;
 }
 
 export interface UpdateMealPlanBody {

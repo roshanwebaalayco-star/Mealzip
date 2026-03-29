@@ -25,8 +25,11 @@ export interface Recipe {
   iron?: number;
   calcium?: number;
   vitaminC?: number;
+  /** breakfast, brunch, lunch, snack, dinner, dessert, beverage */
+  course?: string;
   prepTimeMin?: number;
   cookTimeMin?: number;
+  totalTimeMin?: number;
   servings?: number;
   /** Estimated cost per serving in INR */
   costPerServing?: number;

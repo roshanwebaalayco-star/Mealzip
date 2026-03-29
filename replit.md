@@ -69,6 +69,8 @@ Family-Nutrition-Planner/
 - `icmr-nin.ts` — ICMR-NIN 2024 RDA targets per age/gender/activity (in-memory fallback)
 - `diet-tag.ts` — helpers: `parseDietTag`, `resolveDietPreference` (strips `diet_type:` prefix)
 - `logger.ts` — pino logger (pretty in dev, JSON in production)
+- `appliance-filter.ts` — keyword-based appliance detection from recipe text + filterByAppliances() for hard filtering
+- `seasonal-ingredients.ts` — 5-region × 12-month Indian seasonal produce calendar (vegetables, fruits, grains)
 
 ### Frontend Architecture
 
@@ -96,7 +98,7 @@ Family-Nutrition-Planner/
 ### Database Schema (Drizzle + PostgreSQL)
 
 Key tables:
-- `families` — family profiles (`monthlyBudget` as integer in rupees, `state`, `primaryLanguage`)
+- `families` — family profiles (`monthlyBudget` as integer in rupees, `state`, `primaryLanguage`, `appliances text[]` — kitchen appliances owned, defaults to `['tawa','pressure_cooker','kadai']`)
 - `family_members` — per-member profiles including new fields: `goalPace`, `tiffinType`, `religiousRules`, `ingredientDislikes[]`, `nonVegDays[]`, `nonVegTypes[]`, `icmrCaloricTarget`
 - `recipes` — 12,771 seeded Indian recipes with nutrition data, cuisine, course, diet tags
 - `icmr_nin_rda` — 22 RDA reference records by age group/gender/activity

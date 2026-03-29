@@ -17,6 +17,7 @@ export const familiesTable = pgTable("families", {
   sharedTypicalBreakfast: text("shared_typical_breakfast"),
   sharedTypicalLunch: text("shared_typical_lunch"),
   sharedTypicalDinner: text("shared_typical_dinner"),
+  appliances: text("appliances").array().notNull().default(["tawa", "pressure_cooker", "kadai"]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("families_user_id_idx").on(table.userId),

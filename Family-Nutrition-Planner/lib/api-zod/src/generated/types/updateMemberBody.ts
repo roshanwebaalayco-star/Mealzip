@@ -18,11 +18,4 @@ export interface UpdateMemberBody {
   dietaryRestrictions?: string[];
   allergies?: string[];
   calorieTarget?: number;
-  primaryGoal?: string;
-  goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
 }

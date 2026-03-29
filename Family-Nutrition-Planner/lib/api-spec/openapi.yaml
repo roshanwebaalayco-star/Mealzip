@@ -1131,6 +1131,11 @@ components:
           description: Preferred cuisines
         isDemo:
           type: boolean
+        appliances:
+          type: array
+          items:
+            type: string
+          description: Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)
         createdAt:
           type: string
           format: date-time
@@ -1171,6 +1176,11 @@ components:
           type: array
           items:
             type: string
+        appliances:
+          type: array
+          items:
+            type: string
+          description: Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)
       required:
         - name
         - state
@@ -1194,6 +1204,11 @@ components:
           type: array
           items:
             type: string
+        appliances:
+          type: array
+          items:
+            type: string
+          description: Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)
 
     FamilyMember:
       type: object
