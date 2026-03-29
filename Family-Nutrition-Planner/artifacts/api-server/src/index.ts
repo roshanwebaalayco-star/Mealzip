@@ -56,7 +56,7 @@ async function checkDbHealth(): Promise<void> {
 // in a degraded state with an open port.
 await checkDbHealth();
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -64,3 +64,7 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+// Extend HTTP timeout for long-running AI meal plan generation (Gemini can take 60-300s)
+server.setTimeout(360000);
+server.keepAliveTimeout = 360000;

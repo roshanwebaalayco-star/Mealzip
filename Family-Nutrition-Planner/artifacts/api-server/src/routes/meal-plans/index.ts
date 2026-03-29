@@ -21,7 +21,7 @@ import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
 
 const router: IRouter = Router();
 
-const MAX_OUTPUT_TOKENS = 65536;
+const MAX_OUTPUT_TOKENS = 32768;
 
 function tryParseJson(text: string): Record<string, unknown> | null {
   // Strategy 1: Direct parse
@@ -90,8 +90,8 @@ const MealSlotSchema = z.object({
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   // For AI-invented recipes: structured objects only (no plain strings)
   base_ingredients: z.array(BaseIngredientSchema).optional(),
-  // Legacy plain-string ingredients list still accepted for DB recipes
-  ingredients: z.array(z.string()).optional(),
+  // Legacy plain-string ingredients list still accepted for DB recipes; also accept comma-string from AI
+  ingredients: z.union([z.array(z.string()), z.string()]).optional(),
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
 }).refine(
@@ -766,7 +766,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 
   req.log.info({ familyId, zone, recipesCount: filteredRecipes.length }, "Generating meal plan with parallel split (days 1-4 + days 5-7)");
 
-  const PLAN_TIMEOUT_MS = 45000;
+  const PLAN_TIMEOUT_MS = 270000;
   const controller1 = new AbortController();
   const controller2 = new AbortController();
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -774,7 +774,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
     timeoutHandle = setTimeout(() => {
       controller1.abort();
       controller2.abort();
-      reject(new Error("Meal plan generation timed out after 45 seconds"));
+      reject(new Error("Meal plan generation timed out after 270 seconds"));
     }, PLAN_TIMEOUT_MS);
   });
 
