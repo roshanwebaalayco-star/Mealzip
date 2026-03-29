@@ -49,16 +49,16 @@ const LANG_CODE: Record<string, string> = {
 };
 
 const GREETING: Record<string, string> = {
-  hindi: "नमस्ते! मैं ParivarSehat AI हूं। मैं आपके परिवार का personalized meal plan बनाने में मदद करूंगा। आपके परिवार का नाम क्या है?",
+  hindi: "नमस्ते! मैं ParivarSehat AI हूँ। मैं आपके परिवार का personalized meal plan बनाने में मदद करूँगी। आपके परिवार का नाम क्या है?",
   english: "Hello! I'm ParivarSehat AI. I'll help set up your family's personalised meal plan. What is your family name?",
   bengali: "নমস্কার! আমি ParivarSehat AI। আপনার পরিবারের জন্য meal plan তৈরি করতে সাহায্য করব। আপনার পরিবারের নাম কী?",
   tamil: "வணக்கம்! நான் ParivarSehat AI. உங்கள் குடும்பத்திற்கான உணவுத் திட்டம் தயாரிக்க உதவுவேன். உங்கள் குடும்பப் பெயர் என்ன?",
   telugu: "నమస్కారం! నేను ParivarSehat AI. మీ కుటుంబానికి meal plan తయారు చేయడంలో సహాయం చేస్తాను. మీ కుటుంబం పేరు ఏమిటి?",
-  marathi: "नमस्कार! मी ParivarSehat AI आहे. मी तुमच्या कुटुंबाची meal plan तयार करण्यात मदत करेन. तुमच्या कुटुंबाचे नाव काय आहे?",
+  marathi: "नमस्कार! मी ParivarSehat AI आहे. मी तुमच्या कुटुंबासाठी meal plan तयार करण्यात मदत करेन. तुमच्या कुटुंबाचे नाव काय आहे?",
   gujarati: "નમસ્તે! હું ParivarSehat AI છું. તમારા પરિવાર માટે meal plan બનાવવામાં મદદ કરીશ. તમારા પરિવારનું નામ શું છે?",
   kannada: "ನಮಸ್ಕಾರ! ನಾನು ParivarSehat AI. ನಿಮ್ಮ ಕುಟುಂಬಕ್ಕಾಗಿ meal plan ತಯಾರಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನಿಮ್ಮ ಕುಟುಂಬದ ಹೆಸರು ಏನು?",
   malayalam: "നമസ്കാരം! ഞാൻ ParivarSehat AI ആണ്. നിങ്ങളുടെ കുടുംബത്തിനായി meal plan തയ്യാറാക്കാൻ സഹായിക്കും. നിങ്ങളുടെ കുടുംബത്തിന്റെ പേര് എന്താണ്?",
-  punjabi: "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ParivarSehat AI ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ meal plan ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰਾਂਗਾ। ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ ਨਾਮ ਕੀ ਹੈ?",
+  punjabi: "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ParivarSehat AI ਹਾਂ। ਮੈਂ ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ meal plan ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰਾਂਗੀ। ਤੁਹਾਡੇ ਪਰਿਵਾਰ ਦਾ ਨਾਮ ਕੀ ਹੈ?",
   odia: "ନମସ୍କାର! ମୁଁ ParivarSehat AI। ଆପଣଙ୍କ ପରିବାର ପାଇଁ meal plan ତିଆରି କରିବାରେ ସାହାଯ୍ୟ କରିବି। ଆପଣଙ୍କ ପରିବାରର ନାମ କ'ଣ?",
 };
 
