@@ -200,22 +200,22 @@ export default function Chat() {
   const micPulseSize = Math.max(1, 1 + (volume / 100) * 0.6);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-screen p-4 md:p-6 w-full animate-fade-up">
+    <div className="flex flex-col h-[calc(100vh-7rem)] sm:h-[calc(100vh-5.5rem)] md:h-screen p-3 sm:p-4 md:p-6 w-full animate-fade-up">
       <div className="glass-elevated flex-1 rounded-3xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="relative z-10 flex items-center gap-3 p-4 md:p-5 border-b border-white/60">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl shadow" style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}>
-            <Bot className="w-5 h-5 text-white" />
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white" />
+        <div className="relative z-10 flex flex-wrap items-center gap-2 sm:gap-3 p-3 sm:p-4 md:p-5 border-b border-white/60">
+          <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl shadow shrink-0" style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}>
+            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
-          <div>
-            <h2 className="font-medium text-base leading-tight" style={{ letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>Swasthya Sahayak (AI)</h2>
-            <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Multilingual Nutrition Assistant</p>
+          <div className="min-w-0">
+            <h2 className="font-medium text-sm sm:text-base leading-tight truncate" style={{ letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>Swasthya Sahayak (AI)</h2>
+            <p className="text-[10px] sm:text-[11px] truncate" style={{ color: 'var(--text-tertiary)' }}>Multilingual Nutrition Assistant</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => (voiceMode ? stopVoiceLoop() : startVoiceLoop())}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold transition-all border ${
                 voiceMode
                   ? "bg-red-50 text-red-600 border-red-200/60 hover:bg-red-100"
                   : "bg-violet-50 text-violet-600 border-violet-200/60 hover:bg-violet-100"
@@ -225,16 +225,16 @@ export default function Chat() {
               {voiceMode ? (
                 <>
                   <MicOff className="w-3 h-3" />
-                  Exit Voice
+                  <span className="hidden sm:inline">Exit Voice</span>
                 </>
               ) : (
                 <>
                   <AudioLines className="w-3 h-3" />
-                  Voice Chat
+                  <span className="hidden sm:inline">Voice Chat</span>
                 </>
               )}
             </button>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
               <Sparkles className="w-3 h-3" />
               Gemini AI
             </div>

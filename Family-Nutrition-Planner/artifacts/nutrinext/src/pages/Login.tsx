@@ -156,7 +156,7 @@ export default function Login() {
             onClick={handleInstantDemo}
             disabled={isDemoLoading}
             className="btn-brand w-full h-12 rounded-2xl border-2 border-dashed border-[var(--brand-200)] text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, var(--brand-50) 0%, rgba(245,166,35,0.12) 100%)', color: 'var(--brand-800)' }}
+            style={{ background: 'linear-gradient(135deg, var(--brand-50) 0%, rgba(5,150,105,0.08) 100%)', color: 'var(--brand-800)' }}
           >
             {isDemoLoading
               ? <Loader2 className="w-4 h-4 animate-spin" />
