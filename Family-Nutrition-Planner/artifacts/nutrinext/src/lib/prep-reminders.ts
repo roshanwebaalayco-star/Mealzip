@@ -69,7 +69,19 @@ const PREP_REQUIREMENTS: Record<string, PrepEntry> = {
     benefit: "Fermentation increases B12 and biotin; improves gut-friendly bacteria",
     benefitHi: "किण्वन से B12 और बायोटिन बढ़ता है; पेट के लिए अच्छे बैक्टीरिया",
   },
+  "dosa batter": {
+    prepType: "ferment",
+    duration: "8–12 h",
+    benefit: "Fermentation increases B12 and biotin; improves gut-friendly bacteria",
+    benefitHi: "किण्वन से B12 और बायोटिन बढ़ता है; पेट के लिए अच्छे बैक्टीरिया",
+  },
   idli: {
+    prepType: "ferment",
+    duration: "8–12 h",
+    benefit: "Fermentation increases B12 and biotin; improves gut-friendly bacteria",
+    benefitHi: "किण्वन से B12 और बायोटिन बढ़ता है; पेट के लिए अच्छे बैक्टीरिया",
+  },
+  "idli batter": {
     prepType: "ferment",
     duration: "8–12 h",
     benefit: "Fermentation increases B12 and biotin; improves gut-friendly bacteria",
