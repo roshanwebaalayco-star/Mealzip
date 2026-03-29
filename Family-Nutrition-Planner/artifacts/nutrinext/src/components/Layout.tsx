@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, X, Globe } from "lucide-react";
@@ -13,11 +13,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const { lang, toggleLang } = useLanguage();
   const { user, logout } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.style.overflow = moreOpen ? "hidden" : "";
-    return () => { document.documentElement.style.overflow = ""; };
-  }, [moreOpen]);
 
   const navItems = [
     { icon: Home, label: "Home", labelHi: "होम", href: "/" },
@@ -247,7 +242,7 @@ export function Layout({ children }: { children: ReactNode }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
+              className="md:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm overscroll-contain touch-none"
               onClick={() => setMoreOpen(false)}
             />
 
