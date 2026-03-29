@@ -204,27 +204,7 @@ export default function WeeklyContextPage() {
     return finalCtx;
   };
 
-  const handleGenerate = async () => {
-    const finalCtx = buildFinalCtx();
-    persist(finalCtx);
-    try {
-      await generate.mutateAsync({
-        data: {
-          familyId: activeFamily!.id,
-          weekStartDate: new Date().toISOString(),
-          preferences: isFasting ? { isFasting: true } : undefined,
-          weeklyContext: finalCtx,
-        },
-      });
-      queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey({ familyId }) });
-      setLocation("/meal-plan");
-    } catch (e) {
-      console.error(e);
-      toast({ title: t("Generation failed", "योजना बनाने में विफल"), variant: "destructive" });
-    }
-  };
-
-  const handleConfirmNoChange = async () => {
+  const submitPlan = async () => {
     const finalCtx = buildFinalCtx();
     persist(finalCtx);
     try {
@@ -274,7 +254,7 @@ export default function WeeklyContextPage() {
 
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 max-w-xl mx-auto w-full">
         <button
-          onClick={handleConfirmNoChange}
+          onClick={submitPlan}
           disabled={generate.isPending}
           className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl border-2 border-green-500 bg-green-50 hover:bg-green-100 transition-colors text-green-800 font-semibold text-sm disabled:opacity-50"
         >
@@ -632,7 +612,7 @@ export default function WeeklyContextPage() {
             {t("Cancel", "रद्द करें")}
           </Button>
           <button
-            onClick={handleGenerate}
+            onClick={submitPlan}
             disabled={generate.isPending}
             className="btn-liquid flex-[2] inline-flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-orange-500 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
           >
