@@ -260,8 +260,10 @@ export default function HealthLog() {
         </div>
       )}
 
-      <div className="flex p-1 rounded-2xl glass-card w-fit">
+      <div className="flex p-1 rounded-2xl glass-card w-fit" role="tablist" aria-label={t("Health & Nutrition sections", "स्वास्थ्य और पोषण अनुभाग")}>
         <button
+          role="tab"
+          aria-selected={activeTab === "nutrition"}
           onClick={() => setActiveTab("nutrition")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === "nutrition"
@@ -273,6 +275,8 @@ export default function HealthLog() {
           {t("Nutrition", "पोषण")}
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === "health"}
           onClick={() => setActiveTab("health")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === "health"
