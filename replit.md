@@ -79,7 +79,7 @@ Family-Nutrition-Planner/
 - **Framework**: React 18 + Vite
 - **Routing**: Wouter (lightweight client-side router)
 - **State/Data**: TanStack React Query with auto-generated hooks from `@workspace/api-client-react`
-- **UI**: shadcn/ui (Radix UI primitives) + Tailwind CSS v4 + tw-animate-css
+- **UI**: shadcn/ui (16 Radix UI primitives: button, input, badge, label, select, checkbox, dialog, sheet, card, textarea, collapsible, switch, slider, toaster, tooltip, toast) + Tailwind CSS v4 + tw-animate-css
 - **Animations**: Framer Motion
 - **Fonts**: DM Sans (body) + Outfit (display)
 - **Language toggle**: English ↔ Hindi via `LanguageContext`
