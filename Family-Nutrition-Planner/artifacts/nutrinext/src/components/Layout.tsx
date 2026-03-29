@@ -253,27 +253,27 @@ export function Layout({ children }: { children: ReactNode }) {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] glass-panel rounded-t-3xl px-4 pt-3 shadow-2xl overflow-y-auto"
-              style={{ maxHeight: "60vh", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-[70] glass-panel rounded-t-3xl px-4 pt-2.5 shadow-2xl"
+              style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
             >
               {/* Handle */}
-              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+              <div className="w-8 h-1 rounded-full bg-border mx-auto mb-3" />
 
               {/* Close button */}
-              <div className="flex items-center justify-between mb-4 px-1">
-                <span className="text-sm font-semibold text-foreground">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {lang === "hi" ? "सभी विकल्प" : "All Options"}
                 </span>
                 <button
                   onClick={() => setMoreOpen(false)}
-                  className="p-1.5 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1 rounded-full bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
               {/* More nav items grid */}
-              <div className="grid grid-cols-4 gap-2 mb-5">
+              <div className="grid grid-cols-4 gap-2 mb-3">
                 {moreItems.map((item) => {
                   const isActive = location === item.href;
                   return (
@@ -281,14 +281,14 @@ export function Layout({ children }: { children: ReactNode }) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMoreOpen(false)}
-                      className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all ${
+                      className={`flex flex-col items-center gap-1 py-2.5 rounded-2xl transition-all ${
                         isActive
                           ? "nav-active text-white"
                           : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                       }`}
                     >
-                      <item.icon className={`w-5 h-5 ${isActive ? "text-white" : ""}`} />
-                      <span className="text-[0.65rem] font-medium leading-none">
+                      <item.icon className={`w-[1.1rem] h-[1.1rem] ${isActive ? "text-white" : ""}`} />
+                      <span className="text-[0.6rem] font-medium leading-none">
                         {lang === "hi" ? item.labelHi : item.label}
                       </span>
                     </Link>
@@ -297,30 +297,30 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
 
               {/* Divider */}
-              <div className="border-t border-border/40 my-3" />
+              <div className="border-t border-border/40 mb-2.5" />
 
               {/* Language toggle + Auth */}
-              <div className="flex items-center gap-3 px-1">
+              <div className="flex items-center gap-2 px-0.5">
                 <button
                   onClick={() => { toggleLang(); setMoreOpen(false); }}
-                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-medium text-foreground flex-1"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-muted/40 hover:bg-muted/70 transition-colors text-xs font-medium text-foreground flex-1"
                 >
-                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span>{lang === "en" ? "Switch to हिंदी" : "Switch to English"}</span>
                 </button>
 
                 {user ? (
                   <button
                     onClick={() => { logout(); setMoreOpen(false); }}
-                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-destructive/10 hover:bg-destructive/20 transition-colors text-sm font-medium text-destructive"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-destructive/10 hover:bg-destructive/20 transition-colors text-xs font-medium text-destructive shrink-0"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-3.5 h-3.5" />
                     <span>{lang === "hi" ? "लॉग आउट" : "Log out"}</span>
                   </button>
                 ) : (
                   <Link href="/login" onClick={() => setMoreOpen(false)}>
-                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-primary/10 hover:bg-primary/20 transition-colors text-sm font-medium text-primary">
-                      <LogIn className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-primary/10 hover:bg-primary/20 transition-colors text-xs font-medium text-primary shrink-0">
+                      <LogIn className="w-3.5 h-3.5" />
                       <span>{lang === "hi" ? "लॉग इन" : "Log in"}</span>
                     </div>
                   </Link>
