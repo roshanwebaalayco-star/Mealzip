@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
 import VoiceAssistantModal from "@/components/VoiceAssistantModal";
 import type { VoiceFormData } from "@/hooks/use-voice-assistant";
+import { INDIAN_LANGUAGES } from "@/lib/languages";
 import type { IMemberProfileFields } from "@/components/MemberEditSheet";
 
 type MemberDraft = Omit<
@@ -88,19 +89,10 @@ export default function FamilySetup() {
 
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
-  const CHAT_LANGUAGES = [
-    { key: "English", label: "English" },
-    { key: "Hindi", label: "हिंदी" },
-    { key: "Bengali", label: "বাংলা" },
-    { key: "Tamil", label: "தமிழ்" },
-    { key: "Telugu", label: "తెలుగు" },
-    { key: "Marathi", label: "मराठी" },
-    { key: "Gujarati", label: "ગુજરાતી" },
-    { key: "Kannada", label: "ಕನ್ನಡ" },
-    { key: "Malayalam", label: "മലയാളം" },
-    { key: "Punjabi", label: "ਪੰਜਾਬੀ" },
-    { key: "Odia", label: "ଓଡ଼ିଆ" },
-  ];
+  const CHAT_LANGUAGES = INDIAN_LANGUAGES.map(l => ({
+    key: l.key.charAt(0).toUpperCase() + l.key.slice(1),
+    label: l.label,
+  }));
 
   type ChatMsg = { role: "user" | "model"; content: string };
   const [chatOpen, setChatOpen] = useState(false);

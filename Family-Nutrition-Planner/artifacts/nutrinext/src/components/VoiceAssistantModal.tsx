@@ -3,20 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, X, Volume2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { useVoiceAssistant, type VoiceFormData } from "@/hooks/use-voice-assistant";
-
-const VOICE_LANGUAGES = [
-  { key: "hindi", label: "हिंदी" },
-  { key: "english", label: "English" },
-  { key: "bengali", label: "বাংলা" },
-  { key: "tamil", label: "தமிழ்" },
-  { key: "telugu", label: "తెలుగు" },
-  { key: "marathi", label: "मराठी" },
-  { key: "gujarati", label: "ગુજરાતી" },
-  { key: "kannada", label: "ಕನ್ನಡ" },
-  { key: "malayalam", label: "മലയാളം" },
-  { key: "punjabi", label: "ਪੰਜਾਬੀ" },
-  { key: "odia", label: "ଓଡ଼ିଆ" },
-];
+import { INDIAN_LANGUAGES } from "@/lib/languages";
 
 interface Props {
   open: boolean;
@@ -170,7 +157,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
                 <p className="text-xs text-muted-foreground">अपनी भाषा चुनें:</p>
               </div>
               <div className="flex flex-wrap justify-center gap-2.5 max-w-sm">
-                {VOICE_LANGUAGES.map(l => (
+                {INDIAN_LANGUAGES.map(l => (
                   <button
                     key={l.key}
                     type="button"
