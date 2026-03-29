@@ -88,7 +88,7 @@ const MealSlotSchema = z.object({
   calories: z.number().optional(),
   estimatedCost: z.number().optional(),
   icmr_rationale: z.string().optional(),
-  required_appliances: z.array(z.string()).optional(),
+  required_appliances: z.array(z.string()).default([]),
   member_plates: z.record(z.string(), z.unknown()).optional(),
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   // For AI-invented recipes: structured objects only (no plain strings)
@@ -770,6 +770,7 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - 5 meals per day: breakfast, mid_morning, lunch, evening_snack, dinner
 - ONE BASE MANY PLATES: base_dish_name is the single shared dish; member_adjustments shows per-member customisations
 - base_dish_name: canonical dish name (also include as recipeName for backward compat)
+- required_appliances: MANDATORY array of appliance keys needed (from: ${ownedAppliances.join(", ")}). Empty array [] if no appliance needed.
 - For DB recipes (recipeId≠null): omit ingredients; include base_dish_name + recipeName
 - For AI recipes (recipeId=null): include both base_ingredients (structured: [{ingredient, qty_grams}]) AND ingredients (plain strings); add instructions (3 steps, ≤10 words each)
 - member_adjustments: per-member customisations as {MemberName:{add:[{ingredient,qty_grams}],reduce:[string],avoid:[string]}}; only for members with specific health needs; also include as member_plates for compat
@@ -785,11 +786,11 @@ ${masterPromptSection3}
 EXACT JSON SCHEMA (return ONLY raw JSON, no fences):
 {"harmonyScore":85,"totalBudgetEstimate":1400,"aiInsights":"<brief>","days":[
 {"day":"Monday","isFastingDay":false,"dailyHarmonyScore":82,"dailyNutrition":{"calories":1900,"protein":65,"carbs":280,"fat":55,"fiber":28},"meals":{
-"breakfast":{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"icmr_rationale":"Complex carbs, morning energy","member_adjustments":{"Ramesh":{"add":[{"ingredient":"egg","qty_grams":55}],"reduce":[],"avoid":[]}},"member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
-"mid_morning":{"recipeId":null,"base_dish_name":"Banana Peanut Chikki","recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"icmr_rationale":"Potassium, sustained energy","base_ingredients":[{"ingredient":"banana","qty_grams":120},{"ingredient":"peanut chikki","qty_grams":50}],"ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_adjustments":{},"member_plates":{}},
-"lunch":{"recipeId":456,"base_dish_name":"Dal Tadka Roti","recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"icmr_rationale":"Protein, iron, fiber","member_adjustments":{},"member_plates":{}},
-"evening_snack":{"recipeId":null,"base_dish_name":"Masala Chaas","recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"icmr_rationale":"Probiotics, calcium","base_ingredients":[{"ingredient":"curd","qty_grams":200},{"ingredient":"cumin","qty_grams":2},{"ingredient":"water","qty_grams":100}],"ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_adjustments":{},"member_plates":{}},
-"dinner":{"recipeId":789,"base_dish_name":"Palak Paneer Jeera Rice","recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"icmr_rationale":"Iron, calcium, protein","member_adjustments":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
+"breakfast":{"recipeId":123,"base_dish_name":"Poha","recipeName":"Poha","nameHindi":"पोहा","calories":320,"estimatedCost":80,"required_appliances":["tawa"],"icmr_rationale":"Complex carbs, morning energy","member_adjustments":{"Ramesh":{"add":[{"ingredient":"egg","qty_grams":55}],"reduce":[],"avoid":[]}},"member_plates":{"Ramesh":{"add":["egg"],"reduce":[],"avoid":[]}}},
+"mid_morning":{"recipeId":null,"base_dish_name":"Banana Peanut Chikki","recipeName":"Banana Peanut Chikki","nameHindi":"केला चिक्की","calories":180,"estimatedCost":40,"required_appliances":[],"icmr_rationale":"Potassium, sustained energy","base_ingredients":[{"ingredient":"banana","qty_grams":120},{"ingredient":"peanut chikki","qty_grams":50}],"ingredients":["2 bananas","50g peanut chikki"],"instructions":["Peel banana","Serve with chikki","Eat fresh"],"member_adjustments":{},"member_plates":{}},
+"lunch":{"recipeId":456,"base_dish_name":"Dal Tadka Roti","recipeName":"Dal Tadka Roti","nameHindi":"दाल तड़का रोटी","calories":520,"estimatedCost":120,"required_appliances":["pressure_cooker","tawa"],"icmr_rationale":"Protein, iron, fiber","member_adjustments":{},"member_plates":{}},
+"evening_snack":{"recipeId":null,"base_dish_name":"Masala Chaas","recipeName":"Masala Chaas","nameHindi":"मसाला छाछ","calories":80,"estimatedCost":30,"required_appliances":[],"icmr_rationale":"Probiotics, calcium","base_ingredients":[{"ingredient":"curd","qty_grams":200},{"ingredient":"cumin","qty_grams":2},{"ingredient":"water","qty_grams":100}],"ingredients":["200ml curd","pinch cumin","salt","water"],"instructions":["Blend curd with water","Add spices","Serve cold"],"member_adjustments":{},"member_plates":{}},
+"dinner":{"recipeId":789,"base_dish_name":"Palak Paneer Jeera Rice","recipeName":"Palak Paneer Jeera Rice","nameHindi":"पालक पनीर जीरा चावल","calories":600,"estimatedCost":200,"required_appliances":["kadai","pressure_cooker"],"icmr_rationale":"Iron, calcium, protein","member_adjustments":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"member_plates":{"Ramesh":{"add":[],"reduce":["ghee"],"avoid":[]}},"leftoverChain":[{"step":1,"day":"Tuesday","meal":"Lunch","dish":"Palak paratha wrap"},{"step":2,"day":"Wednesday","meal":"Breakfast","dish":"Palak paratha"},{"step":3,"day":"Wednesday","meal":"Snack","dish":"Paneer tikka"}]}
 }}]}`;
 
   const promptHalf1 = promptPreamble + `
@@ -847,22 +848,34 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       throw new Error(`Generated plan has structural issues after merge: ${issues}`);
     }
 
-    // Post-generation appliance enforcement: reject any meal slot declaring unavailable appliances
+    // Post-generation appliance enforcement: strip meals requiring unavailable appliances
     let applianceViolations = 0;
-    const candidateDays = mergedCandidate.days as Array<{ meals?: Record<string, { required_appliances?: string[]; base_dish_name?: string; recipeName?: string }> }>;
+    const candidateDays = mergedCandidate.days as Array<{ day?: string; meals?: Record<string, Record<string, unknown>> }>;
     for (const day of candidateDays) {
       if (!day.meals) continue;
-      for (const [, meal] of Object.entries(day.meals)) {
-        const declared = meal.required_appliances ?? [];
+      for (const [slotKey, meal] of Object.entries(day.meals)) {
+        const declared = (meal.required_appliances as string[] | undefined) ?? [];
         const violations = declared.filter(a => !ownedAppliances.includes(a));
         if (violations.length > 0) {
           applianceViolations++;
-          req.log.info({ dish: meal.base_dish_name ?? meal.recipeName, violations }, "Post-gen appliance violation detected — flagging");
+          const dishName = (meal.base_dish_name ?? meal.recipeName ?? "unknown") as string;
+          req.log.info({ dish: dishName, slot: slotKey, day: day.day, violations }, "Post-gen appliance violation — replacing with simple alternative");
+          day.meals[slotKey] = {
+            ...meal,
+            base_dish_name: `Simple ${slotKey.replace("_", " ")} (${dishName} replaced — needs ${violations.join(", ")})`,
+            recipeName: `Simple ${slotKey.replace("_", " ")}`,
+            recipeId: null,
+            required_appliances: ["tawa"],
+            icmr_rationale: `Original dish required unavailable appliance: ${violations.join(", ")}`,
+            base_ingredients: [{ ingredient: "seasonal vegetables", qty_grams: 200 }],
+            ingredients: ["seasonal vegetables", "spices"],
+            instructions: ["Use available appliances", "Cook simply", "Serve fresh"],
+          };
         }
       }
     }
     if (applianceViolations > 0) {
-      req.log.info({ familyId, applianceViolations }, "Appliance violations found in generated plan — proceeding with warning");
+      req.log.info({ familyId, applianceViolations }, "Appliance violations replaced with simple alternatives");
     }
 
     planData = mergedCandidate;
