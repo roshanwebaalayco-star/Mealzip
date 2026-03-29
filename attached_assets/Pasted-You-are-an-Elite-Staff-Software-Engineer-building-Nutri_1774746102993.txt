@@ -1,0 +1,44 @@
+You are an Elite Staff Software Engineer building 'NutriNext', an enterprise-grade Health OS. I need you to execute a massive, zero-error feature build and bug fix. 
+
+Currently, our Meal Generation API is failing (likely due to LLM JSON parsing errors or state mismatches). Additionally, we need to fundamentally upgrade the "Profile Setup" flow to capture the user's "Current Dietary Baseline" (Typical Indian meals) so the AI doesn't hallucinate Western dishes, but rather modifies what the family already eats (Roti, Sabzi, Dal, Chawal).
+
+Execute the following technical blueprint EXACTLY as specified. Do not take shortcuts.
+
+### STEP 1: DATABASE SCHEMA EXPANSION (SUPABASE / TYPES)
+We must capture what the family currently eats to anchor the AI.
+1. Update `src/types/database.ts` (or your equivalent types file).
+2. Add the following fields to the `Family` or `Household` interface:
+   - `meals_are_shared: boolean;` // Does everyone eat the exact same base meal?
+   - `shared_typical_breakfast: string;` // e.g., "Poha or Paratha"
+   - `shared_typical_lunch: string;` // e.g., "Dal, Chawal, Sabzi"
+   - `shared_typical_dinner: string;` // e.g., "Roti, Sabzi"
+3. Add the following fields to the `MemberProfile` interface (for when meals_are_shared is false):
+   - `individual_typical_breakfast?: string;`
+   - `individual_typical_lunch?: string;`
+   - `individual_typical_dinner?: string;`
+
+### STEP 2: FRONTEND UI - THE "CURRENT DIET" MODULE
+In `src/pages/FamilySetup.tsx` (or your profile creation form), add a new section called "Current Dietary Baseline".
+1. Add a Toggle/Radio button: "Does the entire family generally consume the same base meals? (Yes/No)"
+2. IF YES: Show three text-areas for the whole family: "Typical Breakfast", "Typical Lunch", "Typical Dinner". Add placeholder text like: "E.g., 2 Roti, Dal, and seasonal Sabzi".
+3. IF NO: Map through the added family members and render these three text-areas under *each* member's card.
+4. Ensure this data is saved to Supabase alongside the rest of the profile data.
+
+### STEP 3: BACKEND - FIXING THE MEAL GENERATION CRASH
+The meal generation is crashing because the Gemini output is not being strictly parsed as JSON, or the prompt is too vague.
+In your backend route that handles meal generation (`src/routes/gemini` or `src/api/generateMeal`), implement this EXACT fail-safe logic:
+
+1. When calling the Gemini API, you MUST force it to return JSON. If using the official SDK, pass: `generationConfig: { responseMimeType: "application/json" }`.
+2. Wrap the LLM call in a strict try-catch block that cleans Markdown before parsing:
+```javascript
+// Example fail-safe parser to implement in your controller
+let rawText = aiResponse.text();
+// Strip markdown backticks if Gemini accidentally includes them despite mimeType
+rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+let mealPlan;
+try {
+  mealPlan = JSON.parse(rawText);
+} catch (e) {
+  console.error("LLM JSON Parsing Error. Raw Text:", rawText);
+  return res.status(500).json({ error: "AI returned malformed data. Please try again." });
+}
