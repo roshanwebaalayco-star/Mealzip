@@ -950,6 +950,30 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     const likedList = allFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4)
       .map(f => f.mealType).join(", ");
 
+    const regenBaselineLines: string[] = [];
+    if (family.mealsAreShared && (family.sharedTypicalBreakfast || family.sharedTypicalLunch || family.sharedTypicalDinner)) {
+      regenBaselineLines.push("CURRENT DIETARY BASELINE — shared by all members (IMPROVE upon this, keep familiar where possible):");
+      if (family.sharedTypicalBreakfast) regenBaselineLines.push(`  Breakfast: ${family.sharedTypicalBreakfast}`);
+      if (family.sharedTypicalLunch) regenBaselineLines.push(`  Lunch: ${family.sharedTypicalLunch}`);
+      if (family.sharedTypicalDinner) regenBaselineLines.push(`  Dinner: ${family.sharedTypicalDinner}`);
+    } else if (!family.mealsAreShared) {
+      const regenMemberBaselines = members
+        .filter(m => m.individualTypicalBreakfast || m.individualTypicalLunch || m.individualTypicalDinner)
+        .map(m => {
+          const parts: string[] = [];
+          if (m.individualTypicalBreakfast) parts.push(`Breakfast: ${m.individualTypicalBreakfast}`);
+          if (m.individualTypicalLunch) parts.push(`Lunch: ${m.individualTypicalLunch}`);
+          if (m.individualTypicalDinner) parts.push(`Dinner: ${m.individualTypicalDinner}`);
+          return parts.length > 0 ? `  ${m.name}: ${parts.join(" | ")}` : "";
+        })
+        .filter(Boolean);
+      if (regenMemberBaselines.length > 0) {
+        regenBaselineLines.push("CURRENT DIETARY BASELINE — per member (IMPROVE upon this, keep familiar where possible):");
+        regenBaselineLines.push(...regenMemberBaselines);
+      }
+    }
+    const regenBaselineNote = regenBaselineLines.length > 0 ? `\n${regenBaselineLines.join("\n")}\n` : "";
+
     const regenPrompt = `You are NutriNext AI. Regenerate a 7-day meal plan for ${family.name} family from ${family.state}.
 Zone: ${zone.toUpperCase()} India.
 
@@ -957,7 +981,7 @@ FAMILY MEMBERS:
 ${JSON.stringify(memberSummaries, null, 2)}
 
 BUDGET: ₹${weeklyBudget}/week → ₹${budgetPerMeal * members.length}/meal
-${isFasting ? "\n🙏 FASTING MODE: Use sabudana, kuttu, singhara, fruits, milk-based dishes.\n" : ""}
+${isFasting ? "\n🙏 FASTING MODE: Use sabudana, kuttu, singhara, fruits, milk-based dishes.\n" : ""}${regenBaselineNote}
 PREVIOUS FEEDBACK (apply strictly):
 DISLIKED — avoid:\n${dislikedList || "None"}
 LIKED — continue:\n${likedList || "None"}
