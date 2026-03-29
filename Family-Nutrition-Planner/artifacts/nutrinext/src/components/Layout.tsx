@@ -15,8 +15,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
-    document.body.style.overflow = moreOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    document.documentElement.style.overflow = moreOpen ? "hidden" : "";
+    return () => { document.documentElement.style.overflow = ""; };
   }, [moreOpen]);
 
   const navItems = [
