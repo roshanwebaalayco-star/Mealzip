@@ -1,8 +1,6 @@
-import { useState } from "react";
-import { ReactNode } from "react";
+import { useState, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, BarChart3, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, Globe } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -231,89 +229,81 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
       </div>
 
+      {/* ── More Popup backdrop ── */}
+      {moreOpen && (
+        <div
+          className="fixed inset-0 z-[60]"
+          onClick={() => setMoreOpen(false)}
+        />
+      )}
+
       {/* ── More Popup ── */}
-      <AnimatePresence>
-        {moreOpen && (
-          <>
-            {/* Invisible backdrop to close on outside tap */}
-            <div
-              className="fixed inset-0 z-[60]"
-              onClick={() => setMoreOpen(false)}
-            />
-
-            {/* Floating popup above More button */}
-            <motion.div
-              key="more-popup"
-              initial={{ opacity: 0, scale: 0.88, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.88, y: 10 }}
-              transition={{ type: "spring", damping: 22, stiffness: 320 }}
-              className="fixed z-[70] glass-card rounded-2xl shadow-xl p-2.5"
-              style={{ bottom: "calc(5rem + 20px)", right: "1rem", width: "13rem", transformOrigin: "bottom right" }}
-            >
-              {/* 2×2 nav grid */}
-              <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                {moreItems.map((item) => {
-                  const isActive = location === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMoreOpen(false)}
-                      className={`flex items-center gap-2 px-2.5 py-2 rounded-xl transition-all ${
-                        isActive
-                          ? "nav-active text-white"
-                          : "bg-muted/50 text-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary"}`} />
-                      <span className="text-xs font-medium leading-none">
-                        {lang === "hi" ? item.labelHi : item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-border/40 mb-1.5" />
-
-              {/* Language toggle */}
-              <button
-                onClick={() => { toggleLang(); setMoreOpen(false); }}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors mb-1"
-              >
-                <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs font-medium text-foreground">
-                  {lang === "en" ? "Switch to हिंदी" : "Switch to English"}
-                </span>
-              </button>
-
-              {/* Auth */}
-              {user ? (
-                <button
-                  onClick={() => { logout(); setMoreOpen(false); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-destructive/10 hover:bg-destructive/20 transition-colors"
+      {moreOpen && (
+        <div
+          className="fixed z-[70] glass-card rounded-2xl shadow-2xl p-3"
+          style={{ bottom: "calc(5rem + 16px)", right: "1rem", width: "14rem" }}
+        >
+          {/* 2×2 nav grid */}
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {moreItems.map((item) => {
+              const isActive = location === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl transition-all ${
+                    isActive
+                      ? "nav-active text-white"
+                      : "bg-muted/50 text-foreground hover:bg-muted/80"
+                  }`}
                 >
-                  <LogOut className="w-3.5 h-3.5 text-destructive shrink-0" />
-                  <span className="text-xs font-medium text-destructive">
-                    {lang === "hi" ? "लॉग आउट" : "Log out"}
+                  <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary"}`} />
+                  <span className="text-xs font-medium leading-none">
+                    {lang === "hi" ? item.labelHi : item.label}
                   </span>
-                </button>
-              ) : (
-                <Link href="/login" onClick={() => setMoreOpen(false)}>
-                  <div className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
-                    <LogIn className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span className="text-xs font-medium text-primary">
-                      {lang === "hi" ? "लॉग इन" : "Log in"}
-                    </span>
-                  </div>
                 </Link>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border/40 mb-2" />
+
+          {/* Language toggle */}
+          <button
+            onClick={() => { toggleLang(); setMoreOpen(false); }}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors mb-1.5"
+          >
+            <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium text-foreground">
+              {lang === "en" ? "Switch to हिंदी" : "Switch to English"}
+            </span>
+          </button>
+
+          {/* Auth */}
+          {user ? (
+            <button
+              onClick={() => { logout(); setMoreOpen(false); }}
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5 text-destructive shrink-0" />
+              <span className="text-xs font-medium text-destructive">
+                {lang === "hi" ? "लॉग आउट" : "Log out"}
+              </span>
+            </button>
+          ) : (
+            <Link href="/login" onClick={() => setMoreOpen(false)}>
+              <div className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
+                <LogIn className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-xs font-medium text-primary">
+                  {lang === "hi" ? "लॉग इन" : "Log in"}
+                </span>
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }
