@@ -63,6 +63,7 @@ export default function HealthLog() {
   const { lang, t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"nutrition" | "health">("nutrition");
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -232,10 +233,12 @@ export default function HealthLog() {
             {t("Track nutrition, vitals & get insights", "पोषण, स्वास्थ्य संकेतक ट्रैक करें और अंतर्दृष्टि पाएं")}
           </p>
         </div>
-        <Button onClick={() => setShowLogForm(v => !v)} className="gap-2 shrink-0">
-          <Plus className="w-4 h-4" />
-          {t("Log Today", "आज लॉग करें")}
-        </Button>
+        {activeTab === "health" && (
+          <Button onClick={() => setShowLogForm(v => !v)} className="gap-2 shrink-0">
+            <Plus className="w-4 h-4" />
+            {t("Log Today", "आज लॉग करें")}
+          </Button>
+        )}
       </div>
 
       {members && members.length > 0 && (
@@ -257,17 +260,33 @@ export default function HealthLog() {
         </div>
       )}
 
-      {/* Nutrition Section */}
+      <div className="flex p-1 rounded-2xl glass-card w-fit">
+        <button
+          onClick={() => setActiveTab("nutrition")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            activeTab === "nutrition"
+              ? "bg-primary text-white shadow-md shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Target className="w-4 h-4" />
+          {t("Nutrition", "पोषण")}
+        </button>
+        <button
+          onClick={() => setActiveTab("health")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            activeTab === "health"
+              ? "bg-primary text-white shadow-md shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Heart className="w-4 h-4" />
+          {t("Health", "स्वास्थ्य")}
+        </button>
+      </div>
+
+      {activeTab === "nutrition" && (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-primary" />
-          <h2 className="font-display font-bold text-lg text-foreground">
-            {t("Nutrition Tracker", "पोषण ट्रैकर")}
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {t("ICMR-NIN 2024 targets vs actual intake today", "आज के लिए ICMR-NIN 2024 लक्ष्य बनाम वास्तविक सेवन")}
-          </span>
-        </div>
 
         {nutritionLoading && (
           <div className="glass-card rounded-3xl p-8 text-center">
@@ -470,18 +489,10 @@ export default function HealthLog() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Health Section */}
+      {activeTab === "health" && (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Heart className="w-5 h-5 text-red-500" />
-          <h2 className="font-display font-bold text-lg text-foreground">
-            {t("Health Log", "स्वास्थ्य लॉग")}
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {t("Track vitals & get nutrition-based symptom insights", "स्वास्थ्य संकेतक ट्रैक करें और लक्षण अंतर्दृष्टि पाएं")}
-          </span>
-        </div>
 
         {showLogForm && (
           <div className="glass-card rounded-3xl p-5 space-y-4">
@@ -657,6 +668,7 @@ export default function HealthLog() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
