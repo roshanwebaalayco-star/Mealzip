@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, CalendarDays, Clock, IndianRupee, Utensils, ChevronDown, ChevronUp,
@@ -157,6 +157,34 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
   const [expandedMembers, setExpandedMembers] = useState<Record<number, boolean>>({});
   const [isFasting, setIsFasting] = useState(false);
   const [pantryInput, setPantryInput] = useState(() => (ctx.pantry_items ?? []).join(", "));
+  const [showScrollFade, setShowScrollFade] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasMore = el.scrollHeight - el.scrollTop - el.clientHeight > 8;
+    setShowScrollFade(hasMore);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const t2 = setTimeout(checkScroll, 100);
+    return () => clearTimeout(t2);
+  }, [open, checkScroll]);
+
+  useEffect(() => {
+    const t2 = setTimeout(checkScroll, 350);
+    return () => clearTimeout(t2);
+  }, [expandedMembers, checkScroll]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => checkScroll());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [checkScroll]);
 
   useEffect(() => {
     if (open && familyId) {
@@ -253,10 +281,10 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 60, scale: 0.95 }}
             transition={{ type: "spring", damping: 28, stiffness: 400 }}
-            className="relative z-10 w-full sm:max-w-xl max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl shadow-2xl"
+            className="relative z-10 w-full sm:max-w-xl h-[85vh] max-h-[85vh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl shadow-2xl"
           >
             {/* Header */}
-            <div className="shrink-0 bg-white dark:bg-zinc-900 rounded-t-3xl px-6 pt-5 pb-4 border-b border-border flex items-center justify-between z-10">
+            <div className="shrink-0 bg-white dark:bg-zinc-900 rounded-t-3xl px-5 pt-4 pb-3 border-b border-border flex items-center justify-between z-10">
               <div>
                 <h2 className="text-lg font-display font-bold">{t("This Week's Context", "इस हफ्ते का विवरण")}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">{t("What's different this week? AI adapts accordingly.", "इस हफ्ते क्या अलग है? AI उसी के अनुसार ढलेगी।")}</p>
@@ -266,7 +294,8 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+            <div className="relative flex-1 min-h-0">
+            <div ref={scrollRef} onScroll={checkScroll} className="px-5 py-3 space-y-3 overflow-y-auto h-full">
               {/* ONE-TAP CONFIRM: Nothing changed — submits current/last-saved context */}
               <button
                 onClick={handleConfirmNoChange}
@@ -293,7 +322,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                   {t("Weekly Budget", "साप्ताहिक बजट")}
                   <span className="ml-auto text-base font-bold text-primary">₹{(ctx.budget_inr ?? 1000).toLocaleString("en-IN")}</span>
                 </Label>
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-2 flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => updateField("budget_inr", Math.max(500, (ctx.budget_inr ?? 1000) - 250))}
@@ -383,9 +412,26 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                 </div>
               </div>
 
+              {/* Special request */}
+              <div>
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                  {t("Special Request this Week", "इस हफ्ते कोई विशेष मांग")}
+                </Label>
+                <Input
+                  value={ctx.special_request ?? ""}
+                  onChange={e => updateField("special_request", e.target.value || undefined)}
+                  placeholder={t("e.g. light meals Thursday, function Friday", "जैसे गुरुवार हल्का खाना, शुक्रवार समारोह")}
+                  className="mt-1.5 h-10 rounded-xl text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {t("High-priority override — AI will honour this above all else.", "उच्च प्राथमिकता — AI इसे सबसे पहले पूरा करेगी।")}
+                </p>
+              </div>
+
               {/* Pantry scan shortcut */}
-              <div className="rounded-2xl border border-border bg-muted/30 p-4">
-                <div className="flex items-center justify-between mb-3">
+              <div className="rounded-2xl border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between mb-2">
                   <Label className="text-sm font-semibold flex items-center gap-1.5">
                     <Camera className="w-3.5 h-3.5 text-primary" />
                     {t("Pantry Items", "पेंट्री में क्या है")}
@@ -408,23 +454,6 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                 />
                 <p className="text-[11px] text-muted-foreground mt-1">
                   {t("AI will prioritize recipes using these ingredients to minimize shopping.", "AI इन सामग्रियों वाली रेसिपी को प्राथमिकता देगी।")}
-                </p>
-              </div>
-
-              {/* Special request */}
-              <div>
-                <Label className="text-sm font-semibold flex items-center gap-1.5">
-                  <CalendarDays className="w-3.5 h-3.5 text-primary" />
-                  {t("Special Request this Week", "इस हफ्ते कोई विशेष मांग")}
-                </Label>
-                <Input
-                  value={ctx.special_request ?? ""}
-                  onChange={e => updateField("special_request", e.target.value || undefined)}
-                  placeholder={t("e.g. light meals Thursday, function Friday", "जैसे गुरुवार हल्का खाना, शुक्रवार समारोह")}
-                  className="mt-1.5 h-10 rounded-xl text-sm"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {t("High-priority override — AI will honour this above all else.", "उच्च प्राथमिकता — AI इसे सबसे पहले पूरा करेगी।")}
                 </p>
               </div>
 
@@ -616,7 +645,7 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
               )}
 
               {/* Fasting mode toggle */}
-              <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200">
                 <label className="flex items-center gap-2.5 cursor-pointer flex-1">
                   <input
                     type="checkbox"
@@ -631,9 +660,13 @@ export default function WeeklyContextModal({ open, familyId, members, defaultBud
                 </label>
               </div>
             </div>
+            {showScrollFade && (
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white dark:from-zinc-900 to-transparent z-10" />
+            )}
+            </div>
 
             {/* Footer */}
-            <div className="shrink-0 bg-white dark:bg-zinc-900 border-t border-border px-6 py-4">
+            <div className="shrink-0 bg-white dark:bg-zinc-900 border-t border-border px-5 py-3">
               <div className="flex gap-3">
                 <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl h-11" disabled={isPending}>
                   {t("Cancel", "रद्द करें")}

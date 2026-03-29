@@ -1,3 +1,4 @@
+import { useRef, useCallback, useEffect, useState } from "react";
 import { X, Clock, Flame, Leaf, IndianRupee, ChefHat, Users, BarChart2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -57,6 +58,31 @@ const DIET_COLORS: Record<string, string> = {
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&q=80";
 
 export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
+  const [showScrollFade, setShowScrollFade] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const hasMore = el.scrollHeight - el.scrollTop - el.clientHeight > 8;
+    setShowScrollFade(hasMore);
+  }, []);
+
+  useEffect(() => {
+    if (recipe) {
+      const t = setTimeout(checkScroll, 100);
+      return () => clearTimeout(t);
+    }
+  }, [recipe, checkScroll]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => checkScroll());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [checkScroll]);
+
   if (!recipe) return null;
 
   const ingredients = parseIngredients(recipe.ingredients ?? "");
@@ -82,7 +108,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
           onClick={e => e.stopPropagation()}
         >
           {/* Hero image */}
-          <div className="relative h-52 sm:h-60 shrink-0">
+          <div className="relative h-36 sm:h-52 shrink-0">
             <img
               src={recipe.imageUrl || DEFAULT_IMAGE}
               alt={recipe.name}
@@ -177,7 +203,8 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
           )}
 
           {/* Scrollable content */}
-          <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-4">
+          <div className="relative flex-1 min-h-0">
+          <div ref={scrollRef} onScroll={checkScroll} className="overflow-y-auto h-full px-4 pb-6 space-y-4">
             {/* Macros */}
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -246,6 +273,10 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                 </ol>
               </div>
             )}
+          </div>
+          {showScrollFade && (
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent z-10" />
+          )}
           </div>
         </motion.div>
       </motion.div>
