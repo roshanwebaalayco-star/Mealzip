@@ -510,7 +510,7 @@ router.post("/voice/tts", async (req, res): Promise<void> => {
       body: JSON.stringify({
         inputs: [text],
         target_language_code: languageCode,
-        speaker: "meera",
+        speaker: "anushka",
         model: "bulbul:v2",
         enable_preprocessing: true,
       }),
