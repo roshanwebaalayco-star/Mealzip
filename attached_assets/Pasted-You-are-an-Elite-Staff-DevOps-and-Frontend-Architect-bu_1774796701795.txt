@@ -1,0 +1,36 @@
+You are an Elite Staff DevOps and Frontend Architect building the 'NutriNext' Health OS.
+
+CONTEXT: Our goal is to perform a "Zero-Risk Codebase Diet." We need to make the application footprint as lightweight and optimized as possible (reducing bundle size, node_modules size, and file count) WITHOUT altering a single feature, function, or UI design element. 
+
+CRITICAL GUARDRAILS (MUST OBEY):
+- ZERO FEATURE CHANGES: Do not refactor working logic. Do not change UI components. 
+- NO DELETION WITHOUT PROOF: You must mathematically prove a file or dependency is unused before targeting it.
+- THE "PAUSE" RULE: You will operate in two distinct phases. You MUST pause and wait for my explicit approval before executing any file deletions or uninstalling any packages.
+
+Execute this optimization EXACTLY step-by-step:
+
+### PHASE 1: THE DEEP AUDIT (READ-ONLY)
+Do not delete anything in this phase. Run these diagnostics:
+1. **Dependency Audit:** Use `npx depcheck` to identify unused dependencies and devDependencies in `package.json`. 
+2. **Orphaned File Hunt:** Search the `src/` directory for `.tsx`, `.ts`, and asset files (`.png`, `.svg`) that are NEVER imported anywhere in the codebase. 
+3. **Console & Comment Bloat:** Scan for massive blocks of commented-out dead code or excessive `console.log` statements that can be safely stripped.
+
+### PHASE 2: THE TARGET MANIFEST & PAUSE
+Based on Phase 1, generate a strict "Target Manifest" in your response. 
+Format it exactly like this:
+- **Dependencies to Uninstall:** [List of packages]
+- **Files to Delete:** [Exact file paths of orphaned files]
+- **Files to Clean (Logs/Dead Code):** [Exact file paths]
+
+🛑 STOP HERE. DO NOT PROCEED TO PHASE 3. 
+Output the Target Manifest and end your response with: "Please reply with 'APPROVED' to execute these deletions."
+
+### PHASE 3: EXECUTION & BUILD VERIFICATION
+(Only execute this after I reply with "APPROVED")
+1. **Uninstall Packages:** Run `npm uninstall [packages]` for the unused dependencies.
+2. **Delete Orphaned Files:** Safely delete the exact files listed in the manifest.
+3. **Clean Bloat:** Strip the identified dead code and logs.
+4. **THE SAFETY CHECK (CRITICAL):** You MUST run `npm run build` (or the equivalent Vite/Next.js build command in this project) AND `npx tsc --noEmit` to verify that no imports were broken and the app compiles perfectly.
+5. If the build fails, you must immediately undo your last deletion and fix the broken import.
+
+Begin Phase 1 now and generate the Target Manifest.
