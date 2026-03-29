@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { apiFetch } from "@/lib/api-fetch";
 
-export type MicState = "idle" | "listening" | "processing" | "speaking";
+export type MicState = "idle" | "listening" | "processing" | "speaking" | "complete";
 export type ConvState =
   | "idle"
   | "ask_family_name"
@@ -259,7 +259,7 @@ export function useVoiceAssistant() {
           try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch {
-            reject(new Error("Microphone access denied. Please allow microphone and try again."));
+            reject(new Error("Microphone access denied. Please enable it in your browser settings, then tap Voice again."));
             return;
           }
           streamRef.current = stream;
@@ -290,6 +290,7 @@ export function useVoiceAssistant() {
               audioCtxRef.current = null;
             }
             stream.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
             if (abortRef.current) {
               reject(new Error("aborted"));
               return;
@@ -513,6 +514,7 @@ export function useVoiceAssistant() {
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
     setMicState("idle");
     setConvState("idle");

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, X, Volume2, Loader2, CheckCircle2, Circle } from "lucide-react";
 import { useVoiceAssistant, type VoiceFormData } from "@/hooks/use-voice-assistant";
@@ -119,6 +119,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
     listening: "Listening… tap to stop",
     processing: "Processing…",
     speaking: "Speaking…",
+    complete: "Profile complete!",
   }[micState];
 
   const memberCount = formData.members?.length ?? 0;
@@ -137,6 +138,7 @@ export default function VoiceAssistantModal({ open, language, onClose, onComplet
           className="fixed inset-0 w-screen h-screen max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0 flex flex-col p-0 gap-0 overflow-hidden"
           hideCloseButton
         >
+          <DialogTitle className="sr-only">Voice Setup</DialogTitle>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b bg-primary/5 shrink-0">
             <div className="flex items-center gap-2">
