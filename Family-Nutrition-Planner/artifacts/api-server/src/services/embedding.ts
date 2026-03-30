@@ -144,7 +144,7 @@ export async function findSimilarChunks(
 
     if (filter?.zone) {
       params.push(filter.zone);
-      whereClause += ` AND cuisine = $${params.length}`;
+      whereClause += ` AND zone = $${params.length}`;
     }
     if (filter?.diet) {
       params.push(filter.diet);

@@ -53,7 +53,7 @@ export const recipesTable = pgTable("recipes", {
   index("recipes_name_idx").on(table.name),
   index("recipes_zone_idx").on(table.zone),
   index("recipes_search_idx").using("gin", sql`to_tsvector('simple', coalesce(${table.name}, '') || ' ' || coalesce(${table.nameHindi}, '') || ' ' || coalesce(${table.ingredients}, ''))`),
-  index("recipes_embedding_idx").using("hnsw", sql`${table.embedding} vector_cosine_ops`),
+  index("recipes_embedding_idx").using("ivfflat", sql`${table.embedding} vector_cosine_ops`),
 ]);
 
 export const insertRecipeSchema = createInsertSchema(recipesTable).omit({ id: true, createdAt: true, searchVector: true, embedding: true });

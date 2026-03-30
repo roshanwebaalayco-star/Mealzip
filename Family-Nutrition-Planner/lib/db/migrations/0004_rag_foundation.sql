@@ -17,5 +17,5 @@ ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS icmr_compliance JSONB;
 ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS rag_context_used JSONB;
 
 CREATE INDEX IF NOT EXISTS knowledge_chunks_source_idx ON knowledge_chunks (source);
-CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_idx ON knowledge_chunks USING hnsw (embedding vector_cosine_ops);
-CREATE INDEX IF NOT EXISTS recipes_embedding_idx ON recipes USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_idx ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS recipes_embedding_idx ON recipes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
