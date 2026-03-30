@@ -361,10 +361,10 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                 {t("View Meal Plan", "भोजन योजना देखें")}
               </button>
             </Link>
-            <Link href="/scanner">
+            <Link href="/chat">
               <button className="inline-flex items-center gap-2 glass-card text-foreground text-sm font-semibold px-5 py-2.5 rounded-2xl hover:bg-white/80 transition-colors">
-                <Mic className="w-4 h-4 text-primary" />
-                {t("Scan Pantry", "पेंट्री स्कैन")}
+                <Bot className="w-4 h-4 text-primary" />
+                {t("AI Chat", "AI चैट")}
               </button>
             </Link>
           </div>
