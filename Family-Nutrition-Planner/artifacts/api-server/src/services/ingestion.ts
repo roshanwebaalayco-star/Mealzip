@@ -119,7 +119,7 @@ async function ingestCSV(
         i,
         chunks[i],
         embeddingStr,
-        JSON.stringify({ filename, rows_in_chunk: Math.min(ROWS_PER_CHUNK, dataRows.length - i * ROWS_PER_CHUNK) }),
+        JSON.stringify({ filename, chunk_offset: i }),
       ],
     );
   }
