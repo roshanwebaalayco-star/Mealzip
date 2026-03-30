@@ -1114,6 +1114,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         knowledgeChunks: ragResult.chunkCount,
         similarRecipes: ragResult.recipeCount,
         sources: ragResult.sources,
+        contextSummary: ragResult.contextSummary,
         embeddingModel: "text-embedding-004",
       },
     }).returning();
