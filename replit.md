@@ -30,6 +30,23 @@ OpenAPI specifications (`lib/api-spec/openapi.yaml`) are used with Orval to auto
 
 PostgreSQL serves as the primary data store, managed by Drizzle ORM. Key tables include `families`, `family_members` (with detailed profiles like caloric targets, dislikes, and religious rules), `recipes` (with nutrition data and embeddings for semantic search), `icmr_nin_rda`, `knowledge_chunks` (for RAG with embeddings), `meal_plans` (storing AI-generated plans and RAG audit trails), `meal_feedback`, `grocery_lists`, `health_logs`, and `conversations`/`messages` for chat history.
 
+### Profile Setup Field Taxonomy (v2)
+
+**Family-level fields:**
+- `dietaryType`: `strictly_veg | veg_with_eggs | non_veg | mixed` (household dietary baseline)
+- `cookingSkill`: `beginner | intermediate | experienced` (default: `intermediate`)
+- `mealsPerDay`: `2 | 3 | 4` (2=two meals, 3=three meals, 4=three+snacks; default: `3`)
+
+**Per-member fields:**
+- `activityLevel`: `sedentary | lightly_active | moderately_active | very_active` (default: `moderately_active`)
+- `dietaryType`: `strictly_vegetarian | jain_vegetarian | eggetarian | non_vegetarian | occasional_nonveg`
+- `healthGoal`: includes `senior_nutrition` for 60+; auto-assigned goals for children (<5, 5–12); weight_loss blocked for 13–17
+- `spiceTolerance`: `mild | medium | spicy`
+- Non-veg day/type checkboxes shown for both `non_vegetarian` and `occasional_nonveg`
+
+**Calorie computation (profile-rules.ts):**
+- Activity multipliers support both old and new taxonomy: `light`/`lightly_active`=1.375, `moderate`/`moderately_active`=1.55, etc.
+
 ## External Dependencies
 
 ### AI Services

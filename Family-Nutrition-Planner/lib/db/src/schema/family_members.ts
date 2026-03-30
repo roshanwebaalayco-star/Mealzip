@@ -12,7 +12,7 @@ export const familyMembersTable = pgTable("family_members", {
   gender: text("gender").notNull().default("male"),
   weightKg: real("weight_kg"),
   heightCm: real("height_cm"),
-  activityLevel: text("activity_level").notNull().default("moderate"),
+  activityLevel: text("activity_level").notNull().default("moderately_active"),
   healthConditions: text("health_conditions").array(),
   dietaryRestrictions: text("dietary_restrictions").array(),
   allergies: text("allergies").array(),

@@ -19,7 +19,7 @@ export interface IMemberProfileFields {
   gender: "male" | "female" | "other";
   weightKg?: number;
   heightCm?: number;
-  activityLevel?: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  activityLevel?: "sedentary" | "lightly_active" | "moderately_active" | "very_active";
   healthConditions?: string[];
   dietaryRestrictions?: string[];
   primaryGoal?: "general_wellness" | "weight_loss" | "build_muscle" | "manage_diabetes" | "heart_health" | "anemia_recovery" | "healthy_growth" | "senior_nutrition";
@@ -54,9 +54,8 @@ const GOALS = [
 
 const ACTIVITY_LEVELS = [
   { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Light" },
-  { value: "moderate", label: "Moderate" },
-  { value: "active", label: "Active" },
+  { value: "lightly_active", label: "Lightly Active" },
+  { value: "moderately_active", label: "Moderately Active" },
   { value: "very_active", label: "Very Active" },
 ];
 
@@ -177,7 +176,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Activity Level", "गतिविधि स्तर")}</Label>
-            <Select value={form.activityLevel ?? "moderate"} onValueChange={v => set("activityLevel", v as IMemberProfile["activityLevel"])}>
+            <Select value={form.activityLevel ?? "moderately_active"} onValueChange={v => set("activityLevel", v as IMemberProfile["activityLevel"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ACTIVITY_LEVELS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}

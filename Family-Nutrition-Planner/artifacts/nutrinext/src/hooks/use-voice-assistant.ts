@@ -24,6 +24,8 @@ export interface VoiceFormData {
   state?: string;
   monthlyBudget?: number;
   dietaryType?: string;
+  cookingSkill?: string;
+  mealsPerDay?: number;
   members?: Array<{
     name: string | null;
     role: string;
@@ -31,6 +33,11 @@ export interface VoiceFormData {
     gender: string;
     healthConditions: string[];
     healthGoal: string;
+    activityLevel?: string;
+    dietaryType?: string;
+    spiceTolerance?: string;
+    nonVegDays?: string[];
+    nonVegTypes?: string[];
   }>;
 }
 
@@ -142,10 +149,13 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
   if (typeof parsed.monthlyBudget === "number" && (parsed.monthlyBudget as number) > 0)
     next.monthlyBudget = parsed.monthlyBudget as number;
   if (parsed.dietaryType && typeof parsed.dietaryType === "string") next.dietaryType = parsed.dietaryType;
+  if (parsed.cookingSkill && typeof parsed.cookingSkill === "string") next.cookingSkill = parsed.cookingSkill;
+  if (typeof parsed.mealsPerDay === "number" && (parsed.mealsPerDay as number) >= 2)
+    next.mealsPerDay = parsed.mealsPerDay as number;
 
   if (parsed.currentMember && typeof parsed.currentMember === "object") {
     const m = parsed.currentMember as Record<string, unknown>;
-    const member = {
+    const member: NonNullable<VoiceFormData["members"]>[number] = {
       name: m.name != null ? String(m.name) : null,
       role: m.role ? String(m.role) : "other",
       age: typeof m.age === "number" ? (m.age as number) : null,
@@ -154,6 +164,11 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
         ? (m.healthConditions as string[])
         : [],
       healthGoal: m.healthGoal ? String(m.healthGoal) : "general_wellness",
+      activityLevel: m.activityLevel ? String(m.activityLevel) : undefined,
+      dietaryType: m.dietaryType ? String(m.dietaryType) : undefined,
+      spiceTolerance: m.spiceTolerance ? String(m.spiceTolerance) : undefined,
+      nonVegDays: Array.isArray(m.nonVegDays) ? (m.nonVegDays as string[]) : undefined,
+      nonVegTypes: Array.isArray(m.nonVegTypes) ? (m.nonVegTypes as string[]) : undefined,
     };
     if (!next.members) next.members = [];
     next.members = [...next.members, member];

@@ -1,0 +1,31 @@
+#4 - Profile Setup Overhaul
+What & Why
+The profile setup (FamilySetup.tsx) is missing several fields from the product spec, and the voice/chat setup flow collects even fewer. The full spec requires family-level fields (meals per day, cooking skill) and per-member fields (activity level as proper selector, spice tolerance, fasting baseline with day checkboxes + Ekadashi, festival fasting alerts, expanded dietary options). The DB schema also needs new columns for persistent storage of these fields. Without these, the meal plan generator doesn't have enough context to create truly personalized plans.
+
+Done looks like
+DB migration: New columns added to families (cooking_skill, meals_per_day) and family_members (spice_tolerance, fasting_baseline days array, ekadashi boolean, festival_fasting_alerts boolean)
+FamilySetup.tsx Step 1 collects: number of members, state/region, language, household dietary baseline (strictly veg / veg with eggs / non-veg / mixed), meals per day (2/3/3+snacks), cooking skill (beginner/intermediate/experienced)
+FamilySetup.tsx Step 2 per-member collects all spec fields: name, age, gender, height(optional), weight(optional), activity level (sedentary/lightly active/moderately active/very active), primary goal (with age-based auto-assignment rules), goal pace (only for weight loss/gain), health conditions (multi-select up to 2), dietary type (strictly vegetarian/Jain vegetarian/eggetarian/non-vegetarian/occasional non-veg), if occasional non-veg → day checkboxes + type checkboxes, religious/cultural rules (none/no beef/no pork/sattvic/Jain), spice tolerance (mild/medium/spicy), allergies (multi-select), ingredient dislikes (free text up to 5), fasting baseline (no fasting/weekly day checkboxes/Ekadashi yes-no), festival fasting alerts (yes/no), tiffin needed (no/yes school/yes office)
+Auto-assignment rules implemented silently: under-5 → early childhood nutrition, 5-12 → healthy growth (goal hidden), 13-17 → weight loss hidden, 60+ → senior nutrition default, weight+goal → auto-calculate ICMR calorie target
+Voice setup prompt updated to collect the expanded field set
+API routes updated to accept and persist all new fields
+Existing data and profiles remain intact (migration is additive)
+Out of scope
+Meal generation popup / WeeklyContext changes (separate task)
+Pantry scan voice/chat feature (separate task)
+Recipe database changes
+Tasks
+DB schema migration — Add new columns to families and family_members tables with sensible defaults so existing data isn't broken.
+Update Drizzle schema files — Add the new columns to the TypeScript schema definitions.
+Update API routes — Modify family and member create/update endpoints to accept and persist the new fields.
+Overhaul FamilySetup.tsx Step 1 — Add meals_per_day, cooking_skill selectors; expand dietary baseline options to match spec.
+Overhaul FamilySetup.tsx Step 2 — Add all missing per-member fields: spice tolerance, fasting baseline (day checkboxes + Ekadashi), festival fasting alerts, expanded dietary types, activity level as proper selector with spec values.
+Implement age-based auto-assignment rules — Under-5 auto-goal, 5-12 goal hidden, 13-17 weight loss hidden, 60+ senior default; ICMR calorie auto-calc when weight+goal provided.
+Update voice setup prompt — Expand the chat-turn prompt to collect the new fields during voice/chat-guided setup.
+Relevant files
+Family-Nutrition-Planner/lib/db/src/schema/family_members.ts
+Family-Nutrition-Planner/lib/db/src/schema/families.ts
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/FamilySetup.tsx
+Family-Nutrition-Planner/artifacts/api-server/src/routes/voice/index.ts
+Family-Nutrition-Planner/artifacts/api-server/src/routes/meal-plans/index.ts
+Family-Nutrition-Planner/artifacts/nutrinext/src/hooks/use-voice-assistant.ts

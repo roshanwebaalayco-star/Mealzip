@@ -141,7 +141,9 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact structu
   "state": "exact Indian state name or null — e.g. 'Uttar Pradesh', 'Maharashtra', 'Jharkhand'",
   "monthlyBudget": number_in_INR_or_null,
   "language": "hindi|english|bengali|tamil|telugu|marathi|gujarati|kannada|malayalam|punjabi|odia or null",
-  "dietaryType": "vegetarian|non-vegetarian|vegan|jain or null — the overall family diet type",
+  "dietaryType": "strictly_veg|veg_with_eggs|non_veg|mixed or null — the overall household dietary baseline",
+  "cookingSkill": "beginner|intermediate|experienced or null",
+  "mealsPerDay": 2|3|4_or_null — 2=two meals, 3=three meals, 4=three+snacks,
   "healthGoal": "general_wellness|weight_loss|muscle_gain|manage_diabetes|heart_health|manage_thyroid or null",
   "appliances": ["tawa", "pressure_cooker", "kadai"] — array of kitchen appliances from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer. Default to ["tawa","pressure_cooker","kadai"] if not mentioned,
   "members": [
@@ -150,8 +152,13 @@ Return ONLY valid JSON (no markdown, no explanation) matching this exact structu
       "role": "father|mother|spouse|child|grandparent|other",
       "age": number_or_null,
       "gender": "male|female|other",
+      "activityLevel": "sedentary|lightly_active|moderately_active|very_active or null",
+      "dietaryType": "strictly_vegetarian|jain_vegetarian|eggetarian|non_vegetarian|occasional_nonveg or null",
       "healthConditions": ["diabetes","hypertension","obesity","anemia","thyroid","high_cholesterol","pcod","growing_child","elderly"] — only matching values, may be empty,
-      "healthGoal": "general_wellness|weight_loss|manage_diabetes|anemia_recovery|child_growth|heart_health|muscle_gain or null"
+      "healthGoal": "general_wellness|weight_loss|manage_diabetes|anemia_recovery|child_growth|heart_health|muscle_gain|senior_nutrition or null",
+      "spiceTolerance": "mild|medium|spicy or null",
+      "nonVegDays": ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"] — days when non-veg is eaten, only if non_vegetarian or occasional_nonveg,
+      "nonVegTypes": ["chicken","mutton","fish","eggs"] — types of non-veg consumed, only if non_vegetarian or occasional_nonveg
     }
   ]
 }
@@ -161,9 +168,11 @@ Family terms: "Pitaji/Papa/Pita" → father, "Maa/Amma/Mata" → mother, "beta/p
 Numbers: "paanch" → 5, "chaar" → 4, "teen/tin" → 3, "do" → 2, "ek" → 1, "hajar/hazar" → 1000
 Budget: "panch hazaar" → 5000, "das hazaar" → 10000, "teen hazaar" → 3000
 Health: "madhumeh/sugar/diabetes" → diabetes, "BP/blood pressure/raktchaap" → hypertension, "thyroid" → thyroid, "khoon ki kami/anemia" → anemia, "motapa/mota" → obesity
-Diet: "shakahari/vegetarian" → vegetarian, "maansahari/non-veg" → non-vegetarian, "jain khana/jain" → jain
+Diet: "shakahari/pura shakahari" → strictly_veg, "ande ke saath shakahari" → veg_with_eggs, "maansahari/non-veg" → non_veg, "jain khana/jain" → jain_vegetarian, "kabhi kabhi non-veg" → occasional_nonveg
+Activity: "baithe rehte hain" → sedentary, "thoda chalte hain" → lightly_active, "active hain" → moderately_active, "bahut active/exercise" → very_active
+Cooking: "naya seekh rahe/beginner" → beginner, "thik thak bana lete" → intermediate, "acche se bana lete/experienced" → experienced
 States: Map regional names e.g. "UP" → "UP", "Dilli/Delhi" → "Delhi", "Bambai/Mumbai wala" → "Maharashtra"
-Goals: "vajan ghatana/weight loss" → weight_loss, "diabetes control" → manage_diabetes, "heart" → heart_health
+Goals: "vajan ghatana/weight loss" → weight_loss, "diabetes control" → manage_diabetes, "heart" → heart_health, "buzurg poshak/senior" → senior_nutrition
 
 If a number of family members is mentioned without names, generate placeholder entries (name: null) for each.
 Set dietaryType at family level from the dominant pattern.`;
@@ -224,7 +233,7 @@ router.post("/voice/chat-turn", async (req, res): Promise<void> => {
       mappings: `Family: pitaji/papa → father | maa/amma/mummy → mother | beta/son → child(M) | beti/daughter → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
 Numbers: ek=1 do=2 teen=3 chaar=4 paanch=5 das=10 hazaar=1000
 Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | motapa → obesity | khoon ki kami → anemia | sab theek/healthy → []
-Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Diet: shakahari/pura shakahari → strictly_veg | ande ke saath → veg_with_eggs | maansahari/non-veg → non_veg | jain → jain_vegetarian | kabhi kabhi non-veg → occasional_nonveg
 Yes/No: haan/bilkul/zaroor → addMore:true | nahi/bas/ho gaya → isComplete:true`,
     },
     english: {
@@ -243,7 +252,7 @@ Yes/No: yes/sure/more → addMore:true | no/done/that's all → isComplete:true`
       mappings: `Family: baba/bapi → father | maa/dida → mother | chele/putra → child(M) | meye/putri → child(F) | thakurda/dadu → grandparent(M) | thakurma/dida → grandparent(F)
 Numbers: ek=1 dui=2 tin=3 char=4 panch=5 das=10 hazar=1000
 Health: madhumeh/sugar → diabetes | raktochaap/BP → hypertension | motaa → obesity | roktoshonyo → anemia | sab thik → []
-Diet: niramish/veg → vegetarian | aamishahari/non-veg → non-vegetarian | jain → jain
+Diet: niramish/veg → strictly_veg | dim shoho → veg_with_eggs | aamishahari/non-veg → non_veg | jain → jain_vegetarian | modhye modhye non-veg → occasional_nonveg
 Yes/No: haa/bolun/aar ache → addMore:true | na/shesh/bas → isComplete:true`,
     },
     tamil: {
@@ -254,7 +263,7 @@ Yes/No: haa/bolun/aar ache → addMore:true | na/shesh/bas → isComplete:true`,
       mappings: `Family: appa/thandai → father | amma/thaai → mother | magan/payyan → child(M) | magal/ponnu → child(F) | thatha → grandparent(M) | paati → grandparent(F)
 Numbers: onnu=1 rendu=2 moonu=3 naalu=4 anju=5 pathu=10 aayiram=1000
 Health: neerizivvu/sugar → diabetes | BP/ratthaatthupam → hypertension | paruvanam/adipai → obesity | irattha kunaippu → anemia | nalama → []
-Diet: saiva/veg → vegetarian | asamia/non-veg → non-vegetarian | jain → jain
+Diet: saiva/veg → strictly_veg | muttai saiva → veg_with_eggs | asamia/non-veg → non_veg | jain → jain_vegetarian | edhavadhu non-veg → occasional_nonveg
 Yes/No: aama/seri/innum irukka → addMore:true | illai/mudindhachu/போதும் → isComplete:true`,
     },
     telugu: {
@@ -265,7 +274,7 @@ Yes/No: aama/seri/innum irukka → addMore:true | illai/mudindhachu/போது
       mappings: `Family: nanna/thandri → father | amma/talli → mother | abbayi/koduku → child(M) | ammayi/kuthuru → child(F) | thatha → grandparent(M) | naana/avva → grandparent(F)
 Numbers: okati=1 rendu=2 mudu=3 nalugu=4 aidu=5 padi=10 veyyi=1000
 Health: madhumehamu/sugar → diabetes | BP/raktapeetam → hypertension | boddu → obesity | anemia/raktaheenam → anemia | arogyganga → []
-Diet: sakahari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Diet: sakahari/veg → strictly_veg | gudlu tho → veg_with_eggs | maamsahari/non-veg → non_veg | jain → jain_vegetarian | appudappudu non-veg → occasional_nonveg
 Yes/No: avunu/inka/sure → addMore:true | ledu/ayyindi/chaalu → isComplete:true`,
     },
     marathi: {
@@ -276,7 +285,7 @@ Yes/No: avunu/inka/sure → addMore:true | ledu/ayyindi/chaalu → isComplete:tr
       mappings: `Family: baba/pappa/vaDil → father | aai/mummy → mother | mulga/putra → child(M) | mulgi/kanya → child(F) | aajoba → grandparent(M) | aaji → grandparent(F)
 Numbers: ek=1 don=2 teen=3 chaar=4 paach=5 daha=10 hazaar=1000
 Health: madhumeh/sugar → diabetes | raktadaab/BP → hypertension | ladacha/staulya → obesity | raktaheenataa → anemia | sab theek/nirogi → []
-Diet: shakahari/veg → vegetarian | mansahari/non-veg → non-vegetarian | jain → jain
+Diet: shakahari/veg → strictly_veg | anda shakahari → veg_with_eggs | mansahari/non-veg → non_veg | jain → jain_vegetarian | kadhi kadhi non-veg → occasional_nonveg
 Yes/No: ho/haa/aahe/aadhik → addMore:true | nahi/bas/zaala → isComplete:true`,
     },
     gujarati: {
@@ -287,7 +296,7 @@ Yes/No: ho/haa/aahe/aadhik → addMore:true | nahi/bas/zaala → isComplete:true
       mappings: `Family: bapuji/papa → father | mummy/baa → mother | dikro/putra → child(M) | dikri/putri → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
 Numbers: ek=1 be=2 tran=3 char=4 paanch=5 das=10 hazar=1000
 Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | jaadat vajan/motaapaa → obesity | ochu lohee → anemia | swasth/theek → []
-Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Diet: shakahari/veg → strictly_veg | inda sathe → veg_with_eggs | maansahari/non-veg → non_veg | jain → jain_vegetarian | kyarek non-veg → occasional_nonveg
 Yes/No: haa/bijo/vahu → addMore:true | nahi/bas/thai gayu → isComplete:true`,
     },
     kannada: {
@@ -298,7 +307,7 @@ Yes/No: haa/bijo/vahu → addMore:true | nahi/bas/thai gayu → isComplete:true`
       mappings: `Family: appa/tande → father | amma/taayi → mother | maga/huchcha → child(M) | magalu/hennu → child(F) | ajja/thatha → grandparent(M) | ajji/avva → grandparent(F)
 Numbers: ondu=1 eradu=2 mooru=3 naalku=4 aidu=5 hattu=10 saavira=1000
 Health: madhumEha/sugar → diabetes | BP/raktadoTTa → hypertension | adipai/staulya → obesity | anemia → anemia | arogya/theek → []
-Diet: saahivari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Diet: saahivari/veg → strictly_veg | motte jote → veg_with_eggs | maamsahari/non-veg → non_veg | jain → jain_vegetarian | kelavu sala non-veg → occasional_nonveg
 Yes/No: houdhu/aukka/inka → addMore:true | illa/aaytu/saakaratthu → isComplete:true`,
     },
     malayalam: {
@@ -309,7 +318,7 @@ Yes/No: houdhu/aukka/inka → addMore:true | illa/aaytu/saakaratthu → isComple
       mappings: `Family: achan/appan/chettan → father | amma/kochamma → mother | makan/cherukkan → child(M) | maal/pennu → child(F) | appooppan/thatha → grandparent(M) | ammumma/paatti → grandparent(F)
 Numbers: onnu=1 randu=2 moonu=3 naalu=4 anchu=5 pathu=10 aayiram=1000
 Health: pramEham/sugar → diabetes | BP/raktasamma → hypertension | thadich → obesity | anemia/choru kuravv → anemia | arogya/kshemam → []
-Diet: sakahari/veg → vegetarian | maamsahari/non-veg → non-vegetarian | jain → jain
+Diet: sakahari/veg → strictly_veg | mutta koode → veg_with_eggs | maamsahari/non-veg → non_veg | jain → jain_vegetarian | chila samayam non-veg → occasional_nonveg
 Yes/No: athe/undu/koodi → addMore:true | illa/ayi/maathi → isComplete:true`,
     },
     punjabi: {
@@ -320,7 +329,7 @@ Yes/No: athe/undu/koodi → addMore:true | illa/ayi/maathi → isComplete:true`,
       mappings: `Family: paji/pita/bapu → father | maa/bibi → mother | munda/putra → child(M) | kudi/dhee → child(F) | dada/nana → grandparent(M) | dadi/nani → grandparent(F)
 Numbers: ik=1 do=2 tinn=3 chaar=4 panj=5 das=10 hazaar=1000
 Health: madhumeh/sugar → diabetes | BP/raktchaap → hypertension | motaapa → obesity | khoon di kami → anemia | theek/sehatmand → []
-Diet: shakahari/veg → vegetarian | maansahari/non-veg → non-vegetarian | jain → jain
+Diet: shakahari/veg → strictly_veg | ande naal → veg_with_eggs | maansahari/non-veg → non_veg | jain → jain_vegetarian | kabhi kabhi non-veg → occasional_nonveg
 Yes/No: haan/bilkul/hor → addMore:true | nahi/bas/ho gaya → isComplete:true`,
     },
     odia: {
@@ -331,7 +340,7 @@ Yes/No: haan/bilkul/hor → addMore:true | nahi/bas/ho gaya → isComplete:true`
       mappings: `Family: bapa/pita → father | maa/maata → mother | pua/putra → child(M) | jhi/kanya → child(F) | dada/nana → grandparent(M) | aai/nani → grandparent(F)
 Numbers: gote=1 dui=2 tini=3 chhari=4 pancha=5 dasha=10 hajara=1000
 Health: madhumeha/sugar → diabetes | raktachap/BP → hypertension | mota → obesity | raktaheen → anemia | sustha/theek → []
-Diet: niramisha/veg → vegetarian | saamishya/non-veg → non-vegetarian | jain → jain
+Diet: niramisha/veg → strictly_veg | anda sahita → veg_with_eggs | saamishya/non-veg → non_veg | jain → jain_vegetarian | modhye modhye non-veg → occasional_nonveg
 Yes/No: haa/achhi/aaru → addMore:true | naa/shesh/bas → isComplete:true`,
     },
   };
@@ -378,11 +387,19 @@ ask_budget:
   → nextState: "ask_dietary_type"
 
 ask_dietary_type:
-  → parsedFields: { "dietaryType": "vegetarian|non-vegetarian|vegan|jain" }
-  → nextState: "ask_member_start"
+  → parsedFields: { "dietaryType": "strictly_veg|veg_with_eggs|non_veg|mixed" }
+  → nextState: "ask_cooking_skill"
   IMPORTANT: Users may answer with option references like "A", "Option A", "first one", "pehla", "1", "should A" etc.
-  Map these to the options in the order they were presented: A/1/first=vegetarian, B/2/second=non-vegetarian, C/3/third=vegan, D/4/fourth=jain.
-  Also accept partial matches: "veg" → vegetarian, "non veg" / "nonveg" → non-vegetarian.
+  Map these to the options in the order they were presented: A/1/first=strictly_veg, B/2/second=veg_with_eggs, C/3/third=non_veg, D/4/fourth=mixed.
+  Also accept partial matches: "veg"/"shakahari" → strictly_veg, "egg" → veg_with_eggs, "non veg"/"nonveg" → non_veg, "mixed"/"milajula" → mixed.
+
+ask_cooking_skill:
+  → parsedFields: { "cookingSkill": "beginner|intermediate|experienced" }
+  → nextState: "ask_meals_per_day"
+
+ask_meals_per_day:
+  → parsedFields: { "mealsPerDay": 2|3|4 }  (2=two meals, 3=three meals, 4=three+snacks)
+  → nextState: "ask_member_start"
 
 ask_member_start:
   → parsedFields: { "currentMember": { "name": "...", "role": "father|mother|child|grandparent|other", "age": 42, "gender": "male|female|other", "healthConditions": [], "healthGoal": "general_wellness" } }

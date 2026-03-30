@@ -325,10 +325,18 @@ Required info to collect:
 1. Family name (परिवार का नाम)
 2. Indian state they live in
 3. Monthly food budget in ₹
-4. Number of family members (min 2, max 5)
-5. For each member: first name, age, gender (male/female), role (father/mother/son/daughter/grandfather/grandmother/other), any health conditions (diabetes/hypertension/anaemia/none)
-6. Family's overall dietary type (vegetarian/non-vegetarian/vegan/jain)
-7. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have — most families at minimum have tawa, pressure cooker and kadai.
+4. Household dietary baseline: strictly_veg / veg_with_eggs / non_veg / mixed
+5. Cooking skill level: beginner / intermediate / experienced
+6. Meals per day: 2 / 3 / 3+snacks (store as 2/3/4)
+7. Number of family members (min 2, max 5)
+8. For each member: first name, age, gender (male/female), role (father/mother/son/daughter/grandfather/grandmother/other), activity level (sedentary/lightly_active/moderately_active/very_active), dietary type (strictly_vegetarian/jain_vegetarian/eggetarian/non_vegetarian/occasional_nonveg), any health conditions (diabetes/hypertension/anaemia/none), spice tolerance (mild/medium/spicy)
+9. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have — most families at minimum have tawa, pressure cooker and kadai.
+
+Age-based goal rules (auto-assign, do not ask):
+- Under 5 → childhood_nutrition
+- 5–12 → healthy_growth
+- 13–17 → no weight_loss goal allowed
+- 60+ → default senior_nutrition (can be changed)
 
 Rules:
 - Ask EXACTLY ONE question per response
@@ -341,11 +349,13 @@ Rules:
   "familyName": "Sharma",
   "state": "Maharashtra",
   "monthlyBudget": 8000,
-  "dietaryType": "vegetarian",
+  "dietaryType": "non_veg",
+  "cookingSkill": "intermediate",
+  "mealsPerDay": 3,
   "appliances": ["tawa", "pressure_cooker", "kadai"],
   "members": [
-    { "name": "Rajesh", "age": 42, "gender": "male", "role": "father", "healthConditions": ["diabetes"] },
-    { "name": "Priya", "age": 38, "gender": "female", "role": "mother", "healthConditions": [] }
+    { "name": "Rajesh", "age": 42, "gender": "male", "role": "father", "activityLevel": "moderately_active", "dietaryType": "non_vegetarian", "healthConditions": ["diabetes"], "spiceTolerance": "medium" },
+    { "name": "Priya", "age": 38, "gender": "female", "role": "mother", "activityLevel": "lightly_active", "dietaryType": "strictly_vegetarian", "healthConditions": [], "spiceTolerance": "mild" }
   ]
 }
 \`\`\`

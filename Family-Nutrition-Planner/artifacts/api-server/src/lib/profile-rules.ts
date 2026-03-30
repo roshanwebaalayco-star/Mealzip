@@ -27,7 +27,9 @@ export interface MemberProfileOutput {
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   sedentary: 1.2,
   light: 1.375,
+  lightly_active: 1.375,
   moderate: 1.55,
+  moderately_active: 1.55,
   active: 1.725,
   very_active: 1.9,
 };
@@ -75,7 +77,7 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
     let bmr = 10 * member.weightKg + 6.25 * member.heightCm - 5 * member.age;
     bmr += gender === "male" || gender === "m" ? 5 : -161;
 
-    const multiplier = ACTIVITY_MULTIPLIERS[member.activityLevel ?? "moderate"] ?? 1.55;
+    const multiplier = ACTIVITY_MULTIPLIERS[member.activityLevel ?? "moderately_active"] ?? 1.55;
     let tdee = bmr * multiplier;
 
     const pace = result.goalPace;

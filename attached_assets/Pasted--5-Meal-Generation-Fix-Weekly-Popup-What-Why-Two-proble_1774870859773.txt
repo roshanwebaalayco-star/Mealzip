@@ -1,0 +1,35 @@
+#5 - Meal Generation Fix & Weekly Popup
+What & Why
+Two problems: (1) Meal generation fails after fresh login because the Gemini AI sometimes returns ingredients in a format the Zod schema rejects (e.g. array of objects instead of array of strings), causing a validation error that kills the entire plan. (2) The "Generate Meal Plan" flow needs a proper pre-generation popup that matches the product spec — pre-filled from profile, editable per week, with per-member overrides for health, fasting, non-veg, tiffin, and spice.
+
+Done looks like
+Generation bug fixed: The ingredients field in WeekPlanSchema/MealCandidateSchema accepts any reasonable format Gemini returns (string, array of strings, or array of objects). Merged plan validation is more lenient on non-critical fields so a slight format variation doesn't kill the whole plan.
+Meal generation popup appears every time user hits "Generate Meal Plan" with fields pre-filled from profile:
+Budget this week (pre-filled from monthly, editable) + eating out frequency
+Cooking time: weekday (under 20min / 20-40min / no limit) + weekend (quick / elaborate / no pref)
+Per-member goal check: current goal pre-filled, weight update field (if weight loss/gain)
+Per-member health this week: conditions pre-filled + "how are you feeling" free text
+Per-member fasting this week: pre-filled from baseline, editable day checkboxes + Ekadashi + festival fast
+Per-member non-veg this week (only for occasional non-veg): day checkboxes + type checkboxes pre-filled
+Per-member tiffin and spice this week
+Special request free text (whole family)
+One-tap confirm if nothing changed from profile defaults
+All popup data passed to Gemini as the active instruction set alongside the permanent profile
+Out of scope
+Pantry scan voice/chat (separate feature)
+Profile setup field additions (separate task, dependency)
+Changes to the AI prompt structure beyond passing weekly context
+Tasks
+Fix Zod schema for ingredients — Make ingredients accept string, string array, or object array (with passthrough) in MealCandidateSchema and MealSlotSchema. Add .passthrough() to reduce false rejections on non-critical fields.
+Build the meal generation popup component — A modal/sheet that appears when "Generate Meal Plan" is clicked, with all spec fields, pre-filled from the family profile, one-tap confirm.
+Wire per-member overrides in the popup — Expandable sections per member showing goal, weight update, health conditions, feeling this week, fasting days, non-veg days/types, tiffin, spice — all pre-filled from profile.
+Pass popup data to the generation API — Map popup form data into the existing weeklyContext and preferences fields that the backend already supports.
+Handle the existing WeeklyContext page — Either merge it into the popup flow or redirect to it, ensuring no duplicate UI.
+Relevant files
+Family-Nutrition-Planner/artifacts/api-server/src/routes/meal-plans/index.ts:87-144
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/WeeklyContext.tsx
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/MealPlan.tsx
+Family-Nutrition-Planner/artifacts/nutrinext/src/pages/Dashboard.tsx
+Family-Nutrition-Planner/artifacts/nutrinext/src/types/weekly-context.ts
+Dependencies
+

@@ -61,8 +61,8 @@ export const CreateFamilyBody = zod.object({
   sharedTypicalBreakfast: zod.string().optional(),
   sharedTypicalLunch: zod.string().optional(),
   sharedTypicalDinner: zod.string().optional(),
-  cookingSkill: zod.enum(["beginner", "moderate", "expert"]).optional().describe("Family cooking skill level"),
-  mealsPerDay: zod.number().optional().describe("Number of meals per day (3-6)"),
+  cookingSkill: zod.enum(["beginner", "intermediate", "experienced"]).optional().describe("Family cooking skill level"),
+  mealsPerDay: zod.number().optional().describe("Number of meals per day (2-6)"),
 });
 
 /**
@@ -159,7 +159,7 @@ export const UpdateFamilyBody = zod.object({
   sharedTypicalBreakfast: zod.string().optional(),
   sharedTypicalLunch: zod.string().optional(),
   sharedTypicalDinner: zod.string().optional(),
-  cookingSkill: zod.enum(["beginner", "moderate", "expert"]).optional(),
+  cookingSkill: zod.enum(["beginner", "intermediate", "experienced"]).optional(),
   mealsPerDay: zod.number().optional(),
 });
 

@@ -18,8 +18,8 @@ export const familiesTable = pgTable("families", {
   sharedTypicalLunch: text("shared_typical_lunch"),
   sharedTypicalDinner: text("shared_typical_dinner"),
   appliances: text("appliances").array().notNull().default(["tawa", "pressure_cooker", "kadai"]),
-  cookingSkill: text("cooking_skill").notNull().default("moderate"),
-  mealsPerDay: integer("meals_per_day").notNull().default(4),
+  cookingSkill: text("cooking_skill").notNull().default("intermediate"),
+  mealsPerDay: integer("meals_per_day").notNull().default(3),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("families_user_id_idx").on(table.userId),

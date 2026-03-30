@@ -73,7 +73,7 @@ export default function FamilySetup() {
     primaryLanguage: "hindi",
     cuisinePreferences: [] as string[],
     cookingTimePreference: "moderate" as "quick" | "moderate" | "elaborate",
-    dietaryType: "vegetarian" as "vegetarian" | "non-vegetarian" | "vegan" | "jain",
+    dietaryType: "non_veg" as "strictly_veg" | "veg_with_eggs" | "non_veg" | "mixed",
     healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
     fastingDays: [] as string[],
     appliances: ["tawa", "pressure_cooker", "kadai"] as string[],
@@ -81,15 +81,15 @@ export default function FamilySetup() {
     sharedTypicalBreakfast: "",
     sharedTypicalLunch: "",
     sharedTypicalDinner: "",
-    cookingSkill: "moderate" as "beginner" | "moderate" | "expert",
-    mealsPerDay: 4,
+    cookingSkill: "intermediate" as "beginner" | "intermediate" | "experienced",
+    mealsPerDay: 3,
   });
 
   const [members, setMembers] = useState<MemberDraft[]>([
     {
       _id: ++_memberIdCounter, name: "", role: "father", age: 35, gender: "male", weightKg: 70, heightCm: 170,
-      activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
-      dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
+      activityLevel: "moderately_active", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
       spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
@@ -148,6 +148,7 @@ export default function FamilySetup() {
           appliances?: string[];
           members?: Array<{ name?: string; age?: number; gender?: string; role?: string; healthConditions?: string[] }>;
         };
+        const ep = p as Record<string, unknown>;
         const newFamilyData = {
           ...familyData,
           ...(p.familyName ? { name: p.familyName } : {}),
@@ -155,6 +156,8 @@ export default function FamilySetup() {
           ...(p.monthlyBudget ? { monthlyBudget: p.monthlyBudget } : {}),
           ...(p.dietaryType ? { dietaryType: p.dietaryType as typeof familyData.dietaryType } : {}),
           ...(p.appliances ? { appliances: p.appliances } : {}),
+          ...(ep.cookingSkill ? { cookingSkill: ep.cookingSkill as typeof familyData.cookingSkill } : {}),
+          ...(ep.mealsPerDay ? { mealsPerDay: ep.mealsPerDay as number } : {}),
         };
         const newMembers: MemberDraft[] = (p.members ?? []).filter(m => m.name).map(m => ({
           _id: ++_memberIdCounter,
@@ -164,20 +167,20 @@ export default function FamilySetup() {
           gender: m.gender ?? "male",
           weightKg: 65,
           heightCm: 165,
-          activityLevel: "moderate",
+          activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
           dietaryRestrictions: [],
           ingredientDislikes: [],
-          nonVegDays: [],
-          nonVegTypes: [],
+          nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
+          nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
           goalPace: "none",
           tiffinType: "none",
           religiousRules: "none",
-          healthGoal: "general_wellness",
-          dietaryType: newFamilyData.dietaryType,
+          healthGoal: m.healthGoal ?? "general_wellness",
+          dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
-          spiceTolerance: "medium",
+          spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
           fastingBaseline: [],
           ekadashi: false,
           festivalFastingAlerts: false,
@@ -230,8 +233,8 @@ export default function FamilySetup() {
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
       _id: ++_memberIdCounter, name: "", role: "other", age: 25, gender: "female", weightKg: 60, heightCm: 160,
-      activityLevel: "moderate", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
-      dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
+      activityLevel: "moderately_active", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
       spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
@@ -368,7 +371,7 @@ export default function FamilySetup() {
               gender: member.gender,
               weightKg: member.weightKg,
               heightCm: member.heightCm,
-              activityLevel: member.activityLevel ?? "moderate",
+              activityLevel: member.activityLevel ?? "moderately_active",
               healthConditions: member.healthConditions.filter(c => c !== "none"),
               dietaryRestrictions: enrichedDietaryRestrictions,
               allergies: allergyList,
@@ -405,6 +408,7 @@ export default function FamilySetup() {
   const handleSave = () => executeSave(familyData, members);
 
   const handleVoiceComplete = async (voiceData: VoiceFormData) => {
+    const vd = voiceData as Record<string, unknown>;
     const mergedFamilyData = {
       ...familyData,
       ...(voiceData.familyName ? { name: voiceData.familyName } : {}),
@@ -413,7 +417,9 @@ export default function FamilySetup() {
       ...(voiceData.dietaryType
         ? { dietaryType: voiceData.dietaryType as typeof familyData.dietaryType }
         : {}),
-      ...((voiceData as Record<string, unknown>).appliances ? { appliances: (voiceData as Record<string, unknown>).appliances as string[] } : {}),
+      ...(vd.appliances ? { appliances: vd.appliances as string[] } : {}),
+      ...(vd.cookingSkill ? { cookingSkill: vd.cookingSkill as typeof familyData.cookingSkill } : {}),
+      ...(vd.mealsPerDay ? { mealsPerDay: vd.mealsPerDay as number } : {}),
     };
 
     const voiceMembers: MemberDraft[] = (voiceData.members ?? [])
@@ -426,16 +432,19 @@ export default function FamilySetup() {
         gender: m.gender ?? "male",
         weightKg: 65,
         heightCm: 165,
-        activityLevel: "moderate",
+        activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
         healthConditions: m.healthConditions ?? [],
         dietaryRestrictions: [],
         healthGoal: m.healthGoal ?? "general_wellness",
-        dietaryType: mergedFamilyData.dietaryType,
+        dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
         memberFastingDays: [],
         foodAllergies: "",
         goalPace: "none", tiffinType: "none", religiousRules: "none",
-        ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
-        spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
+        ingredientDislikes: [],
+        nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
+        nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
+        spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
+        fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
         individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
       }));
 
@@ -451,6 +460,7 @@ export default function FamilySetup() {
   const handleVoiceClose = (partialData?: VoiceFormData) => {
     setVoiceModalOpen(false);
     if (!partialData) return;
+    const pd = partialData as Record<string, unknown>;
     setFamilyData(prev => ({
       ...prev,
       ...(partialData.familyName ? { name: partialData.familyName } : {}),
@@ -459,6 +469,8 @@ export default function FamilySetup() {
       ...(partialData.dietaryType
         ? { dietaryType: partialData.dietaryType as typeof familyData.dietaryType }
         : {}),
+      ...(pd.cookingSkill ? { cookingSkill: pd.cookingSkill as typeof familyData.cookingSkill } : {}),
+      ...(pd.mealsPerDay ? { mealsPerDay: pd.mealsPerDay as number } : {}),
     }));
     if (partialData.members && partialData.members.length > 0) {
       setMembers(partialData.members
@@ -471,20 +483,20 @@ export default function FamilySetup() {
           gender: m.gender ?? "male",
           weightKg: 65,
           heightCm: 165,
-          activityLevel: "moderate",
+          activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
           dietaryRestrictions: [],
           ingredientDislikes: [],
-          nonVegDays: [],
-          nonVegTypes: [],
+          nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
+          nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
           goalPace: "none",
           tiffinType: "none",
           religiousRules: "none",
           healthGoal: m.healthGoal ?? "general_wellness",
-          dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
+          dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
-          spiceTolerance: "medium",
+          spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
           fastingBaseline: [],
           ekadashi: false,
           festivalFastingAlerts: false,
@@ -767,16 +779,16 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>{t("Dietary Type", "आहार प्रकार")}</Label>
+                  <Label>{t("Household Dietary Baseline", "घरेलू आहार प्रकार")}</Label>
                   <Select value={familyData.dietaryType} onValueChange={v => setFamilyData({...familyData, dietaryType: v as typeof familyData.dietaryType})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Dietary preference" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="vegetarian">Vegetarian / शाकाहारी</SelectItem>
-                      <SelectItem value="non-vegetarian">Non-Vegetarian / मांसाहारी</SelectItem>
-                      <SelectItem value="vegan">Vegan</SelectItem>
-                      <SelectItem value="jain">Jain / जैन</SelectItem>
+                      <SelectItem value="strictly_veg">{t("Strictly Vegetarian", "पूर्ण शाकाहारी")}</SelectItem>
+                      <SelectItem value="veg_with_eggs">{t("Vegetarian with Eggs", "अंडे के साथ शाकाहारी")}</SelectItem>
+                      <SelectItem value="non_veg">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
+                      <SelectItem value="mixed">{t("Mixed (varies by member)", "मिश्रित (सदस्य के अनुसार)")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -801,8 +813,8 @@ export default function FamilySetup() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="beginner">{t("Beginner — simple recipes only", "शुरुआती — सिर्फ आसान रेसिपी")}</SelectItem>
-                      <SelectItem value="moderate">{t("Moderate — can follow most recipes", "मध्यम — ज़्यादातर रेसिपी बना सकते हैं")}</SelectItem>
-                      <SelectItem value="expert">{t("Expert — comfortable with all recipes", "विशेषज्ञ — सभी रेसिपी बना सकते हैं")}</SelectItem>
+                      <SelectItem value="intermediate">{t("Intermediate — can follow most recipes", "मध्यम — ज़्यादातर रेसिपी बना सकते हैं")}</SelectItem>
+                      <SelectItem value="experienced">{t("Experienced — comfortable with all recipes", "अनुभवी — सभी रेसिपी बना सकते हैं")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -813,10 +825,9 @@ export default function FamilySetup() {
                       <SelectValue placeholder="Meals" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="3">{t("3 meals (no snacks)", "3 भोजन (बिना नाश्ता)")}</SelectItem>
-                      <SelectItem value="4">{t("4 meals (1 snack)", "4 भोजन (1 नाश्ता)")}</SelectItem>
-                      <SelectItem value="5">{t("5 meals (2 snacks)", "5 भोजन (2 नाश्ता)")}</SelectItem>
-                      <SelectItem value="6">{t("6 meals (3 snacks)", "6 भोजन (3 नाश्ता)")}</SelectItem>
+                      <SelectItem value="2">{t("2 meals", "2 भोजन")}</SelectItem>
+                      <SelectItem value="3">{t("3 meals", "3 भोजन")}</SelectItem>
+                      <SelectItem value="4">{t("3 + snacks", "3 + नाश्ता")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1064,6 +1075,26 @@ export default function FamilySetup() {
                       <span>{t("Calorie deficit goals (weight loss) are not available for ages 13–17 per Responsible AI guidelines.", "13–17 वर्ष के लिए कैलोरी घाटा लक्ष्य Responsible AI नियमों के अनुसार उपलब्ध नहीं है।")}</span>
                     </div>
                   )}
+                  {/* Senior nutrition default notice */}
+                  {Number(member.age) >= 60 && (
+                    <div className="col-span-2 flex items-start gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2 text-xs text-violet-800">
+                      <span className="shrink-0 mt-0.5">🤖</span>
+                      <span>{t("Default goal: Senior Nutrition (age 60+). You can change it below.", "डिफ़ॉल्ट लक्ष्य: वरिष्ठ पोषण (आयु 60+)। नीचे बदल सकते हैं।")}</span>
+                    </div>
+                  )}
+                  {/* Activity Level */}
+                  <div>
+                    <Label className="text-sm font-semibold">{t("Activity Level", "गतिविधि स्तर")}</Label>
+                    <Select value={member.activityLevel} onValueChange={v => handleUpdateMember(idx, "activityLevel", v)}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sedentary">{t("Sedentary", "गतिहीन")}</SelectItem>
+                        <SelectItem value="lightly_active">{t("Lightly Active", "हल्की गतिविधि")}</SelectItem>
+                        <SelectItem value="moderately_active">{t("Moderately Active", "मध्यम गतिविधि")}</SelectItem>
+                        <SelectItem value="very_active">{t("Very Active", "बहुत सक्रिय")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {/* Health Goal — hidden for age <5 (auto early childhood) and age 5-12 (auto healthy growth) */}
                   {Number(member.age) >= 13 && (
                   <div>
@@ -1072,7 +1103,6 @@ export default function FamilySetup() {
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="general_wellness">{t("General Wellness", "सामान्य स्वास्थ्य")}</SelectItem>
-                        {/* Weight loss hidden for age 13–17 (Responsible AI guardrail) */}
                         {Number(member.age) >= 18 && (
                           <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>
                         )}
@@ -1081,6 +1111,9 @@ export default function FamilySetup() {
                         <SelectItem value="heart_health">{t("Heart Health", "हृदय स्वास्थ्य")}</SelectItem>
                         {Number(member.age) >= 18 && (
                           <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>
+                        )}
+                        {Number(member.age) >= 60 && (
+                          <SelectItem value="senior_nutrition">{t("Senior Nutrition", "वरिष्ठ पोषण")}</SelectItem>
                         )}
                       </SelectContent>
                     </Select>
@@ -1091,11 +1124,11 @@ export default function FamilySetup() {
                     <Select value={member.dietaryType} onValueChange={v => handleUpdateMember(idx, "dietaryType", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="vegetarian">{t("Vegetarian", "शाकाहारी")}</SelectItem>
-                        <SelectItem value="non-vegetarian">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
-                        <SelectItem value="vegan">{t("Vegan", "शुद्ध शाकाहारी")}</SelectItem>
-                        <SelectItem value="jain">{t("Jain", "जैन")}</SelectItem>
+                        <SelectItem value="strictly_vegetarian">{t("Strictly Vegetarian", "पूर्ण शाकाहारी")}</SelectItem>
+                        <SelectItem value="jain_vegetarian">{t("Jain Vegetarian", "जैन शाकाहारी")}</SelectItem>
                         <SelectItem value="eggetarian">{t("Eggetarian", "अंडाहारी")}</SelectItem>
+                        <SelectItem value="non_vegetarian">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
+                        <SelectItem value="occasional_nonveg">{t("Occasional Non-Veg", "कभी-कभी मांसाहार")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1285,7 +1318,7 @@ export default function FamilySetup() {
                     </div>
                   </div>
                   {/* Non-veg days (only show if non-vegetarian) */}
-                  {(member.dietaryType === "non-vegetarian") && (
+                  {(member.dietaryType === "non_vegetarian" || member.dietaryType === "occasional_nonveg") && (
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-semibold">{t("Non-Veg Days", "मांसाहार के दिन")}</Label>
