@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "kOhBUpKVr2p2QqrFTNFCj"
+uri = "file://.local/test-report.md"
+type = "text"
+title = "Full RAG & Clinical Test Report — March 30, 2026"
