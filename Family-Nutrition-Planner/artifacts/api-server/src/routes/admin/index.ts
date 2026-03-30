@@ -267,6 +267,7 @@ router.post("/admin/seed-test-families", async (req: Request, res: Response) => 
     res.json({
       status: "success",
       message: `${Object.keys(results).length} clinical test families seeded`,
+      note: userId ? `Families owned by userId ${userId}` : "Families created without userId — pass { userId } in body for meal-plan generation compatibility",
       families: results,
     });
   } catch (err) {
