@@ -13,6 +13,7 @@ JWT_SECRET = "2e612f0f617094ec9b7dd866abeaf9ac8ff685930af9ca014a0601d6e8f53fa01a
 DEMO_MODE = "true"
 GEMINI_API_KEY = "AIzaSyCzc-lSibsLJKdT3aH2wvWkyLCLe4QcdEQ"
 ADMIN_SECRET = "nutritest-admin-2026"
+SARVAM_API_KEY = "sk_h8xr05ku_SwjlS85uELaFZ4toGRSkWrF1"
 
 [[ports]]
 localPort = 3000
