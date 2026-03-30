@@ -106,7 +106,10 @@ const modelfarmProxy = {
   },
 };
 
-export const ai = isModelfarm()
+const _usingModelfarm = isModelfarm();
+console.log(`[Gemini AI] Mode: ${_usingModelfarm ? "Replit Integration (modelfarm)" : directApiKey ? "Direct API Key" : "NOT CONFIGURED"}`);
+
+export const ai = _usingModelfarm
   ? modelfarmProxy
   : new Proxy({} as GoogleGenAI, {
       get(_target, prop) {
