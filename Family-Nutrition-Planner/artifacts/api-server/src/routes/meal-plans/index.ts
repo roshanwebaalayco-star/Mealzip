@@ -16,6 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
+import { validatePlanClinically } from "../../services/planValidator.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
 import { resolveDietPreference } from "../../lib/diet-tag.js";
 import { applyArbitrageToPlan } from "../../lib/arbitrage-engine.js";
@@ -711,6 +712,51 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
       ? `\n🎉 FESTIVAL: ${festivalType}. Include traditional festive dishes and sweets where appropriate.\n`
       : "";
 
+  const memberFastingConstraints = isFasting ? memberSummaries.map((m) => {
+    const conditions = (m.healthConditions ?? []).filter((c: string) => c !== "none");
+    if (conditions.length === 0) return null;
+
+    const intersectionRules: string[] = [];
+
+    if (conditions.includes("diabetes")) {
+      intersectionRules.push(`
+        ${m.name} is diabetic AND fasting.
+        FASTING + DIABETES INTERSECTION RULES:
+        - Use ONLY low-GI fasting foods: kuttu (buckwheat GI ~54), singhara flour (GI ~50), makhana (GI ~14.5), sabudana (GI ~67 — use in small quantities only, pair with protein like dahi to lower spike), rajgira (amaranth GI ~57), barnyard millet (GI ~41 — ideal).
+        - Sabudana khichdi must always be paired with plain dahi and peanuts to slow glucose absorption. Never sabudana alone.
+        - Protein source mandatory at every meal even during fasting: dahi, paneer, makhana, groundnuts, samvat rice with dal if available.
+        - Methi water on waking must still appear even during fasting days.
+        - Post-meal walk note must still appear.
+        - No fruit juice. Whole fruits only.
+        - Bedtime: amla powder + turmeric in warm water still applies during fasting.
+      `);
+    }
+
+    if (conditions.includes("anaemia")) {
+      intersectionRules.push(`
+        ${m.name} has anaemia AND is fasting.
+        FASTING + ANAEMIA INTERSECTION RULES:
+        - Iron-rich fasting foods to prioritize: rajgira (amaranth — very high iron), makhana (moderate iron), dates/khajoor (high iron, eat 2-3 per day during fasting), groundnuts (good iron source allowed in fasting), singhara (moderate iron).
+        - Vitamin C source must pair with every meal for iron absorption: nimbu on every plate, amla juice in morning, whole orange or guava as snack.
+        - Never have tea or coffee within one hour of any meal — tannins block iron absorption.
+        - Dahi is allowed in fasting — include it for protein and to aid iron absorption.
+      `);
+    }
+
+    if (conditions.includes("hypertension")) {
+      intersectionRules.push(`
+        ${m.name} has hypertension AND is fasting.
+        FASTING + HYPERTENSION INTERSECTION RULES:
+        - Sendha namak (rock salt) is the only salt allowed in fasting AND is lower sodium than regular salt — this is actually beneficial. Use sparingly.
+        - No packaged fasting foods (packaged sabudana papad, packaged fasting snacks) as these contain hidden sodium.
+        - All fasting foods should be freshly prepared.
+        - Beetroot is allowed during Navratri fasting — include it as a side dish or juice for its nitrate-based BP lowering effect.
+      `);
+    }
+
+    return intersectionRules.length > 0 ? intersectionRules.join("\n") : null;
+  }).filter(Boolean) as string[] : [];
+
   const pantryNote = pantryIngredients.length > 0
     ? `\n🏠 PANTRY ITEMS (already at home): ${pantryIngredients.join(", ")}.\nPREFER recipes that use these ingredients to minimise shopping. Incorporate them into breakfast/lunch/dinner where nutritionally appropriate.\n`
     : "";
@@ -806,16 +852,17 @@ ${weeklyContext.budget_inr ? `• Weekly budget this week: ₹${weeklyContext.bu
 ${weeklyContext.dining_out_freq ? `• Eating out approximately ${weeklyContext.dining_out_freq} meal occasion(s) this week — plan ${Math.max(3, 7 - weeklyContext.dining_out_freq)} home-cooked days, fewer if eating out frequently` : ""}
 ${weeklyContext.weekday_prep_time ? `• Weekday cook time: ${weeklyContext.weekday_prep_time}` : ""}
 ${weeklyContext.weekend_prep_time ? `• Weekend cook time: ${weeklyContext.weekend_prep_time}` : ""}
-${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([_key, ov]) => {
+${weeklyContext.member_overrides ? Object.entries(weeklyContext.member_overrides).map(([_key, _ov]) => {
+  const ov = _ov as Record<string, unknown>;
   const member = members.find(m => m.id === ov.memberId);
   const memberName = member?.name ?? `member#${ov.memberId}`;
   const parts: string[] = [];
   if (ov.feeling_this_week) parts.push(`feeling ${ov.feeling_this_week}`);
-  if (ov.fasting_days?.length) parts.push(`fasting on ${ov.fasting_days.join(", ")}`);
+  if ((ov.fasting_days as string[] | undefined)?.length) parts.push(`fasting on ${(ov.fasting_days as string[]).join(", ")}`);
   if (ov.tiffin_override) parts.push("tiffin needed");
   if (ov.spice_override) parts.push(`spice level: ${ov.spice_override}`);
   if (ov.weight_kg) parts.push(`current weight ${ov.weight_kg}kg — recalculate calorie target accordingly`);
-  if (ov.nonveg_days_override?.length) parts.push(`non-veg allowed on ${ov.nonveg_days_override.join(", ")} (type: ${ov.nonveg_type_override ?? "any"})`);
+  if ((ov.nonveg_days_override as string[] | undefined)?.length) parts.push(`non-veg allowed on ${(ov.nonveg_days_override as string[]).join(", ")} (type: ${(ov.nonveg_type_override as string) ?? "any"})`);
   return parts.length ? `• ${memberName}: ${parts.join("; ")}` : "";
 }).filter(Boolean).join("\n") : ""}
 ${fastingNote}${pantryNote}${leftoverNote}${skippedMealsNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim() : `
@@ -849,6 +896,23 @@ SECTION 3 — ICMR-NIN 2024 CLINICAL GUARDRAILS (always enforce)
 • DIABETES/BP: Members with diabetes must have meals with GI < 55; hypertension < 1500mg sodium/day.
 • ALLERGIES: Absolutely zero tolerance for declared allergens. Enforce strictly.
 
+FASTING EARLY MORNING RULE:
+The early morning slot (methi water, amla juice, CCF tea, garlic clove) is NOT a meal. It does not contain grain, salt, or oil. It is ALWAYS allowed during any Indian fast including Navratri, Ekadashi, Mahashivratri, and all other fasts. NEVER remove the early morning slot for any member regardless of fasting status. Methi water and amla are explicitly permitted in all Indian fasting traditions.
+
+FASTING BEDTIME RULE:
+Warm water with amla powder and turmeric is NOT a food and is NOT restricted during any Indian fast. It is herbal water. Always include the appropriate bedtime recommendation for the member's health condition regardless of fasting status. Haldi doodh (warm milk with turmeric) is also permitted during most Indian fasts.
+
+${memberFastingConstraints.length > 0 ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLINICAL + FASTING INTERSECTION RULES
+These are MANDATORY. Fasting does not suspend health condition rules. Apply both simultaneously.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${memberFastingConstraints.join("\n\n")}
+
+CRITICAL: For any member with a health condition during a fasting day, EVERY MEAL SLOT must satisfy BOTH the fasting food restriction AND the clinical health rule simultaneously. Never sacrifice one for the other. The fasting food vocabulary is wide enough to satisfy both. If you cannot find a recipe from SECTION C that satisfies both, create a simple home-preparation that satisfies both and note it as "simple home preparation."
+` : ""}
+
 OUTPUT RULES — BE TERSE, minimize text length:
 - 5 meals per day: breakfast, mid_morning, lunch, evening_snack, dinner
 - ONE BASE MANY PLATES: base_dish_name is the single shared dish; member_adjustments shows per-member customisations
@@ -861,7 +925,11 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - nameHindi: required
 - aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
 - dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
-- CANDIDATES: For breakfast, lunch, and dinner slots, provide exactly 3 different recipe options as a "candidates" array. Each candidate has the same shape as the main meal object (base_dish_name, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, required_appliances, base_ingredients if AI). Rank by confidence — candidate 1 is the primary choice. Options 2 and 3 may have shorter descriptions. The top-level slot fields should match candidate 1. mid_morning and evening_snack do NOT need candidates.`.trim();
+- leftoverNote: if this meal uses leftover from a previous meal, set {"from":"<source day+meal>","uses":"<what ingredient>","transformation":"<how it's used>","costSaving":"₹<amount> saved"}. If no leftover, set leftoverNote to null.
+- CANDIDATES: For breakfast, lunch, and dinner slots, provide exactly 3 different recipe options as a "candidates" array. Each candidate has the same shape as the main meal object (base_dish_name, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, required_appliances, base_ingredients if AI). Rank by confidence — candidate 1 is the primary choice. Options 2 and 3 may have shorter descriptions. The top-level slot fields should match candidate 1. mid_morning and evening_snack do NOT need candidates.
+- member_plates: for each member with a health condition, include: {"add":[...],"reduce":[...],"avoid":[...],"clinicalNote":"why this suits their condition","fastingCompliant":true,"clinicalCompliant":true,"clinicalChecks":{"diabeticCheck":"low GI confirmed / not applicable","anaemiaCheck":"iron source present / not applicable","bpCheck":"low sodium confirmed / not applicable"}}
+- harmonyBreakdown: include in top-level JSON: {"score":<n>,"maxPossible":100,"gap":<n>,"topReasons":["..."],"nextWeekSuggestion":"..."}
+- fastingCompliance: include in top-level JSON if fasting detected: {"fastingDetected":true,"festivalName":"<name>","fastingDays":[...],"fastingFoodsUsed":[...],"memberFastingStatus":{"<name>":"fasting with <condition> modifications"}}`.trim();
 
   const promptPreamble = `${masterPromptSection1}
 ${masterPromptSection2}
@@ -1098,11 +1166,31 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         similarRecipes: ragResult.recipeCount,
         sources: ragResult.sources,
         contextSummary: ragResult.contextSummary,
-        embeddingModel: "voyage-3",
+        embeddingModel: "gemini-embedding-001",
       },
     }).returning();
 
-    res.json({ ...mealPlan, harmonyScore: Number(mealPlan.harmonyScore) });
+    const clinicalValidation = validatePlanClinically(
+      enrichedPlanData as Record<string, unknown>,
+      members.map((m) => ({ name: m.name, healthConditions: (m.healthConditions ?? []) as string[] })),
+    );
+
+    if (!clinicalValidation.passed) {
+      req.log.warn(
+        { failures: clinicalValidation.failures, warnings: clinicalValidation.warnings, score: clinicalValidation.score },
+        "Plan clinical validation found issues",
+      );
+    }
+
+    res.json({
+      ...mealPlan,
+      harmonyScore: Number(mealPlan.harmonyScore),
+      clinicalValidation: {
+        passed: clinicalValidation.passed,
+        score: clinicalValidation.score,
+        warnings: clinicalValidation.warnings,
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     req.log.error({ err }, "Failed to save meal plan to database");

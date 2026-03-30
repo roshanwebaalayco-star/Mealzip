@@ -86,6 +86,7 @@ interface MealCell {
   _thaliScore?: number;
   _thaliPresent?: string[];
   _thaliMissing?: string[];
+  leftoverNote?: { from: string; uses: string; transformation: string; costSaving: string } | null;
 }
 
 interface DayData {
@@ -1316,6 +1317,16 @@ export default function MealPlan() {
                               })}
                             </div>
                           )
+                        )}
+
+                        {cell.leftoverNote && (
+                          <div className="flex items-center gap-1 text-[11px] text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full mt-0.5">
+                            <span className="font-semibold">♻️ {t("Leftover", "बचा हुआ")}:</span>
+                            <span>{cell.leftoverNote.uses} → {cell.leftoverNote.transformation}</span>
+                            {cell.leftoverNote.costSaving && (
+                              <span className="font-bold text-green-800 ml-0.5">{cell.leftoverNote.costSaving}</span>
+                            )}
+                          </div>
                         )}
 
                         {/* Leftover chain — all 3 steps */}

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
+import { getEmbeddingQueueStatus } from "../../services/embeddingQueue.js";
 
 const router: IRouter = Router();
 
@@ -42,6 +43,8 @@ router.get("/healthz", async (_req, res) => {
     chunksBySource,
     recipes,
     embeddedRecipes,
+    embeddingQueue: getEmbeddingQueueStatus(),
+    timestamp: new Date().toISOString(),
   });
 });
 

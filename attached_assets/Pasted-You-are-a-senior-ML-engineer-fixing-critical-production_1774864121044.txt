@@ -1,0 +1,1118 @@
+You are a senior ML engineer fixing critical production issues
+in the ParivarSehat AI meal planner based on a detailed
+testing report. Read the entire prompt before writing
+a single line of code. Execute sections in exact order.
+Confirm completion of each section before moving forward.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THE TESTING FOUND — READ THIS FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Three critical issues were found:
+
+ISSUE P1 — CRITICAL: Recipe embedding starvation
+Only 20 of 12,771 recipes are embedded. The Voyage AI
+free tier (3 requests per minute) is saturated by the
+first batch of 128 recipes at startup. After 5 retries
+it fails and stops. 99.8% of recipes have no embedding
+so vector search is broken for almost the entire database.
+The system falls back to SQL filters with no semantic
+relevance.
+
+ISSUE P2 — HIGH: Fasting mode overrides clinical rules
+When Navratri or any festival fast is detected, the
+fasting engine replaces ALL meal slots with fasting food
+(sabudana, singhara, makhana) regardless of the member's
+health conditions. A diabetic member loses dal-at-lunch,
+methi water, and all other diabetes rules. An anaemic
+member loses iron-pairing rules. The AI even correctly
+writes in its insight text what should happen for
+diabetes but the prompt does not enforce it. Clinical
+Test 1 scored 4/11 during Navratri week as a result.
+This affects approximately 60 days per year across
+all Indian festivals.
+
+ISSUE P3 — LOW: ICMR guidelines chunk count
+43 chunks vs expected 80-150. The PDF is being chunked
+too coarsely. Finer chunking with smaller size and
+larger overlap will increase coverage and retrieval
+quality.
+
+WHAT IS WORKING WELL — DO NOT BREAK THESE:
+- One Base Many Plates personalization — each member
+  gets distinct adjustments with correct clinical logic
+- Budget control is accurate
+- Leftover chain logic fires consistently
+- Fasting calendar auto-detection is accurate
+- Chat RAG correctly injects ICMR knowledge
+- Harmony Score computing correctly
+- All 22 automated regression tests passing
+- Multi-member conflict resolution (Clinical Test 4
+  scored 10/11)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — FIX P1: RECIPE EMBEDDING
+Replace Voyage AI with Gemini Embeddings +
+Background Queue Architecture
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE ROOT CAUSE:
+Voyage AI free tier is 3 requests per minute.
+128 recipes per batch × embedding call = instant
+rate limit saturation at startup.
+
+THE FIX:
+1. Switch the embedding model from Voyage AI to
+   Gemini text-embedding-004 which is already
+   available via the existing GEMINI_API_KEY.
+   This eliminates the Voyage AI dependency entirely.
+
+2. Replace the startup batch job with a background
+   queue that embeds recipes gradually at a safe
+   rate — 20 recipes per minute — so it never
+   saturates any rate limit and never blocks startup.
+
+3. During the queue processing, the system continues
+   to work using SQL fallback. As more recipes get
+   embedded, vector search quality improves
+   automatically without any restart.
+
+STEP 1A — Update the embedding service:
+
+In server/services/embedding.ts, replace the
+embedding model initialization entirely.
+
+Remove all Voyage AI imports and configuration.
+
+Replace with Gemini embedding:
+
+  import { GoogleGenerativeAI } from '@google/generative-ai';
+
+  const genAI = new GoogleGenerativeAI(
+    process.env.GEMINI_API_KEY!
+  );
+
+  const embeddingModel = genAI.getGenerativeModel({
+    model: 'text-embedding-004'
+  });
+
+  export async function generateEmbedding(
+    text: string
+  ): Promise<number[]> {
+    const cleaned = text
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 8000);
+
+    try {
+      const result = await embeddingModel.embedContent({
+        content: { parts: [{ text: cleaned }], role: 'user' }
+      });
+      return result.embedding.values;
+    } catch (err: any) {
+      if (err?.status === 429) {
+        // Rate limited — wait and retry once
+        await new Promise(r => setTimeout(r, 10000));
+        const result = await embeddingModel.embedContent({
+          content: { parts: [{ text: cleaned }], role: 'user' }
+        });
+        return result.embedding.values;
+      }
+      throw err;
+    }
+  }
+
+Gemini text-embedding-004 produces 768-dimensional
+vectors which matches the existing vector(768) column
+definition. No schema change needed.
+
+STEP 1B — Create the background embedding queue:
+
+Create a new file: server/services/embeddingQueue.ts
+
+  import { db } from '../db';
+  import { generateEmbedding } from './embedding';
+
+  let isRunning = false;
+  let processedCount = 0;
+  let totalToProcess = 0;
+
+  // Safe rate: 20 recipes per minute = 1 every 3 seconds
+  // Gemini text-embedding-004 free tier is generous
+  // but we stay conservative to avoid any issues
+  const RATE_DELAY_MS = 3000;
+  const BATCH_SIZE = 1;
+
+  export async function startEmbeddingQueue(): Promise<void> {
+    if (isRunning) {
+      console.log('Embedding queue already running');
+      return;
+    }
+
+    // Count unembedded recipes
+    const countResult = await db.execute(`
+      SELECT COUNT(*) as count FROM recipes
+      WHERE embedding IS NULL
+    ` as any);
+
+    totalToProcess = parseInt(
+      countResult.rows[0].count
+    );
+
+    if (totalToProcess === 0) {
+      console.log('All recipes already embedded.');
+      return;
+    }
+
+    console.log(
+      `Starting background embedding queue:
+      ${totalToProcess} recipes to embed.
+      Rate: 20/minute. Estimated time:
+      ${Math.ceil(totalToProcess / 20)} minutes.`
+    );
+
+    isRunning = true;
+    processedCount = 0;
+
+    // Run in background — do not await this
+    embedRecipesGradually().catch(err => {
+      console.error('Embedding queue error:', err);
+      isRunning = false;
+    });
+  }
+
+  async function embedRecipesGradually(): Promise<void> {
+    while (true) {
+      // Fetch one unembedded recipe at a time
+      const result = await db.execute(`
+        SELECT id, name, cuisine, course, diet,
+               ingredients, instructions
+        FROM recipes
+        WHERE embedding IS NULL
+        LIMIT 1
+      ` as any);
+
+      if (result.rows.length === 0) {
+        console.log(
+          `Embedding queue complete.
+          Total embedded: ${processedCount} recipes.`
+        );
+        isRunning = false;
+        break;
+      }
+
+      const recipe = result.rows[0];
+
+      try {
+        // Build rich text for embedding
+        const recipeText = [
+          `Recipe: ${recipe.name}`,
+          `Cuisine zone: ${recipe.cuisine}`,
+          `Course type: ${recipe.course}`,
+          `Diet: ${recipe.diet}`,
+          `Ingredients: ${recipe.ingredients}`,
+          `Cooking method: ${recipe.instructions
+            ?.slice(0, 500) || ''}`
+        ].join('. ');
+
+        const embedding =
+          await generateEmbedding(recipeText);
+        const embeddingStr =
+          `[${embedding.join(',')}]`;
+
+        await db.execute(`
+          UPDATE recipes
+          SET embedding = $1::vector
+          WHERE id = $2
+        ` as any, [embeddingStr, recipe.id]);
+
+        processedCount++;
+
+        // Log progress every 100 recipes
+        if (processedCount % 100 === 0) {
+          const remaining =
+            totalToProcess - processedCount;
+          console.log(
+            `Embedding progress:
+            ${processedCount}/${totalToProcess}
+            done. ~${Math.ceil(remaining / 20)}
+            minutes remaining.`
+          );
+        }
+
+      } catch (err) {
+        console.error(
+          `Failed to embed recipe ${recipe.id}
+          (${recipe.name}):`, err
+        );
+        // Skip this recipe and continue
+        // Mark it with a null-sentinel to skip
+        // on next run — prevent infinite retry loop
+        await db.execute(`
+          UPDATE recipes
+          SET embedding = NULL
+          WHERE id = $1
+        ` as any, [recipe.id]);
+      }
+
+      // Respect rate limit — wait between each recipe
+      await new Promise(r =>
+        setTimeout(r, RATE_DELAY_MS)
+      );
+    }
+  }
+
+  export function getEmbeddingQueueStatus(): object {
+    return {
+      isRunning,
+      processedCount,
+      totalToProcess,
+      remainingCount: totalToProcess - processedCount,
+      percentComplete: totalToProcess > 0
+        ? Math.round(
+            (processedCount / totalToProcess) * 100
+          )
+        : 100,
+      estimatedMinutesRemaining:
+        Math.ceil(
+          (totalToProcess - processedCount) / 20
+        )
+    };
+  }
+
+STEP 1C — Add queue status endpoint:
+
+In server/routes/admin or server/index.ts, add:
+
+  import {
+    startEmbeddingQueue,
+    getEmbeddingQueueStatus
+  } from './services/embeddingQueue';
+
+  app.get('/api/admin/embedding-status',
+    requireAuth,
+    (req, res) => {
+      res.json(getEmbeddingQueueStatus());
+    }
+  );
+
+  app.post('/api/admin/restart-embedding-queue',
+    requireAuth,
+    async (req, res) => {
+      const user = req.user as any;
+      if (user.email !== process.env.ADMIN_EMAIL) {
+        return res.status(403).json({
+          error: 'Admin only'
+        });
+      }
+      await startEmbeddingQueue();
+      res.json({
+        success: true,
+        status: getEmbeddingQueueStatus()
+      });
+    }
+  );
+
+STEP 1D — Start the queue on server startup:
+
+In server/index.ts, after the knowledge base
+ingestion call, add:
+
+  import { startEmbeddingQueue }
+    from './services/embeddingQueue';
+
+  // Start background embedding queue
+  // This runs gradually in the background
+  // and never blocks server startup
+  startEmbeddingQueue().catch(err =>
+    console.error(
+      'Could not start embedding queue:', err
+    )
+  );
+
+STEP 1E — Update findSimilarChunks to handle
+partially embedded state gracefully:
+
+In server/services/embedding.ts, update the
+findSimilarChunks function for the recipes table:
+
+  // Before running vector search, check coverage
+  const coverageResult = await db.execute(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(embedding) as embedded
+    FROM recipes
+    WHERE cuisine = $1 OR $1 = 'all'
+  ` as any, [filter?.zone || 'all']);
+
+  const coverage = coverageResult.rows[0];
+  const coveragePercent =
+    parseInt(coverage.embedded) /
+    Math.max(parseInt(coverage.total), 1) * 100;
+
+  // If less than 10% of recipes are embedded,
+  // skip vector search and use SQL filter instead
+  // This prevents returning only 20 results from
+  // 12,771 recipes just because 99% aren't embedded yet
+  if (coveragePercent < 10) {
+    console.log(
+      `Vector search skipped: only
+      ${coveragePercent.toFixed(1)}% of recipes
+      embedded. Using SQL filter fallback.`
+    );
+
+    const sqlResult = await db.execute(`
+      SELECT id, name, cuisine, course, diet,
+             ingredients, instructions,
+             "prepTimeInMins", servings,
+             0.5 as similarity
+      FROM recipes
+      WHERE ($1::text IS NULL OR cuisine = $1)
+        AND ($2::text IS NULL OR diet = $2)
+        AND embedding IS NOT NULL
+      ORDER BY RANDOM()
+      LIMIT $3
+    ` as any, [
+      filter?.zone || null,
+      filter?.diet || null,
+      limit
+    ]);
+
+    return sqlResult.rows;
+  }
+
+  // Otherwise proceed with vector search as normal
+  // ... rest of existing vector search code ...
+
+STEP 1F — Update the healthz endpoint to show
+embedding progress:
+
+  app.get('/healthz', async (req, res) => {
+    try {
+      await db.execute('SELECT 1' as any);
+
+      const embeddingStatus =
+        getEmbeddingQueueStatus();
+
+      const chunkCount = await db.execute(`
+        SELECT COUNT(*) as count
+        FROM knowledge_chunks
+      ` as any);
+
+      res.json({
+        status: 'ok',
+        database: 'connected',
+        knowledgeChunks:
+          parseInt(chunkCount.rows[0].count),
+        embeddingQueue: embeddingStatus,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      res.status(500).json({
+        status: 'error',
+        database: 'disconnected'
+      });
+    }
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — FIX P2: FASTING MODE MUST NOT
+OVERRIDE CLINICAL HEALTH GUIDELINES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE ROOT CAUSE:
+The fasting engine currently runs as an override —
+it replaces all meal content with fasting food
+and the clinical health condition rules are ignored.
+The correct behaviour is intersection not replacement:
+fasting food that also satisfies the health condition.
+
+A diabetic member during Navratri needs:
+Fasting-safe food (kuttu, sabudana, singhara, makhana)
+AND low GI AND dal/protein at every meal AND no sugar spike.
+
+An anaemic member during Navratri needs:
+Fasting-safe food AND iron-rich AND Vitamin C pairing.
+
+These are not mutually exclusive. The fasting food
+vocabulary is large enough to satisfy both.
+
+STEP 2A — Update the meal plan prompt builder:
+
+In server/services/mealPlanPrompt.ts, find the
+section that handles fasting days and replace it
+entirely with this logic:
+
+  // Build per-member fasting+clinical constraint block
+  const memberFastingConstraints = members.map(m => {
+    const conditions =
+      m.healthConditions?.filter(c => c !== 'none')
+      || [];
+    const isFasting =
+      fastingDaysThisWeek.length > 0;
+
+    if (!isFasting || conditions.length === 0) {
+      return null; // No special intersection needed
+    }
+
+    const intersectionRules: string[] = [];
+
+    if (conditions.includes('diabetes')) {
+      intersectionRules.push(`
+        ${m.name} is diabetic AND fasting.
+        FASTING + DIABETES INTERSECTION RULES:
+        - Use ONLY low-GI fasting foods:
+          kuttu (buckwheat GI ~54), singhara flour
+          (GI ~50), makhana (GI ~14.5), sabudana
+          (GI ~67 — use in small quantities only,
+          pair with protein like dahi to lower spike),
+          rajgira (amaranth GI ~57), barnyard millet
+          (GI ~41 — ideal).
+        - Sabudana khichdi must always be paired
+          with plain dahi and peanuts to slow
+          glucose absorption. Never sabudana alone.
+        - Avoid sendha namak in excess.
+        - Protein source mandatory at every meal even
+          during fasting: dahi, paneer, makhana,
+          groundnuts, samvat rice with dal if available.
+        - Methi water on waking must still appear
+          even during fasting days.
+        - Post-meal walk note must still appear.
+        - No fruit juice. Whole fruits only.
+        - Bedtime: amla powder + turmeric in warm
+          water still applies during fasting.
+      `);
+    }
+
+    if (conditions.includes('anaemia')) {
+      intersectionRules.push(`
+        ${m.name} has anaemia AND is fasting.
+        FASTING + ANAEMIA INTERSECTION RULES:
+        - Iron-rich fasting foods to prioritize:
+          rajgira (amaranth — very high iron),
+          makhana (moderate iron), dates (khajoor —
+          high iron, eat 2-3 per day during fasting),
+          groundnuts (good iron source allowed in fasting),
+          singhara (moderate iron).
+        - Vitamin C source must pair with every meal
+          for iron absorption: nimbu on every plate,
+          amla juice in morning, whole orange or guava
+          as snack, raw tomato if allowed in the fast.
+        - Never have tea or coffee within one hour of
+          any meal — tannins block iron absorption.
+        - Dahi is allowed in fasting — include it for
+          protein and to aid iron absorption.
+      `);
+    }
+
+    if (conditions.includes('hypertension')) {
+      intersectionRules.push(`
+        ${m.name} has hypertension AND is fasting.
+        FASTING + HYPERTENSION INTERSECTION RULES:
+        - Sendha namak (rock salt) is the only salt
+          allowed in fasting AND it is lower sodium
+          than regular salt — this is actually
+          beneficial. Use sparingly.
+        - No packaged fasting foods (packaged
+          sabudana papad, packaged fasting snacks)
+          as these contain hidden sodium.
+        - All fasting foods should be freshly prepared.
+        - Arjuna bark tea can still be included
+          as the evening drink.
+        - Beetroot is allowed during Navratri fasting —
+          include it as a side dish or juice for its
+          nitrate-based BP lowering effect.
+      `);
+    }
+
+    return intersectionRules.join('\n');
+  }).filter(Boolean);
+
+Then in the prompt template, ADD this entire block
+INSIDE the hard rules section, right after the
+existing fasting rules:
+
+  ${memberFastingConstraints.length > 0 ? `
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CLINICAL + FASTING INTERSECTION RULES
+  These are MANDATORY. Fasting does not suspend
+  health condition rules. Apply both simultaneously.
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ${memberFastingConstraints.join('\n\n')}
+
+  CRITICAL: For any member with a health condition
+  during a fasting day, EVERY MEAL SLOT must satisfy
+  BOTH the fasting food restriction AND the clinical
+  health rule simultaneously. Never sacrifice one for
+  the other. The fasting food vocabulary is wide enough
+  to satisfy both. If you cannot find a recipe from
+  SECTION C that satisfies both, create a simple
+  home-preparation that satisfies both and note it
+  as "simple home preparation."
+  ` : ''}
+
+STEP 2B — Add clinical checklist to the output JSON:
+
+In the output format section of the prompt, add a
+new field to each meal's memberPlates object:
+
+  "memberPlates": {
+    "MemberName": {
+      "modification": "...",
+      "portionSize": "...",
+      "calories": 0,
+      "protein": 0,
+      "carbs": 0,
+      "fat": 0,
+      "iron": 0,
+      "calcium": 0,
+      "clinicalNote": "why this meal suits their condition",
+      "fastingCompliant": true,
+      "clinicalCompliant": true,
+      "clinicalChecks": {
+        "diabeticCheck": "low GI confirmed / not applicable",
+        "anaemiaCheck": "iron source present / not applicable",
+        "bpCheck": "low sodium confirmed / not applicable"
+      }
+    }
+  }
+
+This forces the AI to explicitly verify each clinical
+rule for every plate it generates. When the AI must
+write "low GI confirmed" it cannot generate a high GI
+meal without contradicting itself — this is a
+self-verification mechanism built into the output format.
+
+STEP 2C — Update the early morning slot handling:
+
+Currently the fasting overlay is removing the early
+morning slot entirely. Fix this in the prompt:
+
+In the hard rules section, add:
+
+  FASTING EARLY MORNING RULE:
+  The early morning slot (methi water, amla juice,
+  CCF tea, garlic clove) is NOT a meal. It does not
+  contain grain, salt, or oil. It is ALWAYS allowed
+  during any Indian fast including Navratri, Ekadashi,
+  Mahashivratri, and all other fasts. NEVER remove
+  the early morning slot for any member regardless
+  of fasting status. Methi water and amla are
+  explicitly permitted in all Indian fasting traditions.
+
+STEP 2D — Update the bedtime slot handling:
+
+Similarly, bedtime recommendations (amla + turmeric
+water, haldi milk, Triphala water) are not food.
+They are herbal drinks that are permitted during
+all Indian fasts. Add to prompt hard rules:
+
+  FASTING BEDTIME RULE:
+  Warm water with amla powder and turmeric is NOT
+  a food and is NOT restricted during any Indian fast.
+  It is herbal water. Always include the appropriate
+  bedtime recommendation for the member's health
+  condition regardless of fasting status.
+  Haldi doodh (warm milk with turmeric) is also
+  permitted during most Indian fasts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — FIX P3: ICMR GUIDELINES CHUNK
+QUALITY IMPROVEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE ROOT CAUSE:
+43 chunks are being produced from the ICMR guidelines
+PDF because the chunk size is too large and the
+overlap is too small. This means each chunk covers
+too much content and retrieval is less precise.
+
+STEP 3A — Update chunk parameters in ingestion.ts:
+
+Find the ingestPDF function. Change the chunkText
+call for ICMR documents specifically:
+
+  // For ICMR documents, use finer chunking
+  // Smaller chunks = more precise retrieval
+  // Larger overlap = no context lost at boundaries
+  const isICMRDoc =
+    sourceName.includes('icmr') ||
+    sourceName.includes('rda');
+
+  const chunks = isICMRDoc
+    ? chunkText(text, 300, 100)  // Fine chunks for medical docs
+    : chunkText(text, 600, 100); // Standard for other docs
+
+STEP 3B — Add section-aware chunking for ICMR PDFs:
+
+Update the chunkText function to detect natural
+section boundaries in medical documents:
+
+  function chunkTextSectionAware(
+    text: string,
+    chunkSize: number = 300,
+    overlap: number = 100
+  ): string[] {
+    // First try to split by natural section breaks
+    // ICMR documents use numbered sections and
+    // headings like "Table 1:", "RDA for", etc.
+    const sectionBreaks = text.split(
+      /(?:\n\n+|(?=Table \d+:|RDA for|Recommended|
+      Energy requirements|Protein requirements|
+      Iron requirements|Calcium requirements|
+      Dietary guidelines|Chapter \d+))/
+    );
+
+    const chunks: string[] = [];
+
+    for (const section of sectionBreaks) {
+      if (section.trim().length < 50) continue;
+
+      if (section.split(' ').length <= chunkSize) {
+        // Section fits in one chunk
+        chunks.push(section.trim());
+      } else {
+        // Section is too long — split it further
+        const subChunks = chunkText(
+          section, chunkSize, overlap
+        );
+        chunks.push(...subChunks);
+      }
+    }
+
+    return chunks.filter(c => c.length > 50);
+  }
+
+  // Use section-aware chunking for ICMR PDFs
+  const chunks = isICMRDoc
+    ? chunkTextSectionAware(text, 300, 100)
+    : chunkText(text, 600, 100);
+
+STEP 3C — Force re-ingestion of ICMR documents only:
+
+After updating the chunk parameters, we need to
+re-ingest only the ICMR documents without touching
+the meal_patterns chunks (which are already good at 91).
+
+Add this targeted re-ingestion function to
+server/services/ingestion.ts:
+
+  export async function reingestICMROnly():
+  Promise<void> {
+    console.log('Re-ingesting ICMR documents only...');
+
+    // Delete only ICMR chunks
+    await db.execute(`
+      DELETE FROM knowledge_chunks
+      WHERE source IN ('icmr_guidelines', 'icmr_rda')
+    ` as any);
+
+    // Re-ingest with new chunk parameters
+    await ingestPDF(
+      'icmr_nin_guidelines.pdf',
+      'icmr_guidelines'
+    );
+    await ingestPDF(
+      'icmr_nin_rda.pdf',
+      'icmr_rda'
+    );
+
+    const result = await db.execute(`
+      SELECT source, COUNT(*) as count
+      FROM knowledge_chunks
+      WHERE source IN ('icmr_guidelines', 'icmr_rda')
+      GROUP BY source
+    ` as any);
+
+    console.log('ICMR re-ingestion complete:');
+    result.rows.forEach(r =>
+      console.log(`  ${r.source}: ${r.count} chunks`)
+    );
+  }
+
+Add an admin endpoint to trigger this:
+
+  app.post('/api/admin/reingest-icmr',
+    requireAuth,
+    async (req, res) => {
+      const user = req.user as any;
+      if (user.email !== process.env.ADMIN_EMAIL) {
+        return res.status(403).json({
+          error: 'Admin only'
+        });
+      }
+      const { reingestICMROnly }
+        = await import('./services/ingestion');
+      await reingestICMROnly();
+      res.json({
+        success: true,
+        message: 'ICMR documents re-ingested with finer chunks'
+      });
+    }
+  );
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — STRENGTHEN WHAT IS ALREADY WORKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+These are improvements to features that are
+working but can be made more robust.
+
+STEP 4A — Improve Harmony Score explainability:
+
+The Harmony Score shows 87-92 but gives no
+explanation of why it is not 100 or how to
+improve it. Add this to the weekSummary output:
+
+  In the prompt output format, update memberSummaries:
+
+  "memberSummaries": {
+    "MemberName": {
+      "avgDailyCalories": 0,
+      "avgDailyProtein": 0,
+      "avgDailyIron": 0,
+      "avgDailyCalcium": 0,
+      "goalAlignment": "...",
+      "nutritionGaps": [],
+      "weekHighlight": "...",
+      "harmonyContribution": 0,
+      "topGapExplanation": "Iron at 72% — add palak
+        to Thursday dinner to close the gap",
+      "quickWin": "One change that would most
+        improve this member's score this week"
+    }
+  }
+
+  Also add to weekSummary:
+
+  "harmonyBreakdown": {
+    "score": 87,
+    "maxPossible": 100,
+    "gap": 13,
+    "topReasons": [
+      "Papa's dal rule only met 2/7 days due to fasting",
+      "Mama's iron target at 78% — 3 meals below target"
+    ],
+    "nextWeekSuggestion": "Specific one-line advice
+      for improving the score next week"
+  }
+
+STEP 4B — Add a fasting compliance summary:
+
+Since fasting detection is working well, surface it
+to the user explicitly. Add to weekSummary:
+
+  "fastingCompliance": {
+    "fastingDetected": true,
+    "festivalName": "Chaitra Navratri",
+    "fastingDays": ["Monday", "Tuesday", ...],
+    "fastingFoodsUsed": [
+      "sabudana", "kuttu", "singhara",
+      "makhana", "barnyard millet", "rajgira"
+    ],
+    "memberFastingStatus": {
+      "Papa": "fasting with diabetic modifications",
+      "Mama": "fasting with anaemia modifications",
+      "Rani": "standard fasting"
+    }
+  }
+
+STEP 4C — Make leftover chain links explicit in UI:
+
+The leftover chain fires 30+ times per plan but
+is buried in the JSON. Make it surface prominently.
+
+In the output format, ensure each meal slot that
+uses a leftover has this field explicitly filled:
+
+  "leftoverNote": {
+    "from": "Monday dinner — dal tadka",
+    "uses": "leftover dal tadka",
+    "transformation": "Stuffed into paratha filling",
+    "ingredientSaved": "200g cooked dal",
+    "costSaving": "₹15 saved"
+  }
+
+  If no leftover, set leftoverNote to null.
+
+On the frontend MealPlan.tsx, find where meal cards
+are rendered. Add a visual leftover chain indicator:
+
+  - If a meal has leftoverNote that is not null,
+    show a small pill below the meal name with
+    text "Uses Monday's dal" in brand color
+  - Add a thin connector line between the source
+    meal card and the destination meal card
+  - This makes the leftover intelligence visible
+    to the user — currently it exists in data
+    but is invisible in the UI
+
+STEP 4D — Improve the clinical checklist output:
+
+Currently the AI says in its insight text what
+it should do for diabetes and anaemia but the
+meal slot does not always reflect it. Add a
+post-generation validation step:
+
+Create server/services/planValidator.ts:
+
+  interface ValidationResult {
+    passed: boolean;
+    score: number;
+    failures: string[];
+    warnings: string[];
+  }
+
+  export function validatePlanClinically(
+    plan: any,
+    members: any[]
+  ): ValidationResult {
+    const failures: string[] = [];
+    const warnings: string[] = [];
+
+    for (const member of members) {
+      const conditions =
+        member.healthConditions || [];
+
+      if (conditions.includes('diabetes')) {
+        // Check dal at lunch every day
+        const days = Object.keys(plan.weekPlan || {});
+        let dalAtLunchCount = 0;
+
+        for (const day of days) {
+          const lunch =
+            plan.weekPlan[day]?.lunch;
+          const memberPlate =
+            lunch?.memberPlates?.[member.name];
+          const lunchContent = [
+            lunch?.baseDish || '',
+            memberPlate?.modification || '',
+            lunch?.ingredients?.join(' ') || ''
+          ].join(' ').toLowerCase();
+
+          if (
+            lunchContent.includes('dal') ||
+            lunchContent.includes('dahi') ||
+            lunchContent.includes('paneer') ||
+            lunchContent.includes('makhana') ||
+            lunchContent.includes('groundnut') ||
+            lunchContent.includes('chana')
+          ) {
+            dalAtLunchCount++;
+          }
+        }
+
+        if (dalAtLunchCount < days.length * 0.7) {
+          failures.push(
+            `${member.name}: Dal or protein at lunch
+            only ${dalAtLunchCount}/${days.length}
+            days. Diabetic rule requires every day.`
+          );
+        }
+      }
+
+      if (conditions.includes('anaemia')) {
+        // Check Vitamin C pairing with iron sources
+        const days = Object.keys(plan.weekPlan || {});
+        let vitCPairingCount = 0;
+
+        for (const day of days) {
+          for (const mealType of
+            ['breakfast', 'lunch', 'dinner']
+          ) {
+            const meal =
+              plan.weekPlan[day]?.[mealType];
+            const memberPlate =
+              meal?.memberPlates?.[member.name];
+
+            if (memberPlate) {
+              const additions =
+                (memberPlate.modification || '')
+                  .toLowerCase();
+              const clinicalNote =
+                (memberPlate.clinicalNote || '')
+                  .toLowerCase();
+
+              if (
+                additions.includes('lemon') ||
+                additions.includes('nimbu') ||
+                additions.includes('amla') ||
+                clinicalNote.includes(
+                  'vitamin c'
+                )
+              ) {
+                vitCPairingCount++;
+              }
+            }
+          }
+        }
+
+        const totalMeals = days.length * 3;
+        if (vitCPairingCount < totalMeals * 0.5) {
+          warnings.push(
+            `${member.name}: Vitamin C paired
+            with iron only ${vitCPairingCount}/
+            ${totalMeals} meals. Target is 50%+.`
+          );
+        }
+      }
+    }
+
+    const score = Math.max(
+      0,
+      100 - (failures.length * 15) -
+      (warnings.length * 5)
+    );
+
+    return {
+      passed: failures.length === 0,
+      score,
+      failures,
+      warnings
+    };
+  }
+
+Import and use this validator in the meal plan
+generation route, after the Gemini response is
+parsed and before saving to the database:
+
+  const validation = validatePlanClinically(
+    planData, members
+  );
+
+  if (!validation.passed) {
+    console.warn(
+      'Clinical validation failed:',
+      validation.failures
+    );
+
+    // If there are failures, add one more Gemini
+    // call to fix specifically the failed checks
+    if (validation.failures.length > 0) {
+      const fixPrompt = `
+        The meal plan you generated has these
+        clinical issues that must be fixed:
+
+        ${validation.failures.join('\n')}
+
+        Fix ONLY these specific issues in the plan.
+        Return the complete corrected JSON.
+        Do not change anything that is not listed above.
+      `;
+
+      // One targeted fix call
+      try {
+        const fixResult =
+          await model.generateContent(
+            fixPrompt + '\n\n' +
+            JSON.stringify(planData)
+          );
+        const fixText =
+          fixResult.response.text();
+        const fixStart = fixText.indexOf('{');
+        const fixEnd = fixText.lastIndexOf('}');
+        if (fixStart !== -1 && fixEnd !== -1) {
+          planData = JSON.parse(
+            fixText.slice(fixStart, fixEnd + 1)
+          );
+        }
+      } catch (fixErr) {
+        console.error(
+          'Fix attempt failed, using original plan:',
+          fixErr
+        );
+      }
+    }
+  }
+
+  // Add validation results to saved plan
+  planData.validationResult = validation;
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — AFTER ALL CHANGES: RUN THIS
+VERIFICATION SEQUENCE IN EXACT ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1 — Confirm server starts without errors.
+
+Step 2 — Run this SQL and confirm the result:
+  SELECT source, COUNT(*) as chunks
+  FROM knowledge_chunks
+  GROUP BY source;
+
+  Expected after ICMR re-ingestion:
+  icmr_guidelines: 80+ chunks (was 43)
+  icmr_rda: 50+ chunks (was 34)
+  meal_patterns: 91 chunks (unchanged)
+
+Step 3 — Check embedding queue started:
+  GET /healthz
+  Confirm embeddingQueue.isRunning = true
+  Confirm embeddingQueue.totalToProcess > 12000
+
+Step 4 — Confirm Voyage AI is completely removed:
+  Search the entire codebase for any import
+  containing "voyage" or "voyageai" or "VOYAGE".
+  There should be zero results. If any remain,
+  remove them.
+
+Step 5 — Run the clinical test for diabetes
+  during a fasting week. Generate a plan for:
+  Single male, 45, Rajasthan, sedentary,
+  Diabetes Type 2, ₹6,000 budget.
+  Set fastingDays to include Monday and Tuesday.
+
+  Confirm ALL of these are now present:
+  □ Methi water in early morning on fasting days
+  □ Protein (dahi or makhana) paired with
+    sabudana at every meal
+  □ Amla + turmeric at bedtime on fasting days
+  □ clinicalChecks.diabeticCheck = "low GI confirmed"
+    present in each memberPlate
+  □ icmrCompliance mentions glycemic index
+
+Step 6 — Run the regression suite:
+  npm test
+  All 22 existing tests must still pass.
+  Zero new failures acceptable.
+
+Step 7 — Check the embedding queue progress
+  after 5 minutes:
+  GET /api/admin/embedding-status
+  processedCount should show approximately
+  100 recipes embedded (20 per minute × 5 minutes)
+  isRunning should be true
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE RULES FOR THIS SESSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Do NOT touch the fasting calendar detection
+   logic — it is working correctly. Only modify
+   how the detected fasting interacts with
+   clinical health conditions.
+
+2. Do NOT change the One Base Many Plates
+   logic — it is working correctly and scored
+   10/11 in Clinical Test 4.
+
+3. Do NOT change the leftover chain generation
+   logic — only surface it more visibly in the UI.
+
+4. Do NOT remove or change any existing automated
+   tests. Only add new ones if needed.
+
+5. Do NOT change the budget calculation logic —
+   it is accurate at ₹575/week for a family of 3.
+
+6. Do NOT change the Harmony Score calculation —
+   only add the breakdown and explanation fields.
+
+7. After every file change, run tsc --noEmit to
+   confirm no TypeScript errors before moving
+   to the next file.
+
+8. The embedding queue must run in the background
+   without blocking any API request. Never await
+   the queue start in the request path.

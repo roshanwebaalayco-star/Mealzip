@@ -9,9 +9,9 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
-const vector1024 = customType<{ data: string }>({
+const vector768 = customType<{ data: string }>({
   dataType() {
-    return "vector(1024)";
+    return "vector(768)";
   },
 });
 
@@ -45,7 +45,7 @@ export const recipesTable = pgTable("recipes", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   searchVector: tsvector("search_vector"),
-  embedding: vector1024("embedding"),
+  embedding: vector768("embedding"),
 }, (table) => [
   index("recipes_cuisine_idx").on(table.cuisine),
   index("recipes_category_idx").on(table.category),

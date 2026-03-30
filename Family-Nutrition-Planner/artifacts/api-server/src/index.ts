@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 import { ingestKnowledgeBase } from "./services/ingestion.js";
+import { startEmbeddingQueue } from "./services/embeddingQueue.js";
 
 const rawPort = process.env["PORT"];
 
@@ -69,6 +70,13 @@ const server = app.listen(port, (err) => {
 server.setTimeout(360000);
 server.keepAliveTimeout = 360000;
 
-ingestKnowledgeBase().catch((err) => {
+ingestKnowledgeBase().then(() => {
+  startEmbeddingQueue().catch((err) =>
+    logger.warn({ err }, "Could not start embedding queue (non-fatal)."),
+  );
+}).catch((err) => {
   logger.warn({ err }, "Knowledge base ingestion failed (non-fatal). RAG features may be degraded.");
+  startEmbeddingQueue().catch((qErr) =>
+    logger.warn({ err: qErr }, "Could not start embedding queue (non-fatal)."),
+  );
 });

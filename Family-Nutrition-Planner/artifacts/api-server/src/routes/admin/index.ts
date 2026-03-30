@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import { forceReingestKnowledgeBase } from "../../services/ingestion.js";
+import { forceReingestKnowledgeBase, reingestICMROnly } from "../../services/ingestion.js";
 import { findSimilarChunks, isEmbeddingConfigured } from "../../services/embedding.js";
+import { startEmbeddingQueue, getEmbeddingQueueStatus } from "../../services/embeddingQueue.js";
 import { db } from "@workspace/db";
 import { familiesTable, familyMembersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -28,6 +29,33 @@ router.post("/admin/reingest", async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to start re-ingestion" });
+  }
+});
+
+router.get("/admin/embedding-status", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  res.json(getEmbeddingQueueStatus());
+});
+
+router.post("/admin/restart-embedding-queue", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await startEmbeddingQueue();
+    res.json({ success: true, status: getEmbeddingQueueStatus() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to start embedding queue", details: msg });
+  }
+});
+
+router.post("/admin/reingest-icmr", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await reingestICMROnly();
+    res.json({ success: true, message: "ICMR documents re-ingested with finer chunks" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "ICMR re-ingestion failed", details: msg });
   }
 });
 

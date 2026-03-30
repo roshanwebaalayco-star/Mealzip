@@ -29,6 +29,31 @@ function chunkText(
   return chunks;
 }
 
+function chunkTextSectionAware(
+  text: string,
+  chunkSize: number = 300,
+  overlap: number = 100,
+): string[] {
+  const sectionBreaks = text.split(
+    /(?:\n\n+|(?=Table \d+:|RDA for|Recommended|Energy requirements|Protein requirements|Iron requirements|Calcium requirements|Dietary guidelines|Chapter \d+))/,
+  );
+
+  const chunks: string[] = [];
+
+  for (const section of sectionBreaks) {
+    if (section.trim().length < 30) continue;
+
+    if (section.split(" ").length <= chunkSize) {
+      chunks.push(section.trim());
+    } else {
+      const subChunks = chunkText(section, chunkSize, overlap);
+      chunks.push(...subChunks);
+    }
+  }
+
+  return chunks.filter((c) => c.length > 30);
+}
+
 async function ingestPDF(
   filename: string,
   sourceName: string,
@@ -47,8 +72,13 @@ async function ingestPDF(
   const pdfData = await parser.getText();
   const text = pdfData.text;
 
-  const chunks = chunkText(text, 600, 100);
-  console.log(`Created ${chunks.length} chunks from ${filename}`);
+  const isICMRDoc =
+    sourceName.includes("icmr") || sourceName.includes("rda");
+
+  const chunks = isICMRDoc
+    ? chunkTextSectionAware(text, 300, 100)
+    : chunkText(text, 600, 100);
+  console.log(`Created ${chunks.length} chunks from ${filename} (${isICMRDoc ? "section-aware" : "standard"} chunking)`);
 
   const embeddings = await generateEmbeddingsBatch(chunks);
 
@@ -142,9 +172,10 @@ async function ingestTextFile(
   console.log(`Ingesting text file: ${filename} as source "${sourceName}"`);
   const text = fs.readFileSync(filePath, "utf-8");
 
-  const sections = text
-    .split(/\n\n+/)
-    .filter((s) => s.trim().length > 50);
+  const isICMRDoc = sourceName.includes("icmr") || sourceName.includes("rda");
+  const sections = isICMRDoc
+    ? chunkTextSectionAware(text, 300, 100)
+    : text.split(/\n\n+/).filter((s) => s.trim().length > 50);
 
   console.log(`Created ${sections.length} sections from ${filename}`);
   const embeddings = await generateEmbeddingsBatch(sections);
@@ -266,7 +297,7 @@ export async function ingestKnowledgeBase(): Promise<void> {
   console.log("Starting knowledge base ingestion...");
 
   if (!isEmbeddingConfigured()) {
-    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set VOYAGE_API_KEY.");
+    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set GEMINI_API_KEY.");
     return;
   }
 
@@ -299,4 +330,29 @@ export async function forceReingestKnowledgeBase(): Promise<void> {
   await pool.query("UPDATE recipes SET embedding = NULL");
 
   await ingestKnowledgeBase();
+}
+
+export async function reingestICMROnly(): Promise<void> {
+  console.log("Re-ingesting ICMR documents only...");
+
+  await pool.query(
+    "DELETE FROM knowledge_chunks WHERE source IN ('icmr_guidelines', 'icmr_rda')",
+  );
+
+  if (!isEmbeddingConfigured()) {
+    console.warn("Embedding not configured — skipping ICMR re-ingestion.");
+    return;
+  }
+
+  await ingestPDFOrText("icmr_nin_guidelines.pdf", "icmr_nin_guidelines.txt", "icmr_guidelines");
+  await ingestPDFOrText("icmr_nin_rda.pdf", "icmr_nin_rda.txt", "icmr_rda");
+
+  const result = await pool.query<{ source: string; count: string }>(
+    "SELECT source, COUNT(*) as count FROM knowledge_chunks WHERE source IN ('icmr_guidelines', 'icmr_rda') GROUP BY source",
+  );
+
+  console.log("ICMR re-ingestion complete:");
+  result.rows.forEach((r) =>
+    console.log(`  ${r.source}: ${r.count} chunks`),
+  );
 }
