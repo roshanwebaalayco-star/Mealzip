@@ -285,7 +285,10 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
           parts: [{ text: m.content }],
         })),
       ],
-      config: { maxOutputTokens: 8192 },
+      config: {
+        maxOutputTokens: 8192,
+        tools: [{ googleSearch: {} }],
+      },
       abortSignal: abortController.signal,
     });
 

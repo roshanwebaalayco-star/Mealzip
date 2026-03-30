@@ -6,9 +6,9 @@
 
 ---
 
-## Overall Score: ~75% Implemented
+## Overall Score: ~90% Implemented
 
-The 3-layer RAG architecture is structurally in place with significant enhancements beyond the spec, but Layer 2 (Google Search Grounding) is missing from actual API calls, and ingestion is still catching up due to rate limits.
+The 3-layer RAG architecture is fully wired — all three layers are active. Ingestion is still catching up due to Voyage AI free tier rate limits.
 
 ---
 
@@ -119,7 +119,7 @@ The 3-layer RAG architecture is structurally in place with significant enhanceme
 | Build `familyContext` | For RAG | YES | YES |
 | Call `retrieveContextForFamily` | Before Gemini | YES — `retrieveContextForMealPlan()` | YES |
 | Build RAG prompt | Using retrieved context | YES | YES |
-| Google Search grounding | `tools: [{googleSearch: {}}]` | **NOT in actual API call** — only in metadata | **NO** |
+| Google Search grounding | `tools: [{googleSearch: {}}]` | ENABLED in API call config | YES |
 | Retry logic (3 attempts) | Exponential backoff | YES — `callGeminiWithJsonRetry` | YES |
 | JSON extraction | Extract from response | YES — via Zod schema validation | ENHANCED |
 | Save to DB with RAG metadata | `ragContextUsed` field | YES — saves chunksRetrieved + sourcesUsed | YES |
@@ -187,9 +187,8 @@ The 3-layer RAG architecture is structurally in place with significant enhanceme
 ## GAPS SUMMARY
 
 ### NOT Implemented (from spec)
-1. **Google Search Grounding** (Layer 2) — The spec calls for `tools: [{googleSearch: {}}]` in the Gemini API call. The code records `googleSearchGroundingEnabled: true` in metadata, but the actual API call does NOT include this tool. This is the biggest gap.
-2. **`natural` package** — Not installed. The spec mentions it for tokenization, but chunking is done via word splitting instead.
-3. **Batch embedding parallelism** — Spec calls for batches of 20 in parallel. Implementation uses sequential 1-at-a-time due to Voyage AI 3 RPM rate limit. Valid adaptation but slower.
+1. **`natural` package** — Not installed. The spec mentions it for tokenization, but chunking is done via word splitting instead.
+2. **Batch embedding parallelism** — Spec calls for batches of 20 in parallel. Implementation uses sequential 1-at-a-time due to Voyage AI 3 RPM rate limit. Valid adaptation but slower.
 
 ### Partially Implemented
 1. **Knowledge base ingestion completeness** — Only 8/~100+ expected chunks ingested so far (ICMR guidelines partially done). Ingestion is actively running but slow at 3 RPM.
@@ -211,6 +210,5 @@ The 3-layer RAG architecture is structurally in place with significant enhanceme
 
 | Priority | Issue | Impact |
 |----------|-------|--------|
-| HIGH | Google Search Grounding not wired into actual Gemini API calls | Layer 2 of the 3-layer RAG is non-functional |
 | MEDIUM | Knowledge base ingestion still in progress (~8/100+ chunks) | RAG quality limited until complete |
 | LOW | `natural` package not installed | Not actually needed — chunking works fine without it |

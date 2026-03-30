@@ -215,6 +215,7 @@ async function callGeminiWithJsonRetry(
         config: {
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseMimeType: "application/json",
+          tools: [{ googleSearch: {} }],
         },
         abortSignal: signal,
       });
