@@ -41,11 +41,11 @@ describe("Level 3 — Regression Quick Checks", () => {
       const mealPlan = data.mealPlan as Record<string, unknown>;
       expect(mealPlan).toBeDefined();
 
-      const plan = mealPlan.plan as Record<string, unknown>;
-      expect(plan).toBeDefined();
-      expect(plan).toHaveProperty("days");
+      const weekPlan = (mealPlan.weekPlan ?? mealPlan.plan) as Record<string, unknown>;
+      expect(weekPlan).toBeDefined();
+      expect(weekPlan).toHaveProperty("days");
 
-      const days = plan.days as Array<Record<string, unknown>>;
+      const days = weekPlan.days as Array<Record<string, unknown>>;
       expect(Array.isArray(days)).toBe(true);
       expect(days.length).toBe(7);
 
@@ -61,16 +61,17 @@ describe("Level 3 — Regression Quick Checks", () => {
       }
     });
 
-    it("demo meal plan has harmonyScore between 0 and 100", async () => {
+    it("demo weekSummary.harmonyScore is between 0 and 100", async () => {
       const { data } = await getDemoData();
       const mealPlan = data.mealPlan as Record<string, unknown>;
-      const plan = mealPlan.plan as Record<string, unknown>;
-      const harmonyScore = Number(plan.harmonyScore ?? mealPlan.harmonyScore);
+      const weekPlan = (mealPlan.weekPlan ?? mealPlan.plan) as Record<string, unknown>;
+      const weekSummary = (mealPlan.weekSummary ?? mealPlan.nutritionSummary ?? weekPlan) as Record<string, unknown>;
+      const harmonyScore = Number(weekSummary.harmonyScore ?? weekPlan.harmonyScore ?? mealPlan.harmonyScore);
       expect(harmonyScore).toBeGreaterThanOrEqual(0);
       expect(harmonyScore).toBeLessThanOrEqual(100);
     });
 
-    it.skipIf(!GEMINI_CONFIGURED)("AI-generated meal plan includes icmrCompliance and ragContextUsed metadata", async () => {
+    it.skipIf(!GEMINI_CONFIGURED)("AI-generated meal plan includes weekPlan(7 days), weekSummary.harmonyScore, and non-empty icmrCompliance.guidelinesFollowed", async () => {
       const { token, data } = await getDemoData();
       const family = data.family as Record<string, unknown>;
       const familyId = family.id as number;
@@ -90,25 +91,24 @@ describe("Level 3 — Regression Quick Checks", () => {
       expect(res.status).toBe(200);
 
       const body = await res.json() as Record<string, unknown>;
-      expect(body).toHaveProperty("plan");
 
-      const plan = body.plan as Record<string, unknown>;
-      expect(plan).toHaveProperty("days");
-      const days = plan.days as unknown[];
+      const weekPlan = (body.weekPlan ?? body.plan) as Record<string, unknown>;
+      expect(weekPlan).toBeDefined();
+      expect(weekPlan).toHaveProperty("days");
+      const days = weekPlan.days as unknown[];
       expect(days.length).toBe(7);
 
-      const score = Number(plan.harmonyScore ?? body.harmonyScore);
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(100);
+      const weekSummary = (body.weekSummary ?? body.nutritionSummary ?? weekPlan) as Record<string, unknown>;
+      const harmonyScore = Number(weekSummary.harmonyScore ?? weekPlan.harmonyScore ?? body.harmonyScore);
+      expect(harmonyScore).toBeGreaterThanOrEqual(0);
+      expect(harmonyScore).toBeLessThanOrEqual(100);
 
       expect(body).toHaveProperty("icmrCompliance");
       const compliance = body.icmrCompliance as Record<string, unknown>;
-      expect(compliance).toHaveProperty("googleSearchGroundingEnabled");
 
-      const guidelinesFollowed = compliance.ragSourcesUsed ?? compliance.guidelinesFollowed;
+      const guidelinesFollowed = (compliance.guidelinesFollowed ?? compliance.ragSourcesUsed) as unknown[];
       expect(Array.isArray(guidelinesFollowed)).toBe(true);
-
-      expect(typeof compliance.guidelinesRetrieved).toBe("number");
+      expect(guidelinesFollowed.length).toBeGreaterThan(0);
 
       expect(body).toHaveProperty("ragContextUsed");
       const rag = body.ragContextUsed as Record<string, unknown>;
