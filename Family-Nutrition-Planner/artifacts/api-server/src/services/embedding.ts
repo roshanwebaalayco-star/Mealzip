@@ -1,33 +1,20 @@
-import { GoogleGenAI } from "@google/genai";
 import { pool } from "@workspace/db";
 
-const integrationApiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-const integrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-const directApiKey = process.env.GEMINI_API_KEY;
-
-function getGenAI(): GoogleGenAI {
-  if (directApiKey) {
-    return new GoogleGenAI({ apiKey: directApiKey, httpOptions: { apiVersion: "v1" } });
-  }
-  if (integrationApiKey && integrationBaseUrl) {
-    return new GoogleGenAI({
-      apiKey: integrationApiKey,
-      httpOptions: { apiVersion: "", baseUrl: integrationBaseUrl },
-    });
-  }
-  throw new Error(
-    "Gemini AI not configured for embeddings. Set GEMINI_API_KEY or configure the Gemini integration.",
-  );
-}
-
-let _genAI: GoogleGenAI | null = null;
-function genAI(): GoogleGenAI {
-  if (!_genAI) _genAI = getGenAI();
-  return _genAI;
-}
+const VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings";
+const VOYAGE_MODEL = "voyage-3";
 
 export function isEmbeddingConfigured(): boolean {
-  return !!(process.env.GEMINI_API_KEY || (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL));
+  return !!process.env.VOYAGE_API_KEY;
+}
+
+function getVoyageKey(): string {
+  const key = process.env.VOYAGE_API_KEY;
+  if (!key) {
+    throw new Error(
+      "Voyage AI not configured for embeddings. Set VOYAGE_API_KEY.",
+    );
+  }
+  return key;
 }
 
 export interface ChunkResult {
@@ -51,17 +38,48 @@ export interface RecipeResult {
   similarity: number;
 }
 
+async function voyageFetch(input: string[]): Promise<number[][]> {
+  const MAX_RETRIES = 5;
+  let delay = 20000;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(VOYAGE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getVoyageKey()}`,
+      },
+      body: JSON.stringify({ model: VOYAGE_MODEL, input }),
+    });
+
+    if (response.status === 429) {
+      console.warn(`Voyage AI rate limit hit (attempt ${attempt}/${MAX_RETRIES}). Waiting ${delay / 1000}s...`);
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 1.5, 120000);
+      continue;
+    }
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Voyage AI embedding error (${response.status}): ${err}`);
+    }
+
+    const data = (await response.json()) as {
+      data: Array<{ embedding: number[]; index: number }>;
+    };
+
+    return data.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
+  }
+
+  throw new Error(`Voyage AI rate limit exceeded after ${MAX_RETRIES} retries`);
+}
+
 export async function generateEmbedding(text: string): Promise<number[]> {
   const cleaned = text.replace(/\s+/g, " ").trim().slice(0, 8000);
-
-  const response = await genAI().models.embedContent({
-    model: "text-embedding-004",
-    contents: cleaned,
-  });
-
-  const values = response.embeddings?.[0]?.values;
+  const results = await voyageFetch([cleaned]);
+  const values = results[0];
   if (!values || values.length === 0) {
-    throw new Error("Embedding response returned no values");
+    throw new Error("Voyage AI returned no embedding values");
   }
   return values;
 }
@@ -69,23 +87,24 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 export async function generateEmbeddingsBatch(
   texts: string[],
 ): Promise<number[][]> {
-  const batchSize = 20;
+  const VOYAGE_BATCH_SIZE = 128;
   const results: number[][] = [];
 
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-    const embeddings = await Promise.all(
-      batch.map((text) => generateEmbedding(text)),
-    );
-    results.push(...embeddings);
+  for (let i = 0; i < texts.length; i += VOYAGE_BATCH_SIZE) {
+    const batch = texts
+      .slice(i, i + VOYAGE_BATCH_SIZE)
+      .map((t) => t.replace(/\s+/g, " ").trim().slice(0, 8000));
 
-    if (i + batchSize < texts.length) {
-      await new Promise((r) => setTimeout(r, 1000));
-    }
+    const batchResults = await voyageFetch(batch);
+    results.push(...batchResults);
 
     console.log(
-      `Embedded ${Math.min(i + batchSize, texts.length)} of ${texts.length} texts`,
+      `Embedded ${Math.min(i + VOYAGE_BATCH_SIZE, texts.length)} of ${texts.length} texts (voyage-3)`,
     );
+
+    if (i + VOYAGE_BATCH_SIZE < texts.length) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
   }
 
   return results;

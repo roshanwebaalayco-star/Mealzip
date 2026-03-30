@@ -14,6 +14,7 @@ DEMO_MODE = "true"
 GEMINI_API_KEY = "AIzaSyCzc-lSibsLJKdT3aH2wvWkyLCLe4QcdEQ"
 ADMIN_SECRET = "nutritest-admin-2026"
 SARVAM_API_KEY = "sk_h8xr05ku_SwjlS85uELaFZ4toGRSkWrF1"
+VOYAGE_API_KEY = "pa-C1ptM27qKxPbNoqyI1_CTPr_FKgXfyws2xgj1Nhpb4K"
 
 [[ports]]
 localPort = 3000

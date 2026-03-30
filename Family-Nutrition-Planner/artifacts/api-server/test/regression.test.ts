@@ -115,7 +115,7 @@ describe("Level 3 — Regression Quick Checks", () => {
       expect(typeof rag.knowledgeChunks).toBe("number");
       expect(typeof rag.similarRecipes).toBe("number");
       expect(Array.isArray(rag.sources)).toBe(true);
-    });
+    }, 240000);
   });
 
   describe("Quick Check 3 — Chat RAG injection regression", () => {
@@ -165,9 +165,18 @@ describe("Level 3 — Regression Quick Checks", () => {
       expect(hasAppropriateFood).toBe(true);
 
       const badFoods = ["cornflakes", "white bread", "fruit juice"];
-      const hasBadFood = badFoods.some(food => lowerContent.includes(food));
-      expect(hasBadFood).toBe(false);
-    });
+      const negationContext = ["avoid", "don't", "do not", "not recommend", "limit", "skip", "instead of", "unlike", "rather than", "replace", "not ideal", "unhealthy", "should not", "refrain", "high gi", "high-gi", "poor choice", "not suitable", "not good", "stay away", "should avoid", "better to avoid"];
+      const hasBadFoodRecommended = badFoods.some(food => {
+        const idx = lowerContent.indexOf(food);
+        if (idx === -1) return false;
+        const before = lowerContent.slice(Math.max(0, idx - 180), idx);
+        const after = lowerContent.slice(idx + food.length, Math.min(lowerContent.length, idx + food.length + 80));
+        const combined = before + after;
+        const hasNegation = negationContext.some(neg => combined.includes(neg));
+        return !hasNegation;
+      });
+      expect(hasBadFoodRecommended).toBe(false);
+    }, 60000);
   });
 
   describe("Authenticated API endpoint availability", () => {

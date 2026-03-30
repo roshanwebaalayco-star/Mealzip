@@ -127,21 +127,26 @@ async function ingestCSV(
   console.log(`Ingested ${chunks.length} chunks from ${filename}`);
 }
 
-async function ingestMealPatterns(): Promise<void> {
-  const filePath = path.join(KNOWLEDGE_BASE_PATH, "meal_patterns.txt");
+async function ingestTextFile(
+  filename: string,
+  sourceName: string,
+  metadata: Record<string, unknown> = {},
+): Promise<void> {
+  const filePath = path.join(KNOWLEDGE_BASE_PATH, filename);
 
   if (!fs.existsSync(filePath)) {
-    console.warn("meal_patterns.txt not found. Skipping.");
+    console.warn(`Text file not found: ${filePath}. Skipping.`);
     return;
   }
 
-  console.log("Ingesting meal_patterns.txt");
+  console.log(`Ingesting text file: ${filename} as source "${sourceName}"`);
   const text = fs.readFileSync(filePath, "utf-8");
 
   const sections = text
     .split(/\n\n+/)
     .filter((s) => s.trim().length > 50);
 
+  console.log(`Created ${sections.length} sections from ${filename}`);
   const embeddings = await generateEmbeddingsBatch(sections);
 
   for (let i = 0; i < sections.length; i++) {
@@ -153,16 +158,20 @@ async function ingestMealPatterns(): Promise<void> {
       VALUES ($1, $2, $3, $4::vector, $5)
       ON CONFLICT (source, chunk_index) DO NOTHING`,
       [
-        "meal_patterns",
+        sourceName,
         i,
         sections[i],
         embeddingStr,
-        JSON.stringify({ type: "clinical_pattern" }),
+        JSON.stringify({ filename, ...metadata }),
       ],
     );
   }
 
-  console.log(`Ingested ${sections.length} meal pattern sections`);
+  console.log(`Ingested ${sections.length} sections from ${filename}`);
+}
+
+async function ingestMealPatterns(): Promise<void> {
+  await ingestTextFile("meal_patterns.txt", "meal_patterns", { type: "clinical_pattern" });
 }
 
 async function ingestAllCSVs(): Promise<void> {
@@ -183,7 +192,7 @@ async function ingestAllCSVs(): Promise<void> {
 async function embedRecipes(): Promise<void> {
   console.log("Embedding recipes...");
 
-  const BATCH_SIZE = 500;
+  const FETCH_SIZE = 128;
   let totalEmbedded = 0;
 
   while (true) {
@@ -193,7 +202,7 @@ async function embedRecipes(): Promise<void> {
       FROM recipes
       WHERE embedding IS NULL
       LIMIT $1`,
-      [BATCH_SIZE],
+      [FETCH_SIZE],
     );
 
     const recipes = result.rows;
@@ -201,33 +210,36 @@ async function embedRecipes(): Promise<void> {
       break;
     }
 
-    console.log(`Embedding batch of ${recipes.length} recipes (total so far: ${totalEmbedded})`);
+    console.log(`Embedding batch of ${recipes.length} recipes via Voyage AI (total so far: ${totalEmbedded})`);
 
-    for (const recipe of recipes) {
-      const recipeText = [
+    const recipeTexts = recipes.map((recipe) =>
+      [
         `Recipe: ${recipe.name}`,
         `Zone: ${recipe.cuisine}`,
         `Course: ${recipe.course}`,
         `Diet: ${recipe.diet}`,
         `Ingredients: ${recipe.ingredients}`,
         `Instructions: ${recipe.instructions}`,
-      ].join(". ");
+      ].join(". "),
+    );
 
-      try {
-        const embedding = await generateEmbedding(recipeText);
-        const embeddingStr = `[${embedding.join(",")}]`;
+    try {
+      const embeddings = await generateEmbeddingsBatch(recipeTexts);
 
+      for (let i = 0; i < recipes.length; i++) {
+        const embeddingStr = `[${embeddings[i].join(",")}]`;
         await pool.query(
           `UPDATE recipes SET embedding = $1::vector WHERE id = $2`,
-          [embeddingStr, recipe.id],
+          [embeddingStr, recipes[i].id],
         );
         totalEmbedded++;
-      } catch (err) {
-        console.warn(`Failed to embed recipe ${recipe.id} (${recipe.name}):`, err);
       }
-    }
 
-    console.log(`Batch complete. Total embedded: ${totalEmbedded}`);
+      console.log(`Batch complete. Total embedded: ${totalEmbedded}`);
+    } catch (err) {
+      console.warn(`Failed to embed recipe batch starting at index ${totalEmbedded}:`, err);
+      break;
+    }
   }
 
   if (totalEmbedded === 0) {
@@ -237,11 +249,24 @@ async function embedRecipes(): Promise<void> {
   }
 }
 
+async function ingestPDFOrText(
+  pdfFilename: string,
+  txtFilename: string,
+  sourceName: string,
+): Promise<void> {
+  const pdfPath = path.join(KNOWLEDGE_BASE_PATH, pdfFilename);
+  if (fs.existsSync(pdfPath)) {
+    await ingestPDF(pdfFilename, sourceName);
+  } else {
+    await ingestTextFile(txtFilename, sourceName);
+  }
+}
+
 export async function ingestKnowledgeBase(): Promise<void> {
   console.log("Starting knowledge base ingestion...");
 
   if (!isEmbeddingConfigured()) {
-    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set GEMINI_API_KEY or configure the Gemini integration.");
+    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set VOYAGE_API_KEY.");
     return;
   }
 
@@ -256,8 +281,8 @@ export async function ingestKnowledgeBase(): Promise<void> {
       `Knowledge base already has ${count} chunks. Skipping document ingestion. Set FORCE_REINGEST=true to re-ingest.`,
     );
   } else {
-    await ingestPDF("icmr_nin_guidelines.pdf", "icmr_guidelines");
-    await ingestPDF("icmr_nin_rda.pdf", "icmr_rda");
+    await ingestPDFOrText("icmr_nin_guidelines.pdf", "icmr_nin_guidelines.txt", "icmr_guidelines");
+    await ingestPDFOrText("icmr_nin_rda.pdf", "icmr_nin_rda.txt", "icmr_rda");
     await ingestMealPatterns();
     await ingestAllCSVs();
   }

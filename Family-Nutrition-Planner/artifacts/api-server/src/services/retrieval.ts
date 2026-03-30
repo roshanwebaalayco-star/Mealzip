@@ -1,6 +1,15 @@
 import { findSimilarChunks, isEmbeddingConfigured, type ChunkResult, type RecipeResult } from "./embedding.js";
 import { logger } from "../lib/logger.js";
 
+const RAG_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export interface FamilyContext {
   zone: string;
   memberSummaries: Array<{
@@ -78,25 +87,28 @@ export async function retrieveContextForMealPlan(
     family.budget ? `budget friendly under ${family.budget} rupees` : "",
   ].filter(Boolean).join(" ");
 
+  const emptyChunks: ChunkResult[] = [];
+  const emptyRecipes: RecipeResult[] = [];
+
   const [icmrChunks, mealPatternChunks, rdaChunks, recipes] = await Promise.all([
-    findSimilarChunks(icmrQuery, "knowledge_chunks", 4).catch((err) => {
+    withTimeout(findSimilarChunks(icmrQuery, "knowledge_chunks", 4), RAG_TIMEOUT_MS, emptyChunks).catch((err) => {
       logger.warn({ err }, "RAG: ICMR guideline retrieval failed (non-fatal)");
-      return [] as ChunkResult[];
+      return emptyChunks;
     }),
-    findSimilarChunks(mealPatternQuery, "knowledge_chunks", 3).catch((err) => {
+    withTimeout(findSimilarChunks(mealPatternQuery, "knowledge_chunks", 3), RAG_TIMEOUT_MS, emptyChunks).catch((err) => {
       logger.warn({ err }, "RAG: meal pattern retrieval failed (non-fatal)");
-      return [] as ChunkResult[];
+      return emptyChunks;
     }),
-    findSimilarChunks(rdaQuery, "knowledge_chunks", 3).catch((err) => {
+    withTimeout(findSimilarChunks(rdaQuery, "knowledge_chunks", 3), RAG_TIMEOUT_MS, emptyChunks).catch((err) => {
       logger.warn({ err }, "RAG: RDA/nutrition rules retrieval failed (non-fatal)");
-      return [] as ChunkResult[];
+      return emptyChunks;
     }),
-    findSimilarChunks(recipeQuery, "recipes", 10, {
+    withTimeout(findSimilarChunks(recipeQuery, "recipes", 10, {
       zone: family.zone,
       diet: family.diet,
-    }).catch((err) => {
+    }), RAG_TIMEOUT_MS, emptyRecipes).catch((err) => {
       logger.warn({ err }, "RAG: recipe similarity search failed (non-fatal)");
-      return [] as RecipeResult[];
+      return emptyRecipes;
     }),
   ]);
 
@@ -162,8 +174,8 @@ export async function retrieveContextForChat(
   }
 
   const [chunks, recipes] = await Promise.all([
-    findSimilarChunks(userMessage, "knowledge_chunks", 4).catch(() => [] as ChunkResult[]),
-    findSimilarChunks(userMessage, "recipes", 8, zone ? { zone } : undefined).catch(() => [] as RecipeResult[]),
+    withTimeout(findSimilarChunks(userMessage, "knowledge_chunks", 4), RAG_TIMEOUT_MS, [] as ChunkResult[]).catch(() => [] as ChunkResult[]),
+    withTimeout(findSimilarChunks(userMessage, "recipes", 8, zone ? { zone } : undefined), RAG_TIMEOUT_MS, [] as RecipeResult[]).catch(() => [] as RecipeResult[]),
   ]);
 
   const relevantChunks = chunks.filter(c => c.similarity > 0.35);

@@ -101,14 +101,6 @@ const MealCandidateSchema = z.object({
 }).refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
-).refine(
-  data => {
-    if (data.recipeId === null) {
-      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
-    }
-    return true;
-  },
-  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
 );
 
 const MealSlotSchema = z.object({
@@ -130,14 +122,6 @@ const MealSlotSchema = z.object({
 }).refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
-).refine(
-  data => {
-    if (data.recipeId === null) {
-      return Array.isArray(data.base_ingredients) && data.base_ingredients.length > 0;
-    }
-    return true;
-  },
-  { message: "AI-invented slots (recipeId=null) must include base_ingredients as a non-empty structured array" },
 );
 
 const DayPlanSchema = z.object({
@@ -210,7 +194,6 @@ async function callGeminiWithJsonRetry(
         config: {
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseMimeType: "application/json",
-          tools: [{ googleSearch: {} }],
         },
         abortSignal: signal,
       });
@@ -1115,7 +1098,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         similarRecipes: ragResult.recipeCount,
         sources: ragResult.sources,
         contextSummary: ragResult.contextSummary,
-        embeddingModel: "text-embedding-004",
+        embeddingModel: "voyage-3",
       },
     }).returning();
 

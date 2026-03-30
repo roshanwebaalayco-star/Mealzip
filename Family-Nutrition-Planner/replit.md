@@ -18,7 +18,9 @@ India-centric AI-powered family meal planning app built for a hackathon. Key dif
 - **API**: Express 5 + Drizzle ORM + PostgreSQL
 - **Validation**: Zod v4 + drizzle-zod + OpenAPI codegen (Orval)
 - **Frontend**: React + Vite + TanStack React Query + Framer Motion + Wouter
-- **AI**: Gemini 2.5 Flash (meal plan generation, nutrition analysis, voice profile parsing, symptom advisor)
+- **AI Generation**: Gemini 2.5 Flash (meal plan generation, nutrition analysis, voice profile parsing, symptom advisor, chat RAG)
+- **AI Embeddings**: Voyage AI `voyage-3` (1024-dim vectors, free tier 3 RPM / 10K TPM) — `VOYAGE_API_KEY` env var
+- **RAG**: 3-layer knowledge base — ICMR guidelines (43 chunks), ICMR RDA (34 chunks), meal patterns (91 chunks) = 168 total; 20 embedded recipes; IVFFlat indexes (lists=100); `withTimeout(8000ms)` in retrieval to guard against rate-limit stalls
 - **Voice**: Sarvam AI (STT) — `POST /api/voice/transcribe`
 - **Scanner**: YOLOv11 inference (food detection) — `POST /api/nutrition/food-scan`
 - **Build**: esbuild (api-server bundle), Vite (frontend)

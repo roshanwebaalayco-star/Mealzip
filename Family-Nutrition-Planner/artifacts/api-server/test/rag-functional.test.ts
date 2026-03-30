@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 const BASE = process.env.API_BASE_URL ?? "http://localhost:8080";
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
-const EMBEDDING_CONFIGURED = !!(process.env.GEMINI_API_KEY || (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL));
+const EMBEDDING_CONFIGURED = !!(process.env.VOYAGE_API_KEY);
 
 async function get(path: string) {
   const res = await fetch(`${BASE}${path}`);
@@ -111,7 +111,7 @@ describe("Level 1 — Functional Testing", () => {
 
       const highRelevance = body.results.filter((r: { similarity: number }) => r.similarity > 0.4);
       expect(highRelevance.length).toBeGreaterThan(0);
-    });
+    }, 12000);
 
     it.skipIf(!EMBEDDING_CONFIGURED || !ADMIN_SECRET)("returns knowledge chunks with similarity > 0.3 for ICMR query", async () => {
       const { status, body } = await adminPost("/api/admin/test-retrieval", {
@@ -122,7 +122,7 @@ describe("Level 1 — Functional Testing", () => {
       expect(status).toBe(200);
       expect(body.resultCount).toBeGreaterThan(0);
       expect(body.results[0].similarity).toBeGreaterThan(0.3);
-    });
+    }, 12000);
   });
 
   describe("Test 5 — Seed test families endpoint", () => {

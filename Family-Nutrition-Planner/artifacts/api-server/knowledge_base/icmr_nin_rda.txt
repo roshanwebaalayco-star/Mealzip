@@ -1,0 +1,210 @@
+ICMR-NIN 2024 — RECOMMENDED DIETARY ALLOWANCES (RDA) FOR INDIANS
+National Institute of Nutrition, Hyderabad
+Nutrient Requirements and Recommended Dietary Allowances for Indians
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENERGY RDA — INDIANS BY AGE AND ACTIVITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Adult Males (body weight reference: 65kg):
+- Sedentary work (PAL 1.53): 2110 kcal/day
+- Moderate activity (PAL 1.76): 2470 kcal/day
+- Heavy activity (PAL 2.25): 3000 kcal/day
+
+Adult Females (body weight reference: 55kg):
+- Sedentary work (PAL 1.53): 1662 kcal/day
+- Moderate activity (PAL 1.76): 1945 kcal/day
+- Heavy activity (PAL 2.25): 2415 kcal/day
+
+Special Physiological States:
+- Pregnancy (2nd trimester): +350 kcal/day additional
+- Pregnancy (3rd trimester): +350 kcal/day additional
+- Lactation (0-6 months): +600 kcal/day additional
+- Lactation (7-12 months): +520 kcal/day additional
+
+Children (kcal/day):
+- 1-3 years: 1060 kcal
+- 4-6 years: 1350 kcal (boys), 1290 kcal (girls)
+- 7-9 years: 1690 kcal (boys), 1610 kcal (girls)
+- 10-12 years: 2060 kcal (boys), 1970 kcal (girls)
+- 13-15 years: 2600 kcal (boys), 2330 kcal (girls)
+- 16-18 years: 3000 kcal (boys), 2440 kcal (girls)
+
+Elderly (60+ years):
+- Males: 1900 kcal/day (sedentary), 2100 kcal/day (moderate)
+- Females: 1600 kcal/day (sedentary), 1800 kcal/day (moderate)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTEIN RDA FOR INDIANS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Reference protein requirement: 0.83g/kg/day (egg protein digestibility equivalent)
+Indian mixed diet digestibility correction factor: 0.90 (plant proteins less digestible)
+
+Adult Males:
+- Protein requirement: 54g/day (0.83g/kg × 65kg)
+- Athletes/heavy workers: 1.2-1.6g/kg/day
+
+Adult Females:
+- Protein requirement: 46g/day (0.83g/kg × 55kg)
+- Pregnancy: +24g/day additional = 70g/day total
+- Lactation: +28g/day additional = 74g/day total
+
+Children (g/day):
+- 1-3 years: 12.5g
+- 4-6 years: 16.7g
+- 7-9 years: 23.6g
+- 10-12 years: 32.3g (boys), 31.5g (girls)
+- 13-15 years: 45.5g (boys), 43.0g (girls)
+- 16-18 years: 55.4g (boys), 45.2g (girls)
+
+High-protein Indian foods (protein per 100g):
+- Soybean: 43g protein — highest plant protein source
+- Peanuts (groundnuts): 25.3g protein — affordable, complete amino acids
+- Masoor dal (lentils, raw): 25.1g protein
+- Moong dal (raw): 24.5g protein
+- Chana dal (split chickpeas): 20.8g protein
+- Paneer: 18.3g protein
+- Eggs: 13.3g protein (complete protein, excellent bioavailability)
+- Low-fat dahi: 11g protein
+- Fish (rohu): 16.6g protein
+- Chicken (skinless): 25.9g protein
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IRON RDA FOR INDIANS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Iron bioavailability from Indian diet: 8-12% (non-haeme iron, plant-based)
+Iron bioavailability from flesh foods: 20-25% (haeme iron, better absorbed)
+
+Adult Males:
+- Iron RDA: 17mg/day
+
+Adult Females:
+- Pre-menopausal: 21mg/day (menstrual losses account for higher need)
+- Post-menopausal: 17mg/day
+- Pregnancy: 27mg/day (increased blood volume + fetal needs)
+- Lactation: 17mg/day
+
+Children:
+- 1-3 years: 9mg/day
+- 4-6 years: 13mg/day
+- 7-9 years: 16mg/day
+- 10-12 years: 21mg/day (girls, onset of menstruation)
+- 13-15 years: 27mg/day (girls)
+- 16-18 years: 26mg/day (girls)
+
+Iron content in Indian foods (mg per 100g):
+- Moringa leaves (drumstick): 25.0mg — exceptional source
+- Sesame seeds (til): 14.6mg
+- Bajra (pearl millet, raw): 8.0mg
+- Rajma (kidney beans, raw): 6.4mg
+- Masoor dal (lentils, raw): 7.6mg
+- Jaggery (gud): 11.4mg — iron-rich alternative to sugar
+- Spinach (palak, cooked): 2.7mg
+- Amaranth leaves (chaulai): 3.9mg
+- Chicken liver: 9.5mg (haeme iron — excellent bioavailability)
+- Eggs: 2.0mg (haeme iron)
+
+Iron absorption enhancers (include with iron-rich meals):
+- Vitamin C (amla, lemon, guava, tomato): increases non-haeme iron absorption 2-3 fold
+- Fermentation (idli, dosa, dhokla): reduces phytates — improves iron absorption
+
+Iron absorption inhibitors (avoid with iron-rich foods):
+- Tea and coffee (tannins): reduce iron absorption by 50-60%
+- Calcium-rich foods (milk, dahi): compete with iron absorption
+- Phytates in whole grains: reduce plant iron absorption (fermentation reduces phytates)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CALCIUM RDA FOR INDIANS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Adult Males and Non-Pregnant Females: 1000mg/day
+Pregnant and Lactating Women: 1200mg/day
+Children (4-9 years): 800mg/day
+Children (10-17 years): 1000mg/day
+Elderly (60+): 1000mg/day
+
+Calcium bioavailability:
+- Dairy (milk, dahi): 30-40% absorbed — best source
+- Ragi: 25-30% absorbed (oxalate binds some calcium, but quantity is high)
+- Dark green leafy vegetables: 10-20% absorbed (oxalates in spinach reduce absorption)
+- Sesame seeds (til): 20-25% absorbed
+
+Calcium content in Indian foods (mg per 100g):
+- Ragi (finger millet): 344mg — highest of all cereals
+- Sesame seeds (til): 975mg — excellent but consumed in small quantity
+- Milk (cow): 118mg per 100ml
+- Paneer: 208mg
+- Dahi (low-fat): 120mg
+- Amaranth leaves (chaulai): 395mg
+- Moringa leaves: 440mg
+- Radish leaves (mooli patte): 265mg
+
+Vitamin D is essential for calcium absorption:
+- Deficiency extremely common in India (despite sun exposure — due to skin pigmentation, clothing)
+- Recommended: 600 IU/day for adults, 800 IU/day for elderly
+- Sources: sunlight (primary), eggs, fish, fortified milk, mushrooms
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VITAMIN AND MICRONUTRIENT RDA — KEY VALUES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vitamin A (RAE mcg/day):
+- Adult males: 1000 mcg RAE
+- Adult females: 840 mcg RAE
+- Children 4-9: 400-600 mcg RAE
+- Vitamin A deficiency: night blindness, xerophthalmia (common in India)
+- Sources: liver, eggs, dairy, orange-yellow vegetables (beta-carotene), dark green leafy vegetables
+
+Vitamin C (mg/day):
+- Adults: 80mg/day
+- Pregnant: 100mg/day
+- Lactating: 120mg/day
+- Best Indian sources: amla (600mg/100g), guava (228mg/100g), lemon (53mg/100g)
+
+Vitamin B12 (mcg/day):
+- Adults: 2.2 mcg/day
+- Pregnant: 2.6 mcg/day
+- Lactating: 2.8 mcg/day
+- Critical note: Vitamin B12 is found ONLY in animal foods (meat, fish, eggs, dairy)
+- Vegetarian adults and especially elderly vegetarians are at HIGH RISK of B12 deficiency
+- B12 deficiency causes: megaloblastic anaemia, neurological damage, cognitive decline
+- Supplementation: recommended for strict vegetarians, especially children and elderly
+
+Folate / Folic Acid (mcg DFE/day):
+- Adults: 220 mcg DFE
+- Pregnant: 600 mcg DFE (critical for neural tube defect prevention)
+- Lactating: 350 mcg DFE
+- Indian sources: green leafy vegetables, legumes, liver, eggs
+
+Zinc (mg/day):
+- Adult males: 17mg
+- Adult females: 13.2mg
+- Children 4-8: 5-8mg
+- Zinc deficiency: stunting in children, immune dysfunction, poor wound healing
+- Sources: whole grains, legumes, pumpkin seeds, meat, shellfish
+
+Iodine (mcg/day):
+- Adults: 150 mcg
+- Pregnant: 250 mcg
+- Lactating: 250 mcg
+- Iodine deficiency: goitre, hypothyroidism, cretinism
+- India mandate: iodized salt in all households (Universal Salt Iodization programme)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MACRONUTRIENT DISTRIBUTION RANGES (AMDR)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+As percentage of total energy:
+- Carbohydrates: 50-60%
+- Protein: 12-15%
+- Total fat: 20-30%
+  - Saturated fat: < 10%
+  - MUFA: 10-15%
+  - PUFA: 8-10%
+  - Trans fat: < 1%
+- Dietary fibre: 25-40g/day (minimum 14g per 1000 kcal)
+- Added sugar: < 10% of total energy (< 5% for stricter health benefits)
+- Salt: < 5g/day (< 2g sodium)
+
