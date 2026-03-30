@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { pool } from "@workspace/db";
-import { generateEmbedding, generateEmbeddingsBatch, isEmbeddingConfigured } from "./embedding.js";
+import { generateEmbedding, isEmbeddingConfigured } from "./embedding.js";
 
 const KNOWLEDGE_BASE_PATH = path.join(
   process.cwd(),
@@ -80,27 +80,34 @@ async function ingestPDF(
     : chunkText(text, 600, 100);
   console.log(`Created ${chunks.length} chunks from ${filename} (${isICMRDoc ? "section-aware" : "standard"} chunking)`);
 
-  const embeddings = await generateEmbeddingsBatch(chunks);
+  const existingResult = await pool.query<{ chunk_index: number }>(
+    `SELECT chunk_index FROM knowledge_chunks WHERE source = $1`,
+    [sourceName],
+  );
+  const existingIndices = new Set(existingResult.rows.map(r => r.chunk_index));
 
+  let ingested = 0;
   for (let i = 0; i < chunks.length; i++) {
-    const embeddingStr = `[${embeddings[i].join(",")}]`;
-
-    await pool.query(
-      `INSERT INTO knowledge_chunks
-        (source, chunk_index, content, embedding, metadata)
-      VALUES ($1, $2, $3, $4::vector, $5)
-      ON CONFLICT (source, chunk_index) DO NOTHING`,
-      [
-        sourceName,
-        i,
-        chunks[i],
-        embeddingStr,
-        JSON.stringify({ filename, page_estimate: i }),
-      ],
-    );
+    if (existingIndices.has(i)) continue;
+    try {
+      const embedding = await generateEmbedding(chunks[i]);
+      const embeddingStr = `[${embedding.join(",")}]`;
+      await pool.query(
+        `INSERT INTO knowledge_chunks
+          (source, chunk_index, content, embedding, metadata)
+        VALUES ($1, $2, $3, $4::vector, $5)
+        ON CONFLICT (source, chunk_index) DO NOTHING`,
+        [sourceName, i, chunks[i], embeddingStr, JSON.stringify({ filename, page_estimate: i })],
+      );
+      ingested++;
+      if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 21000));
+    } catch (err) {
+      console.warn(`Failed to embed PDF chunk ${i}:`, err);
+      await new Promise((r) => setTimeout(r, 30000));
+    }
   }
 
-  console.log(`Ingested ${chunks.length} chunks from ${filename}`);
+  console.log(`Ingested ${ingested} new chunks from ${filename}`);
 }
 
 async function ingestCSV(
@@ -134,27 +141,34 @@ async function ingestCSV(
 
   console.log(`Created ${chunks.length} chunks from ${filename}`);
 
-  const embeddings = await generateEmbeddingsBatch(chunks);
+  const existingResult = await pool.query<{ chunk_index: number }>(
+    `SELECT chunk_index FROM knowledge_chunks WHERE source = $1`,
+    [sourceName],
+  );
+  const existingIndices = new Set(existingResult.rows.map(r => r.chunk_index));
 
+  let ingested = 0;
   for (let i = 0; i < chunks.length; i++) {
-    const embeddingStr = `[${embeddings[i].join(",")}]`;
-
-    await pool.query(
-      `INSERT INTO knowledge_chunks
-        (source, chunk_index, content, embedding, metadata)
-      VALUES ($1, $2, $3, $4::vector, $5)
-      ON CONFLICT (source, chunk_index) DO NOTHING`,
-      [
-        sourceName,
-        i,
-        chunks[i],
-        embeddingStr,
-        JSON.stringify({ filename, chunk_offset: i }),
-      ],
-    );
+    if (existingIndices.has(i)) continue;
+    try {
+      const embedding = await generateEmbedding(chunks[i]);
+      const embeddingStr = `[${embedding.join(",")}]`;
+      await pool.query(
+        `INSERT INTO knowledge_chunks
+          (source, chunk_index, content, embedding, metadata)
+        VALUES ($1, $2, $3, $4::vector, $5)
+        ON CONFLICT (source, chunk_index) DO NOTHING`,
+        [sourceName, i, chunks[i], embeddingStr, JSON.stringify({ filename, chunk_offset: i })],
+      );
+      ingested++;
+      if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 21000));
+    } catch (err) {
+      console.warn(`Failed to embed CSV chunk ${i}:`, err);
+      await new Promise((r) => setTimeout(r, 30000));
+    }
   }
 
-  console.log(`Ingested ${chunks.length} chunks from ${filename}`);
+  console.log(`Ingested ${ingested} new chunks from ${filename}`);
 }
 
 async function ingestTextFile(
@@ -178,27 +192,55 @@ async function ingestTextFile(
     : text.split(/\n\n+/).filter((s) => s.trim().length > 50);
 
   console.log(`Created ${sections.length} sections from ${filename}`);
-  const embeddings = await generateEmbeddingsBatch(sections);
+
+  const existingResult = await pool.query<{ chunk_index: number }>(
+    `SELECT chunk_index FROM knowledge_chunks WHERE source = $1`,
+    [sourceName],
+  );
+  const existingIndices = new Set(existingResult.rows.map(r => r.chunk_index));
+
+  let ingested = 0;
+  let skipped = 0;
 
   for (let i = 0; i < sections.length; i++) {
-    const embeddingStr = `[${embeddings[i].join(",")}]`;
+    if (existingIndices.has(i)) {
+      skipped++;
+      continue;
+    }
 
-    await pool.query(
-      `INSERT INTO knowledge_chunks
-        (source, chunk_index, content, embedding, metadata)
-      VALUES ($1, $2, $3, $4::vector, $5)
-      ON CONFLICT (source, chunk_index) DO NOTHING`,
-      [
-        sourceName,
-        i,
-        sections[i],
-        embeddingStr,
-        JSON.stringify({ filename, ...metadata }),
-      ],
-    );
+    try {
+      const embedding = await generateEmbedding(sections[i]);
+      const embeddingStr = `[${embedding.join(",")}]`;
+
+      await pool.query(
+        `INSERT INTO knowledge_chunks
+          (source, chunk_index, content, embedding, metadata)
+        VALUES ($1, $2, $3, $4::vector, $5)
+        ON CONFLICT (source, chunk_index) DO NOTHING`,
+        [
+          sourceName,
+          i,
+          sections[i],
+          embeddingStr,
+          JSON.stringify({ filename, ...metadata }),
+        ],
+      );
+
+      ingested++;
+      if (ingested % 10 === 0) {
+        console.log(`Ingested ${ingested}/${sections.length} chunks from ${filename}`);
+      }
+
+      if (i < sections.length - 1) {
+        await new Promise((r) => setTimeout(r, 21000));
+      }
+    } catch (err) {
+      console.warn(`Failed to embed chunk ${i} of ${filename}:`, err);
+      await new Promise((r) => setTimeout(r, 30000));
+    }
   }
 
-  console.log(`Ingested ${sections.length} sections from ${filename}`);
+  console.log(`Ingested ${ingested} new sections from ${filename} (${skipped} already existed)`);
 }
 
 async function ingestMealPatterns(): Promise<void> {
@@ -301,24 +343,10 @@ export async function ingestKnowledgeBase(): Promise<void> {
     return;
   }
 
-  const existing = await pool.query(
-    "SELECT COUNT(*) as count FROM knowledge_chunks",
-  );
-
-  const count = parseInt(existing.rows[0].count, 10);
-
-  if (count > 0 && process.env.FORCE_REINGEST !== "true") {
-    console.log(
-      `Knowledge base already has ${count} chunks. Skipping document ingestion. Set FORCE_REINGEST=true to re-ingest.`,
-    );
-  } else {
-    await ingestPDFOrText("icmr_nin_guidelines.pdf", "icmr_nin_guidelines.txt", "icmr_guidelines");
-    await ingestPDFOrText("icmr_nin_rda.pdf", "icmr_nin_rda.txt", "icmr_rda");
-    await ingestMealPatterns();
-    await ingestAllCSVs();
-  }
-
-  await embedRecipes();
+  await ingestPDFOrText("icmr_nin_guidelines.pdf", "icmr_nin_guidelines.txt", "icmr_guidelines");
+  await ingestPDFOrText("icmr_nin_rda.pdf", "icmr_nin_rda.txt", "icmr_rda");
+  await ingestMealPatterns();
+  await ingestAllCSVs();
 
   console.log("Knowledge base ingestion complete.");
 }

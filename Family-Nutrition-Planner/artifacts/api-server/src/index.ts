@@ -70,13 +70,10 @@ const server = app.listen(port, (err) => {
 server.setTimeout(360000);
 server.keepAliveTimeout = 360000;
 
-ingestKnowledgeBase().then(() => {
-  startEmbeddingQueue().catch((err) =>
-    logger.warn({ err }, "Could not start embedding queue (non-fatal)."),
-  );
-}).catch((err) => {
+startEmbeddingQueue().catch((err) =>
+  logger.warn({ err }, "Could not start embedding queue (non-fatal)."),
+);
+
+ingestKnowledgeBase().catch((err) => {
   logger.warn({ err }, "Knowledge base ingestion failed (non-fatal). RAG features may be degraded.");
-  startEmbeddingQueue().catch((qErr) =>
-    logger.warn({ err: qErr }, "Could not start embedding queue (non-fatal)."),
-  );
 });

@@ -172,7 +172,8 @@ export async function generateEmbeddingsBatch(
     }
 
     if (i < texts.length - 1) {
-      await new Promise((r) => setTimeout(r, provider === "voyage" ? 100 : 200));
+      const delay = provider === "voyage" ? 21000 : 200;
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 
