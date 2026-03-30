@@ -30,68 +30,63 @@ describe("Level 1 — Functional Testing", () => {
       expect(body.database).toBe("connected");
     });
 
-    it("reports recipe count > 0", async () => {
+    it("reports recipe count > 1000", async () => {
       const { body } = await get("/api/healthz");
       expect(typeof body.recipes).toBe("number");
       expect(body.recipes).toBeGreaterThan(1000);
     });
 
-    it("reports knowledgeChunks and embeddedRecipes as numbers", async () => {
+    it("reports knowledgeChunks, embeddedRecipes, and chunksBySource", async () => {
       const { body } = await get("/api/healthz");
       expect(typeof body.knowledgeChunks).toBe("number");
       expect(typeof body.embeddedRecipes).toBe("number");
+      expect(typeof body.chunksBySource).toBe("object");
     });
   });
 
-  describe("Test 2 — Knowledge base ingestion (source-grouped chunk counts)", () => {
-    it.skipIf(!EMBEDDING_CONFIGURED)("knowledge_chunks table has rows grouped by source (icmr_guidelines, meal_patterns, icmr_rda)", async () => {
+  describe("Test 2 — Knowledge base source-grouped chunk counts", () => {
+    it.skipIf(!EMBEDDING_CONFIGURED)("chunksBySource contains icmr_guidelines, meal_patterns, and icmr_rda sources", async () => {
       const { body } = await get("/api/healthz");
       expect(body.knowledgeChunks).toBeGreaterThan(0);
 
-      if (!ADMIN_SECRET) return;
+      const sources = body.chunksBySource as Record<string, number>;
+      const sourceKeys = Object.keys(sources);
 
-      const icmrResult = await adminPost("/api/admin/test-retrieval", {
-        query: "ICMR NIN 2024 dietary guidelines",
-        table: "knowledge_chunks",
-        limit: 5,
-      });
-      expect(icmrResult.status).toBe(200);
-      expect(icmrResult.body.resultCount).toBeGreaterThan(0);
-      const icmrSources = icmrResult.body.results.map((r: { source: string }) => r.source);
-      expect(icmrSources.some((s: string) => s.includes("icmr"))).toBe(true);
+      const hasIcmrGuidelines = sourceKeys.some(k => k.includes("icmr_guidelines") || k.includes("icmr-guidelines"));
+      const hasMealPatterns = sourceKeys.some(k => k.includes("meal_patterns") || k.includes("meal-patterns"));
+      const hasIcmrRda = sourceKeys.some(k => k.includes("icmr_rda") || k.includes("icmr-rda") || k.includes("rda"));
 
-      const mealPatternResult = await adminPost("/api/admin/test-retrieval", {
-        query: "Indian meal pattern breakfast lunch dinner schedule",
-        table: "knowledge_chunks",
-        limit: 5,
-      });
-      expect(mealPatternResult.status).toBe(200);
-      expect(mealPatternResult.body.resultCount).toBeGreaterThan(0);
+      expect(hasIcmrGuidelines).toBe(true);
+      expect(hasMealPatterns).toBe(true);
+      expect(hasIcmrRda).toBe(true);
 
-      const rdaResult = await adminPost("/api/admin/test-retrieval", {
-        query: "RDA recommended dietary allowance protein calories iron",
-        table: "knowledge_chunks",
-        limit: 5,
-      });
-      expect(rdaResult.status).toBe(200);
-      expect(rdaResult.body.resultCount).toBeGreaterThan(0);
+      for (const key of sourceKeys) {
+        expect(sources[key]).toBeGreaterThan(0);
+      }
+    });
+
+    it("chunksBySource is empty object when no chunks ingested", async () => {
+      if (EMBEDDING_CONFIGURED) return;
+      const { body } = await get("/api/healthz");
+      expect(body.knowledgeChunks).toBe(0);
+      expect(Object.keys(body.chunksBySource).length).toBe(0);
     });
   });
 
   describe("Test 3 — Recipe embedding coverage", () => {
-    it("recipes table has total recipes loaded", async () => {
+    it("recipes table has > 1000 total recipes", async () => {
       const { body } = await get("/api/healthz");
       expect(body.recipes).toBeGreaterThan(1000);
     });
 
-    it.skipIf(!EMBEDDING_CONFIGURED)("embedded recipes count > 0 when embedding is configured", async () => {
+    it.skipIf(!EMBEDDING_CONFIGURED)("embedded recipes count > 0 and <= total recipes", async () => {
       const { body } = await get("/api/healthz");
       expect(body.embeddedRecipes).toBeGreaterThan(0);
       expect(body.embeddedRecipes).toBeLessThanOrEqual(body.recipes);
     });
   });
 
-  describe("Test 4 — Vector search relevance via test-retrieval endpoint", () => {
+  describe("Test 4 — Vector search via test-retrieval endpoint", () => {
     it("rejects unauthenticated requests with 403", async () => {
       const res = await fetch(`${BASE}/api/admin/test-retrieval`, {
         method: "POST",
@@ -101,14 +96,13 @@ describe("Level 1 — Functional Testing", () => {
       expect(res.status).toBe(403);
     });
 
-    it("rejects missing query with 400 when admin secret is set", async () => {
-      if (!ADMIN_SECRET) return;
+    it.skipIf(!ADMIN_SECRET)("rejects missing query with 400", async () => {
       const { status, body } = await adminPost("/api/admin/test-retrieval", {});
       expect(status).toBe(400);
       expect(body.error).toContain("query");
     });
 
-    it.skipIf(!EMBEDDING_CONFIGURED || !ADMIN_SECRET)("returns relevant recipes with similarity > 0.4 for diabetes breakfast query", async () => {
+    it.skipIf(!EMBEDDING_CONFIGURED || !ADMIN_SECRET)("returns recipes with similarity > 0.4 for diabetes breakfast query", async () => {
       const { status, body } = await adminPost("/api/admin/test-retrieval", {
         query: "diabetes low GI Indian breakfast",
         table: "recipes",
@@ -121,7 +115,7 @@ describe("Level 1 — Functional Testing", () => {
       expect(highRelevance.length).toBeGreaterThan(0);
     });
 
-    it.skipIf(!EMBEDDING_CONFIGURED || !ADMIN_SECRET)("returns relevant knowledge chunks for ICMR query", async () => {
+    it.skipIf(!EMBEDDING_CONFIGURED || !ADMIN_SECRET)("returns knowledge chunks with similarity > 0.3 for ICMR query", async () => {
       const { status, body } = await adminPost("/api/admin/test-retrieval", {
         query: "ICMR NIN 2024 recommended daily allowance protein",
         table: "knowledge_chunks",
@@ -129,9 +123,7 @@ describe("Level 1 — Functional Testing", () => {
       });
       expect(status).toBe(200);
       expect(body.resultCount).toBeGreaterThan(0);
-
-      const topResult = body.results[0];
-      expect(topResult.similarity).toBeGreaterThan(0.3);
+      expect(body.results[0].similarity).toBeGreaterThan(0.3);
     });
   });
 
@@ -145,21 +137,23 @@ describe("Level 1 — Functional Testing", () => {
       expect(res.status).toBe(403);
     });
 
-    it.skipIf(!ADMIN_SECRET)("seeds all 5 clinical test families and returns their IDs", async () => {
+    it.skipIf(!ADMIN_SECRET)("seeds all 5 clinical test families with correct member counts", async () => {
       const { status, body } = await adminPost("/api/admin/seed-test-families", {});
       expect(status).toBe(200);
       expect(body.status).toBe("success");
-      expect(body.families).toHaveProperty("diabetes_test");
-      expect(body.families).toHaveProperty("weight_loss_test");
-      expect(body.families).toHaveProperty("weight_gain_test");
-      expect(body.families).toHaveProperty("multi_member_conflict");
-      expect(body.families).toHaveProperty("budget_constraint");
 
-      expect(body.families.diabetes_test.memberCount).toBe(1);
-      expect(body.families.weight_loss_test.memberCount).toBe(1);
-      expect(body.families.weight_gain_test.memberCount).toBe(1);
-      expect(body.families.multi_member_conflict.memberCount).toBe(3);
-      expect(body.families.budget_constraint.memberCount).toBe(4);
+      const families = body.families as Record<string, { familyId: number; memberCount: number }>;
+      expect(families).toHaveProperty("diabetes_test");
+      expect(families).toHaveProperty("weight_loss_test");
+      expect(families).toHaveProperty("weight_gain_test");
+      expect(families).toHaveProperty("multi_member_conflict");
+      expect(families).toHaveProperty("budget_constraint");
+
+      expect(families.diabetes_test.memberCount).toBe(1);
+      expect(families.weight_loss_test.memberCount).toBe(1);
+      expect(families.weight_gain_test.memberCount).toBe(1);
+      expect(families.multi_member_conflict.memberCount).toBe(3);
+      expect(families.budget_constraint.memberCount).toBe(4);
     });
 
     it.skipIf(!ADMIN_SECRET)("is idempotent — re-seeding returns same family IDs", async () => {

@@ -8,21 +8,29 @@ router.get("/healthz", async (_req, res) => {
   let knowledgeChunks = 0;
   let recipes = 0;
   let embeddedRecipes = 0;
+  let chunksBySource: Record<string, number> = {};
 
   try {
     const dbCheck = await pool.query("SELECT 1");
     if (dbCheck.rows.length > 0) database = "connected";
 
-    const [chunksResult, recipesResult] = await Promise.all([
+    const [chunksResult, recipesResult, chunkSourcesResult] = await Promise.all([
       pool.query<{ count: string }>("SELECT COUNT(*)::int as count FROM knowledge_chunks").catch(() => ({ rows: [{ count: "0" }] })),
       pool.query<{ total: string; embedded: string }>(
         "SELECT COUNT(*)::int as total, COUNT(embedding)::int as embedded FROM recipes"
       ).catch(() => ({ rows: [{ total: "0", embedded: "0" }] })),
+      pool.query<{ source: string; count: string }>(
+        "SELECT source, COUNT(*)::int as count FROM knowledge_chunks GROUP BY source ORDER BY source"
+      ).catch(() => ({ rows: [] as Array<{ source: string; count: string }> })),
     ]);
 
     knowledgeChunks = Number(chunksResult.rows[0]?.count ?? 0);
     recipes = Number(recipesResult.rows[0]?.total ?? 0);
     embeddedRecipes = Number(recipesResult.rows[0]?.embedded ?? 0);
+
+    for (const row of chunkSourcesResult.rows) {
+      chunksBySource[row.source] = Number(row.count);
+    }
   } catch {
     database = "disconnected";
   }
@@ -31,6 +39,7 @@ router.get("/healthz", async (_req, res) => {
     status: "ok",
     database,
     knowledgeChunks,
+    chunksBySource,
     recipes,
     embeddedRecipes,
   });
