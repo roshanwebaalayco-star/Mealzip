@@ -1,10 +1,16 @@
 import { pool } from "@workspace/db";
 import { GoogleGenAI } from "@google/genai";
 
-const EMBEDDING_MODEL = "gemini-embedding-001";
-const EMBEDDING_DIMENSIONS = 768;
+const EMBEDDING_DIMENSIONS = 1024;
 
-function getGenAI(): GoogleGenAI {
+const VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings";
+const VOYAGE_MODEL = "voyage-3";
+
+function getVoyageApiKey(): string | undefined {
+  return process.env.VOYAGE_API_KEY;
+}
+
+function getGenAI(): GoogleGenAI | null {
   const directKey = process.env.GEMINI_API_KEY;
   const integrationKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const integrationBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
@@ -18,13 +24,20 @@ function getGenAI(): GoogleGenAI {
       httpOptions: { apiVersion: "", baseUrl: integrationBase },
     });
   }
-  throw new Error(
-    "Gemini AI not configured for embeddings. Set GEMINI_API_KEY or configure the Gemini integration.",
-  );
+  return null;
 }
 
 export function isEmbeddingConfigured(): boolean {
-  return !!(process.env.GEMINI_API_KEY || (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL));
+  return !!(
+    process.env.VOYAGE_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL)
+  );
+}
+
+function getEmbeddingProvider(): "voyage" | "gemini" {
+  if (getVoyageApiKey()) return "voyage";
+  return "gemini";
 }
 
 export interface ChunkResult {
@@ -48,15 +61,63 @@ export interface RecipeResult {
   similarity: number;
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const cleaned = text.replace(/\s+/g, " ").trim().slice(0, 8000);
+async function generateEmbeddingVoyage(text: string): Promise<number[]> {
+  const apiKey = getVoyageApiKey();
+  if (!apiKey) throw new Error("VOYAGE_API_KEY not set");
 
+  const response = await fetch(VOYAGE_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: VOYAGE_MODEL,
+      input: [text],
+      output_dimension: EMBEDDING_DIMENSIONS,
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    if (response.status === 429) {
+      await new Promise((r) => setTimeout(r, 25000));
+      const retryResponse = await fetch(VOYAGE_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: VOYAGE_MODEL,
+          input: [text],
+          output_dimension: EMBEDDING_DIMENSIONS,
+        }),
+      });
+      if (!retryResponse.ok) {
+        throw new Error(`Voyage embedding retry failed: ${retryResponse.status} ${await retryResponse.text()}`);
+      }
+      const retryData = await retryResponse.json();
+      return retryData.data[0].embedding;
+    }
+    throw new Error(`Voyage embedding failed: ${response.status} ${errBody}`);
+  }
+
+  const data = await response.json();
+  if (!data.data?.[0]?.embedding) {
+    throw new Error("Voyage embedding returned no embedding values");
+  }
+  return data.data[0].embedding;
+}
+
+async function generateEmbeddingGemini(text: string): Promise<number[]> {
   const genAI = getGenAI();
+  if (!genAI) throw new Error("Gemini AI not configured for embeddings. Set GEMINI_API_KEY or configure the Gemini integration.");
 
   try {
     const result = await genAI.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: [{ role: "user", parts: [{ text: cleaned }] }],
+      model: "gemini-embedding-001",
+      contents: [{ role: "user", parts: [{ text }] }],
       config: { outputDimensionality: EMBEDDING_DIMENSIONS },
     });
     const values = result.embeddings?.[0]?.values;
@@ -69,8 +130,8 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     if (status === 429) {
       await new Promise((r) => setTimeout(r, 10000));
       const retryResult = await genAI.models.embedContent({
-        model: EMBEDDING_MODEL,
-        contents: [{ role: "user", parts: [{ text: cleaned }] }],
+        model: "gemini-embedding-001",
+        contents: [{ role: "user", parts: [{ text }] }],
         config: { outputDimensionality: EMBEDDING_DIMENSIONS },
       });
       const values = retryResult.embeddings?.[0]?.values;
@@ -83,9 +144,20 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   }
 }
 
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const cleaned = text.replace(/\s+/g, " ").trim().slice(0, 8000);
+  const provider = getEmbeddingProvider();
+
+  if (provider === "voyage") {
+    return generateEmbeddingVoyage(cleaned);
+  }
+  return generateEmbeddingGemini(cleaned);
+}
+
 export async function generateEmbeddingsBatch(
   texts: string[],
 ): Promise<number[][]> {
+  const provider = getEmbeddingProvider();
   const results: number[][] = [];
 
   for (let i = 0; i < texts.length; i++) {
@@ -95,16 +167,16 @@ export async function generateEmbeddingsBatch(
 
     if (i % 50 === 0 && i > 0) {
       console.log(
-        `Embedded ${i} of ${texts.length} texts (${EMBEDDING_MODEL})`,
+        `Embedded ${i} of ${texts.length} texts (${provider === "voyage" ? VOYAGE_MODEL : "gemini-embedding-001"})`,
       );
     }
 
     if (i < texts.length - 1) {
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, provider === "voyage" ? 100 : 200));
     }
   }
 
-  console.log(`Embedded all ${texts.length} texts (${EMBEDDING_MODEL})`);
+  console.log(`Embedded all ${texts.length} texts (${provider === "voyage" ? VOYAGE_MODEL : "gemini-embedding-001"})`);
   return results;
 }
 

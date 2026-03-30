@@ -76,7 +76,7 @@ router.post("/admin/test-retrieval", async (req: Request, res: Response) => {
   }
 
   if (!isEmbeddingConfigured()) {
-    res.status(503).json({ error: "Embedding API not configured. Set GEMINI_API_KEY or configure the Gemini integration." });
+    res.status(503).json({ error: "Embedding API not configured. Set VOYAGE_API_KEY or GEMINI_API_KEY." });
     return;
   }
 

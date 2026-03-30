@@ -50,7 +50,8 @@ PostgreSQL serves as the primary data store, managed by Drizzle ORM. Key tables 
 ## External Dependencies
 
 ### AI Services
-- **Google Gemini 2.5 Flash**: Utilized for meal plan generation, nutrition analysis, voice profile parsing, symptom advising, Harmony Score computation, and food image identification.
+- **Google Gemini 2.5 Flash**: Utilized for meal plan generation, nutrition analysis, voice profile parsing, symptom advising, Harmony Score computation, and food image identification. Chat/generation uses Replit Gemini AI integration (no separate key needed).
+- **Voyage AI (voyage-3)**: Embedding provider for recipe and knowledge base vector search. Uses `VOYAGE_API_KEY`. Outputs 1024-dimensional vectors. Falls back to Gemini embeddings if `GEMINI_API_KEY` is set.
 - **Sarvam AI**: Provides Speech-to-Text capabilities for Indian languages.
 - **YOLOv11**: An external HTTP endpoint for food detection inference, with a demo mode for development.
 

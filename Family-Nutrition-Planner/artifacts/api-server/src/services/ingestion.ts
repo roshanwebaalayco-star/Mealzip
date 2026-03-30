@@ -297,7 +297,7 @@ export async function ingestKnowledgeBase(): Promise<void> {
   console.log("Starting knowledge base ingestion...");
 
   if (!isEmbeddingConfigured()) {
-    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set GEMINI_API_KEY.");
+    console.log("Embedding API not configured. Skipping knowledge base ingestion. Set VOYAGE_API_KEY or GEMINI_API_KEY.");
     return;
   }
 

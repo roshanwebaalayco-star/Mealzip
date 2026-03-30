@@ -7,7 +7,7 @@ let totalToProcess = 0;
 let failedCount = 0;
 const failedRecipeIds = new Set<number>();
 
-const RATE_DELAY_MS = 3000;
+const RATE_DELAY_MS = 21000;
 
 export async function startEmbeddingQueue(): Promise<void> {
   if (isRunning) {
@@ -27,7 +27,7 @@ export async function startEmbeddingQueue(): Promise<void> {
   }
 
   console.log(
-    `Starting background embedding queue: ${totalToProcess} recipes to embed. Rate: 20/minute. Estimated time: ${Math.ceil(totalToProcess / 20)} minutes.`,
+    `Starting background embedding queue: ${totalToProcess} recipes to embed. Rate: ~3/minute (Voyage AI). Estimated time: ${Math.ceil(totalToProcess / 3)} minutes.`,
   );
 
   isRunning = true;
@@ -94,7 +94,7 @@ async function embedRecipesGradually(): Promise<void> {
       if (processedCount % 100 === 0) {
         const remaining = totalToProcess - processedCount - failedCount;
         console.log(
-          `Embedding progress: ${processedCount}/${totalToProcess} done. ~${Math.ceil(remaining / 20)} minutes remaining.`,
+          `Embedding progress: ${processedCount}/${totalToProcess} done. ~${Math.ceil(remaining / 3)} minutes remaining.`,
         );
       }
     } catch (err) {
@@ -136,7 +136,7 @@ export function getEmbeddingQueueStatus(): {
         ? Math.round((processedCount / totalToProcess) * 100)
         : 100,
     estimatedMinutesRemaining: Math.ceil(
-      Math.max(0, totalToProcess - processedCount - failedCount) / 20,
+      Math.max(0, totalToProcess - processedCount - failedCount) / 3,
     ),
   };
 }

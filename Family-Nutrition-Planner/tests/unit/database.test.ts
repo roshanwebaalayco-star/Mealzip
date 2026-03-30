@@ -111,7 +111,7 @@ describe('Database Connection', () => {
     if (result.rows.length > 0) {
       const embedding = result.rows[0].embedding;
       const values = embedding.replace('[', '').replace(']', '').split(',');
-      expect(values.length).toBe(768);
+      expect(values.length).toBe(1024);
     }
   });
 
