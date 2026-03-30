@@ -1,4 +1,5 @@
 import { pgTable, serial, text, integer, jsonb, timestamp, index, uniqueIndex, customType } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 const vector768 = customType<{ data: string }>({
   dataType() {
@@ -17,6 +18,7 @@ export const knowledgeChunksTable = pgTable("knowledge_chunks", {
 }, (table) => [
   index("knowledge_chunks_source_idx").on(table.source),
   uniqueIndex("knowledge_chunks_source_chunk_idx").on(table.source, table.chunkIndex),
+  index("knowledge_chunks_embedding_idx").using("hnsw", sql`${table.embedding} vector_cosine_ops`),
 ]);
 
 export type KnowledgeChunk = typeof knowledgeChunksTable.$inferSelect;
