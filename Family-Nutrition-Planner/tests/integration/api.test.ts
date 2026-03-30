@@ -145,8 +145,8 @@ describe('Authentication Security', () => {
     ['POST', '/api/families'],
     ['GET', '/api/meal-plans'],
     ['POST', '/api/meal-plans/generate'],
-    ['GET', '/api/conversations'],
-    ['POST', '/api/conversations'],
+    ['GET', '/api/gemini/conversations'],
+    ['POST', '/api/gemini/conversations'],
     ['GET', '/api/recipes'],
   ];
 

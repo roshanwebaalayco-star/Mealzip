@@ -68,36 +68,38 @@ describe('Auth-Protected AI Endpoints — Security', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET /api/conversations requires auth', async () => {
-    const res = await fetch(`${API}/api/conversations`);
+  it('GET /api/gemini/conversations requires auth', async () => {
+    const res = await fetch(`${API}/api/gemini/conversations`);
     expect(res.status).toBe(401);
   });
 
-  it('POST /api/conversations requires auth', async () => {
-    const res = await fetch(`${API}/api/conversations`, {
+  it('POST /api/gemini/conversations requires auth', async () => {
+    const res = await fetch(`${API}/api/gemini/conversations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ familyId: 1 }),
+      body: JSON.stringify({ title: 'test' }),
     });
     expect(res.status).toBe(401);
   });
 });
 
-describe('AI-Dependent Endpoints (skipped when AI unavailable)', () => {
-  it.skipIf(!aiAvailable)('knowledge chunks should be ingested when AI available', async () => {
+describe('Gemini Conversations (Replit integration — always available)', () => {
+  it('GET /api/gemini/conversations with auth returns array', async () => {
+    const res = await api('GET', '/api/gemini/conversations');
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+  });
+});
+
+describe('Embedding-Dependent Endpoints (skipped when direct GEMINI_API_KEY invalid)', () => {
+  it.skipIf(!aiAvailable)('knowledge chunks should be ingested when embeddings available', async () => {
     const res = await api('GET', '/api/healthz');
     const data = await res.json();
     expect(data.knowledgeChunks).toBeGreaterThan(0);
   });
 
-  it.skipIf(!aiAvailable)('GET /api/conversations with auth returns array', async () => {
-    const res = await api('GET', '/api/conversations');
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(Array.isArray(data)).toBe(true);
-  });
-
-  it.skipIf(!aiAvailable)('embedded recipes count should be positive when AI available', async () => {
+  it.skipIf(!aiAvailable)('embedded recipes count should be positive when embeddings available', async () => {
     const res = await api('GET', '/api/healthz');
     const data = await res.json();
     expect(data.embeddedRecipes).toBeGreaterThan(0);

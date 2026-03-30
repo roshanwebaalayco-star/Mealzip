@@ -2,10 +2,10 @@
 
 **Date**: 2026-03-30
 **Total Tests**: 61
-**Passed**: 58
-**Skipped**: 3 (AI-dependent — Gemini API key unavailable)
+**Passed**: 59
+**Skipped**: 2 (embedding-dependent — direct GEMINI_API_KEY invalid)
 **Failed**: 0
-**Duration**: ~5.2s
+**Duration**: ~3.5s
 
 ---
 
@@ -71,40 +71,37 @@
 | SQL injection in search — tables intact | PASS |
 | XSS in recipe search is sanitised | PASS |
 
-### 5. AI-Dependent Features (Integration) — 8/11 (8 PASSED, 3 SKIPPED)
+### 5. AI Features (Integration) — 9/11 (9 PASSED, 2 SKIPPED)
 | Test | Status | Note |
 |------|--------|------|
 | healthz reports knowledge chunk count field | PASS | |
 | healthz reports embedding queue info | PASS | |
-| embedded recipes count is zero when AI unavailable | PASS | |
+| embedded recipes count is zero when embeddings unavailable | PASS | |
 | POST /api/meal-plans/generate requires auth | PASS | |
-| GET /api/conversations requires auth | PASS | |
-| POST /api/conversations requires auth | PASS | |
+| GET /api/gemini/conversations requires auth | PASS | |
+| POST /api/gemini/conversations requires auth | PASS | |
+| GET /api/gemini/conversations with auth returns array | PASS | Uses Replit integration |
 | POST /api/meal-plans/generate rejects invalid familyId | PASS | |
-| recipes include calorie and protein fields | PASS | |
-| knowledge chunks should be ingested when AI available | SKIPPED | Gemini API key unavailable |
-| GET /api/conversations with auth returns array | SKIPPED | Gemini API key unavailable |
-| embedded recipes count should be positive when AI available | SKIPPED | Gemini API key unavailable |
+| Recipes include calorie and protein fields | PASS | |
+| Knowledge chunks ingested when embeddings available | SKIPPED | Direct GEMINI_API_KEY invalid |
+| Embedded recipes count positive when embeddings available | SKIPPED | Direct GEMINI_API_KEY invalid |
 
 ---
 
-## E2E UI Testing
+## Key Finding: GEMINI_API_KEY vs Replit Integration
 
-Visual verification via screenshot confirms:
-- Login page renders correctly with email/password fields
-- "Try with Demo Family (60 seconds)" button visible
-- Sidebar navigation visible (Home, Meals, Grocery, Health, Profile, Recipes, AI Chat)
-- "Sign up free" link present
-- "Powered by Gemini AI & ICMR-NIN 2024" branding shown
+The app uses **two separate Gemini configurations**:
 
-Automated Playwright E2E blocked by Replit proxy 504 errors (known environment limitation).
+1. **Replit Gemini AI Integration** (`@workspace/integrations-gemini-ai`) — Used for chat, meal plan generation, voice features. Works without your own API key. **This is working correctly.**
+
+2. **Direct `GEMINI_API_KEY`** — Used exclusively for **embeddings** (`gemini-embedding-001` model). The Replit integration explicitly does NOT support embeddings, so a direct key is required. **This key is currently invalid** — Google returns `"API key not valid"` (HTTP 400). The embedding queue attempted 51 recipes, all failed, and paused itself.
+
+### Impact
+- All chat/conversation features work (Replit integration)
+- Embeddings are broken (0 recipes embedded, 0 knowledge chunks) → RAG search returns no results
+- 2 tests properly skipped with `it.skipIf()` since they validate embedding data
 
 ---
-
-## Known Limitations
-
-1. **Gemini API key invalid/revoked** — AI features (meal plan generation, chat, RAG, embeddings) are non-functional. Knowledge chunks = 0, embedded recipes = 0. 3 tests properly skipped via `it.skipIf()`.
-2. **Replit proxy 504** — External URL returns 504; localhost works fine. Playwright E2E tests blocked by this.
 
 ## Database Schema Verified (16 tables)
 `users`, `families`, `family_members`, `recipes`, `meal_plans`, `meal_feedback`, `nutrition_logs`, `grocery_lists`, `health_logs`, `conversations`, `messages`, `knowledge_chunks`, `icmr_nin_rda`, `leftover_items`, `pantry_items`, `food_gi_nutrition`
@@ -114,7 +111,7 @@ Automated Playwright E2E blocked by Replit proxy 504 errors (known environment l
 - `tests/unit/database.test.ts` — Database connection, schema, CRUD
 - `tests/unit/embeddingQueue.test.ts` — Embedding queue health reporting
 - `tests/integration/api.test.ts` — API endpoints, auth, security
-- `tests/integration/aiFeatures.test.ts` — AI-dependent features (proper skip when unavailable)
+- `tests/integration/aiFeatures.test.ts` — AI features, conversations, embeddings
 
 ## Run Command
 ```bash
