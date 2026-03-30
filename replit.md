@@ -74,6 +74,11 @@ Family-Nutrition-Planner/
 - `meal-plan-validator.ts` — post-generation validation sieve with over-generation + candidate selection: Gemini returns 3 candidates per breakfast/lunch/dinner slot; `validateMealPlan()` evaluates candidates in order and selects first with no hard violations; hard checks cover diabetic high-GI, hypertension sodium, Jain-forbidden, allergy cross-checks; all-fail slots get safe fallback from SAFE_FALLBACKS map (meal_type × diet_preference)
 - `thali-scorer.ts` — 5-bucket thali completeness scorer (carb/protein/fat/fiber/vegetable); keyword-matching against meal name + ingredients; returns score(0-5), present[], missing[], suggestions[]
 
+**RAG services** in `artifacts/api-server/src/services/`:
+- `embedding.ts` — `generateEmbedding()` (text-embedding-004), `generateEmbeddingsBatch()`, `findSimilarChunks()` (typed overloads for knowledge_chunks + recipes tables), `isEmbeddingConfigured()` guard
+- `ingestion.ts` — `ingestKnowledgeBase()` (startup), `forceReingestKnowledgeBase()` (admin reingest route); processes PDFs, CSVs, TXT files from `knowledge_base/` directory; also embeds recipe texts into `recipes.embedding` column
+- `retrieval.ts` — `retrieveContextForMealPlan()` (builds family-aware query, retrieves ICMR chunks + similar recipes for prompt injection) and `retrieveContextForChat()` (replaces tsvector search with vector similarity for chat route); both gracefully degrade when embeddings not configured
+
 ### Frontend Architecture
 
 - **Framework**: React 18 + Vite
@@ -107,7 +112,7 @@ Key tables:
 - `family_members` — per-member profiles including new fields: `goalPace`, `tiffinType`, `religiousRules`, `ingredientDislikes[]`, `nonVegDays[]`, `nonVegTypes[]`, `icmrCaloricTarget`
 - `recipes` — 12,771 seeded Indian recipes with nutrition data, cuisine, course, diet tags; `embedding vector(768)` column for semantic search
 - `icmr_nin_rda` — 22 RDA reference records by age group/gender/activity
-- `knowledge_chunks` — RAG knowledge base: chunked text from ICMR-NIN PDFs + meal patterns with `embedding vector(768)` for cosine similarity retrieval (HNSW indexed)
+- `knowledge_chunks` — RAG knowledge base: chunked text from ICMR-NIN PDFs + meal patterns with `embedding vector(768)` for cosine similarity retrieval (IVFFlat indexed)
 - `meal_plans` — AI-generated weekly plans (stored as JSON), linked to family; `icmr_compliance` and `rag_context_used` JSONB columns for RAG audit trail
 - `meal_feedback` — thumbs up/down per meal slot
 - `grocery_lists` — AI-generated grocery lists with cost breakdown

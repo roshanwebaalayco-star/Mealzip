@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, lte, or } from "drizzle-orm";
-import { db, localDb } from "@workspace/db";
+import { db } from "@workspace/db";
 import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import {
@@ -13,6 +13,7 @@ import {
   GenerateGeminiImageBody,
 } from "@workspace/api-zod";
 import { generateImage } from "@workspace/integrations-gemini-ai/image";
+import { retrieveContextForChat } from "../../services/retrieval.js";
 
 const router: IRouter = Router();
 
@@ -172,68 +173,13 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   const MAX_HISTORY_MESSAGES = 20;
   const chatMessages = allMessages.slice(-MAX_HISTORY_MESSAGES);
 
-  // 6a: Improved food keyword extraction with stop-words and multi-word Indian food names
   const userMsg = parsed.data.content;
-  const stopWords = new Set([
-    "what", "how", "can", "you", "tell", "me", "about", "should", "for", "the",
-    "and", "with", "make", "cook", "recipe", "food", "eat", "good", "best", "please",
-    "kya", "hai", "aur", "mein", "ka", "ki", "ke", "kaise", "banate", "batao", "achha", "kaun",
-    "this", "that", "from", "give", "want", "need", "help", "list", "when", "does",
-  ]);
-  const multiWordFoods = [
-    "dal makhani", "chole bhature", "aloo gobi", "palak paneer", "rajma chawal",
-    "kadhi chawal", "pav bhaji", "vada pav", "khichdi", "poha", "upma", "idli",
-    "dosa", "roti", "paratha", "sabzi", "dal", "curry", "rice", "paneer",
-    "biryani", "chicken", "mutton", "fish", "egg", "litti chokha", "dal baati",
-    "gatte ki sabzi", "butter chicken", "aloo paratha", "masala dosa",
-  ];
-  const lowerMsg = userMsg.toLowerCase();
-  const quotedPhrases = [...lowerMsg.matchAll(/"([^"]+)"/g)].map(m => m[1]);
-  const foundMultiWord = multiWordFoods.filter(f => lowerMsg.includes(f));
-  const singleWords = lowerMsg
-    .replace(/[^\w\s\u0900-\u097F]/g, " ")
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !stopWords.has(w));
-  const foodKeywords = [...new Set([...quotedPhrases, ...foundMultiWord, ...singleWords])].slice(0, 6);
   let recipeContext = "";
-  // Flatten multi-word foods to individual tokens for full-text search
-  const tsTokens = [...new Set(foodKeywords.flatMap(k => k.split(/\s+/)).filter(w => w.length > 2))];
-  if (tsTokens.length > 0) {
-    try {
-      const tsQuery = tsTokens.join(":* & ") + ":*";
-      const matchedRecipes = await localDb.select({
-        name: recipesTable.name,
-        nameHindi: recipesTable.nameHindi,
-        calories: recipesTable.calories,
-        protein: recipesTable.protein,
-        diet: recipesTable.diet,
-        cuisine: recipesTable.cuisine,
-        costPerServing: recipesTable.costPerServing,
-        totalTimeMin: recipesTable.totalTimeMin,
-      })
-      .from(recipesTable)
-      .where(sql`to_tsvector('simple', coalesce(${recipesTable.name}, '') || ' ' || coalesce(${recipesTable.nameHindi}, '') || ' ' || coalesce(${recipesTable.ingredients}, '')) @@ to_tsquery('simple', ${tsQuery})`)
-      .limit(8);
-      
+  let knowledgeContext = "";
 
-      if (matchedRecipes.length > 0) {
-        recipeContext = `\n\nMATCHED RECIPES FROM DATABASE:\n${JSON.stringify(matchedRecipes.map(r => ({
-          name: r.name,
-          nameHindi: r.nameHindi,
-          calories: r.calories,
-          protein: r.protein,
-          diet: r.diet,
-          cuisine: r.cuisine,
-          costPerServing: r.costPerServing,
-          totalTimeMin: r.totalTimeMin,
-        })), null, 2)}\n\nUse these specific recipes when answering the user's question.`;
-      }
-    } catch { /* non-critical — continue without recipe context */ }
-  }
-
-  // Build family context + meal plan context for systemInstruction
   let dynamicContext = "";
   let familyGreeting = "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?";
+  let familyState: string | undefined;
   const { familyId } = parsed.data;
   if (familyId) {
     try {
@@ -241,6 +187,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
         .where(and(eq(familiesTable.id, familyId), eq(familiesTable.userId, req.user!.userId)))
         .limit(1);
       if (family) {
+        familyState = family.state ?? undefined;
         const members = await db.select().from(familyMembersTable)
           .where(eq(familyMembersTable.familyId, familyId));
         const memberLines = members.map(m => {
@@ -287,12 +234,31 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
     } catch { /* non-critical — continue without family context */ }
   }
 
-  // Build the full system instruction: base prompt + dynamic context + recipe context + language
+  const STATE_TO_ZONE: Record<string, string> = {
+    punjab: "north", haryana: "north", himachalpradesh: "north",
+    uttarakhand: "north", up: "north", uttarpradesh: "north",
+    delhi: "north", jammuandkashmir: "north", bihar: "north",
+    rajasthan: "west", gujarat: "west", maharashtra: "west", goa: "west",
+    karnataka: "south", kerala: "south", tamilnadu: "south",
+    andhrapradesh: "south", telangana: "south",
+    westbengal: "east", odisha: "east", jharkhand: "east",
+    assam: "east", manipur: "east", meghalaya: "east",
+    madhyapradesh: "central", chhattisgarh: "central",
+  };
+  const chatZone = familyState
+    ? STATE_TO_ZONE[familyState.toLowerCase().replace(/\s+/g, "")] ?? "north"
+    : undefined;
+  try {
+    const ragChat = await retrieveContextForChat(userMsg, chatZone);
+    knowledgeContext = ragChat.knowledgeContext;
+    recipeContext = ragChat.recipeContext;
+  } catch { /* non-fatal — continue without RAG context */ }
+
   let languageInstruction = "";
   if (requestedLanguage && requestedLanguage !== "english") {
     languageInstruction = `\n\nCRITICAL LANGUAGE RULE: The user has selected "${requestedLanguage}" as their language. You MUST respond entirely in ${requestedLanguage} using its native script. Do NOT use English unless the selected language is English. Keep technical nutrition terms in English only when no native equivalent exists.`;
   }
-  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
+  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + knowledgeContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

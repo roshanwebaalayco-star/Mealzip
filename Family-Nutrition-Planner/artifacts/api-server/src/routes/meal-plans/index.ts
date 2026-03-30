@@ -23,6 +23,7 @@ import { filterByAppliances, ALL_APPLIANCES, detectRequiredAppliances } from "..
 import { getSeasonalIngredients, type Region, type Month } from "../../lib/seasonal-ingredients.js";
 import { validateMealForMembers, validateMealPlan, getSafeFallback, type MemberProfile, type Violation } from "../../lib/meal-plan-validator.js";
 import { scoreThaliCompleteness } from "../../lib/thali-scorer.js";
+import { retrieveContextForMealPlan, type FamilyContext } from "../../services/retrieval.js";
 
 const router: IRouter = Router();
 
@@ -206,7 +207,11 @@ async function callGeminiWithJsonRetry(
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [{ role: "user", parts: [{ text: activePrompt }] }],
-        config: { maxOutputTokens: MAX_OUTPUT_TOKENS, responseMimeType: "application/json" },
+        config: {
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          responseMimeType: "application/json",
+          tools: [{ googleSearch: {} }],
+        },
         abortSignal: signal,
       });
       const text = response.text ?? "{}";
@@ -689,6 +694,23 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
   }));
 
+  const dietPrefForRag = resolveDietPreference(allRestrictions) ?? "vegetarian";
+  const ragFamilyContext: FamilyContext = {
+    zone,
+    memberSummaries: memberSummaries.map(m => ({
+      name: m.name, age: m.age, gender: m.gender,
+      healthConditions: m.healthConditions,
+      dietaryRestrictions: m.dietaryRestrictions,
+    })),
+    diet: dietPrefForRag,
+    cuisinePreferences: family.cuisinePreferences ?? [],
+    isFasting,
+  };
+  let ragResult = await retrieveContextForMealPlan(ragFamilyContext).catch(err => {
+    req.log.warn({ err }, "RAG retrieval failed (non-fatal) — continuing without RAG context");
+    return { icmrGuidelines: "", recipeContext: "", sources: [] as string[], chunkCount: 0, recipeCount: 0 };
+  });
+
   const pantryIngredients = [
     ...(preferences?.pantryIngredients ?? []),
     ...(weeklyContext?.pantry_items ?? []),
@@ -816,8 +838,12 @@ SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
 No weekly context provided. Use defaults from Section 1.
 ${fastingNote}${pantryNote}${leftoverNote}${skippedMealsNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim();
 
-  const masterPromptSection3 = `
+  const ragSection = ragResult.icmrGuidelines || ragResult.recipeContext
+    ? `\n${ragResult.icmrGuidelines}\n${ragResult.recipeContext}\n`
+    : "";
 
+  const masterPromptSection3 = `
+${ragSection}
 ══════════════════════════════════════════════════════════════════
 SECTION 3 — ICMR-NIN 2024 CLINICAL GUARDRAILS (always enforce)
 ══════════════════════════════════════════════════════════════════
@@ -1070,6 +1096,17 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         leftoverChainSource: "recipe_db_primary_ai_fallback",
       },
       aiInsights,
+      icmrCompliance: {
+        ragSourcesUsed: ragResult.sources,
+        guidelinesRetrieved: ragResult.chunkCount,
+        googleSearchGroundingEnabled: true,
+      },
+      ragContextUsed: {
+        knowledgeChunks: ragResult.chunkCount,
+        similarRecipes: ragResult.recipeCount,
+        sources: ragResult.sources,
+        embeddingModel: "text-embedding-004",
+      },
     }).returning();
 
     res.json({ ...mealPlan, harmonyScore: Number(mealPlan.harmonyScore) });
