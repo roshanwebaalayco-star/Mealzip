@@ -30,6 +30,10 @@ export interface IMemberProfileFields {
   nonVegDays?: ("monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday")[];
   nonVegTypes?: ("chicken" | "fish" | "mutton" | "eggs")[];
   calorieTarget?: number;
+  spiceTolerance?: "mild" | "medium" | "spicy";
+  fastingBaseline?: string[];
+  ekadashi?: boolean;
+  festivalFastingAlerts?: boolean;
 }
 
 export interface IMemberProfile extends IMemberProfileFields {
@@ -123,6 +127,9 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           ingredientDislikes: form.ingredientDislikes,
           nonVegDays: form.nonVegDays,
           nonVegTypes: form.nonVegTypes,
+          spiceTolerance: form.spiceTolerance,
+          ekadashi: form.ekadashi,
+          festivalFastingAlerts: form.festivalFastingAlerts,
         },
       });
       queryClient.invalidateQueries({ queryKey: ["/api/families"] });
@@ -290,6 +297,49 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                 ))}
               </div>
             )}
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">{t("Spice Tolerance", "मसाला सहनशीलता")}</Label>
+            <div className="mt-1.5 flex gap-2">
+              {([
+                { id: "mild" as const, label: "Mild / हल्का" },
+                { id: "medium" as const, label: "Medium / मध्यम" },
+                { id: "spicy" as const, label: "Spicy / तीखा" },
+              ]).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => set("spiceTolerance", id)}
+                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                    (form.spiceTolerance ?? "medium") === id
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:border-primary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={form.ekadashi ?? false}
+                onCheckedChange={v => set("ekadashi", !!v)}
+                className="rounded-md"
+              />
+              <span className="text-xs">{t("Observes Ekadashi fasting", "एकादशी व्रत रखते हैं")}</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={form.festivalFastingAlerts ?? false}
+                onCheckedChange={v => set("festivalFastingAlerts", !!v)}
+                className="rounded-md"
+              />
+              <span className="text-xs">{t("Festival fasting alerts", "त्योहार उपवास सूचनाएं")}</span>
+            </label>
           </div>
 
           <Button

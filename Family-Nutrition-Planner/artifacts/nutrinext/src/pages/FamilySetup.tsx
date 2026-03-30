@@ -39,6 +39,10 @@ type MemberDraft = Omit<
   dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
+  spiceTolerance: string;
+  fastingBaseline: string[];
+  ekadashi: boolean;
+  festivalFastingAlerts: boolean;
   individualTypicalBreakfast: string;
   individualTypicalLunch: string;
   individualTypicalDinner: string;
@@ -77,6 +81,8 @@ export default function FamilySetup() {
     sharedTypicalBreakfast: "",
     sharedTypicalLunch: "",
     sharedTypicalDinner: "",
+    cookingSkill: "moderate" as "beginner" | "moderate" | "expert",
+    mealsPerDay: 4,
   });
 
   const [members, setMembers] = useState<MemberDraft[]>([
@@ -86,6 +92,7 @@ export default function FamilySetup() {
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+      spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
       individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
     }
   ]);
@@ -170,6 +177,10 @@ export default function FamilySetup() {
           dietaryType: newFamilyData.dietaryType,
           memberFastingDays: [],
           foodAllergies: "",
+          spiceTolerance: "medium",
+          fastingBaseline: [],
+          ekadashi: false,
+          festivalFastingAlerts: false,
           individualTypicalBreakfast: "",
           individualTypicalLunch: "",
           individualTypicalDinner: "",
@@ -223,6 +234,7 @@ export default function FamilySetup() {
       dietaryType: "vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinType: "none", religiousRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+      spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
       individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
     }]);
   };
@@ -234,7 +246,13 @@ export default function FamilySetup() {
       next = current.includes("none") ? [] : ["none"];
     } else {
       const without = current.filter(c => c !== "none");
-      next = without.includes(cond) ? without.filter(c => c !== cond) : [...without, cond];
+      if (without.includes(cond)) {
+        next = without.filter(c => c !== cond);
+      } else if (without.length >= 2) {
+        return;
+      } else {
+        next = [...without, cond];
+      }
     }
     handleUpdateMember(idx, "healthConditions", next);
   };
@@ -254,6 +272,18 @@ export default function FamilySetup() {
   const handleUpdateMember = <K extends keyof MemberDraft>(index: number, field: K, value: MemberDraft[K]) => {
     const updated = [...members];
     updated[index] = { ...updated[index], [field]: value };
+    if (field === "age") {
+      const age = Number(value);
+      if (age > 0 && age < 5) {
+        updated[index].healthGoal = "healthy_growth";
+      } else if (age >= 5 && age <= 12) {
+        updated[index].healthGoal = "healthy_growth";
+      } else if (age >= 60) {
+        if (updated[index].healthGoal === "general_wellness") {
+          updated[index].healthGoal = "senior_nutrition";
+        }
+      }
+    }
     setMembers(updated);
   };
 
@@ -308,7 +338,13 @@ export default function FamilySetup() {
         ...fd.fastingDays.map(d => `fasting:${d}`),
       ];
       const fam = await createFamily.mutateAsync({
-        data: { ...fd, cuisinePreferences: enrichedPreferences, appliances: fd.appliances },
+        data: {
+          ...fd,
+          cuisinePreferences: enrichedPreferences,
+          appliances: fd.appliances,
+          cookingSkill: fd.cookingSkill,
+          mealsPerDay: fd.mealsPerDay,
+        },
       });
 
       for (const member of mems) {
@@ -343,6 +379,10 @@ export default function FamilySetup() {
               ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
               nonVegDays: member.nonVegDays.length > 0 ? member.nonVegDays : undefined,
               nonVegTypes: member.nonVegTypes.length > 0 ? member.nonVegTypes : undefined,
+              spiceTolerance: member.spiceTolerance as "mild" | "medium" | "spicy",
+              fastingBaseline: member.fastingBaseline.length > 0 ? member.fastingBaseline : undefined,
+              ekadashi: member.ekadashi || undefined,
+              festivalFastingAlerts: member.festivalFastingAlerts || undefined,
               individualTypicalBreakfast: member.individualTypicalBreakfast || undefined,
               individualTypicalLunch: member.individualTypicalLunch || undefined,
               individualTypicalDinner: member.individualTypicalDinner || undefined,
@@ -395,6 +435,7 @@ export default function FamilySetup() {
         foodAllergies: "",
         goalPace: "none", tiffinType: "none", religiousRules: "none",
         ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
+        spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
         individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
       }));
 
@@ -443,6 +484,10 @@ export default function FamilySetup() {
           dietaryType: (partialData.dietaryType ?? familyData.dietaryType) as string,
           memberFastingDays: [],
           foodAllergies: "",
+          spiceTolerance: "medium",
+          fastingBaseline: [],
+          ekadashi: false,
+          festivalFastingAlerts: false,
           individualTypicalBreakfast: "",
           individualTypicalLunch: "",
           individualTypicalDinner: "",
@@ -749,6 +794,33 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
+                  <Label>{t("Cooking Skill", "पाक कौशल")}</Label>
+                  <Select value={familyData.cookingSkill} onValueChange={v => setFamilyData({...familyData, cookingSkill: v as typeof familyData.cookingSkill})}>
+                    <SelectTrigger className="mt-2 h-12 rounded-xl">
+                      <SelectValue placeholder="Cooking skill" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">{t("Beginner — simple recipes only", "शुरुआती — सिर्फ आसान रेसिपी")}</SelectItem>
+                      <SelectItem value="moderate">{t("Moderate — can follow most recipes", "मध्यम — ज़्यादातर रेसिपी बना सकते हैं")}</SelectItem>
+                      <SelectItem value="expert">{t("Expert — comfortable with all recipes", "विशेषज्ञ — सभी रेसिपी बना सकते हैं")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{t("Meals Per Day", "प्रतिदिन भोजन")}</Label>
+                  <Select value={String(familyData.mealsPerDay)} onValueChange={v => setFamilyData({...familyData, mealsPerDay: parseInt(v)})}>
+                    <SelectTrigger className="mt-2 h-12 rounded-xl">
+                      <SelectValue placeholder="Meals" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">{t("3 meals (no snacks)", "3 भोजन (बिना नाश्ता)")}</SelectItem>
+                      <SelectItem value="4">{t("4 meals (1 snack)", "4 भोजन (1 नाश्ता)")}</SelectItem>
+                      <SelectItem value="5">{t("5 meals (2 snacks)", "5 भोजन (2 नाश्ता)")}</SelectItem>
+                      <SelectItem value="6">{t("6 meals (3 snacks)", "6 भोजन (3 नाश्ता)")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label>{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
                   <Select value={familyData.healthGoal} onValueChange={v => setFamilyData({...familyData, healthGoal: v as typeof familyData.healthGoal})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
@@ -1031,7 +1103,7 @@ export default function FamilySetup() {
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")}</Label>
+                    <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")} <span className="text-muted-foreground font-normal text-xs">({t("max 2", "अधिकतम 2")})</span></Label>
                     {[
                       { id: 'diabetes', en: 'Diabetes', hi: 'मधुमेह' },
                       { id: 'hypertension', en: 'Hypertension', hi: 'उच्च रक्तचाप' },
@@ -1043,16 +1115,20 @@ export default function FamilySetup() {
                       { id: 'growing_child', en: 'Growing Child', hi: 'बढ़ता बच्चा' },
                       { id: 'elderly', en: 'Elderly (60+)', hi: 'बुजुर्ग (60+)' },
                       { id: 'none', en: 'None', hi: 'कोई नहीं' },
-                    ].map(({ id: cond, en, hi }) => (
+                    ].map(({ id: cond, en, hi }) => {
+                      const isDisabled = cond !== "none" && !member.healthConditions.includes(cond) && member.healthConditions.filter(c => c !== "none").length >= 2;
+                      return (
                       <div key={cond} className="flex items-center space-x-2">
                         <Checkbox 
                           id={`${member._id}-${cond}`}
                           checked={member.healthConditions.includes(cond)}
                           onCheckedChange={() => toggleMemberCondition(idx, cond)}
+                          disabled={isDisabled}
                         />
-                        <Label htmlFor={`${member._id}-${cond}`}>{t(en, hi)}</Label>
+                        <Label htmlFor={`${member._id}-${cond}`} className={isDisabled ? "opacity-40" : ""}>{t(en, hi)}</Label>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold">{t("Fasting Days", "उपवास के दिन")}</Label>
@@ -1085,6 +1161,49 @@ export default function FamilySetup() {
                         className="mt-1 text-sm"
                       />
                       <p className="text-xs text-muted-foreground mt-1">{t("Separate multiple with commas", "कई एलर्जी को कॉमा से अलग करें")}</p>
+                    </div>
+
+                    <div className="pt-2">
+                      <Label className="text-sm font-semibold">{t("Spice Tolerance", "मसाला सहनशीलता")}</Label>
+                      <div className="mt-1.5 flex gap-2">
+                        {([
+                          { id: "mild", en: "Mild", hi: "हल्का" },
+                          { id: "medium", en: "Medium", hi: "मध्यम" },
+                          { id: "spicy", en: "Spicy", hi: "तीखा" },
+                        ] as const).map(({ id, en, hi }) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => handleUpdateMember(idx, "spiceTolerance", id)}
+                            className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                              member.spiceTolerance === id
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-background border-border hover:border-primary"
+                            }`}
+                          >
+                            {t(en, hi)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${member._id}-ekadashi`}
+                          checked={member.ekadashi}
+                          onCheckedChange={(v) => handleUpdateMember(idx, "ekadashi", !!v)}
+                        />
+                        <Label htmlFor={`${member._id}-ekadashi`} className="text-xs">{t("Observes Ekadashi fasting", "एकादशी व्रत रखते हैं")}</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${member._id}-festival-alerts`}
+                          checked={member.festivalFastingAlerts}
+                          onCheckedChange={(v) => handleUpdateMember(idx, "festivalFastingAlerts", !!v)}
+                        />
+                        <Label htmlFor={`${member._id}-festival-alerts`} className="text-xs">{t("Festival fasting alerts", "त्योहार उपवास सूचनाएं")}</Label>
+                      </div>
                     </div>
                   </div>
                 </div>

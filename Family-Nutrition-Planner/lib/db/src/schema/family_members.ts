@@ -1,4 +1,4 @@
-import { pgTable, serial, text, real, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, real, integer, boolean, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { familiesTable } from "./families";
@@ -25,6 +25,10 @@ export const familyMembersTable = pgTable("family_members", {
   ingredientDislikes: text("ingredient_dislikes").array(),
   nonVegDays: text("non_veg_days").array(),
   nonVegTypes: text("non_veg_types").array(),
+  spiceTolerance: text("spice_tolerance").notNull().default("medium"),
+  fastingBaseline: text("fasting_baseline").array().default([]),
+  ekadashi: boolean("ekadashi").notNull().default(false),
+  festivalFastingAlerts: boolean("festival_fasting_alerts").notNull().default(false),
   individualTypicalBreakfast: text("individual_typical_breakfast"),
   individualTypicalLunch: text("individual_typical_lunch"),
   individualTypicalDinner: text("individual_typical_dinner"),

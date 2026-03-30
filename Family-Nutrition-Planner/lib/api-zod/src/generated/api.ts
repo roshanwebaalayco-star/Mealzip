@@ -61,6 +61,8 @@ export const CreateFamilyBody = zod.object({
   sharedTypicalBreakfast: zod.string().optional(),
   sharedTypicalLunch: zod.string().optional(),
   sharedTypicalDinner: zod.string().optional(),
+  cookingSkill: zod.enum(["beginner", "moderate", "expert"]).optional().describe("Family cooking skill level"),
+  mealsPerDay: zod.number().optional().describe("Number of meals per day (3-6)"),
 });
 
 /**
@@ -157,6 +159,8 @@ export const UpdateFamilyBody = zod.object({
   sharedTypicalBreakfast: zod.string().optional(),
   sharedTypicalLunch: zod.string().optional(),
   sharedTypicalDinner: zod.string().optional(),
+  cookingSkill: zod.enum(["beginner", "moderate", "expert"]).optional(),
+  mealsPerDay: zod.number().optional(),
 });
 
 export const UpdateFamilyResponse = zod.object({
@@ -261,6 +265,10 @@ export const AddFamilyMemberBody = zod.object({
   ingredientDislikes: zod.array(zod.string()).optional(),
   nonVegDays: zod.array(zod.string()).optional(),
   nonVegTypes: zod.array(zod.string()).optional(),
+  spiceTolerance: zod.enum(["mild", "medium", "spicy"]).optional().describe("Spice tolerance level"),
+  fastingBaseline: zod.array(zod.string()).optional().describe("Regular fasting days"),
+  ekadashi: zod.boolean().optional().describe("Observes Ekadashi fasting"),
+  festivalFastingAlerts: zod.boolean().optional().describe("Receive festival fasting alerts"),
   individualTypicalBreakfast: zod.string().optional(),
   individualTypicalLunch: zod.string().optional(),
   individualTypicalDinner: zod.string().optional(),
@@ -295,6 +303,10 @@ export const UpdateFamilyMemberBody = zod.object({
   ingredientDislikes: zod.array(zod.string()).optional(),
   nonVegDays: zod.array(zod.string()).optional(),
   nonVegTypes: zod.array(zod.string()).optional(),
+  spiceTolerance: zod.enum(["mild", "medium", "spicy"]).optional(),
+  fastingBaseline: zod.array(zod.string()).optional(),
+  ekadashi: zod.boolean().optional(),
+  festivalFastingAlerts: zod.boolean().optional(),
   individualTypicalBreakfast: zod.string().optional(),
   individualTypicalLunch: zod.string().optional(),
   individualTypicalDinner: zod.string().optional(),
