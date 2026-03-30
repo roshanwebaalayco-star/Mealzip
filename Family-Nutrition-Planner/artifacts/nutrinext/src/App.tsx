@@ -23,6 +23,7 @@ import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
 import WeeklyContext from "@/pages/WeeklyContext";
 import RecipeDetail from "@/pages/RecipeDetail";
+import Scanner from "@/pages/Scanner";
 import NotFound from "@/pages/not-found";
 
 const TOKEN_KEY = "auth_token";
@@ -80,6 +81,7 @@ function Router() {
         <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
         <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
+        <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
         <Route path="/nutrition">{() => <Redirect to="/health" />}</Route>
         <Route path="/health" component={() => <ProtectedRoute component={HealthLog} />} />
         <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
