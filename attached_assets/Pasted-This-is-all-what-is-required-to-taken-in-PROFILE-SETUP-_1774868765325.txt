@@ -1,0 +1,87 @@
+This is all what is required to taken in.
+## PROFILE SETUP — Collected once, editable anytime from profile page
+
+**Family level**
+- Number of members
+- State / region
+- Language preference — Hindi / English
+- Household dietary baseline — strictly veg / veg with eggs / non-veg / mixed
+- Number of meals per day — 2 meals / 3 meals / 3 meals + snacks
+- Cooking skill level — beginner / intermediate / experienced
+
+**Per member**
+- Name
+- Age
+- Gender
+- Height (cm) — optional
+- Current weight (kg) — optional
+- Activity level — sedentary / lightly active / moderately active / very active
+- Primary goal — weight loss / weight gain / maintain / build muscle / manage condition / no specific goal
+- Goal pace — slow 0.25 kg/week / moderate 0.5 kg/week — only shows if goal is weight loss or weight gain
+- Health conditions (multi-select, up to 2) — none / diabetes type 2 / hypertension / anaemia / obesity / high cholesterol / hypothyroid / PCOS / kidney issues
+- Dietary type — strictly vegetarian / Jain vegetarian / eggetarian / non-vegetarian / occasional non-veg
+- If occasional non-veg — which days by default (Mon–Sun checkboxes) + which types (chicken / mutton / fish / eggs)
+- Religious or cultural rules — none / no beef / no pork / sattvic no onion no garlic / Jain rules
+- Spice tolerance — mild / medium / spicy
+- Allergies (multi-select) — none / peanuts / dairy / gluten / tree nuts / shellfish / soy / sesame
+- Ingredient dislikes — free text, up to 5 (e.g. karela, brinjal, methi)
+- Fasting baseline — no fasting / weekly fasting days Mon–Sun checkboxes / Ekadashi yes or no
+- Festival fasting alerts — yes / no (app auto-detects calendar but user sets preference here)
+- Tiffin or lunchbox needed — no / yes school / yes office
+
+**Auto-assignment rules — never ask the user, calculated silently**
+- Age under 5 → goal auto-set to early childhood nutrition
+- Age 5–12 → goal auto-set to healthy growth and school nutrition, goal field hidden
+- Age 13–17 → weight loss option hidden, goal field shows maintain / build muscle / manage condition only
+- Age 60+ → goal auto-set to senior nutrition unless user overrides
+- Any member with goal set and weight provided → app auto-calculates daily calorie target using ICMR-NIN and shows it to user
+
+---
+
+## MEAL GENERATION POPUP — Asked every time user hits Generate Meal Plan
+
+Pre-filled from profile every time. User changes only what is different this week. One tap confirm if nothing has changed.
+
+**Budget this week**
+- Monthly budget (₹) — pre-filled from last used, editable
+- Eating out this week — none / 1 to 2 times / frequently (adjusts home meal budget accordingly)
+
+**Cooking availability this week**
+- Weekday cooking time — under 20 mins / 20–40 mins / no limit
+- Weekend cooking time — quick / elaborate / no preference
+
+**Per member — goal check**
+- Current goal — pre-filled from profile, editable this week
+- Current weight update — only shows if goal is weight loss or weight gain — "Any change since last time?" with a weight input field
+
+**Per member — health this week**
+- Health conditions — pre-filled from profile, user can add or remove for this week
+- How are you feeling this week — optional free text per member (e.g. low energy, bloating, heavy cold) passed directly to Gemini as priority context
+
+**Per member — fasting this week**
+- Fasting days this week — pre-filled from profile fasting baseline, editable per week
+- Ekadashi this week — yes / no, pre-filled, editable
+- Any festival fast this week — yes / no, app auto-detects but user can override
+
+**Per member — non-veg this week (only shows for occasional non-veg members)**
+- Which days is non-veg okay this week — day checkboxes pre-filled from profile, editable
+- Which types this week — chicken / mutton / fish / eggs / all, pre-filled from profile, editable
+
+**Per member — tiffin this week**
+- Tiffin needed this week — yes / no toggle, pre-filled from profile, editable
+
+**Per member — spice this week**
+- Any spice change from usual — pre-filled from profile, editable
+
+**Special request this week — optional free text**
+- Free text, one field for the whole family (e.g. "more protein for Papa this week", "light meals Thursday and Friday, family has a function", "no rice at all this week", "use up the spinach in the fridge")
+- This is passed directly to Gemini as a high-priority instruction and overrides recipe defaults
+
+---
+
+## The logic in one line
+
+Profile holds who each person permanently is. Popup holds what is true this week. Gemini receives both — profile as background context, popup as the active instruction set for this generation.
+provide an optional things of pantry scan.
+i)user can either again talk and tell the estimate quantity and the name of ingrediants in any language (using sarvam for transalation and gemini if interpretation is required) 
+ii) user can chat with AI and tell what all it has.the estimate quantity and the name of ingrediants(using sarvam for transalation and gemini if interpretation is required)
