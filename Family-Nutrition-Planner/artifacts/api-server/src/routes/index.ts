@@ -18,11 +18,12 @@ import adminRouter from "./admin/index.js";
 
 const router: IRouter = Router();
 
-// Strictly public routes — only /auth/register, /auth/login, /healthz, and
-// /demo/quick-login are intentionally unauthenticated.
+// Strictly public routes — only /auth/register, /auth/login, /healthz,
+// /demo/quick-login, and /admin/* (x-admin-secret gated) are unauthenticated.
 router.use(authRouter);   // /auth/register, /auth/login (public); /auth/logout, /auth/me (auth-gated)
 router.use(healthzRouter); // /healthz only
 router.use(demoRouter);  // /demo/quick-login (public) + /demo/sharma-family + /demo/seed (public)
+router.use(adminRouter); // /admin/* — protected by x-admin-secret header
 
 // All routes registered after this line require a valid JWT Bearer token.
 router.use(authenticateToken);
@@ -38,6 +39,5 @@ router.use(groceryRouter);
 router.use(healthRouter); // /health-logs, /nutrition-logs, /symptom-check, /fasting-calendar
 router.use(marketRouter); // /market/prices, /market/trigger-surge, /market/prep-alerts
 router.use(leftoversRouter); // /leftovers — leftover item tracking
-router.use(adminRouter); // /admin/reingest — force re-ingest knowledge base
 
 export default router;
