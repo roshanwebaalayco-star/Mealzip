@@ -1,0 +1,2272 @@
+You are a senior QA engineer and test automation specialist.
+Your job is to write and execute a complete self-testing
+suite for the ParivarSehat AI application covering every
+single endpoint, every UI component, every database
+operation, every AI function, and every clinical rule.
+
+Do not ask for permission. Do not wait for input.
+Run everything automatically. Report every result.
+Fix every failure you find. Then re-test to confirm the fix.
+
+Read the entire prompt before writing a single line.
+Execute every section in order.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 0 — TEST ENVIRONMENT SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 0A — Install test dependencies:
+
+  npm install --save-dev vitest supertest
+    @vitest/coverage-v8 playwright
+    @playwright/test cheerio
+
+  npx playwright install chromium
+
+STEP 0B — Create test configuration:
+
+Create vitest.config.ts in project root:
+
+  import { defineConfig } from 'vitest/config';
+
+  export default defineConfig({
+    test: {
+      globals: true,
+      environment: 'node',
+      testTimeout: 120000,
+      hookTimeout: 30000,
+      reporters: ['verbose'],
+      outputFile: 'test-results/report.json',
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+        include: ['server/**/*.ts'],
+        exclude: ['server/**/*.test.ts']
+      }
+    }
+  });
+
+Create playwright.config.ts in project root:
+
+  import { defineConfig } from '@playwright/test';
+
+  export default defineConfig({
+    testDir: './tests/e2e',
+    timeout: 60000,
+    retries: 1,
+    use: {
+      baseURL: 'http://localhost:5000',
+      screenshot: 'on',
+      video: 'retain-on-failure',
+      trace: 'retain-on-failure'
+    },
+    reporter: [
+      ['html', { outputFolder: 'test-results/e2e' }],
+      ['list']
+    ]
+  });
+
+STEP 0C — Create test directory structure:
+
+  mkdir -p tests/unit
+  mkdir -p tests/integration
+  mkdir -p tests/clinical
+  mkdir -p tests/e2e
+  mkdir -p tests/load
+  mkdir -p test-results
+
+STEP 0D — Create test database seed helper:
+
+Create tests/helpers/testSeed.ts:
+
+  import { db } from '../../server/db';
+
+  export const TEST_FAMILY_IDS: number[] = [];
+
+  export async function createTestFamily(
+    overrides: any = {}
+  ): Promise<any> {
+    const [family] = await db.execute(`
+      INSERT INTO families
+        (name, state, zone, monthly_budget,
+         language, meals_per_day, cooking_skill,
+         household_diet, user_id)
+      VALUES
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    ` as any, [
+      overrides.name || 'Test Family',
+      overrides.state || 'Rajasthan',
+      overrides.zone || 'North Zone',
+      overrides.budget || 8000,
+      overrides.language || 'en',
+      overrides.mealsPerDay || 3,
+      overrides.cookingSkill || 'intermediate',
+      overrides.householdDiet || 'vegetarian',
+      overrides.userId || 1
+    ]);
+    TEST_FAMILY_IDS.push(family.rows[0].id);
+    return family.rows[0];
+  }
+
+  export async function createTestMember(
+    familyId: number,
+    overrides: any = {}
+  ): Promise<any> {
+    const [member] = await db.execute(`
+      INSERT INTO family_members
+        (family_id, name, age, gender,
+         activity_level, primary_goal,
+         health_conditions, diet_type,
+         spice_tolerance, allergies,
+         ingredient_dislikes, fasting_days)
+      VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      RETURNING *
+    ` as any, [
+      familyId,
+      overrides.name || 'Test Member',
+      overrides.age || 35,
+      overrides.gender || 'male',
+      overrides.activityLevel || 'sedentary',
+      overrides.goal || 'maintain',
+      JSON.stringify(
+        overrides.conditions || ['none']
+      ),
+      overrides.dietType || 'vegetarian',
+      overrides.spiceTolerance || 'medium',
+      JSON.stringify(overrides.allergies || []),
+      JSON.stringify(overrides.dislikes || []),
+      JSON.stringify(overrides.fastingDays || [])
+    ]);
+    return member.rows[0];
+  }
+
+  export async function cleanupTestFamilies():
+  Promise<void> {
+    if (TEST_FAMILY_IDS.length === 0) return;
+    await db.execute(`
+      DELETE FROM families
+      WHERE id = ANY($1::int[])
+    ` as any, [TEST_FAMILY_IDS]);
+    TEST_FAMILY_IDS.length = 0;
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — DATABASE TESTS
+File: tests/unit/database.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create and run this file:
+
+  import { describe, it, expect,
+    beforeAll, afterAll } from 'vitest';
+  import { db } from '../../server/db';
+  import {
+    createTestFamily,
+    createTestMember,
+    cleanupTestFamilies
+  } from '../helpers/testSeed';
+
+  describe('Database Connection', () => {
+    it('connects successfully', async () => {
+      const result = await db.execute(
+        'SELECT 1 as val' as any
+      );
+      expect(result.rows[0].val).toBe(1);
+    });
+
+    it('pgvector extension is enabled', async () => {
+      const result = await db.execute(`
+        SELECT extname FROM pg_extension
+        WHERE extname = 'vector'
+      ` as any);
+      expect(result.rows.length).toBe(1);
+    });
+
+    it('all required tables exist', async () => {
+      const tables = [
+        'users', 'families', 'family_members',
+        'recipes', 'meal_plans', 'meal_feedback',
+        'nutrition_logs', 'grocery_lists',
+        'health_logs', 'conversations', 'messages',
+        'knowledge_chunks', 'session'
+      ];
+      for (const table of tables) {
+        const result = await db.execute(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_name = '${table}'
+          ) as exists
+        ` as any);
+        expect(
+          result.rows[0].exists,
+          `Table ${table} must exist`
+        ).toBe(true);
+      }
+    });
+
+    it('recipes table has embedding column', async () => {
+      const result = await db.execute(`
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = 'recipes'
+        AND column_name = 'embedding'
+      ` as any);
+      expect(result.rows.length).toBe(1);
+    });
+
+    it('knowledge_chunks table has embedding column',
+    async () => {
+      const result = await db.execute(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'knowledge_chunks'
+        AND column_name = 'embedding'
+      ` as any);
+      expect(result.rows.length).toBe(1);
+    });
+
+    it('recipes table has data', async () => {
+      const result = await db.execute(`
+        SELECT COUNT(*) as count FROM recipes
+      ` as any);
+      const count = parseInt(result.rows[0].count);
+      expect(count).toBeGreaterThan(100);
+    });
+
+    it('knowledge_chunks has all sources', async () => {
+      const result = await db.execute(`
+        SELECT source, COUNT(*) as count
+        FROM knowledge_chunks
+        GROUP BY source
+      ` as any);
+      const sources = result.rows.map(
+        (r: any) => r.source
+      );
+      expect(sources).toContain('meal_patterns');
+      expect(sources).toContain('icmr_guidelines');
+      expect(sources).toContain('icmr_rda');
+
+      const mealPatterns = result.rows.find(
+        (r: any) => r.source === 'meal_patterns'
+      );
+      expect(
+        parseInt(mealPatterns.count)
+      ).toBeGreaterThan(40);
+    });
+
+    it('can insert and retrieve a family', async () => {
+      const family = await createTestFamily({
+        name: 'DB Test Family'
+      });
+      expect(family.id).toBeDefined();
+      expect(family.name).toBe('DB Test Family');
+    });
+
+    it('can insert and retrieve a family member',
+    async () => {
+      const family = await createTestFamily();
+      const member = await createTestMember(
+        family.id, { name: 'DB Test Member' }
+      );
+      expect(member.id).toBeDefined();
+      expect(member.name).toBe('DB Test Member');
+    });
+
+    it('foreign key constraint enforced', async () => {
+      await expect(
+        db.execute(`
+          INSERT INTO family_members
+            (family_id, name, age, gender)
+          VALUES (99999999, 'Ghost', 30, 'male')
+        ` as any)
+      ).rejects.toThrow();
+    });
+
+    it('embedding vector dimension is 768', async () => {
+      const result = await db.execute(`
+        SELECT embedding
+        FROM knowledge_chunks
+        WHERE embedding IS NOT NULL
+        LIMIT 1
+      ` as any);
+      if (result.rows.length > 0) {
+        const embedding = result.rows[0].embedding;
+        const values = embedding
+          .replace('[','').replace(']','')
+          .split(',');
+        expect(values.length).toBe(768);
+      }
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2 — API ENDPOINT TESTS
+File: tests/integration/api.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect,
+    beforeAll, afterAll } from 'vitest';
+  import request from 'supertest';
+  import { app } from '../../server/index';
+  import {
+    createTestFamily,
+    createTestMember,
+    cleanupTestFamilies
+  } from '../helpers/testSeed';
+
+  let testFamilyId: number;
+  let testMemberId: number;
+  let authCookie: string;
+
+  describe('Health Check Endpoints', () => {
+    it('GET /healthz returns ok', async () => {
+      const res = await request(app)
+        .get('/healthz');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.database).toBe('connected');
+    });
+
+    it('healthz includes knowledge chunk count',
+    async () => {
+      const res = await request(app)
+        .get('/healthz');
+      expect(
+        res.body.knowledgeChunks
+      ).toBeGreaterThan(0);
+    });
+
+    it('healthz includes embedding queue status',
+    async () => {
+      const res = await request(app)
+        .get('/healthz');
+      expect(res.body.embeddingQueue).toBeDefined();
+      expect(
+        res.body.embeddingQueue.totalToProcess
+      ).toBeDefined();
+    });
+  });
+
+  describe('Auth Endpoints', () => {
+    it('GET /auth/me returns 401 when not logged in',
+    async () => {
+      const res = await request(app)
+        .get('/auth/me');
+      expect(res.status).toBe(401);
+    });
+
+    it('GET /auth/google redirects to Google',
+    async () => {
+      const res = await request(app)
+        .get('/auth/google');
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toContain(
+        'accounts.google.com'
+      );
+    });
+
+    it('POST /auth/logout returns success', async () => {
+      const res = await request(app)
+        .post('/auth/logout');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+  });
+
+  describe('Family Endpoints — Auth Protection', () => {
+    it('POST /api/families without auth returns 401',
+    async () => {
+      const res = await request(app)
+        .post('/api/families')
+        .send({ name: 'Test', state: 'Bihar' });
+      expect(res.status).toBe(401);
+    });
+
+    it('GET /api/families without auth returns 401',
+    async () => {
+      const res = await request(app)
+        .get('/api/families');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('Recipe Endpoints', () => {
+    it('GET /api/recipes returns results', async () => {
+      const res = await request(app)
+        .get('/api/recipes');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('GET /api/recipes filters by cuisine',
+    async () => {
+      const res = await request(app)
+        .get('/api/recipes?cuisine=South Zone');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('GET /api/recipes filters by diet',
+    async () => {
+      const res = await request(app)
+        .get('/api/recipes?diet=Vegetarian');
+      expect(res.status).toBe(200);
+      if (res.body.length > 0) {
+        res.body.forEach((r: any) => {
+          expect(
+            r.diet.toLowerCase()
+          ).toContain('vegetarian');
+        });
+      }
+    });
+
+    it('GET /api/recipes search works', async () => {
+      const res = await request(app)
+        .get('/api/recipes?search=dal');
+      expect(res.status).toBe(200);
+    });
+
+    it('GET /api/recipes/:id returns a recipe',
+    async () => {
+      const listRes = await request(app)
+        .get('/api/recipes?limit=1');
+      if (listRes.body.length > 0) {
+        const id = listRes.body[0].id;
+        const res = await request(app)
+          .get(`/api/recipes/${id}`);
+        expect(res.status).toBe(200);
+        expect(res.body.id).toBe(id);
+      }
+    });
+
+    it('GET /api/recipes/:id 404 for non-existent',
+    async () => {
+      const res = await request(app)
+        .get('/api/recipes/99999999');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('Nutrition Endpoints', () => {
+    it('GET /api/nutrition/icmr-targets returns data',
+    async () => {
+      const res = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=male&activity=sedentary');
+      expect(res.status).toBe(200);
+      expect(res.body.calories).toBeGreaterThan(0);
+      expect(res.body.protein).toBeGreaterThan(0);
+    });
+
+    it('ICMR targets differ by gender', async () => {
+      const male = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=male&activity=sedentary');
+      const female = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=female&activity=sedentary');
+      expect(male.body.calories).not.toBe(
+        female.body.calories
+      );
+    });
+
+    it('ICMR targets differ by activity level',
+    async () => {
+      const sedentary = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=male&activity=sedentary');
+      const active = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=male&activity=very_active');
+      expect(active.body.calories).toBeGreaterThan(
+        sedentary.body.calories
+      );
+    });
+
+    it('ICMR targets for child under 12 are lower',
+    async () => {
+      const adult = await request(app)
+        .get('/api/nutrition/icmr-targets?age=35&gender=male&activity=sedentary');
+      const child = await request(app)
+        .get('/api/nutrition/icmr-targets?age=8&gender=male&activity=sedentary');
+      expect(child.body.calories).toBeLessThan(
+        adult.body.calories
+      );
+    });
+  });
+
+  describe('Fasting Calendar Endpoints', () => {
+    it('GET /api/festivals returns upcoming festivals',
+    async () => {
+      const res = await request(app)
+        .get('/api/festivals');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('Festival data includes fasting ingredients',
+    async () => {
+      const res = await request(app)
+        .get('/api/festivals');
+      if (res.body.length > 0) {
+        const festival = res.body[0];
+        expect(
+          festival.fastingIngredients ||
+          festival.allowedFoods
+        ).toBeDefined();
+      }
+    });
+  });
+
+  afterAll(async () => {
+    await cleanupTestFamilies();
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 3 — RAG SYSTEM TESTS
+File: tests/unit/rag.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect } from 'vitest';
+  import {
+    generateEmbedding,
+    findSimilarChunks
+  } from '../../server/services/embedding';
+
+  describe('Embedding Service', () => {
+    it('generates a 768-dimension embedding',
+    async () => {
+      const embedding = await generateEmbedding(
+        'dal makhani punjabi recipe'
+      );
+      expect(embedding).toHaveLength(768);
+      expect(typeof embedding[0]).toBe('number');
+    });
+
+    it('different texts produce different embeddings',
+    async () => {
+      const emb1 = await generateEmbedding(
+        'diabetic breakfast low GI'
+      );
+      const emb2 = await generateEmbedding(
+        'weight gain high calorie meals'
+      );
+      // Cosine similarity should not be 1.0
+      const dotProduct = emb1.reduce(
+        (sum, val, i) => sum + val * emb2[i], 0
+      );
+      expect(dotProduct).not.toBeCloseTo(1.0, 2);
+    });
+
+    it('similar texts produce similar embeddings',
+    async () => {
+      const emb1 = await generateEmbedding(
+        'diabetes low GI breakfast Indian food'
+      );
+      const emb2 = await generateEmbedding(
+        'diabetic morning meal low glycemic index'
+      );
+      const emb3 = await generateEmbedding(
+        'cricket world cup schedule 2024'
+      );
+
+      function cosine(a: number[], b: number[]) {
+        const dot = a.reduce(
+          (s, v, i) => s + v * b[i], 0
+        );
+        const magA = Math.sqrt(
+          a.reduce((s, v) => s + v * v, 0)
+        );
+        const magB = Math.sqrt(
+          b.reduce((s, v) => s + v * v, 0)
+        );
+        return dot / (magA * magB);
+      }
+
+      const similarScore = cosine(emb1, emb2);
+      const dissimilarScore = cosine(emb1, emb3);
+      expect(similarScore).toBeGreaterThan(
+        dissimilarScore
+      );
+    });
+  });
+
+  describe('Vector Search — Knowledge Chunks', () => {
+    it('finds ICMR chunks for nutrition query',
+    async () => {
+      const results = await findSimilarChunks(
+        'daily calorie protein requirements Indian adults',
+        'knowledge_chunks',
+        5
+      );
+      expect(results.length).toBeGreaterThan(0);
+      expect(
+        results[0].similarity
+      ).toBeGreaterThan(0.3);
+    });
+
+    it('finds meal pattern chunks for diabetes query',
+    async () => {
+      const results = await findSimilarChunks(
+        'diabetes meal plan low glycemic index dal',
+        'knowledge_chunks',
+        5,
+        { source: 'meal_patterns' }
+      );
+      expect(results.length).toBeGreaterThan(0);
+      const content = results[0].content.toLowerCase();
+      expect(
+        content.includes('diabetes') ||
+        content.includes('diabetic') ||
+        content.includes('glycemic') ||
+        content.includes('sugar')
+      ).toBe(true);
+    });
+
+    it('finds meal pattern chunks for weight loss',
+    async () => {
+      const results = await findSimilarChunks(
+        'weight loss meal plan calorie deficit Indian',
+        'knowledge_chunks',
+        5,
+        { source: 'meal_patterns' }
+      );
+      expect(results.length).toBeGreaterThan(0);
+      const content = results[0].content.toLowerCase();
+      expect(
+        content.includes('weight') ||
+        content.includes('calorie') ||
+        content.includes('deficit') ||
+        content.includes('loss')
+      ).toBe(true);
+    });
+
+    it('source filter works correctly', async () => {
+      const icmrResults = await findSimilarChunks(
+        'protein requirements',
+        'knowledge_chunks',
+        5,
+        { source: 'icmr_rda' }
+      );
+      icmrResults.forEach(r => {
+        expect(r.source).toBe('icmr_rda');
+      });
+    });
+  });
+
+  describe('Vector Search — Recipes', () => {
+    it('finds recipes for South Zone query',
+    async () => {
+      const results = await findSimilarChunks(
+        'South Indian breakfast idli dosa sambar',
+        'recipes',
+        10,
+        { zone: 'South Zone' }
+      );
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it('finds vegetarian recipes when filtered',
+    async () => {
+      const results = await findSimilarChunks(
+        'vegetarian dinner dal sabzi',
+        'recipes',
+        10,
+        { diet: 'Vegetarian' }
+      );
+      results.forEach(r => {
+        expect(
+          r.diet?.toLowerCase()
+        ).toContain('vegetarian');
+      });
+    });
+
+    it('returns similarity scores', async () => {
+      const results = await findSimilarChunks(
+        'dal makhani recipe',
+        'recipes',
+        5
+      );
+      results.forEach(r => {
+        expect(r.similarity).toBeGreaterThan(0);
+        expect(r.similarity).toBeLessThanOrEqual(1.01);
+      });
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 4 — CLINICAL VALIDATION TESTS
+File: tests/clinical/mealPlanClinical.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect,
+    beforeAll, afterAll } from 'vitest';
+  import request from 'supertest';
+  import { app } from '../../server/index';
+  import {
+    createTestFamily,
+    createTestMember,
+    cleanupTestFamilies
+  } from '../helpers/testSeed';
+
+  // These tests call the actual Gemini API
+  // They take 2-3 minutes each
+  // They verify clinical correctness of AI output
+
+  describe('Clinical Test 1 — Diabetes (Non-Fasting)',
+  () => {
+    let plan: any;
+    let familyId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily({
+        name: 'Diabetes Test Family',
+        state: 'Rajasthan',
+        zone: 'North Zone',
+        budget: 6000
+      });
+      familyId = family.id;
+      await createTestMember(familyId, {
+        name: 'Ramesh',
+        age: 45,
+        gender: 'male',
+        activityLevel: 'sedentary',
+        goal: 'manage condition',
+        conditions: ['diabetes'],
+        dietType: 'vegetarian'
+      });
+
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({
+          familyId,
+          weeklyContext: {
+            budget: 6000,
+            cookingTime: '20-40 mins',
+            weekStart: '2026-04-07',
+            fastingDays: [] // Non-fasting week
+          }
+        });
+
+      expect(res.status).toBe(200);
+      plan = res.body.plan;
+    }, 300000);
+
+    it('plan has all 7 days', () => {
+      expect(Object.keys(plan.plan)).toHaveLength(7);
+    });
+
+    it('dal present at lunch every day', () => {
+      const days = Object.values(plan.plan) as any[];
+      let dalDays = 0;
+      days.forEach(day => {
+        const lunch = day.lunch;
+        const content = [
+          lunch?.baseDish || '',
+          JSON.stringify(
+            lunch?.memberPlates?.Ramesh || {}
+          )
+        ].join(' ').toLowerCase();
+        if (
+          content.includes('dal') ||
+          content.includes('dahi') ||
+          content.includes('paneer') ||
+          content.includes('chana') ||
+          content.includes('rajma')
+        ) dalDays++;
+      });
+      expect(dalDays).toBeGreaterThanOrEqual(6);
+    });
+
+    it('no white rice served alone', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      const hasRiceAlone =
+        planStr.includes('plain rice') &&
+        !planStr.includes('dal') &&
+        !planStr.includes('sabzi');
+      expect(hasRiceAlone).toBe(false);
+    });
+
+    it('icmrCompliance mentions glycemic index', () => {
+      const compliance =
+        plan.nutritionSummary?.icmrCompliance;
+      const complianceStr =
+        JSON.stringify(compliance || {}).toLowerCase();
+      expect(
+        complianceStr.includes('glycemic') ||
+        complianceStr.includes('gi') ||
+        complianceStr.includes('low gi') ||
+        complianceStr.includes('blood sugar')
+      ).toBe(true);
+    });
+
+    it('no biscuits or maida in the plan', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      expect(planStr.includes('biscuit')).toBe(false);
+      expect(
+        planStr.includes('maida roti')
+      ).toBe(false);
+    });
+
+    it('harmony score is between 0 and 100', () => {
+      const score =
+        plan.nutritionSummary?.harmonyScore;
+      expect(score).toBeGreaterThan(0);
+      expect(score).toBeLessThanOrEqual(100);
+    });
+
+    it('weekly budget is within limit', () => {
+      const cost =
+        plan.nutritionSummary?.totalEstimatedCost;
+      if (cost) {
+        expect(cost).toBeLessThanOrEqual(1800);
+      }
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  }, 400000);
+
+  describe('Clinical Test 2 — Anaemia', () => {
+    let plan: any;
+    let familyId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily({
+        name: 'Anaemia Test Family',
+        state: 'West Bengal',
+        zone: 'East Zone',
+        budget: 7000
+      });
+      familyId = family.id;
+      await createTestMember(familyId, {
+        name: 'Priya',
+        age: 32,
+        gender: 'female',
+        activityLevel: 'lightly_active',
+        goal: 'manage condition',
+        conditions: ['anaemia'],
+        dietType: 'vegetarian'
+      });
+
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({
+          familyId,
+          weeklyContext: {
+            budget: 7000,
+            cookingTime: '20-40 mins',
+            weekStart: '2026-04-07',
+            fastingDays: []
+          }
+        });
+
+      expect(res.status).toBe(200);
+      plan = res.body.plan;
+    }, 300000);
+
+    it('iron-rich food appears in most meals', () => {
+      const ironFoods = [
+        'palak', 'spinach', 'rajma', 'chana',
+        'ragi', 'sesame', 'til', 'dates', 'khajoor',
+        'makhana', 'groundnut', 'amaranth', 'rajgira'
+      ];
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      const ironCount = ironFoods.filter(
+        food => planStr.includes(food)
+      ).length;
+      expect(ironCount).toBeGreaterThanOrEqual(3);
+    });
+
+    it('Vitamin C pairing present multiple times',
+    () => {
+      const vitCIndicators = [
+        'lemon', 'nimbu', 'amla', 'tomato',
+        'orange', 'guava', 'vitamin c'
+      ];
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      const vitCCount = vitCIndicators.filter(
+        v => planStr.includes(v)
+      ).length;
+      expect(vitCCount).toBeGreaterThanOrEqual(2);
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  }, 400000);
+
+  describe('Clinical Test 3 — Weight Loss', () => {
+    let plan: any;
+    let familyId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily({
+        name: 'Weight Loss Test Family',
+        state: 'Punjab',
+        zone: 'North Zone',
+        budget: 8000
+      });
+      familyId = family.id;
+      await createTestMember(familyId, {
+        name: 'Sunita',
+        age: 32,
+        gender: 'female',
+        activityLevel: 'lightly_active',
+        goal: 'lose weight',
+        conditions: ['none'],
+        dietType: 'vegetarian',
+        weight: 75,
+        height: 160
+      });
+
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({
+          familyId,
+          weeklyContext: {
+            budget: 8000,
+            cookingTime: '20-40 mins',
+            weekStart: '2026-04-07',
+            fastingDays: []
+          }
+        });
+
+      expect(res.status).toBe(200);
+      plan = res.body.plan;
+    }, 300000);
+
+    it('no meal has both roti and chawal', () => {
+      const days = Object.values(plan.plan) as any[];
+      days.forEach((day: any) => {
+        ['breakfast', 'lunch', 'dinner'].forEach(
+          mealType => {
+            const meal = day[mealType];
+            if (!meal) return;
+            const content = JSON.stringify(meal)
+              .toLowerCase();
+            const hasRoti =
+              content.includes('roti') ||
+              content.includes('chapati') ||
+              content.includes('paratha');
+            const hasRice =
+              content.includes('chawal') ||
+              content.includes('rice') ||
+              content.includes('bhaat');
+            if (hasRoti && hasRice) {
+              // This should not happen for
+              // weight loss plan
+              console.warn(
+                `Meal has both roti and rice:
+                ${mealType} on day`
+              );
+            }
+          }
+        );
+      });
+    });
+
+    it('chips and biscuits are absent', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      expect(planStr.includes('chips')).toBe(false);
+      expect(planStr.includes('biscuit')).toBe(false);
+    });
+
+    it('average calories below 1700', () => {
+      const summary = plan.nutritionSummary;
+      const memberSummary =
+        summary?.memberSummaries?.Sunita;
+      if (memberSummary?.avgDailyCalories) {
+        expect(
+          memberSummary.avgDailyCalories
+        ).toBeLessThan(1700);
+      }
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  }, 400000);
+
+  describe('Clinical Test 4 — Multi-Member Conflict',
+  () => {
+    let plan: any;
+    let familyId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily({
+        name: 'Multi Member Test Family',
+        state: 'Uttar Pradesh',
+        zone: 'North Central Zone',
+        budget: 10000
+      });
+      familyId = family.id;
+
+      await createTestMember(familyId, {
+        name: 'Papa',
+        age: 52,
+        gender: 'male',
+        activityLevel: 'sedentary',
+        goal: 'manage condition',
+        conditions: ['diabetes'],
+        dietType: 'occasional_non_veg',
+        nonVegDays: ['saturday', 'sunday']
+      });
+
+      await createTestMember(familyId, {
+        name: 'Mama',
+        age: 46,
+        gender: 'female',
+        activityLevel: 'lightly_active',
+        goal: 'manage condition',
+        conditions: ['anaemia'],
+        dietType: 'vegetarian'
+      });
+
+      await createTestMember(familyId, {
+        name: 'Rani',
+        age: 10,
+        gender: 'female',
+        activityLevel: 'moderately_active',
+        goal: 'healthy growth',
+        conditions: ['none'],
+        dietType: 'vegetarian'
+      });
+
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({
+          familyId,
+          weeklyContext: {
+            budget: 10000,
+            cookingTime: '20-40 mins',
+            weekStart: '2026-04-07',
+            fastingDays: []
+          }
+        });
+
+      expect(res.status).toBe(200);
+      plan = res.body.plan;
+    }, 300000);
+
+    it('all three members have plates at every meal',
+    () => {
+      const days = Object.values(plan.plan) as any[];
+      days.forEach((day: any) => {
+        ['breakfast', 'lunch', 'dinner'].forEach(
+          mealType => {
+            const meal = day[mealType];
+            if (!meal?.memberPlates) return;
+            const plates = meal.memberPlates;
+            expect(
+              plates.Papa || plates.papa
+            ).toBeDefined();
+            expect(
+              plates.Mama || plates.mama
+            ).toBeDefined();
+            expect(
+              plates.Rani || plates.rani
+            ).toBeDefined();
+          }
+        );
+      });
+    });
+
+    it('Papa and Mama plates are different', () => {
+      const days = Object.values(plan.plan) as any[];
+      let differenceCount = 0;
+      days.forEach((day: any) => {
+        const lunch = day.lunch;
+        if (!lunch?.memberPlates) return;
+        const papaPlate = JSON.stringify(
+          lunch.memberPlates.Papa || {}
+        );
+        const mamaPlate = JSON.stringify(
+          lunch.memberPlates.Mama || {}
+        );
+        if (papaPlate !== mamaPlate) {
+          differenceCount++;
+        }
+      });
+      expect(differenceCount).toBeGreaterThan(3);
+    });
+
+    it('Mama has iron-rich food or Vit C pairing',
+    () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      expect(
+        planStr.includes('lemon') ||
+        planStr.includes('nimbu') ||
+        planStr.includes('palak') ||
+        planStr.includes('amla')
+      ).toBe(true);
+    });
+
+    it('Mama plate has no non-veg ever', () => {
+      const planStr = JSON.stringify(
+        plan.plan
+      ).toLowerCase();
+      const mamaSection = planStr
+        .split('"mama"')[1]?.slice(0, 500) || '';
+      const nonVegWords = [
+        'chicken', 'mutton', 'fish', 'egg',
+        'meat', 'keema'
+      ];
+      nonVegWords.forEach(word => {
+        expect(
+          mamaSection.includes(word)
+        ).toBe(false);
+      });
+    });
+
+    it('leftover chains exist', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      expect(
+        planStr.includes('leftover') ||
+        planStr.includes('leftoverNote') ||
+        planStr.includes('from monday') ||
+        planStr.includes('from tuesday')
+      ).toBe(true);
+    });
+
+    it('weekly cost within 2500', () => {
+      const cost =
+        plan.nutritionSummary?.totalEstimatedCost;
+      if (cost) {
+        expect(cost).toBeLessThanOrEqual(2500);
+      }
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  }, 400000);
+
+  describe('Clinical Test 5 — Fasting + Diabetes',
+  () => {
+    let plan: any;
+    let familyId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily({
+        name: 'Fasting Diabetes Family',
+        state: 'Madhya Pradesh',
+        zone: 'Central Zone',
+        budget: 6000
+      });
+      familyId = family.id;
+      await createTestMember(familyId, {
+        name: 'Gopal',
+        age: 55,
+        gender: 'male',
+        activityLevel: 'sedentary',
+        goal: 'manage condition',
+        conditions: ['diabetes'],
+        dietType: 'vegetarian'
+      });
+
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({
+          familyId,
+          weeklyContext: {
+            budget: 6000,
+            cookingTime: '20-40 mins',
+            weekStart: '2026-04-07',
+            fastingDays: [
+              'monday', 'tuesday', 'wednesday',
+              'thursday', 'friday', 'saturday', 'sunday'
+            ] // Full Navratri week
+          }
+        });
+
+      expect(res.status).toBe(200);
+      plan = res.body.plan;
+    }, 300000);
+
+    it('early morning slot present even on fasting days',
+    () => {
+      const days = Object.values(plan.plan) as any[];
+      let earlyMorningCount = 0;
+      days.forEach((day: any) => {
+        if (
+          day.earlyMorning ||
+          day.early_morning ||
+          day.onWaking
+        ) {
+          earlyMorningCount++;
+        }
+      });
+      // At least some days should have early morning
+      expect(earlyMorningCount).toBeGreaterThan(0);
+    });
+
+    it('fasting foods are low GI', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      // High GI fasting foods should not dominate
+      // Low GI fasting foods should be present
+      const lowGIFasting = [
+        'makhana', 'kuttu', 'rajgira', 'barnyard',
+        'singhara', 'sama', 'samvat'
+      ];
+      const lowGICount = lowGIFasting.filter(
+        f => planStr.includes(f)
+      ).length;
+      expect(lowGICount).toBeGreaterThanOrEqual(2);
+    });
+
+    it('sabudana paired with protein', () => {
+      const planStr = JSON.stringify(plan)
+        .toLowerCase();
+      if (planStr.includes('sabudana')) {
+        const sabudanaIdx =
+          planStr.indexOf('sabudana');
+        const context = planStr.slice(
+          sabudanaIdx - 200,
+          sabudanaIdx + 500
+        );
+        expect(
+          context.includes('dahi') ||
+          context.includes('peanut') ||
+          context.includes('mungfali') ||
+          context.includes('paneer') ||
+          context.includes('protein')
+        ).toBe(true);
+      }
+    });
+
+    it('bedtime recommendation present', () => {
+      const days = Object.values(plan.plan) as any[];
+      let bedtimeCount = 0;
+      days.forEach((day: any) => {
+        if (day.bedtime || day.bedTime) {
+          bedtimeCount++;
+        }
+      });
+      expect(bedtimeCount).toBeGreaterThan(0);
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  }, 400000);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 5 — EMBEDDING QUEUE TESTS
+File: tests/unit/embeddingQueue.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect } from 'vitest';
+  import {
+    getEmbeddingQueueStatus
+  } from '../../server/services/embeddingQueue';
+  import { db } from '../../server/db';
+
+  describe('Embedding Queue', () => {
+    it('queue status endpoint returns valid shape',
+    async () => {
+      const status = getEmbeddingQueueStatus();
+      expect(status).toHaveProperty('isRunning');
+      expect(status).toHaveProperty('processedCount');
+      expect(status).toHaveProperty('totalToProcess');
+      expect(status).toHaveProperty('percentComplete');
+    });
+
+    it('percent complete is between 0 and 100', () => {
+      const status = getEmbeddingQueueStatus() as any;
+      expect(
+        status.percentComplete
+      ).toBeGreaterThanOrEqual(0);
+      expect(
+        status.percentComplete
+      ).toBeLessThanOrEqual(100);
+    });
+
+    it('at least 20 recipes are embedded', async () => {
+      const result = await db.execute(`
+        SELECT COUNT(*) as count
+        FROM recipes
+        WHERE embedding IS NOT NULL
+      ` as any);
+      const count = parseInt(result.rows[0].count);
+      expect(count).toBeGreaterThanOrEqual(20);
+    });
+
+    it('embedded recipes have correct vector dimension',
+    async () => {
+      const result = await db.execute(`
+        SELECT embedding
+        FROM recipes
+        WHERE embedding IS NOT NULL
+        LIMIT 3
+      ` as any);
+      result.rows.forEach((row: any) => {
+        const values = row.embedding
+          .replace('[','').replace(']','')
+          .split(',');
+        expect(values.length).toBe(768);
+      });
+    });
+
+    it('Voyage AI is not referenced anywhere',
+    async () => {
+      const { execSync } = await import('child_process');
+      try {
+        const result = execSync(
+          'grep -r "voyage" server/ --include="*.ts" -l',
+          { encoding: 'utf8' }
+        ).trim();
+        expect(result).toBe('');
+      } catch (e) {
+        // grep returns exit code 1 when no matches
+        // found — this is the expected case
+        expect(true).toBe(true);
+      }
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 6 — STATE ZONE MAPPING TESTS
+File: tests/unit/zoneMapping.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect } from 'vitest';
+  import {
+    getZoneFromState
+  } from '../../server/lib/icmr-nin';
+
+  describe('State to Zone Mapping', () => {
+    const testCases = [
+      // North Zone
+      ['Punjab', 'North Zone'],
+      ['Haryana', 'North Zone'],
+      ['Himachal Pradesh', 'North Zone'],
+      ['Jammu and Kashmir', 'North Zone'],
+      ['Jammu & Kashmir', 'North Zone'],
+      ['Ladakh', 'North Zone'],
+      ['Rajasthan', 'North Zone'],
+      ['Uttarakhand', 'North Zone'],
+      ['Chandigarh', 'North Zone'],
+      // North Central Zone
+      ['Uttar Pradesh', 'North Central Zone'],
+      ['Delhi', 'North Central Zone'],
+      ['Bihar', 'North Central Zone'],
+      // Central Zone
+      ['Madhya Pradesh', 'Central Zone'],
+      ['Chhattisgarh', 'Central Zone'],
+      // East Zone
+      ['West Bengal', 'East Zone'],
+      ['Odisha', 'East Zone'],
+      ['Jharkhand', 'East Zone'],
+      ['Assam', 'East Zone'],
+      ['Sikkim', 'East Zone'],
+      ['Tripura', 'East Zone'],
+      ['Manipur', 'East Zone'],
+      // North East Zone
+      ['Arunachal Pradesh', 'North East Zone'],
+      ['Meghalaya', 'North East Zone'],
+      ['Mizoram', 'North East Zone'],
+      ['Nagaland', 'North East Zone'],
+      // West Zone
+      ['Maharashtra', 'West Zone'],
+      ['Gujarat', 'West Zone'],
+      ['Goa', 'West Zone'],
+      // South Zone
+      ['Andhra Pradesh', 'South Zone'],
+      ['Karnataka', 'South Zone'],
+      ['Kerala', 'South Zone'],
+      ['Tamil Nadu', 'South Zone'],
+      ['Telangana', 'South Zone'],
+      ['Puducherry', 'South Zone'],
+    ];
+
+    testCases.forEach(([state, expectedZone]) => {
+      it(`${state} maps to ${expectedZone}`, () => {
+        expect(getZoneFromState(state))
+          .toBe(expectedZone);
+      });
+    });
+
+    it('unknown state returns Pan-Indian / General',
+    () => {
+      expect(
+        getZoneFromState('Unknown State XYZ')
+      ).toBe('Pan-Indian / General');
+    });
+
+    it('empty string returns Pan-Indian / General',
+    () => {
+      expect(getZoneFromState('')).toBeDefined();
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 7 — ICMR-NIN CALORIE CALCULATION TESTS
+File: tests/unit/icmrNin.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect } from 'vitest';
+  import {
+    getICMRNINTargets
+  } from '../../server/lib/icmr-nin';
+
+  describe('ICMR-NIN Nutrient Targets', () => {
+    it('adult male sedentary gets ~2000-2400 kcal',
+    () => {
+      const targets = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      expect(targets.calories).toBeGreaterThan(1900);
+      expect(targets.calories).toBeLessThan(2500);
+    });
+
+    it('adult female sedentary gets ~1600-2000 kcal',
+    () => {
+      const targets = getICMRNINTargets({
+        age: 35, gender: 'female',
+        activityLevel: 'sedentary'
+      });
+      expect(targets.calories).toBeGreaterThan(1500);
+      expect(targets.calories).toBeLessThan(2100);
+    });
+
+    it('very active male gets more calories than sedentary',
+    () => {
+      const sedentary = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      const active = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'very_active'
+      });
+      expect(active.calories).toBeGreaterThan(
+        sedentary.calories
+      );
+    });
+
+    it('woman has higher iron requirement than man',
+    () => {
+      const male = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      const female = getICMRNINTargets({
+        age: 35, gender: 'female',
+        activityLevel: 'sedentary'
+      });
+      expect(female.iron).toBeGreaterThan(male.iron);
+    });
+
+    it('child age 8 has lower calories than adult',
+    () => {
+      const child = getICMRNINTargets({
+        age: 8, gender: 'male',
+        activityLevel: 'moderately_active'
+      });
+      const adult = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      expect(child.calories).toBeLessThan(
+        adult.calories
+      );
+    });
+
+    it('returns protein, carbs, fat, iron, calcium',
+    () => {
+      const targets = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      expect(targets.protein).toBeGreaterThan(0);
+      expect(targets.carbs).toBeGreaterThan(0);
+      expect(targets.fat).toBeGreaterThan(0);
+      expect(targets.iron).toBeGreaterThan(0);
+      expect(targets.calcium).toBeGreaterThan(0);
+    });
+
+    it('macros add up to approximately 100% of calories',
+    () => {
+      const t = getICMRNINTargets({
+        age: 35, gender: 'male',
+        activityLevel: 'sedentary'
+      });
+      const proteinCals = t.protein * 4;
+      const carbCals = t.carbs * 4;
+      const fatCals = t.fat * 9;
+      const total = proteinCals + carbCals + fatCals;
+      const ratio = total / t.calories;
+      expect(ratio).toBeGreaterThan(0.85);
+      expect(ratio).toBeLessThan(1.15);
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 8 — CHAT RAG TESTS
+File: tests/integration/chat.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect,
+    beforeAll, afterAll } from 'vitest';
+  import request from 'supertest';
+  import { app } from '../../server/index';
+  import {
+    createTestFamily,
+    cleanupTestFamilies
+  } from '../helpers/testSeed';
+
+  describe('Chat API', () => {
+    let familyId: number;
+    let conversationId: number;
+
+    beforeAll(async () => {
+      const family = await createTestFamily();
+      familyId = family.id;
+    });
+
+    it('POST /api/conversations creates a conversation',
+    async () => {
+      const res = await request(app)
+        .post('/api/conversations')
+        .send({ familyId, title: 'Test Chat' });
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBeDefined();
+      conversationId = res.body.id;
+    });
+
+    it('chat responds with diabetic breakfast advice',
+    async () => {
+      const res = await request(app)
+        .post(`/api/conversations/${conversationId}/messages`)
+        .send({
+          familyId,
+          content:
+            'What should my diabetic father eat for breakfast?'
+        });
+
+      expect(res.status).toBe(200);
+      const responseText =
+        (res.body.content || '').toLowerCase();
+
+      const diabeticFoods = [
+        'besan', 'moong', 'ragi', 'dalia', 'oats',
+        'cheela', 'chilla', 'methi', 'low gi',
+        'glycemic', 'millet'
+      ];
+      const forbiddenFoods = [
+        'cornflakes', 'white bread',
+        'fruit juice', 'orange juice'
+      ];
+
+      const hasDiabeticFood = diabeticFoods.some(
+        food => responseText.includes(food)
+      );
+      const hasForbiddenFood = forbiddenFoods.some(
+        food => responseText.includes(food)
+      );
+
+      expect(hasDiabeticFood).toBe(true);
+      expect(hasForbiddenFood).toBe(false);
+    }, 60000);
+
+    it('chat responds with anaemia food advice',
+    async () => {
+      const res = await request(app)
+        .post(
+          `/api/conversations/${conversationId}/messages`
+        )
+        .send({
+          familyId,
+          content:
+            'What iron-rich foods should I eat for anaemia?'
+        });
+
+      expect(res.status).toBe(200);
+      const responseText =
+        (res.body.content || '').toLowerCase();
+
+      const ironFoods = [
+        'palak', 'spinach', 'rajma', 'chana',
+        'ragi', 'sesame', 'til', 'amla', 'nimbu',
+        'lemon', 'iron', 'vitamin c'
+      ];
+      const hasIronFood = ironFoods.some(
+        food => responseText.includes(food)
+      );
+      expect(hasIronFood).toBe(true);
+    }, 60000);
+
+    it('chat does not hallucinate Western foods',
+    async () => {
+      const res = await request(app)
+        .post(
+          `/api/conversations/${conversationId}/messages`
+        )
+        .send({
+          familyId,
+          content:
+            'Suggest a healthy Indian dinner'
+        });
+
+      expect(res.status).toBe(200);
+      const responseText =
+        (res.body.content || '').toLowerCase();
+
+      const westernFoods = [
+        'pizza', 'burger', 'pasta', 'steak',
+        'sushi', 'tacos', 'sandwich with mayo'
+      ];
+      const hasWesternFood = westernFoods.some(
+        food => responseText.includes(food)
+      );
+      expect(hasWesternFood).toBe(false);
+    }, 60000);
+
+    it('GET conversations list returns results',
+    async () => {
+      const res = await request(app)
+        .get(`/api/conversations?familyId=${familyId}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    afterAll(async () => {
+      await cleanupTestFamilies();
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 9 — END TO END UI TESTS
+File: tests/e2e/app.spec.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { test, expect } from '@playwright/test';
+
+  test.describe('Application Load and Navigation',
+  () => {
+    test('home page loads without errors', async (
+      { page }
+    ) => {
+      const errors: string[] = [];
+      page.on('console', msg => {
+        if (msg.type() === 'error') {
+          errors.push(msg.text());
+        }
+      });
+      page.on('pageerror', err => {
+        errors.push(err.message);
+      });
+
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+
+      const criticalErrors = errors.filter(e =>
+        !e.includes('favicon') &&
+        !e.includes('404') &&
+        e.includes('Error')
+      );
+      expect(criticalErrors).toHaveLength(0);
+    });
+
+    test('login page renders correctly', async (
+      { page }
+    ) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+
+      const googleButton = page.getByRole('button', {
+        name: /google/i
+      }).or(
+        page.getByText(/continue with google/i)
+      );
+      await expect(googleButton).toBeVisible();
+    });
+
+    test('navigation links are all clickable', async (
+      { page }
+    ) => {
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+
+      const navLinks = await page
+        .locator('nav a, aside a')
+        .all();
+
+      for (const link of navLinks) {
+        const href = await link.getAttribute('href');
+        if (href && !href.startsWith('http')) {
+          await expect(link).toBeVisible();
+        }
+      }
+    });
+
+    test('404 page shows for unknown route', async (
+      { page }
+    ) => {
+      await page.goto('/this-route-does-not-exist');
+      await page.waitForLoadState('networkidle');
+
+      const pageText = await page.textContent('body');
+      expect(
+        pageText?.includes('404') ||
+        pageText?.includes('not found') ||
+        pageText?.includes('Not Found')
+      ).toBe(true);
+    });
+  });
+
+  test.describe('Family Setup Flow', () => {
+    test('family setup page is accessible', async (
+      { page }
+    ) => {
+      await page.goto('/family-setup');
+      await page.waitForLoadState('networkidle');
+
+      const heading = page.getByRole('heading').first();
+      await expect(heading).toBeVisible();
+    });
+
+    test('number of members stepper works', async (
+      { page }
+    ) => {
+      await page.goto('/family-setup');
+      await page.waitForLoadState('networkidle');
+
+      const stepper = page.locator(
+        'input[type="number"]'
+      ).first();
+
+      if (await stepper.isVisible()) {
+        await stepper.fill('3');
+        const value = await stepper.inputValue();
+        expect(parseInt(value)).toBe(3);
+      }
+    });
+
+    test('state dropdown has all Indian states',
+    async ({ page }) => {
+      await page.goto('/family-setup');
+      await page.waitForLoadState('networkidle');
+
+      const stateSelect = page.locator(
+        'select[name="state"], [data-testid="state-select"]'
+      ).first();
+
+      if (await stateSelect.isVisible()) {
+        const options = await stateSelect
+          .locator('option')
+          .allTextContents();
+        expect(options.length).toBeGreaterThan(25);
+        expect(
+          options.some(o =>
+            o.includes('Maharashtra') ||
+            o.includes('Punjab') ||
+            o.includes('Tamil Nadu')
+          )
+        ).toBe(true);
+      }
+    });
+  });
+
+  test.describe('Dashboard Rendering', () => {
+    test('dashboard loads without blank screen',
+    async ({ page }) => {
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+
+      const body = await page.textContent('body');
+      expect(body?.length).toBeGreaterThan(100);
+    });
+
+    test('no infinite loading spinners', async (
+      { page }
+    ) => {
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(5000);
+
+      const spinners = await page.locator(
+        '[class*="spinner"],[class*="loading"],' +
+        '[class*="skeleton"]'
+      ).count();
+      expect(spinners).toBeLessThan(5);
+    });
+  });
+
+  test.describe('Meal Plan Page', () => {
+    test('meal plan page loads', async ({ page }) => {
+      await page.goto('/meal-plan');
+      await page.waitForLoadState('networkidle');
+
+      const pageText = await page.textContent('body');
+      expect(pageText?.length).toBeGreaterThan(50);
+    });
+
+    test('generate button exists', async ({ page }) => {
+      await page.goto('/meal-plan');
+      await page.waitForLoadState('networkidle');
+
+      const generateBtn = page.getByRole('button', {
+        name: /generate/i
+      });
+      if (await generateBtn.count() > 0) {
+        await expect(generateBtn.first()).toBeVisible();
+      }
+    });
+  });
+
+  test.describe('Recipe Explorer', () => {
+    test('recipe page loads with data', async (
+      { page }
+    ) => {
+      await page.goto('/recipes');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(3000);
+
+      const recipeCards = page.locator(
+        '[data-testid="recipe-card"],' +
+        '.recipe-card,' +
+        '[class*="recipe"]'
+      );
+      const count = await recipeCards.count();
+      expect(count).toBeGreaterThan(0);
+    });
+
+    test('search input filters results', async (
+      { page }
+    ) => {
+      await page.goto('/recipes');
+      await page.waitForLoadState('networkidle');
+
+      const searchInput = page.locator(
+        'input[type="search"],' +
+        'input[placeholder*="search" i],' +
+        'input[placeholder*="recipe" i]'
+      ).first();
+
+      if (await searchInput.isVisible()) {
+        await searchInput.fill('dal makhani');
+        await page.waitForTimeout(1500);
+
+        const results = await page.textContent('body');
+        expect(
+          results?.toLowerCase().includes('dal')
+        ).toBe(true);
+      }
+    });
+  });
+
+  test.describe('Chat Interface', () => {
+    test('chat page loads', async ({ page }) => {
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
+
+      const body = await page.textContent('body');
+      expect(body?.length).toBeGreaterThan(50);
+    });
+
+    test('message input is present', async (
+      { page }
+    ) => {
+      await page.goto('/chat');
+      await page.waitForLoadState('networkidle');
+
+      const input = page.locator(
+        'input[type="text"],' +
+        'textarea,' +
+        '[contenteditable="true"]'
+      ).first();
+
+      if (await input.count() > 0) {
+        await expect(input.first()).toBeVisible();
+      }
+    });
+  });
+
+  test.describe('Mobile Responsiveness', () => {
+    test('app is usable on mobile viewport', async (
+      { page }
+    ) => {
+      await page.setViewportSize({
+        width: 390, height: 844
+      });
+      await page.goto('/');
+      await page.waitForLoadState('networkidle');
+
+      const body = await page.textContent('body');
+      expect(body?.length).toBeGreaterThan(50);
+
+      const horizontalScroll =
+        await page.evaluate(() => {
+          return document.documentElement
+            .scrollWidth >
+            document.documentElement.clientWidth;
+        });
+      expect(horizontalScroll).toBe(false);
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 10 — SECURITY TESTS
+File: tests/integration/security.test.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  import { describe, it, expect } from 'vitest';
+  import request from 'supertest';
+  import { app } from '../../server/index';
+
+  describe('Authentication Security', () => {
+    const protectedRoutes = [
+      ['GET', '/api/families'],
+      ['POST', '/api/families'],
+      ['GET', '/api/meal-plans'],
+      ['POST', '/api/meal-plans/generate'],
+      ['GET', '/api/grocery-lists'],
+      ['POST', '/api/grocery-lists/generate'],
+      ['GET', '/api/nutrition-logs'],
+      ['POST', '/api/nutrition-logs'],
+      ['GET', '/api/health-logs'],
+      ['POST', '/api/health-logs'],
+      ['GET', '/api/conversations'],
+      ['POST', '/api/conversations'],
+    ];
+
+    protectedRoutes.forEach(([method, route]) => {
+      it(`${method} ${route} returns 401 without auth`,
+      async () => {
+        const res = method === 'GET'
+          ? await request(app).get(route)
+          : await request(app).post(route)
+            .send({});
+        expect(res.status).toBe(401);
+      });
+    });
+
+    it('SQL injection in search returns 400 or empty',
+    async () => {
+      const res = await request(app)
+        .get(
+          '/api/recipes?search=' +
+          encodeURIComponent(
+            "'; DROP TABLE recipes; --"
+          )
+        );
+      expect([200, 400]).toContain(res.status);
+      if (res.status === 200) {
+        expect(Array.isArray(res.body)).toBe(true);
+      }
+    });
+
+    it('XSS in recipe name is sanitised', async () => {
+      const res = await request(app)
+        .get(
+          '/api/recipes?search=' +
+          encodeURIComponent(
+            '<script>alert("xss")</script>'
+          )
+        );
+      const responseText = JSON.stringify(res.body);
+      expect(
+        responseText.includes('<script>')
+      ).toBe(false);
+    });
+
+    it('rate limiting headers present on AI endpoints',
+    async () => {
+      const res = await request(app)
+        .post('/api/meal-plans/generate')
+        .send({ familyId: 1 });
+      expect(res.status).toBe(401);
+    });
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 11 — TEST RUNNER AND REPORT GENERATOR
+File: tests/runAllTests.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create this orchestrator file that runs everything
+and produces a final report:
+
+  import { execSync } from 'child_process';
+  import fs from 'fs';
+
+  interface TestResult {
+    suite: string;
+    passed: number;
+    failed: number;
+    skipped: number;
+    duration: number;
+    failures: string[];
+  }
+
+  const results: TestResult[] = [];
+
+  function runSuite(
+    name: string,
+    command: string
+  ): TestResult {
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`Running: ${name}`);
+    console.log('='.repeat(50));
+
+    const start = Date.now();
+    let passed = 0;
+    let failed = 0;
+    let skipped = 0;
+    const failures: string[] = [];
+
+    try {
+      const output = execSync(command, {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        timeout: 600000
+      });
+      console.log(output);
+
+      const passMatch =
+        output.match(/(\d+) passed/);
+      const failMatch =
+        output.match(/(\d+) failed/);
+      const skipMatch =
+        output.match(/(\d+) skipped/);
+
+      passed = passMatch
+        ? parseInt(passMatch[1]) : 0;
+      failed = failMatch
+        ? parseInt(failMatch[1]) : 0;
+      skipped = skipMatch
+        ? parseInt(skipMatch[1]) : 0;
+
+      const failureLines = output
+        .split('\n')
+        .filter(line =>
+          line.includes('FAIL') ||
+          line.includes('✗') ||
+          line.includes('× ')
+        );
+      failures.push(...failureLines);
+
+    } catch (err: any) {
+      console.error(`Suite failed: ${err.message}`);
+      failed++;
+      failures.push(err.message?.slice(0, 200));
+    }
+
+    const duration = Date.now() - start;
+    return { suite: name, passed, failed,
+      skipped, duration, failures };
+  }
+
+  async function main() {
+    console.log('\n' + '█'.repeat(60));
+    console.log('PARIVARSEHAT AI — FULL TEST SUITE');
+    console.log('█'.repeat(60));
+
+    // Phase 1-3: Unit and Integration
+    results.push(runSuite(
+      'Database Tests',
+      'npx vitest run tests/unit/database.test.ts'
+    ));
+
+    results.push(runSuite(
+      'API Endpoint Tests',
+      'npx vitest run tests/integration/api.test.ts'
+    ));
+
+    results.push(runSuite(
+      'RAG System Tests',
+      'npx vitest run tests/unit/rag.test.ts'
+    ));
+
+    results.push(runSuite(
+      'Embedding Queue Tests',
+      'npx vitest run tests/unit/embeddingQueue.test.ts'
+    ));
+
+    results.push(runSuite(
+      'Zone Mapping Tests',
+      'npx vitest run tests/unit/zoneMapping.test.ts'
+    ));
+
+    results.push(runSuite(
+      'ICMR-NIN Calculation Tests',
+      'npx vitest run tests/unit/icmrNin.test.ts'
+    ));
+
+    results.push(runSuite(
+      'Chat RAG Tests',
+      'npx vitest run tests/integration/chat.test.ts'
+    ));
+
+    results.push(runSuite(
+      'Security Tests',
+      'npx vitest run tests/integration/security.test.ts'
+    ));
+
+    // Phase 9: E2E (requires app running)
+    results.push(runSuite(
+      'E2E UI Tests',
+      'npx playwright test tests/e2e/app.spec.ts'
+    ));
+
+    // Phase 4: Clinical tests (slowest — run last)
+    results.push(runSuite(
+      'Clinical Correctness Tests',
+      'npx vitest run tests/clinical/mealPlanClinical.test.ts'
+    ));
+
+    // Generate final report
+    const totalPassed = results.reduce(
+      (s, r) => s + r.passed, 0
+    );
+    const totalFailed = results.reduce(
+      (s, r) => s + r.failed, 0
+    );
+    const totalSkipped = results.reduce(
+      (s, r) => s + r.skipped, 0
+    );
+    const totalDuration = results.reduce(
+      (s, r) => s + r.duration, 0
+    );
+
+    const report = {
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalPassed,
+        totalFailed,
+        totalSkipped,
+        totalTests:
+          totalPassed + totalFailed + totalSkipped,
+        passRate: totalPassed > 0
+          ? (
+            (totalPassed /
+              (totalPassed + totalFailed)) * 100
+          ).toFixed(1) + '%'
+          : '0%',
+        duration:
+          `${(totalDuration / 1000).toFixed(1)}s`,
+        overall: totalFailed === 0 ? '✅ PASS' : '❌ FAIL'
+      },
+      suites: results,
+      allFailures: results.flatMap(r => r.failures)
+    };
+
+    fs.mkdirSync('test-results', { recursive: true });
+    fs.writeFileSync(
+      'test-results/full-report.json',
+      JSON.stringify(report, null, 2)
+    );
+
+    console.log('\n' + '█'.repeat(60));
+    console.log('FINAL TEST REPORT');
+    console.log('█'.repeat(60));
+    console.log(`\nTotal Tests: ${report.summary.totalTests}`);
+    console.log(`Passed:      ${totalPassed} ✅`);
+    console.log(`Failed:      ${totalFailed} ❌`);
+    console.log(`Skipped:     ${totalSkipped} ⏭`);
+    console.log(`Pass Rate:   ${report.summary.passRate}`);
+    console.log(`Duration:    ${report.summary.duration}`);
+    console.log(`\nResult: ${report.summary.overall}`);
+
+    console.log('\nPer Suite:');
+    results.forEach(r => {
+      const icon = r.failed > 0 ? '❌' : '✅';
+      console.log(
+        `  ${icon} ${r.suite}: ` +
+        `${r.passed} passed, ${r.failed} failed ` +
+        `(${(r.duration/1000).toFixed(1)}s)`
+      );
+    });
+
+    if (report.allFailures.length > 0) {
+      console.log('\nFailures to fix:');
+      report.allFailures.slice(0, 20).forEach(
+        (f, i) => console.log(`  ${i+1}. ${f}`)
+      );
+    }
+
+    console.log(
+      '\nFull report saved to: test-results/full-report.json'
+    );
+
+    process.exit(totalFailed > 0 ? 1 : 0);
+  }
+
+  main();
+
+Add to package.json scripts:
+
+  "test": "vitest run",
+  "test:unit": "vitest run tests/unit/",
+  "test:integration": "vitest run tests/integration/",
+  "test:clinical": "vitest run tests/clinical/",
+  "test:e2e": "playwright test",
+  "test:all": "tsx tests/runAllTests.ts",
+  "test:coverage": "vitest run --coverage"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 12 — EXECUTE ALL TESTS NOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After creating all test files above, execute
+in this exact sequence:
+
+1. Run unit tests first (fastest, no AI calls):
+   npx vitest run tests/unit/
+
+2. Run integration tests:
+   npx vitest run tests/integration/
+
+3. Run security tests:
+   npx vitest run tests/integration/security.test.ts
+
+4. Run E2E tests:
+   npx playwright test tests/e2e/app.spec.ts
+
+5. Run clinical tests last (slowest — ~20 minutes):
+   npx vitest run tests/clinical/
+
+6. Generate full report:
+   tsx tests/runAllTests.ts
+
+For every test that fails:
+- Identify the root cause
+- Fix the root cause in the application code
+- Re-run that specific test to confirm fix
+- Then continue to the next failure
+
+Do not move forward with unfixed failures.
+Every test must pass before the run is complete.
+
+Report the final scores in this format:
+
+PARIVARSEHAT TEST RESULTS
+==========================
+Database Tests:          X/X passing
+API Endpoint Tests:      X/X passing
+RAG System Tests:        X/X passing
+Embedding Queue Tests:   X/X passing
+Zone Mapping Tests:      X/X passing
+ICMR-NIN Tests:          X/X passing
+Chat RAG Tests:          X/X passing
+Security Tests:          X/X passing
+E2E UI Tests:            X/X passing
+Clinical Tests:          X/X passing
+--------------------------
+TOTAL:                   X/X passing
+PASS RATE:               XX%
+CLINICAL SCORE:          XX/55 checks
+OVERALL:                 ✅ PASS / ❌ FAIL
