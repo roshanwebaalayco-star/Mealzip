@@ -103,8 +103,12 @@ describe("Level 3 — Regression Quick Checks", () => {
 
       expect(body).toHaveProperty("icmrCompliance");
       const compliance = body.icmrCompliance as Record<string, unknown>;
-      expect(compliance).toHaveProperty("guidelinesRetrieved");
       expect(compliance).toHaveProperty("googleSearchGroundingEnabled");
+
+      const guidelinesFollowed = compliance.ragSourcesUsed ?? compliance.guidelinesFollowed;
+      expect(Array.isArray(guidelinesFollowed)).toBe(true);
+
+      expect(typeof compliance.guidelinesRetrieved).toBe("number");
 
       expect(body).toHaveProperty("ragContextUsed");
       const rag = body.ragContextUsed as Record<string, unknown>;
