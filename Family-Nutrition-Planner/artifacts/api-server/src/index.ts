@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
+import { ingestKnowledgeBase } from "./services/ingestion.js";
 
 const rawPort = process.env["PORT"];
 
@@ -65,6 +66,9 @@ const server = app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 });
 
-// Extend HTTP timeout for long-running AI meal plan generation (Gemini can take 60-300s)
 server.setTimeout(360000);
 server.keepAliveTimeout = 360000;
+
+ingestKnowledgeBase().catch((err) => {
+  logger.warn({ err }, "Knowledge base ingestion failed (non-fatal). RAG features may be degraded.");
+});

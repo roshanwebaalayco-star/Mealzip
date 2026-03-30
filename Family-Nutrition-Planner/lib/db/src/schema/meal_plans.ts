@@ -13,6 +13,8 @@ export const mealPlansTable = pgTable("meal_plans", {
   plan: jsonb("plan"),
   nutritionSummary: jsonb("nutrition_summary"),
   aiInsights: text("ai_insights"),
+  icmrCompliance: jsonb("icmr_compliance"),
+  ragContextUsed: jsonb("rag_context_used"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("meal_plans_family_id_idx").on(table.familyId),

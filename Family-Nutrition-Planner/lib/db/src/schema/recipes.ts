@@ -9,6 +9,12 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
+const vector768 = customType<{ data: string }>({
+  dataType() {
+    return "vector(768)";
+  },
+});
+
 export const recipesTable = pgTable("recipes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -39,6 +45,7 @@ export const recipesTable = pgTable("recipes", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   searchVector: tsvector("search_vector"),
+  embedding: vector768("embedding"),
 }, (table) => [
   index("recipes_cuisine_idx").on(table.cuisine),
   index("recipes_category_idx").on(table.category),
@@ -48,6 +55,6 @@ export const recipesTable = pgTable("recipes", {
   index("recipes_search_idx").using("gin", sql`to_tsvector('simple', coalesce(${table.name}, '') || ' ' || coalesce(${table.nameHindi}, '') || ' ' || coalesce(${table.ingredients}, ''))`),
 ]);
 
-export const insertRecipeSchema = createInsertSchema(recipesTable).omit({ id: true, createdAt: true, searchVector: true });
+export const insertRecipeSchema = createInsertSchema(recipesTable).omit({ id: true, createdAt: true, searchVector: true, embedding: true });
 export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
 export type Recipe = typeof recipesTable.$inferSelect;

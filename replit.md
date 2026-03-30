@@ -105,9 +105,10 @@ Family-Nutrition-Planner/
 Key tables:
 - `families` — family profiles (`monthlyBudget` as integer in rupees, `state`, `primaryLanguage`, `appliances text[]` — kitchen appliances owned, defaults to `['tawa','pressure_cooker','kadai']`)
 - `family_members` — per-member profiles including new fields: `goalPace`, `tiffinType`, `religiousRules`, `ingredientDislikes[]`, `nonVegDays[]`, `nonVegTypes[]`, `icmrCaloricTarget`
-- `recipes` — 12,771 seeded Indian recipes with nutrition data, cuisine, course, diet tags
+- `recipes` — 12,771 seeded Indian recipes with nutrition data, cuisine, course, diet tags; `embedding vector(768)` column for semantic search
 - `icmr_nin_rda` — 22 RDA reference records by age group/gender/activity
-- `meal_plans` — AI-generated weekly plans (stored as JSON), linked to family
+- `knowledge_chunks` — RAG knowledge base: chunked text from ICMR-NIN PDFs + meal patterns with `embedding vector(768)` for cosine similarity retrieval (HNSW indexed)
+- `meal_plans` — AI-generated weekly plans (stored as JSON), linked to family; `icmr_compliance` and `rag_context_used` JSONB columns for RAG audit trail
 - `meal_feedback` — thumbs up/down per meal slot
 - `grocery_lists` — AI-generated grocery lists with cost breakdown
 - `health_logs` — per-member health metrics (weight, BMI, blood sugar, BP, symptoms)

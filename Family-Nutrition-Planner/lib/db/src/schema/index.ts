@@ -12,3 +12,4 @@ export * from "./nutrition_logs";
 export * from "./grocery_lists";
 export * from "./food_gi_nutrition";
 export * from "./leftover_items";
+export * from "./knowledge_chunks";
