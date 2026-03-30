@@ -380,6 +380,9 @@ ask_budget:
 ask_dietary_type:
   → parsedFields: { "dietaryType": "vegetarian|non-vegetarian|vegan|jain" }
   → nextState: "ask_member_start"
+  IMPORTANT: Users may answer with option references like "A", "Option A", "first one", "pehla", "1", "should A" etc.
+  Map these to the options in the order they were presented: A/1/first=vegetarian, B/2/second=non-vegetarian, C/3/third=vegan, D/4/fourth=jain.
+  Also accept partial matches: "veg" → vegetarian, "non veg" / "nonveg" → non-vegetarian.
 
 ask_member_start:
   → parsedFields: { "currentMember": { "name": "...", "role": "father|mother|child|grandparent|other", "age": 42, "gender": "male|female|other", "healthConditions": [], "healthGoal": "general_wellness" } }
@@ -403,6 +406,7 @@ Indian states (colloquial → official):
   Madras/Chennai → Tamil Nadu | Bengaluru/Bangalore → Karnataka | Hyderabad → Telangana
 
 === RULES ===
+0. OPTION-STYLE ANSWERS: Users frequently respond with "A", "B", "Option A", "first one", "pehla wala", "1", "should A", "number 1" etc. When the previous assistant message listed options (e.g. "vegetarian, non-vegetarian, vegan, or Jain"), map the user's option reference to the correct value in the order they were listed. NEVER ask "I didn't understand" if the user clearly picked an option — always resolve it.
 1. isComplete:true ONLY when nextState is "complete" AND familyName AND at least one member collected
 2. assistantMessage MUST be in ${cfg.note}
 3. assistantMessage = brief warm confirmation of what you heard + next question
