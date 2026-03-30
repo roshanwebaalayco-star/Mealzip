@@ -11,6 +11,8 @@ integrations = ["javascript_gemini_ai_integrations:2.0.0"]
 [userenv.shared]
 JWT_SECRET = "2e612f0f617094ec9b7dd866abeaf9ac8ff685930af9ca014a0601d6e8f53fa01a79794b8cfdffc0b58a26712f5863d17e11be2271a926064f53aad9f49a21d2"
 DEMO_MODE = "true"
+GEMINI_API_KEY = "AIzaSyCzc-lSibsLJKdT3aH2wvWkyLCLe4QcdEQ"
+ADMIN_SECRET = "nutritest-admin-2026"
 
 [[ports]]
 localPort = 3000

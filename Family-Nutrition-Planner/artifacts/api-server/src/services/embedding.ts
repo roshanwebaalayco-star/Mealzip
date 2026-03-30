@@ -7,7 +7,7 @@ const directApiKey = process.env.GEMINI_API_KEY;
 
 function getGenAI(): GoogleGenAI {
   if (directApiKey) {
-    return new GoogleGenAI({ apiKey: directApiKey });
+    return new GoogleGenAI({ apiKey: directApiKey, httpOptions: { apiVersion: "v1" } });
   }
   if (integrationApiKey && integrationBaseUrl) {
     return new GoogleGenAI({
