@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import MealGenPopup from "@/components/MealGenPopup";
 
 interface RecipeDetail {
   id: number;
@@ -205,6 +206,13 @@ export default function MealPlan() {
   const [isRecordingLeftover, setIsRecordingLeftover] = useState(false);
   const [skippedMeals, setSkippedMeals] = useState<Record<string, "skip" | "ate_out">>({});
   const [rebalanceBanner, setRebalanceBanner] = useState<{ dayIndex: number; nextMealType: string; suggestion: string; suggestionHi: string } | null>(null);
+  const [genPopupOpen, setGenPopupOpen] = useState(() => {
+    try {
+      const hasGen = new URLSearchParams(window.location.search).get("gen") === "1";
+      if (hasGen) window.history.replaceState({}, "", window.location.pathname);
+      return hasGen;
+    } catch { return false; }
+  });
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -545,7 +553,7 @@ export default function MealPlan() {
           <div className="flex flex-col gap-3">
             <button
               className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-6 py-3.5 rounded-2xl relative z-10 disabled:opacity-60"
-              onClick={() => setLocation("/meal-plan/context")}
+              onClick={() => setGenPopupOpen(true)}
               disabled={generate.isPending}
             >
               {generate.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -553,6 +561,11 @@ export default function MealPlan() {
             </button>
           </div>
         </div>
+        <MealGenPopup
+          open={genPopupOpen}
+          onClose={() => setGenPopupOpen(false)}
+          onGenerated={() => { setGenPopupOpen(false); refetch(); }}
+        />
       </div>
     );
   }
@@ -734,12 +747,12 @@ export default function MealPlan() {
 
         <div className="flex items-center gap-3 relative z-10 flex-wrap">
           <button
-            onClick={() => setLocation("/meal-plan/context")}
+            onClick={() => setGenPopupOpen(true)}
             disabled={generate.isPending}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary glass-card px-3.5 py-2 rounded-xl hover:bg-white/80 transition-colors disabled:opacity-50"
           >
             {generate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            {t("Regenerate", "पुनर्निर्मित")}
+            {t("New Plan", "नई योजना")}
           </button>
 
           <Button
@@ -1668,6 +1681,11 @@ export default function MealPlan() {
         </div>
       </div>
 
+      <MealGenPopup
+        open={genPopupOpen}
+        onClose={() => setGenPopupOpen(false)}
+        onGenerated={() => { setGenPopupOpen(false); refetch(); }}
+      />
     </motion.div>
   );
 }

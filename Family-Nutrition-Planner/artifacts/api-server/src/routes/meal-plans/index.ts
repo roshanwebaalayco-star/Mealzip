@@ -84,6 +84,26 @@ const MemberAdjustmentSchema = z.object({
   avoid: z.array(z.string()).optional().default([]),
 });
 
+const FlexibleIngredientsSchema = z.union([
+  z.array(z.string()),
+  z.string(),
+  z.array(z.record(z.string(), z.unknown())),
+]).optional().transform(val => {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val === "string") return [val];
+  if (Array.isArray(val)) {
+    return val.map(item => {
+      if (typeof item === "string") return item;
+      if (typeof item === "object" && item !== null) {
+        const o = item as Record<string, unknown>;
+        return o.ingredient ? String(o.ingredient) : o.name ? String(o.name) : JSON.stringify(o);
+      }
+      return String(item);
+    });
+  }
+  return undefined;
+});
+
 const MealCandidateSchema = z.object({
   recipeName: z.string().optional(),
   base_dish_name: z.string().optional(),
@@ -96,10 +116,10 @@ const MealCandidateSchema = z.object({
   member_plates: z.record(z.string(), z.unknown()).optional(),
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   base_ingredients: z.array(BaseIngredientSchema).optional(),
-  ingredients: z.union([z.array(z.string()), z.string()]).optional(),
+  ingredients: FlexibleIngredientsSchema,
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
-}).refine(
+}).passthrough().refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
 );
@@ -116,11 +136,11 @@ const MealSlotSchema = z.object({
   member_plates: z.record(z.string(), z.unknown()).optional(),
   member_adjustments: z.record(z.string(), MemberAdjustmentSchema).optional(),
   base_ingredients: z.array(BaseIngredientSchema).optional(),
-  ingredients: z.union([z.array(z.string()), z.string()]).optional(),
+  ingredients: FlexibleIngredientsSchema,
   _hfssRebalance: z.unknown().optional(),
   _arbitrageNote: z.unknown().optional(),
   candidates: z.array(MealCandidateSchema).min(1).max(3).optional(),
-}).refine(
+}).passthrough().refine(
   data => (data.recipeName !== undefined || data.base_dish_name !== undefined),
   { message: "Either recipeName or base_dish_name must be present" },
 );
@@ -133,15 +153,15 @@ const DayPlanSchema = z.object({
     lunch: MealSlotSchema,
     evening_snack: MealSlotSchema,
     dinner: MealSlotSchema,
-  }),
-});
+  }).passthrough(),
+}).passthrough();
 
 const WeekPlanSchema = z.object({
   days: z.array(DayPlanSchema).min(1),
   harmonyScore: z.number().optional(),
   totalBudgetEstimate: z.number().optional(),
   aiInsights: z.string().optional(),
-});
+}).passthrough();
 
 const HalfMealCandidateSchema = z.object({
   recipeName: z.string().optional(),
