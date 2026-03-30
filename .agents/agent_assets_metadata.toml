@@ -6,3 +6,9 @@ id = "kOhBUpKVr2p2QqrFTNFCj"
 uri = "file://.local/test-report.md"
 type = "text"
 title = "Full RAG & Clinical Test Report — March 30, 2026"
+
+[[outputs]]
+id = "TDnjtRQHwkxjL1ImJS7qs"
+uri = "file://Family-Nutrition-Planner/TEST_REPORT.md"
+type = "text"
+title = "Full Test Report — Functional + Clinical"

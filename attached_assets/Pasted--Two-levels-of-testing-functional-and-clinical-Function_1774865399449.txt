@@ -1,0 +1,252 @@
+## Two levels of testing — functional and clinical
+
+Functional testing checks if the system works. Clinical testing checks if the output is actually correct. You need both.
+
+---
+
+## LEVEL 1 — Functional Testing (Is it even running?)
+
+**Test 1 — Knowledge base ingested**
+
+Run this SQL directly in your Replit database console:
+
+```sql
+SELECT source, COUNT(*) as chunks
+FROM knowledge_chunks
+GROUP BY source
+ORDER BY source;
+```
+
+Expected result:
+```
+icmr_guidelines    |  80-150 chunks
+icmr_rda           |  30-60 chunks
+meal_patterns      |  40-80 chunks
+```
+
+If any row is missing or shows 0, the ingestion failed for that file. Run the admin reingest endpoint.
+
+**Test 2 — Recipes are embedded**
+
+```sql
+SELECT
+  COUNT(*) as total_recipes,
+  COUNT(embedding) as embedded_recipes,
+  COUNT(*) - COUNT(embedding) as missing_embeddings
+FROM recipes;
+```
+
+Expected: missing_embeddings should be 0. If it is not zero, run the seed script again.
+
+**Test 3 — Vector search is actually finding things**
+
+Hit this endpoint directly using Postman or your browser console:
+
+```
+POST /api/admin/test-retrieval
+Body: { "query": "diabetes low GI Indian breakfast" }
+```
+
+Expected response should return 5-8 recipes with similarity scores above 0.6. If scores are all below 0.4 or the results are irrelevant, your embeddings are not working correctly.
+
+**Test 4 — Server logs during generation**
+
+Open your Replit console while generating a meal plan. You should see exactly these log lines in sequence:
+
+```
+Starting RAG retrieval...
+Retrieved 6 ICMR-NIN guideline sections
+Retrieved 8 meal pattern rules
+Retrieved 40 regional recipes for North Zone
+Gemini attempt 1...
+Meal plan saved. ID: 23
+```
+
+If you do not see the retrieval logs, the RAG service is not being called and the system is still using the old dumb prompt.
+
+---
+
+## LEVEL 2 — Clinical Testing (Is the output actually correct?)
+
+This is the real test. Create these five specific test families and generate a plan for each. Then check the output against the criteria listed.
+
+---
+
+**Clinical Test 1 — The Diabetes Test**
+
+Create a family:
+- One member. Male. Age 45. Rajasthan. Sedentary.
+- Goal: Manage health condition.
+- Health condition: Diabetes Type 2.
+- Budget: ₹6,000 per month.
+
+Generate the plan. Then check every single day against this checklist:
+
+```
+□ Does early morning include methi water or amla?
+□ Is there NO fruit juice anywhere in the plan?
+□ Is dal present at EVERY lunch without exception?
+□ Is white rice alone ever served? (Must never happen —
+  always paired with dal and sabzi)
+□ Is dinner finished at or before 7:00-7:30 PM note?
+□ Is millet (bajra/jowar/ragi) present at least
+  3-4 times across the week?
+□ Are potatoes, sweet corn, brinjal avoided at dinner?
+□ Is the bedtime recommendation amla powder + turmeric?
+□ Does icmrCompliance field mention low GI approach?
+□ Are any biscuits, maida, or refined sugar present?
+  (Must never appear)
+□ Is there a post-meal walk recommendation?
+```
+
+Pass mark: 9 out of 11. If you score below 9, your meal_patterns.txt chunk for diabetes is not being retrieved correctly.
+
+---
+
+**Clinical Test 2 — The Weight Loss Test**
+
+Create a family:
+- One member. Female. Age 32. Punjab. Lightly active.
+- Goal: Lose weight. Pace: Slow.
+- Health condition: None.
+- Budget: ₹8,000 per month.
+
+Check the output:
+
+```
+□ Is breakfast dalia in water (not milk)?
+□ Is there NEVER roti AND chawal at the same meal?
+□ Is the snack plain dahi or fruit? (Never chips/biscuits)
+□ Is dinner before 8 PM noted?
+□ Are chips, biscuits, namkeen completely absent?
+□ Is ghee used sparingly (mentioned as small amount)?
+□ Is banana not appearing as a snack?
+□ Is there a raw salad at lunch before the main meal?
+□ Is chaas recommended at lunch?
+□ Are calories in the weekSummary below maintenance
+  (should be 300-400 kcal below 1800 kcal for this
+  member — so approximately 1400-1500 kcal range)?
+```
+
+---
+
+**Clinical Test 3 — The Weight Gain Test**
+
+Create a family:
+- One member. Male. Age 19. Bihar. Moderately active.
+- Goal: Gain weight.
+- Health condition: None.
+- Budget: ₹5,000 per month.
+
+Check the output:
+
+```
+□ Is dalia with milk at breakfast?
+□ Is lunch the heaviest meal with roti AND dal AND
+  sabzi AND chawal AND dahi all present?
+□ Is the snack aloo with dahi or a calorie-dense
+  option (not a fruit)?
+□ Is haldi milk at bedtime?
+□ Is ghee present at multiple meals?
+□ Are calories in the weekSummary ABOVE maintenance
+  (should be 400-600 kcal above approximately
+  2500 kcal for this member)?
+□ Is paneer or rajma or chana present at least
+  3-4 times in the week?
+```
+
+---
+
+**Clinical Test 4 — The Multi-Member Conflict Test**
+
+This is your demo scenario. It tests the One Base Many Plates logic.
+
+Create a family:
+- Member 1: Papa. Male. Age 52. Diabetes Type 2.
+  Non-vegetarian occasional (weekends only).
+- Member 2: Mama. Female. Age 46. Anaemia.
+  Strictly vegetarian.
+- Member 3: Child. Female. Age 10. No condition.
+  Strictly vegetarian.
+- Zone: Uttar Pradesh (North Central).
+- Budget: ₹10,000 per month.
+
+Check the output:
+
+```
+□ Does each meal show memberPlates with three separate
+  entries — one for Papa, one for Mama, one for Child?
+□ Is Papa's plate different from Mama's plate
+  at every meal?
+□ Does Papa get diabetic-appropriate food (low GI,
+  dal mandatory at lunch)?
+□ Does Mama get iron-rich food at every meal
+  (palak, rajma, chana, ragi)?
+□ Is nimbu or Vitamin C paired with Mama's iron
+  source at every meal for absorption?
+□ Does the Child's plate have appropriate portions
+  and no restriction on healthy carbohydrates?
+□ Is non-veg only appearing for Papa on Saturday
+  and Sunday?
+□ Is Mama's plate strictly vegetarian every day?
+□ Does the base dish make sense as a shared recipe
+  that all three can eat from with modifications?
+□ Are there at least 2-3 leftover chains across the week?
+□ Is the total weekly cost within ₹2,500 (10k / 4 weeks)?
+```
+
+Pass mark: 8 out of 11. This is your hardest test and your best demo scenario.
+
+---
+
+**Clinical Test 5 — The Budget Constraint Test**
+
+Create a family:
+- Four members. Mix of ages. West Bengal zone.
+- Budget: ₹3,000 per month (tight budget).
+- All vegetarian.
+
+Check the output:
+
+```
+□ Is the estimated weekly cost in weekSummary
+  at or below ₹750?
+□ Are expensive ingredients like paneer, dry fruits,
+  and cashews mostly absent?
+□ Are budget staples like moong dal, masoor dal,
+  seasonal vegetables, and rice dominant?
+□ Does the grocery list total match the estimated
+  weekly cost approximately?
+□ Are there leftover chains present to reduce waste?
+```
+
+---
+
+## LEVEL 3 — The Regression Test (Run this after every code change)
+
+Every time Replit makes a code change, run these three quick checks before anything else:
+
+**Quick check 1:**
+```
+GET /healthz
+Expected: { "status": "ok", "database": "connected" }
+```
+
+**Quick check 2:**
+Generate a meal plan for a single diabetic member in North Zone with ₹6,000 budget. Check that the response JSON has all three of these fields:
+- `weekPlan` with all 7 days present
+- `weekSummary.harmonyScore` is a number between 0 and 100
+- `icmrCompliance.guidelinesFollowed` is a non-empty array
+
+**Quick check 3:**
+Send this chat message: "What should my diabetic father eat for breakfast?"
+The response must mention at least one of: methi, dalia, moong dal chilla, ragi, besan cheela.
+If it mentions cornflakes or white bread or fruit juice, the RAG is not injecting the knowledge base into the chat correctly.
+
+---
+
+## The one test that tells you everything
+
+If you only have five minutes before a demo, run Clinical Test 4 — the multi-member conflict family. If that plan comes back with different plates for each member, dal at every lunch for Papa, nimbu paired with iron sources for Mama, correct budget, and at least one leftover chain — your entire system is working correctly end to end.
+
+If that test fails, everything else is irrelevant. Fix that test first.
