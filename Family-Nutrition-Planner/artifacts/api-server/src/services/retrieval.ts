@@ -13,11 +13,15 @@ export interface FamilyContext {
   diet?: string;
   cuisinePreferences?: string[];
   isFasting?: boolean;
+  budget?: number;
 }
 
 export interface RetrievalResult {
   icmrGuidelines: string;
-  recipeContext: string;
+  mealPatterns: string;
+  nutritionRules: string;
+  relevantRecipes: string;
+  contextSummary: string;
   sources: string[];
   chunkCount: number;
   recipeCount: number;
@@ -26,41 +30,65 @@ export interface RetrievalResult {
 export async function retrieveContextForMealPlan(
   family: FamilyContext,
 ): Promise<RetrievalResult> {
+  const emptyResult: RetrievalResult = {
+    icmrGuidelines: "", mealPatterns: "", nutritionRules: "",
+    relevantRecipes: "", contextSummary: "", sources: [],
+    chunkCount: 0, recipeCount: 0,
+  };
+
   if (!isEmbeddingConfigured()) {
-    return { icmrGuidelines: "", recipeContext: "", sources: [], chunkCount: 0, recipeCount: 0 };
+    return emptyResult;
   }
+
+  logger.info({ zone: family.zone, memberCount: family.memberSummaries.length }, "Starting RAG retrieval for meal plan generation...");
 
   const conditions = family.memberSummaries.flatMap(m => m.healthConditions);
   const uniqueConditions = [...new Set(conditions)];
-
-  const queryParts: string[] = [
-    "ICMR NIN 2024 dietary guidelines India",
-    `${family.zone} zone Indian cuisine nutrition`,
-  ];
-  if (uniqueConditions.length > 0) {
-    queryParts.push(`nutrition management for ${uniqueConditions.join(", ")}`);
-  }
-  if (family.isFasting) {
-    queryParts.push("Indian fasting foods nutritional adequacy");
-  }
+  const restrictions = family.memberSummaries.flatMap(m => m.dietaryRestrictions);
+  const uniqueRestrictions = [...new Set(restrictions)];
 
   const memberAges = family.memberSummaries.map(m => m.age);
   const hasChildren = memberAges.some(a => a < 18);
   const hasElderly = memberAges.some(a => a >= 60);
-  if (hasChildren) queryParts.push("child nutrition requirements India ICMR");
-  if (hasElderly) queryParts.push("elderly nutrition calcium vitamin D India");
 
-  const query = queryParts.join(". ");
+  const icmrQuery = [
+    "ICMR NIN 2024 dietary guidelines recommended daily allowance India",
+    uniqueConditions.length > 0 ? `nutrition for ${uniqueConditions.join(", ")}` : "",
+    hasChildren ? "child nutrition requirements India" : "",
+    hasElderly ? "elderly nutrition calcium vitamin D India" : "",
+  ].filter(Boolean).join(". ");
+
+  const mealPatternQuery = [
+    `Indian ${family.zone} zone meal pattern`,
+    `${family.diet ?? "vegetarian"} balanced diet schedule`,
+    family.isFasting ? "fasting meal pattern sabudana kuttu singhara" : "",
+    uniqueConditions.includes("diabetes") ? "low GI meal pattern diabetic" : "",
+  ].filter(Boolean).join(". ");
+
+  const rdaQuery = [
+    "RDA recommended dietary allowance protein calories iron calcium",
+    uniqueConditions.length > 0 ? `nutrient targets for ${uniqueConditions.join(", ")}` : "",
+    hasChildren ? "pediatric RDA calorie protein" : "",
+  ].filter(Boolean).join(". ");
 
   const recipeQuery = [
     `${family.zone} Indian ${family.diet ?? "vegetarian"} recipes`,
     family.cuisinePreferences?.join(" ") ?? "",
     uniqueConditions.length > 0 ? `suitable for ${uniqueConditions.join(" ")}` : "",
+    family.budget ? `budget friendly under ${family.budget} rupees` : "",
   ].filter(Boolean).join(" ");
 
-  const [chunks, recipes] = await Promise.all([
-    findSimilarChunks(query, "knowledge_chunks", 6).catch((err) => {
-      logger.warn({ err }, "RAG: knowledge_chunks retrieval failed (non-fatal)");
+  const [icmrChunks, mealPatternChunks, rdaChunks, recipes] = await Promise.all([
+    findSimilarChunks(icmrQuery, "knowledge_chunks", 4).catch((err) => {
+      logger.warn({ err }, "RAG: ICMR guideline retrieval failed (non-fatal)");
+      return [] as ChunkResult[];
+    }),
+    findSimilarChunks(mealPatternQuery, "knowledge_chunks", 3).catch((err) => {
+      logger.warn({ err }, "RAG: meal pattern retrieval failed (non-fatal)");
+      return [] as ChunkResult[];
+    }),
+    findSimilarChunks(rdaQuery, "knowledge_chunks", 3).catch((err) => {
+      logger.warn({ err }, "RAG: RDA/nutrition rules retrieval failed (non-fatal)");
       return [] as ChunkResult[];
     }),
     findSimilarChunks(recipeQuery, "recipes", 10, {
@@ -72,24 +100,55 @@ export async function retrieveContextForMealPlan(
     }),
   ]);
 
-  const relevantChunks = chunks.filter(c => c.similarity > 0.3);
+  const relevantIcmr = icmrChunks.filter(c => c.similarity > 0.3);
+  const relevantPatterns = mealPatternChunks.filter(c => c.similarity > 0.3);
+  const relevantRda = rdaChunks.filter(c => c.similarity > 0.3);
   const relevantRecipes = recipes.filter(r => r.similarity > 0.25);
 
-  const icmrGuidelines = relevantChunks.length > 0
-    ? formatChunksForPrompt(relevantChunks)
+  const allChunks = [...relevantIcmr, ...relevantPatterns, ...relevantRda];
+  const uniqueChunks = deduplicateChunks(allChunks);
+
+  const sources = [...new Set(uniqueChunks.map(c => c.source))];
+
+  logger.info({
+    icmrChunks: relevantIcmr.length,
+    mealPatternChunks: relevantPatterns.length,
+    rdaChunks: relevantRda.length,
+    totalUniqueChunks: uniqueChunks.length,
+    recipesRetrieved: relevantRecipes.length,
+    sources,
+  }, "RAG retrieval complete");
+
+  const icmrGuidelines = relevantIcmr.length > 0
+    ? formatChunksSection("ICMR-NIN 2024 GUIDELINES", relevantIcmr)
+    : "";
+
+  const mealPatterns = relevantPatterns.length > 0
+    ? formatChunksSection("CLINICAL MEAL PATTERNS", relevantPatterns)
+    : "";
+
+  const nutritionRules = relevantRda.length > 0
+    ? formatChunksSection("RDA / NUTRITION RULES", relevantRda)
     : "";
 
   const recipeContext = relevantRecipes.length > 0
     ? formatRecipesForPrompt(relevantRecipes)
     : "";
 
-  const sources = [...new Set(relevantChunks.map(c => c.source))];
+  const contextSummary = [
+    uniqueChunks.length > 0 ? `Retrieved ${uniqueChunks.length} knowledge chunks from ${sources.length} source(s)` : "",
+    relevantRecipes.length > 0 ? `Found ${relevantRecipes.length} similar recipes` : "",
+    uniqueConditions.length > 0 ? `Health conditions addressed: ${uniqueConditions.join(", ")}` : "",
+  ].filter(Boolean).join(". ");
 
   return {
     icmrGuidelines,
-    recipeContext,
+    mealPatterns,
+    nutritionRules,
+    relevantRecipes: recipeContext,
+    contextSummary,
     sources,
-    chunkCount: relevantChunks.length,
+    chunkCount: uniqueChunks.length,
     recipeCount: relevantRecipes.length,
   };
 }
@@ -104,7 +163,7 @@ export async function retrieveContextForChat(
 
   const [chunks, recipes] = await Promise.all([
     findSimilarChunks(userMessage, "knowledge_chunks", 4).catch(() => [] as ChunkResult[]),
-    findSimilarChunks(userMessage, "recipes", 5, zone ? { zone } : undefined).catch(() => [] as RecipeResult[]),
+    findSimilarChunks(userMessage, "recipes", 8, zone ? { zone } : undefined).catch(() => [] as RecipeResult[]),
   ]);
 
   const relevantChunks = chunks.filter(c => c.similarity > 0.35);
@@ -129,22 +188,27 @@ export async function retrieveContextForChat(
   return { knowledgeContext, recipeContext, sources };
 }
 
-function formatChunksForPrompt(chunks: ChunkResult[]): string {
+function deduplicateChunks(chunks: ChunkResult[]): ChunkResult[] {
+  const seen = new Set<number>();
+  return chunks.filter(c => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+}
+
+function formatChunksSection(title: string, chunks: ChunkResult[]): string {
   const lines = chunks.map(c =>
     `[${c.source}] (relevance: ${Math.round(c.similarity * 100)}%): ${c.content.slice(0, 500)}`
   );
   return `
 ══════════════════════════════════════════════════════════════════
-RAG — ICMR/NUTRITION KNOWLEDGE BASE (retrieved guidelines)
+RAG — ${title}
 ══════════════════════════════════════════════════════════════════
-The following excerpts are retrieved from authoritative ICMR-NIN documents
-and nutrition knowledge sources. USE these to inform your meal plan design.
-Cite specific guidelines where applicable in icmr_rationale fields.
-
 ${lines.join("\n\n")}`;
 }
 
-function formatRecipesForPrompt(recipes: RecipeResult[]): string {
+export function formatRecipesForPrompt(recipes: RecipeResult[]): string {
   const recipeLines = recipes.map(r =>
     `• ${r.name} (${r.diet}, ${r.cuisine}) — similarity: ${Math.round(r.similarity * 100)}%`
   );

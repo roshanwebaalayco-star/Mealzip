@@ -705,10 +705,15 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     diet: dietPrefForRag,
     cuisinePreferences: family.cuisinePreferences ?? [],
     isFasting,
+    budget: budgetPerMeal,
   };
   let ragResult = await retrieveContextForMealPlan(ragFamilyContext).catch(err => {
     req.log.warn({ err }, "RAG retrieval failed (non-fatal) — continuing without RAG context");
-    return { icmrGuidelines: "", recipeContext: "", sources: [] as string[], chunkCount: 0, recipeCount: 0 };
+    return {
+      icmrGuidelines: "", mealPatterns: "", nutritionRules: "",
+      relevantRecipes: "", contextSummary: "",
+      sources: [] as string[], chunkCount: 0, recipeCount: 0,
+    };
   });
 
   const pantryIngredients = [
@@ -838,9 +843,13 @@ SECTION 2 — WEEKLY CONTEXT OVERRIDES (none this week)
 No weekly context provided. Use defaults from Section 1.
 ${fastingNote}${pantryNote}${leftoverNote}${skippedMealsNote}${seasonalNote}${applianceNote}${flavorFatigueNote}`.trim();
 
-  const ragSection = ragResult.icmrGuidelines || ragResult.recipeContext
-    ? `\n${ragResult.icmrGuidelines}\n${ragResult.recipeContext}\n`
-    : "";
+  const ragParts = [
+    ragResult.icmrGuidelines,
+    ragResult.mealPatterns,
+    ragResult.nutritionRules,
+    ragResult.relevantRecipes,
+  ].filter(Boolean);
+  const ragSection = ragParts.length > 0 ? `\n${ragParts.join("\n")}\n` : "";
 
   const masterPromptSection3 = `
 ${ragSection}
