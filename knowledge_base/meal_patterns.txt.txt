@@ -1,0 +1,1315 @@
+```
+================================================================
+PARIVARSEHAT AI — CLINICAL MEAL PATTERN LIBRARY
+================================================================
+Version: 1.0
+Based on: ICMR-NIN 2024 Guidelines + Ayurvedic clinical wisdom
+          + Traditional Indian dietary science
+Purpose: This document is the ground truth for all meal plan
+         generation. The AI must follow these patterns exactly.
+         Every rule here overrides general knowledge.
+================================================================
+
+================================================================
+PATTERN 1: WEIGHT GAIN
+================================================================
+
+APPLICABLE TO: Any member whose goal is weight gain or
+               building muscle mass.
+
+CORE PHILOSOPHY:
+Do not remove any food the family already eats.
+Add calorie-dense, nutrient-rich foods alongside existing
+meals. The family already eats roti-sabzi-dal-chawal.
+Build on top of that foundation. Never make the plan feel
+like a punishment or a drastic change.
+
+CURRENT BASELINE (what most North Indian families eat):
+Breakfast: 2-3 roti + sabzi
+Lunch: chawal + dal + sabzi or chokha
+Snacks: chips, biscuits, namkeen (unhealthy — replace)
+Dinner: 2-3 roti + sabzi
+
+TARGET CALORIE ADDITION: 400-600 kcal above maintenance
+distributed across all meals.
+
+---
+
+EARLY MORNING (on waking, optional):
+One glass of full-fat milk with a teaspoon of desi ghee
+and a pinch of turmeric. Or one banana with a handful of
+soaked almonds (soak overnight). This adds 200-250 kcal
+before the day starts without feeling heavy.
+
+BREAKFAST PATTERN:
+Primary: Dalia (broken wheat) cooked in full-fat milk with
+jaggery and a small spoon of desi ghee on top.
+This replaces or is added alongside existing roti-sabzi.
+If family is used to roti, keep 1-2 roti and add a bowl
+of dalia with milk alongside.
+Alternative: Besan chilla with paneer stuffing + one glass
+of lassi made with full-fat dahi.
+Alternative North: Makki ki roti with sarson saag + glass
+of lassi (Punjab region).
+Alternative East: Luchi with cholar dal + mishti doi.
+Alternative South: Idli with sambar + glass of full-fat
+coconut milk.
+Alternative West: Thepla with dahi + glass of milk.
+Target: 450-600 kcal for breakfast slot.
+Key addition: Always end breakfast with full-fat milk,
+lassi, or dahi. Dairy is non-negotiable for weight gain.
+
+LUNCH PATTERN:
+Keep the existing chawal + dal + sabzi base.
+ADD: One extra serving of chawal OR one extra roti.
+ADD: A second sabzi or a bowl of rajma/chana alongside
+the existing dal.
+ADD: A generous spoon of desi ghee on the dal and chawal.
+ADD: A small bowl of dahi on the side.
+Do not reduce any existing lunch item.
+For non-vegetarian members: Add one egg curry or chicken
+gravy or fish curry alongside the existing meal.
+North zone additions: Rajma chawal with ghee, extra roti.
+East zone additions: Machher jhol or egg curry alongside
+existing dal-chawal.
+South zone additions: Curd rice addition to existing meal,
+sambar with extra dal quantity.
+West zone additions: Varan bhaat with extra toop (ghee),
+additional sol kadi.
+Target: 700-850 kcal for lunch slot.
+Rule: Lunch must be the heaviest meal of the day for
+weight gain. Do not skip any lunch component.
+
+SNACK PATTERN:
+REPLACE chips, biscuits, namkeen with:
+Primary: Boiled aloo (2 medium) with plain dahi and a
+pinch of jeera powder and sendha namak. This gives
+200 kcal, 8g protein, and is extremely filling.
+Alternative 1: A glass of full-fat banana lassi
+(1 banana + 1 cup dahi + mishri) — 280 kcal.
+Alternative 2: A handful of mixed nuts and raisins —
+almonds, cashews, walnuts, raisins — 200-250 kcal.
+Alternative 3: Makhana roasted in desi ghee with mishri
+— 180 kcal, rich in calcium and protein.
+Alternative 4: Paneer bhurji with one roti — 350 kcal.
+For non-vegetarian: Boiled eggs (2) with sendha namak
+and jeera powder — 160 kcal, 12g protein.
+Target: 200-300 kcal for snack slot.
+Rule: Snack must always have protein + carbohydrate
+together. No snack should be only carbohydrate.
+
+DINNER PATTERN:
+Keep existing 2-3 roti + sabzi base.
+ADD: One extra roti.
+ADD: A small bowl of dal if not already present.
+ADD: A glass of haldi milk (haldi doodh) 30 minutes
+after dinner or at bedtime — add a pinch of haldi,
+a pinch of cardamom, and a small spoon of desi ghee
+to one glass of full-fat milk. This alone adds
+200 kcal and significantly aids muscle recovery
+during sleep.
+North zone: Makke ki roti with dal makhani + haldi milk.
+East zone: Roti with aloo posto + glass of milk.
+South zone: Akki roti with coconut chutney + milk.
+West zone: Jowar bhakri with sabzi + glass of milk.
+Target: 550-650 kcal for dinner slot.
+Rule: Never eat dinner after 9 PM for weight gain.
+Late dinners are not absorbed efficiently.
+
+BEDTIME:
+One glass of haldi milk with a small spoon of desi ghee
+and mishri or jaggery. If already had at dinner, skip.
+Optional: A small handful of soaked and peeled almonds.
+
+KEY INGREDIENTS TO PRIORITIZE:
+Desi ghee, full-fat milk, full-fat dahi, paneer,
+rajma, chana, moong dal, masoor dal, banana, sweet
+potato, makhana, almonds, cashews, walnuts, raisins,
+jaggery, mishri, dates, eggs (for non-veg members),
+chicken (for non-veg members).
+
+INGREDIENTS TO INCREASE:
+Add ghee to every meal. Increase dal portion at every
+meal. Add dahi to every meal where possible.
+
+WHAT TO AVOID EVEN FOR WEIGHT GAIN:
+Refined oil, maida products like white bread and pav,
+packaged protein powder (use real food instead),
+soft drinks and cola, fried junk food.
+
+WEEKLY CALORIE TARGET ADDITION: 400-600 kcal per day
+above the person's ICMR-NIN maintenance requirement
+for their age, gender, and activity level.
+
+================================================================
+PATTERN 2: WEIGHT LOSS
+================================================================
+
+APPLICABLE TO: Any member whose goal is weight loss.
+Never apply weight loss patterns to members under 18.
+
+CORE PHILOSOPHY:
+Reduce volume and calorie density without eliminating
+satisfaction. The Indian family already eats healthy
+traditional foods. The problem is portion size and the
+unhealthy snacks. Fix those two things first.
+The person must never feel starving. A hungry person
+abandons the diet plan on day three.
+Volume-preserving swaps: same plate size, fewer calories.
+
+CURRENT BASELINE (what most North Indian families eat):
+Breakfast: 2-3 roti + sabzi (problem: too heavy, too early)
+Lunch: chawal + dal + sabzi or chokha (mostly healthy)
+Snacks: chips, biscuits (major problem — replace entirely)
+Dinner: 2-3 roti + sabzi (problem: often eaten late and heavy)
+
+TARGET CALORIE REDUCTION: 300-400 kcal below maintenance.
+Never go below 1200 kcal for women or 1500 kcal for men.
+
+---
+
+EARLY MORNING (on waking, before anything):
+One glass of warm water with the juice of half a nimbu
+and a pinch of sendha namak. Wait 20-30 minutes
+before eating anything. This activates the digestive
+system without adding calories.
+Optional: One teaspoon of jeera soaked in water overnight,
+drink the water in the morning (helps reduce bloating
+which is often mistaken for weight gain).
+
+BREAKFAST PATTERN:
+Primary: Dalia khichri — dalia (broken wheat) cooked in
+water (not milk) with finely chopped vegetables like
+gajar, matar, palak, and tomato. Season with jeera,
+haldi, and a very small amount of oil or ghee. This
+has the same volume as 2 roti and sabzi but 40 percent
+fewer calories and significantly more fiber.
+Alternative 1: Moong dal chilla (no oil on tawa, or
+minimal) with green chutney — 250 kcal, 15g protein.
+Alternative 2: Vegetable upma made with less oil and
+more vegetables than suji.
+Alternative 3: Oats cooked in water with vegetables and
+seasoned Indian style (not sweet oats) — 220 kcal.
+Alternative South: Idli (steamed, not fried) with sambar,
+no chutney with coconut cream.
+Alternative East: Moong dal cheela with minimal oil.
+Alternative West: Thepla with only dahi, no butter.
+Rule: Reduce roti count from 2-3 to maximum 1-2 at
+breakfast. Fill the remaining volume with vegetables.
+No full-fat milk at breakfast. Use chaas or plain water.
+Target: 280-350 kcal for breakfast slot.
+
+LUNCH PATTERN:
+This is the most important rule for weight loss:
+Choose EITHER roti OR chawal. NEVER both at the same meal.
+This one change alone reduces daily calories by 150-200.
+Keep all the dal and sabzi — these are healthy.
+If choosing roti: maximum 2 roti + dal + sabzi + salad.
+If choosing chawal: maximum one small bowl (150g cooked)
++ dal + sabzi + salad.
+Always start lunch with a raw salad plate — cucumber,
+tomato, carrot, nimbu. Eating this first fills the
+stomach with fiber and water before the grains arrive.
+Add a glass of chaas (thin buttermilk with jeera and
+pudina) after the meal — aids digestion, zero fat,
+very filling.
+Target: 450-520 kcal for lunch slot.
+Rule: Lunch should be the largest meal of the day.
+Do not restrict lunch severely. Weight loss happens
+by controlling breakfast and dinner, not lunch.
+
+SNACK PATTERN:
+COMPLETELY REPLACE chips, biscuits, namkeen with:
+Primary: Plain dahi or Greek yogurt (homemade thick
+dahi hung in a cloth for 2 hours) — 80-100 kcal,
+10-12g protein, keeps hunger away for 3+ hours.
+Alternative 1: One seasonal fruit — guava, jamun,
+apple, orange, amla. Never mango or banana for
+weight loss snack.
+Alternative 2: A glass of chaas with pudina and jeera.
+Alternative 3: A small handful of roasted chana —
+no oil, no namkeen coating — 100 kcal, 7g protein.
+Alternative 4: Cucumber slices with nimbu and
+sendha namak — 30 kcal, nearly zero.
+Target: 80-120 kcal for snack slot.
+Rule: Snack must be eaten at a fixed time — 4 to 5 PM.
+Skipping snack causes overeating at dinner.
+
+DINNER PATTERN:
+This is the second most important rule for weight loss:
+Eat dinner early — before 7:30 PM if possible,
+absolute maximum 8:00 PM. Food eaten late is stored
+as fat because the body is preparing to sleep, not
+to burn energy.
+Choose EITHER roti OR chawal. NEVER both.
+If choosing roti: maximum 1-2 roti. More sabzi.
+If choosing chawal: maximum one very small bowl.
+Moong dal or masoor dal preferred at dinner — lighter
+than chana dal or rajma which take longer to digest.
+Add a large serving of any cooked vegetable sabzi —
+lauki, tinda, turai, palak, baingan. More sabzi is
+always allowed.
+Avoid potato in dinner sabzi for weight loss.
+North zone: 1-2 phulka + dal + palak/lauki sabzi.
+East zone: Small bowl bhaat + dal + light sabzi.
+South zone: Rasam + one small bowl rice or 1-2 roti.
+West zone: 1 jowar bhakri + moong dal + sabzi.
+Target: 350-420 kcal for dinner slot.
+Rule: Do not eat anything after dinner except warm
+water or herbal tea (jeera tea, tulsi tea, or
+saunf tea). All of these aid digestion.
+
+BEDTIME:
+One glass of warm water only.
+If feeling very hungry: one small glass of chaas.
+Avoid milk at bedtime for weight loss — it adds
+150-200 kcal that are not burned while sleeping.
+
+KEY INGREDIENTS TO PRIORITIZE:
+Moong dal, masoor dal, palak, methi, lauki, tinda,
+turai, baingan, gajar, matar, cucumber, tomato,
+guava, amla, nimbu, chaas, plain dahi, roasted chana,
+whole grain atta (mix in besan or jowar), oats, dalia.
+
+INGREDIENTS TO MINIMIZE (not eliminate):
+Desi ghee (use sparingly — max 1 tsp per day total),
+potato (occasional, small quantity),
+chawal (one small bowl max, once a day at lunch only),
+full-fat milk (switch to thin chaas or skimmed milk),
+jaggery and mishri (occasional, not daily).
+
+INGREDIENTS TO ELIMINATE COMPLETELY:
+Chips, biscuits, namkeen, fried foods, maida, white
+bread, soft drinks, packaged fruit juice, sugar,
+refined oil, cream, malai, sweet lassi.
+
+WEEKLY CALORIE REDUCTION TARGET: 300-400 kcal per day
+below the person's ICMR-NIN maintenance requirement.
+
+================================================================
+PATTERN 3: DIABETES TYPE 2 CONTROL
+================================================================
+
+APPLICABLE TO: Any member with Diabetes Type 2 or
+pre-diabetes or high fasting blood sugar.
+
+CORE PHILOSOPHY:
+No single food causes or cures diabetes. The entire
+day's eating pattern must keep blood glucose stable —
+no spikes, no crashes. Every meal must pair a complex
+carbohydrate with protein or fat to slow glucose
+absorption. Meal timing is as important as food choice.
+
+ICMR-NIN RULE: Diabetic Indians should get 50-55% of
+calories from complex carbohydrates (not refined),
+15-20% from protein, 25-30% from fat (mostly
+unsaturated). Total calories as per age and gender.
+
+---
+
+ON WAKING (before anything):
+Soak 1 teaspoon of methi (fenugreek) seeds in water
+overnight. In the morning, drink the water and chew
+the soaked seeds on an empty stomach.
+Methi contains soluble fiber and compounds that slow
+glucose absorption and improve insulin sensitivity.
+This is the most consistently recommended Ayurvedic
+intervention for diabetes and is supported by multiple
+Indian clinical studies.
+Wait 20-30 minutes before breakfast.
+
+BREAKFAST PATTERN:
+Rule: Never eat a carbohydrate alone at breakfast.
+Always pair with protein.
+Primary: One or two whole seasonal fruits — jamun,
+guava, orange, amla, apple. These have fiber and
+natural sugar that releases slowly. Never fruit juice.
+Followed by: Vegetable dalia made with barley, oats,
+or any millet (bajra, jowar, ragi, foxtail) — cooked
+in water with vegetables. Top with very small amount
+of cold-pressed oil or desi ghee.
+Alternative: Moong dal cheela (high protein, low GI)
+with green chutney.
+Alternative: Besan cheela with vegetables — besan has
+a glycemic index of only 10, excellent for diabetics.
+Alternative South: Ragi idli or ragi dosa — ragi has
+the lowest GI of all Indian grains.
+Alternative East: Moong dal cheela or sattu drink
+(roasted chana sattu with water and nimbu — low GI,
+high protein).
+Alternative West: Jowar khichu or bajra rotla.
+Target: 300-380 kcal, low GI, high protein and fiber.
+Forbidden at breakfast: White bread, pav, maida
+products, cornflakes, any sweetened cereal, banana,
+mango, fruit juice, white rice, plain roti without
+dal or protein accompaniment, biscuits.
+
+LUNCH PATTERN:
+Rule: Dal is mandatory at every lunch without exception.
+Dal paired with any grain slows the glycemic response
+of the grain significantly. This is the most important
+single rule for the diabetic lunch.
+Start with a large raw vegetable salad with nimbu —
+cucumber, tomato, carrot, radish, raw onion.
+Eating this first fills the stomach with fiber.
+Then: Protein-rich dal (chana dal, rajma, moong dal,
+or any dal) — generous serving.
+Then: Seasonal vegetable sabzi (avoid potato, sweet
+corn, brinjal for diabetics).
+Then: Grain — but use Khapli wheat roti (emmer wheat,
+the ancient variety with lower GI than modern wheat)
+or millet roti (bajra/jowar/ragi) instead of regular
+atta roti. Quantity: maximum 2 roti.
+If eating rice: only one small bowl, never alone —
+always with dal and sabzi together on the same plate.
+Use cold-pressed oil only (mustard oil is preferred
+in North and East India, coconut oil in South India,
+groundnut oil in West India).
+Rule: Never eat more than one grain at lunch. Either
+roti or rice but never both.
+Target: 500-580 kcal, low GI throughout.
+
+SNACK PATTERN:
+This slot is critical for blood sugar management.
+Eating nothing between lunch and dinner causes a
+blood sugar crash that leads to overeating at dinner.
+Primary: A small handful of mixed nuts — almonds,
+walnuts, pumpkin seeds, sunflower seeds. No salted
+or roasted varieties with oil. Raw or dry-roasted only.
+Nuts slow glucose absorption and provide good fat.
+Add: One apple with one teaspoon of groundnut butter
+(no added sugar variety) OR one guava OR one orange.
+Drink: Tulsi-ginger-cinnamon tea — boil 3-4 tulsi
+leaves, a small piece of ginger, and a pinch of
+cinnamon in water, strain, drink without sugar.
+Cinnamon specifically improves insulin sensitivity.
+Alternatives: Roasted chana (handful), one small
+bowl of sprouts chaat with nimbu, plain dahi with
+jeera and no sugar.
+Target: 120-180 kcal.
+Forbidden at snack: Biscuits, namkeen, chips, anything
+sweet, fruit juice, tea with sugar, coffee with sugar.
+
+DINNER PATTERN:
+Rule: Dinner must be finished before 7:00 PM ideally,
+absolute maximum 7:30 PM. Diabetes management is
+significantly worse in people who eat late dinners.
+This is supported by multiple studies in Indian
+diabetic populations.
+Start with: Raw onion salad with nimbu and a pinch
+of sendha namak. Raw onion has compounds that help
+lower blood glucose.
+Main: Millet khichdi (foxtail millet or any millet
+with whole green moong dal cooked together) — this
+is the most complete, low-GI dinner for a diabetic.
+Alternative: Millet roti (bajra or jowar) with
+seasonal sabzi. Avoid potato, brinjal, and sweet
+corn in the dinner sabzi.
+Alternative: Moong dal khichdi with vegetables —
+moong dal is the most easily digestible and lowest
+GI dal, ideal for evening.
+Strictly avoid at dinner: potato in any form, sweet
+corn, beet, excess rice, heavy dal like rajma or
+urad dal (save these for lunch), raw salad with
+milk products, fruit after dinner.
+Target: 380-450 kcal.
+
+BEDTIME:
+One glass of warm water with one teaspoon of amla
+powder and one-quarter teaspoon of turmeric powder
+mixed in. Amla is one of the most powerful natural
+agents for blood sugar regulation in Ayurveda and is
+supported by several clinical trials. It also provides
+Vitamin C which aids iron absorption for anaemic
+members who may also be diabetic.
+Alternatively: warm jeera water or methi water.
+Strictly avoid: milk with sugar, fruit, anything sweet.
+
+STRICT RULES FOR DIABETICS:
+Use only cold-pressed oils — never refined oil,
+never partially hydrogenated (vanaspati) oil.
+Refined oils increase inflammation and insulin
+resistance over time.
+Avoid all dairy products made from commercial homogenized
+milk (commercial butter, cream, processed cheese).
+Small amounts of homemade dahi, chaas, and homemade
+ghee from desi cow are acceptable.
+Avoid all refined sugar entirely — use small amounts
+of jaggery or dates as sweeteners if needed.
+Avoid all maida products — white bread, pav, naan,
+bakery biscuits, cakes, samosa casing.
+Always eat meals at fixed times. The body's insulin
+response is better when meal timing is consistent.
+Chew food thoroughly before swallowing — this alone
+reduces post-meal glucose spikes.
+Walk for 15-20 minutes after lunch and after dinner.
+Even a gentle walk immediately after eating significantly
+reduces the post-meal glucose spike.
+
+================================================================
+PATTERN 4: FULL BODY DETOX
+================================================================
+
+APPLICABLE TO: Any member requesting a detox week, or
+as a 3-7 day plan after a festival season, or when a
+member reports feeling sluggish, bloated, or heavy.
+
+CORE PHILOSOPHY:
+Detox in Ayurveda means reducing the load on the liver
+and digestive system while providing maximum nutrition
+with minimum effort to digest. Eat light, eat clean,
+eat early, eat simple. One food at a time where possible.
+
+---
+
+ON WAKING:
+One to two glasses of warm water immediately on waking.
+Warm water (not hot, not cold) activates bowel movement
+and begins flushing the digestive tract gently.
+
+EARLY MORNING:
+CCF Tea — Cumin Coriander Fennel tea.
+Boil one teaspoon each of cumin seeds, coriander seeds,
+and fennel seeds in two cups of water until reduced to
+one cup. Strain. Add a few drops of honey only after
+cooling to lukewarm (honey must never be heated).
+Drink slowly. This is a classical Ayurvedic formulation
+for digestive cleansing and is gentle enough for
+everyone including children above age 6.
+
+BREAKFAST PATTERN:
+Primary: A large bowl of ONE seasonal fruit only.
+Pomegranate is ideal — anti-inflammatory, high in
+antioxidants, and supports liver detoxification.
+Do not mix fruits in the same sitting during detox.
+Eating mixed fruits together ferments in the stomach
+and produces gas, which is the opposite of detox.
+Alternative 1: Spiced chana sattu drink — mix roasted
+chana sattu in water with nimbu, jeera powder, and
+a pinch of sendha namak. High protein, cooling,
+and does not stress the digestive system.
+Alternative 2: Steel-cut vegetable oats — not the
+rolled instant variety. Cook with finely chopped
+vegetables and Indian spices. No milk.
+Target: 200-280 kcal. Keep breakfast light.
+Forbidden: Dairy at breakfast during detox, eggs
+during detox week, any fried food, any packaged food.
+
+LUNCH PATTERN:
+Primary: Millet khichdi — foxtail millet (kangni) with
+whole green moong dal. These two together provide
+complete protein, are extremely easy to digest, and
+are the cornerstone of Ayurvedic cleansing diet.
+Cook with ghee, jeera, haldi, sendha namak only.
+No chilli powder, no heavy masala during detox.
+Alternative 1: Jowar or bajra chapati with lauki sabzi
+or turai sabzi — these two vegetables are the most
+liver-cleansing vegetables in Indian cooking.
+Alternative 2: Moong dal sprout chaat — sprouted moong
+with nimbu, jeera, tomato, and a pinch of sendha namak.
+Sprouts are nutritionally superior to unsprouted dal
+and are much easier to digest.
+Rule: Lunch must be the most substantial meal of
+the detox day. Eat enough to not feel hungry.
+Target: 450-550 kcal.
+
+SNACK PATTERN:
+Primary: One seasonal fruit — jamun (best during
+detox, powerful antioxidant), apple, or papaya.
+Alternative 1: Six to eight soaked and peeled almonds —
+soak overnight, peel the skin in the morning. The
+skin contains enzyme inhibitors. Peeled almonds are
+much easier to digest during a detox.
+Alternative 2: Raisins soaked in half a glass of water
+for 4-6 hours. Eat the raisins and drink the
+soaking water — this is a classical Ayurvedic liver
+tonic and gentle bowel regulator.
+Target: 80-120 kcal. Keep snack minimal.
+
+DINNER PATTERN:
+Keep it very light. The liver does most of its
+cleansing work between 11 PM and 3 AM. A heavy dinner
+interrupts this process.
+Primary: Tomato soup made without cornstarch (use only
+tomatoes, ginger, and spices) + a small handful of
+roasted makhana (fox nuts). Makhana is alkaline and
+soothing to the digestive tract.
+Alternative 1: Mixed vegetable soup — any vegetables
+except potato, boiled and blended or left chunky.
+Season with jeera and ginger only. No cream.
+Alternative 2: Lauki sabzi or turai sabzi with one
+millet roti. These vegetables are considered the most
+liver-friendly in Indian traditional medicine.
+Alternative 3: Light moong dal or moth dal — thin,
+not thick. With a small bowl of boiled rice if needed.
+Target: 250-320 kcal. Dinner must be very light.
+Finish dinner by 7:00 PM during a detox week.
+Forbidden at dinner: Dairy, eggs, heavy dal like
+rajma or chana, fried food, any dessert.
+
+BEDTIME:
+One-quarter teaspoon of Triphala powder mixed in
+one-quarter glass of lukewarm water.
+Triphala is a classical Ayurvedic formulation combining
+Amalaki, Bibhitaki, and Haritaki. It is the most
+widely studied Ayurvedic supplement, known to support
+bowel regularity, liver function, and gut microbiome
+health. Take this 30-45 minutes before sleeping.
+
+ADDITIONAL DETOX RULES:
+Drink warm water throughout the day — minimum 8
+glasses. Never cold water during detox.
+Avoid refrigerator food entirely during detox.
+Eat only freshly cooked food.
+No fermented foods except thin chaas (buttermilk).
+No non-vegetarian food during a detox week.
+Sleep by 10:00 PM and wake by 6:00 AM. The body
+detoxifies different organs at different times of
+night and proper sleep timing is essential.
+Duration: 3 to 7 days maximum for full detox pattern.
+After detox, return to the regular pattern gradually.
+
+================================================================
+PATTERN 5: EYESIGHT IMPROVEMENT
+================================================================
+
+APPLICABLE TO: Any member requesting better eye health,
+or members experiencing eye strain, early myopia, or
+dry eyes. Also appropriate for screen-heavy workers.
+
+CORE PHILOSOPHY:
+Eyes depend primarily on Vitamin A, Vitamin C,
+Vitamin E, Zinc, and Omega-3 fatty acids.
+In Indian food tradition, the most powerful foods for
+eyes are amla, carrot, hari moong dal, saunf (fennel),
+and desi cow ghee. Every meal must include at least
+one of these.
+
+---
+
+EARLY MORNING:
+Fresh amla juice on an empty stomach or 2-3 whole
+fresh amla chewed raw. If fresh amla unavailable,
+one teaspoon of amla powder in warm water.
+Amla has the highest Vitamin C content of any Indian
+fruit and is a cornerstone of eye health in Ayurveda.
+Vitamin C protects the eyes from oxidative damage
+and helps maintain the lens of the eye.
+
+BREAKFAST PATTERN:
+Primary: Hari moong dal sprouts cheela — the sprouted
+green moong in cheela form provides beta-carotene,
+Vitamin C, and protein. Top with fresh tomato and
+green coriander (both high in Vitamin C).
+Alongside: Carrot halwa (gajar ka halwa) made with
+full-fat milk, desi cow ghee, and desi khand
+(unrefined raw sugar, not white sugar). Carrot is
+the richest source of beta-carotene in Indian cooking.
+Beta-carotene converts to Vitamin A in the body —
+the essential nutrient for night vision and eye health.
+Alternative: Carrot and palak paratha — grated carrot
+mixed into the dough — provides beta-carotene at
+every bite.
+Rule: Top everything with a small amount of raw desi
+cow ghee. Raw ghee (not heated) contains fat-soluble
+Vitamins A, D, E and K which are essential for eye
+nutrition and cannot be absorbed without fat.
+
+LUNCH PATTERN:
+Mandatory: Hari moong dal at lunch every day for
+eye health. Green moong is rich in Zinc which is
+concentrated in high amounts in the retina.
+Zinc deficiency is one of the leading causes of
+night blindness in India.
+Add: Carrot sabzi — aloo-gajar or gajar-matar.
+These can be cooked with the main sabzi.
+Add: A small bowl of raw carrot salad with nimbu on
+the side. The Vitamin C from nimbu enhances Vitamin A
+absorption from the carrot.
+Rule: Top the dal and the sabzi with raw desi cow ghee
+at the table — not during cooking. Heating ghee above
+a certain temperature destroys the fat-soluble vitamins.
+After lunch: Chew one teaspoon of saunf (fennel seeds).
+Saunf is a classical remedy for eye health in Ayurveda
+and contains antioxidants that support the eye muscles.
+Target: 500-580 kcal.
+
+SNACK PATTERN:
+Primary: Saunf herbal tea — boil one teaspoon of saunf
+in water, strain, add a few drops of honey after
+cooling. Saunf reduces eye inflammation and strain.
+Alternative 1: Fresh amla murabba — two to three pieces.
+Amla murabba is a preserved form with high Vitamin C.
+Alternative 2: Soaked and peeled almonds with raisins —
+almonds contain Vitamin E which protects eye cells
+from free radical damage.
+
+DINNER PATTERN:
+Primary: Hari moong dal khichdi — moong dal cooked
+with rice or millet. The simplest, most nutritious
+dinner for eye health.
+Top generously with raw desi cow ghee.
+After dinner: Chew one teaspoon of saunf.
+Add: Any green leafy vegetable sabzi on the side —
+palak, methi, or sarson. Green leafy vegetables
+contain Lutein and Zeaxanthin — the two carotenoids
+that filter harmful blue light in the retina. These
+are the nutrients that research most clearly links
+to reduced macular degeneration.
+
+BEDTIME:
+Warm milk boiled with four soaked and peeled almonds
+(crush to a paste before adding) and four black
+peppercorns, sweetened with mishri. This classical
+Indian recipe provides Vitamin E from almonds and
+bioavailable calcium and protein from milk — both
+essential for eye tissue repair during sleep.
+Note for practitioners: The traditional practice
+of applying two drops of pure desi ghee to the eyes
+(Netra Tarpana) and massaging ghee on the soles of
+the feet before sleep is documented in Ayurvedic
+texts as beneficial for eye health through the
+connection between foot nerve points and the eyes.
+This is not part of the meal plan but should be
+mentioned in the lifestyle advice section.
+
+KEY INGREDIENTS FOR ALL ZONES:
+Carrot (gajar), amla, hari moong dal, saunf (fennel),
+desi cow ghee, palak, methi, almonds, raisins,
+tomato, nimbu, black pepper, full-fat milk, mishri,
+green coriander (hara dhaniya), green peas (matar).
+
+================================================================
+PATTERN 6: JOINT PAIN RELIEF
+================================================================
+
+APPLICABLE TO: Members with arthritis, knee pain,
+back pain, joint inflammation, or general body aches.
+Most common in members above age 45.
+
+CORE PHILOSOPHY:
+Joint pain in Ayurveda is primarily a Vata imbalance.
+Cold, dry, light, and stale foods aggravate it.
+Warm, moist, oily, and fresh foods soothe it.
+Every meal must be warm when eaten. Specific anti-
+inflammatory foods must appear at every meal.
+Equally important: foods that trigger inflammation
+must be completely eliminated.
+
+---
+
+EARLY MORNING:
+Option 1: Methi (fenugreek) water — soak one teaspoon
+of methi seeds overnight in one cup of water.
+Drink the water in the morning and chew the seeds.
+Methi contains compounds that lubricate the joints
+and reduce inflammatory markers.
+Option 2: A decoction of Parijat leaves — boil three
+to four Parijat (night jasmine) leaves in two cups
+of water until reduced to one cup. Drink warm.
+Used in classical Ayurvedic practice for joint pain.
+Rule: Drink warm water throughout the entire day.
+Cold water and cold beverages are strictly forbidden
+for joint pain patients. Cold constricts channels
+and worsens Vata pain.
+
+BREAKFAST PATTERN:
+Primary: Besan (gram flour) cheela with ajwain
+(carom seeds) added to the batter and fresh palak
+leaves pressed into it before flipping.
+Ajwain is hot in nature and an anti-inflammatory
+agent. Besan is warming, high protein, and easy
+on the joints. Palak provides iron and Vitamin K
+which supports bone density.
+Cook in cold-pressed mustard oil — mustard oil
+is warming and anti-inflammatory.
+Target: 300-380 kcal. Always eaten warm.
+Never eat breakfast cold or straight from the
+refrigerator for joint pain patients.
+
+LUNCH PATTERN:
+Grain rotation is essential. Do not eat wheat roti
+every single day. Rotate using this guideline:
+Alternate days: Ragi roti or Bajra roti or Jowar
+roti or Barley (jau) roti.
+Method: Knead the dough with boiling water not cold
+water — this makes the roti softer and easier to
+eat and keeps the body warm.
+If eating rice on a given day: eat only at lunch,
+not at dinner. Rice is Kapha-increasing and should
+not be eaten at night for joint pain patients.
+If eating rajma or urad dal: eat only at lunch.
+These are the heaviest dals and must be digested
+during the day's active hours, not at night.
+Add dal at every lunch. Never eat only grain and
+sabzi without dal.
+Cook all sabzis with a pinch of ajwain or dry ginger
+(saunth) which reduces inflammation.
+Use only cold-pressed mustard oil or sesame oil for
+cooking. Never refined oil for joint pain patients.
+Target: 550-630 kcal.
+
+SNACK PATTERN:
+Primary: One to two til-gur (sesame-jaggery) laddoos.
+Sesame (til) is one of the most powerful foods for
+joint health in Indian tradition. It is rich in
+calcium, Vitamin E, Zinc, and Omega-6 fatty acids.
+Combined with jaggery, it also provides iron. In
+winter, these laddoos are given daily for joint pain.
+Alternative: Alsi-gur (flaxseed-jaggery) laddoos —
+flaxseed is the richest plant source of Omega-3
+fatty acids which reduce inflammatory markers.
+Alternative: A small handful of walnuts — the best
+nut for Omega-3 and joint anti-inflammation.
+Or chia seeds soaked in water (2 teaspoons soaked
+for 30 minutes) with a few drops of nimbu.
+
+DINNER PATTERN:
+Strictly follow: No raw salad at dinner for joint
+pain patients. Raw food is cold and dry and
+significantly worsens Vata at night.
+No curd, dahi, or buttermilk at night — in Ayurveda
+curd at night is contraindicated for joint conditions.
+No radish at dinner. No banana. No rice at dinner.
+Primary: Millet roti (ragi, bajra, or jowar) with
+a well-cooked sabzi. Sabzi must be cooked soft,
+not crunchy. Add a generous amount of desi ghee
+or mustard oil while cooking.
+Alternative: Thick moong dal with a small bowl of
+millet. No wheat roti at dinner during a joint
+pain management week.
+Add: A warming soup as a starter — ginger-tomato
+soup or ajwain water (boil ajwain in water,
+strain, drink warm before the meal).
+Target: 400-480 kcal. Dinner must be warm and
+must be finished by 7:30 PM.
+
+BEDTIME:
+Massage the affected joints with Mahanarayan Oil
+for five minutes and wrap the joint with a warm
+cloth or flannel. This is not a food recommendation
+but must be included in the daily plan notes.
+Optional: A small amount of pure Shilajit (the size
+of a grain of rice) dissolved in one glass of warm
+water or milk. Shilajit is the most studied
+Ayurvedic substance for joint health and mineral
+replenishment. Use only purified (shuddha) Shilajit.
+
+STRICT ELIMINATION LIST — FORBIDDEN FOR JOINT PAIN:
+Wheat (gehun) daily — must be rotated with millets.
+Commercial homogenized milk and all commercial dairy
+products — use only desi cow milk in small amounts,
+fermented as homemade dahi (only at lunch, not dinner).
+All sour foods: tamarind, raw green mango, vinegar,
+imli, excessive amchur, packaged pickles.
+Cold foods and beverages: refrigerator water, ice,
+cold drinks, ice cream, cold curd, cold rice.
+Stale food: never eat reheated food from the
+refrigerator for joint pain patients.
+Practice: Gentle joint micro-exercises (Sukshma
+Vyayam) in the morning. Sit in morning sunlight
+for five minutes for Vitamin D which is essential
+for calcium absorption and joint health.
+
+================================================================
+PATTERN 7: NATURAL GLOW AND GENERAL VITALITY
+================================================================
+
+APPLICABLE TO: Members requesting better skin health,
+energy, general immunity, or overall glow. Also
+appropriate as a maintenance pattern for healthy
+members with no specific medical condition.
+
+CORE PHILOSOPHY:
+In Ayurveda, external glow is a reflection of internal
+digestive health (Agni), liver health, and gut
+microbiome. You cannot put glow on the face — you
+must create it from within through consistent, clean,
+warm, fresh eating.
+
+---
+
+EARLY MORNING:
+Drink warm water immediately on waking — even before
+brushing teeth. One to two glasses. Keep a thermos
+flask of warm water by the bed for this purpose.
+This is the single most impactful morning habit for
+skin health, bowel regularity, and liver function.
+Take one tablespoon of Amla Prash (Amla-based
+Chyawanprash variant) followed by a small glass of
+warm milk. This provides Vitamin C, adaptogenic herbs,
+and immunity-supporting compounds as the first input
+of the day.
+
+BREAKFAST PATTERN:
+One glass of fresh citrus juice — mosambi (sweet lime),
+orange, or kinnow — made using a manual cold-press
+juicer or hand squeezer. Not a blender or centrifugal
+juicer which oxidises the juice. Not packaged juice.
+Fresh cold-pressed citrus juice provides Vitamin C
+for collagen synthesis, which is the structural protein
+of healthy glowing skin. Drink within five minutes of
+pressing — Vitamin C oxidises rapidly.
+Followed by a warm breakfast as per zone and preference.
+Drink warm water or tulsi-ginger tea one and a half
+hours after breakfast — not immediately after eating.
+North zone: Dalia with milk + seasonal fruit juice.
+South zone: Idli-sambar + mosambi juice.
+East zone: Muri with banana flower or seasonal fruit
+juice + light breakfast.
+West zone: Thepla with dahi + seasonal fruit juice.
+
+LUNCH PATTERN:
+Eat a home-cooked warm meal. For those who carry lunch
+to office or school, use an electric lunch box to keep
+it warm — cold food is poorly digested and generates
+Ama (toxins) in Ayurvedic theory.
+After lunch: One glass of fresh homemade chaas
+(thin buttermilk) made from homemade churned curd.
+Chaas contains probiotics, is cooling, improves
+digestion, and resolves gastric issues.
+Not packaged chaas or store-bought buttermilk —
+these are pasteurised and have minimal probiotic value.
+Rule: Cook in a cast iron kadhai or pure iron utensil.
+Iron naturally leaches into food during cooking.
+This is a clinically validated method for increasing
+dietary iron and preventing the iron deficiency
+anaemia that causes fatigue and dull skin.
+Drink warm water one and a half hours after lunch.
+
+SNACK PATTERN:
+Fresh seasonal fruits — pomegranate is ideal for
+glow due to its punicalagin and ellagic acid content.
+Use a kitchen weighing scale or measuring cups to
+ensure portion accuracy over time. This is not
+calorie counting — it is portion awareness.
+If not hungry, skip the snack. Never force eating.
+
+DINNER PATTERN:
+Home-cooked, fresh, warm meal. Same principles as
+lunch but lighter in quantity.
+Use homemade fresh white butter (makhan) or Bilona
+ghee (the traditional double-churning method) for
+cooking or as a topping. Not commercial yellow butter
+which contains added salt, preservatives, and low
+nutrient density.
+Bilona ghee made from desi cow milk has CLA
+(conjugated linoleic acid), Vitamin A, D, E, and K2
+— all of which support skin health from within.
+
+LIFESTYLE NOTES (include in plan):
+Avoid outside food and junk food consistently —
+this is the number one cause of dull skin in young
+Indians. Not because of calories but because
+of the refined oils, additives, and processed
+ingredients that create chronic low-grade inflammation.
+Use a footstool (squatting stool) while using a
+western toilet to maintain a more natural squat-like
+posture — this dramatically improves bowel evacuation
+completeness, which directly impacts skin clarity.
+Take steam (facial steam) for cold and congestion
+instead of immediately resorting to antihistamines —
+this keeps the lymphatic system clear.
+Include daily physical activity — even 20 minutes
+of any movement. Sweating through exercise is one of
+the body's primary detox mechanisms and contributes
+significantly to skin glow.
+
+================================================================
+PATTERN 8: NATURAL HEIGHT SUPPORT (CHILDREN AND ADOLESCENTS)
+================================================================
+
+APPLICABLE TO: Members under 20 years requesting
+height support. Never apply to members above 21 —
+growth plates are fused after this age.
+
+IMPORTANT DISCLAIMER TO DISPLAY:
+Height is approximately 80% determined by genetics.
+Nutrition supports the full expression of genetic
+potential. This plan cannot make someone taller than
+their genetic ceiling. It can prevent nutritional
+deficiencies from limiting growth below that ceiling.
+
+CORE PHILOSOPHY:
+Growth hormone is produced during deep sleep. Protein,
+Vitamin D, Calcium, and Zinc are the four nutrients
+that most directly impact height. Every meal must
+include at least one of these.
+
+---
+
+EARLY MORNING:
+Bamboo murabba (Bans ka Murabba) — one to two
+tablespoons on an empty stomach. Bamboo shoots
+contain plant-based silica and compounds in Ayurvedic
+tradition associated with growth support. This
+is a traditional remedy, not an ICMR-documented
+clinical intervention, and should be labeled as such.
+
+THROUGHOUT THE DAY — PRIORITY FOODS:
+High protein: Dal (every type), paneer, eggs
+(if non-veg acceptable), sprouts, soya. Protein is
+the building block of every tissue including bone.
+ICMR-NIN recommends 1g of protein per kg body weight
+per day for adolescents — this is significantly
+higher than for adults.
+Dairy: Milk, homemade dahi, desi cow ghee.
+These nourish the Asthi Dhatu (bone tissue) in
+Ayurveda. Calcium from dairy is the most bioavailable
+form for Indian children. One to two glasses of
+full-fat milk per day is the target.
+Seasonal vegetables and fruits: Every color on the
+plate means different micronutrients. For height,
+prioritize: carrot (Vitamin A), amla (Vitamin C),
+palak (Vitamin K), til (calcium), ragi (calcium —
+the highest calcium content of any Indian grain).
+Sunlight: 15-30 minutes of skin exposure to morning
+or evening sunlight for Vitamin D. Vitamin D is
+required for calcium to be absorbed into the bones.
+Without Vitamin D, calcium supplementation has
+minimal effect.
+
+BREAKFAST: High protein, high calcium.
+Dal cheela or besan cheela + glass of milk.
+Ragi porridge with milk and banana.
+Paneer paratha + glass of milk.
+
+LUNCH: Protein + grain + vegetable.
+Dal-chawal with ghee + seasonal sabzi.
+Rajma chawal or chana chawal.
+Egg curry with roti (if non-veg acceptable).
+
+SNACK: Calcium and protein focus.
+A glass of turmeric milk (haldi doodh).
+Til-gur laddoo (highest calcium density of any
+Indian snack — 100g sesame provides 975mg calcium,
+almost the full daily requirement).
+Soaked almonds and raisins.
+
+DINNER: Light, easy to digest. Sleep is when growth
+happens so the body must not be working to digest
+a heavy meal.
+Moong dal khichdi with desi ghee.
+Roti with dal and sabzi.
+Glass of milk with soaked almonds and mishri before
+sleeping — classical Indian bedtime remedy for
+children's growth.
+
+BEDTIME REMEDY (Ayurvedic):
+One teaspoon of the following mixture in camel milk
+or regular full-fat warm milk, 30 minutes before
+sleep: 400g Ashwagandha powder + 100g Shatavari
+powder + 500g thread mishri (makhan mishri).
+Mix these powders and store in a jar. Give one
+teaspoon nightly.
+Ashwagandha stimulates the pituitary gland. Shatavari
+supports hormonal balance. Mishri provides energy.
+Follow for two months, take a one-month break,
+repeat if desired.
+Note: This is a traditional Ayurvedic formulation.
+Consult a physician before starting.
+
+SLEEP: Eight hours of high-quality sleep is
+non-negotiable for height growth. Growth hormone is
+released in its largest pulse during the first
+two hours of deep sleep. A child who sleeps at 11 PM
+and wakes at 7 AM does not benefit from the same
+growth hormone release as a child who sleeps at
+9:30 PM and wakes at 6 AM.
+
+EXERCISE FOR HEIGHT:
+Include in plan notes — not diet but essential:
+20-25 rounds of Surya Namaskar in the morning.
+Sprinting, jumping, skipping rope, cycling, swimming.
+Basketball is particularly good — the jumping and
+arm stretching stimulate spinal and limb growth.
+Cobra stretch (Bhujangasana) and Chakrasana
+(Wheel Pose) — stretch the spine.
+
+LIFESTYLE RULES:
+Maintain straight posture at all times.
+Strictly avoid smoking, alcohol, junk food —
+these directly suppress growth hormone production.
+Never suggest or support artificial growth hormone
+injections under any circumstances.
+
+================================================================
+PATTERN 9: DIGESTIVE HEALTH
+(Permanent Relief from Acidity, Gas, Bloating)
+================================================================
+
+APPLICABLE TO: Members reporting acidity, gas,
+bloating, constipation, IBS symptoms, or irregular
+bowel movements.
+
+CORE PHILOSOPHY:
+Most Indian digestive problems come from three things:
+wrong food combinations (Viruddh Aahar), eating
+cold and stale food, and irregular meal timing.
+Fix these three things and 70% of digestive problems
+resolve within two weeks without any medication.
+
+---
+
+EARLY MORNING:
+Practice right nostril breathing (Surya Bhedi
+Pranayama) for three to five minutes on an empty
+stomach. Right nostril breathing activates the
+sympathetic nervous system and stimulates digestive
+fire (Agni). This is the fastest natural way to
+prepare the digestive system for the day.
+Method: Close the left nostril with the right ring
+finger. Breathe in and out only through the right
+nostril for three to five minutes.
+
+BREAKFAST PATTERN:
+Eat curd or homemade dahi with a small amount of
+jaggery (shakkar) before or at the beginning of
+breakfast. The probiotics in fresh homemade dahi
+populate the gut with beneficial bacteria.
+The jaggery acts as a prebiotic feeding these bacteria.
+Do not use packaged curd — always homemade.
+Grain variety is essential: Do not eat wheat every
+single day. Rotating grains provides diverse fiber
+types for different gut bacteria.
+Rotation: Besan cheela on day one, moong dal dosa
+on day two, oats upma on day three, millet porridge
+on day four, back to wheat on day five if desired.
+This variety is one of the most powerful interventions
+for long-term gut microbiome health.
+
+LUNCH PATTERN:
+Eat fresh, hot, home-cooked food only. Refrigerated
+food even reheated is classified as Tamsic in
+Ayurveda and creates Ama (digestive toxins).
+Before sitting down to eat: chew a small piece of
+fresh ginger with a pinch of sendha namak.
+This activates digestive enzymes and hydrochloric
+acid production. Takes 30 seconds and dramatically
+improves food breakdown.
+Top all food — roti, sabzi, dal, rice — with two to
+four teaspoons of desi cow ghee daily.
+Ghee contains butyric acid which is the primary fuel
+for colonocytes (colon cells). It strengthens the
+gut lining, reduces intestinal permeability (leaky
+gut), and lubricates the entire digestive tract.
+Butyric acid is also produced naturally by gut
+bacteria fermenting fiber — ghee provides it directly.
+
+SNACK PATTERN:
+Fresh fruits or raw vegetable sticks.
+One fruit at a time — never mix fruits.
+Rule: Do not eat fruits after sunset. Fruit sugars
+ferment overnight in a slower digestive system.
+Rule: Never mix milk with fruits. Fruit acids
+curdle milk in the stomach. This is the Viruddh
+Aahar (incompatible food) rule. Mango shake and
+banana milkshake are specifically contraindicated
+for digestive patients.
+
+DINNER PATTERN:
+Eat dinner at a fixed time every day without
+exception. The body's digestive system runs on a
+biological clock. Irregular dinner timing is one
+of the top causes of chronic indigestion.
+After dinner: Chew one teaspoon of saunf (fennel
+seeds) slowly for two to three minutes. Saunf
+contains anethole which relaxes the intestinal
+muscles and expels gas. This is the most widely
+used post-meal digestive in Indian culture and
+it genuinely works.
+After sitting for five minutes: Sit in Vajrasana
+(kneeling pose, sitting on the heels) for five to
+ten minutes. Vajrasana is the only yoga posture
+that is beneficial immediately after a meal.
+It directs blood flow to the digestive organs.
+Sleep on the left side: The stomach is positioned
+slightly to the left of centre. Sleeping on the
+left side prevents acid from reaching the esophagus
+through gravity. This eliminates nighttime acid
+reflux for most people within one week.
+
+SLEEP: Six to eight hours of deep sleep.
+The digestive system heals and resets during sleep.
+Sleep deprivation directly increases cortisol which
+reduces digestive enzyme production and causes leaky
+gut over time.
+
+FOUR STRICT RULES FOR DIGESTIVE PATIENTS:
+Rule 1: Never bathe immediately after eating.
+Bathing diverts blood from the digestive organs to
+the peripheral circulation for temperature regulation.
+Wait minimum two hours after eating before bathing.
+Rule 2: Do not drink water immediately after eating.
+Drinking water with or immediately after meals
+dilutes digestive enzymes and hydrochloric acid,
+reducing digestive efficiency. Wait 30-40 minutes
+after the meal. Small sips during the meal are fine.
+Rule 3: Avoid Viruddh Aahar (incompatible combinations):
+Milk + salty foods (khichdi with curd is acceptable
+but milk with dosa/idli is not), cucumber raita
+with anything containing black tea, fruit with any
+grain, cold drink with any meal, honey with hot
+water above 40°C (destroys beneficial compounds
+and is contraindicated in Ayurveda).
+Rule 4: Chew every bite thoroughly — aim for 20-30
+chews before swallowing. Fifty percent of
+carbohydrate digestion happens in the mouth through
+salivary amylase. People who eat fast have chronically
+poor starch digestion which causes fermentation,
+gas, and bloating downstream.
+
+================================================================
+PATTERN 10: HIGH BLOOD PRESSURE CONTROL
+================================================================
+
+APPLICABLE TO: Members diagnosed with hypertension
+or with consistently high blood pressure readings.
+This plan works alongside — never instead of —
+prescribed medication. Always advise the member to
+discuss with their physician.
+
+CORE PHILOSOPHY:
+High blood pressure is caused by a combination of
+arterial stiffness, high sodium intake, chronic stress,
+and sedentary lifestyle. Food can address the first
+two directly. Every meal must be low sodium, high
+potassium, and include specific vasodilating foods.
+ICMR-NIN recommends maximum 2g sodium per day for
+hypertensive patients — this is approximately half
+a teaspoon of salt total for the entire day.
+
+---
+
+EARLY MORNING:
+Option 1: One teaspoon of Jatamansi powder mixed in
+one glass of water or one glass of fresh ash gourd
+(petha) juice or beetroot juice. Take on an empty
+stomach 30 minutes before breakfast.
+Jatamansi (Nardostachys jatamansi) is a classical
+Ayurvedic nervine that relaxes the nervous system,
+dilates blood vessels, and reduces peripheral
+vascular resistance — the mechanism is similar to
+calcium channel blockers but gentler.
+Option 2: Chew one raw garlic clove and drink water
+over it. Garlic contains allicin which relaxes the
+smooth muscle of blood vessel walls. The effect is
+measurably similar to mild antihypertensive medication
+in multiple clinical studies. Raw, not cooked —
+cooking destroys allicin.
+
+BREAKFAST PATTERN:
+After breakfast: Take one Sarpagandha Vati tablet
+if prescribed by an Ayurvedic physician.
+Sarpagandha (Rauwolfia serpentina) is the plant
+from which reserpine, one of the first Western
+antihypertensive drugs, was derived. The whole
+plant preparation is gentler and has fewer side
+effects than isolated reserpine.
+Optional addition: Add Jatamansi powder to morning
+juice — one half teaspoon stirred in.
+Food focus: Potassium-rich foods at every meal —
+banana (one per day is fine for BP patients),
+coconut water, fresh orange juice, palak, amla.
+Potassium counteracts sodium's effect on blood
+pressure by promoting sodium excretion by the kidneys.
+
+LUNCH PATTERN:
+Eat a raw beetroot salad with a squeeze of nimbu
+just before the main lunch meal.
+Beetroot contains dietary nitrates which convert
+to nitric oxide in the body. Nitric oxide dilates
+blood vessels and reduces systolic blood pressure.
+Multiple clinical trials confirm a measurable
+drop in BP within two to three hours of eating
+raw beetroot. This effect is one of the most
+evidence-based dietary interventions for BP.
+Eat smaller portions at lunch — never eat until
+very full. Large meals create a temporary but
+significant increase in blood pressure due to the
+blood diversion to the digestive system.
+Add raw onion salad with nimbu — onion contains
+quercetin, a flavonoid with proven antihypertensive
+properties in Indian dietary context.
+No pickle, no papad, no chutney with added salt.
+
+SNACK PATTERN:
+Boil half a teaspoon of Arjuna bark (Arjun ki Chaal)
+powder in the daily tea — exactly as one adds
+cardamom or cloves to chai. Strain and drink.
+Arjuna bark is the most studied Ayurvedic cardiac
+tonic. Clinical studies show it reduces systolic
+BP, improves left ventricular function, and reduces
+LDL cholesterol. It tastes slightly astringent but
+blends well with regular masala chai.
+Alternative snack food: Unsalted roasted seeds —
+pumpkin seeds (high magnesium), sunflower seeds,
+flaxseed. Magnesium is a natural vasodilator and
+deficiency is strongly linked to hypertension.
+
+DINNER PATTERN:
+Finish dinner by 7:00 PM. If not possible by 7:00 PM,
+keep the meal very light — the cardiovascular system
+is under increased load during digestion, and a heavy
+late dinner means the heart is working hard through
+the night instead of resting.
+After dinner: Go for a 15-minute walk. A post-dinner
+walk activates the soleus muscle in the calves —
+this large muscle acts as a secondary pump for venous
+blood return to the heart, reducing peripheral
+vascular resistance and measurably lowering BP.
+After dinner tablet: One Sarpagandha Vati if
+prescribed. Or: boil half teaspoon of Arjuna bark
+in milk and drink warm before sleep.
+
+STRICT RULES FOR HYPERTENSION:
+Strictly avoid all packaged and processed foods —
+packaged biscuits, chips, namkeen, pickles, papads,
+instant noodles, packaged soups, ready-to-eat meals.
+These contain hidden sodium that can be 5 to 10
+times the salt you would add at home.
+Stop using refined oils repeatedly heated to high
+temperatures. Oxidized oils produce compounds that
+damage arterial walls over time. Use cold-pressed
+mustard oil for cooking (North and East India) or
+cold-pressed coconut oil (South India) or cold-pressed
+groundnut oil (West India). Never reuse oil.
+Walk 15 minutes every day minimum. The soleus muscle
+activation from regular walking is one of the most
+consistent natural BP-lowering interventions.
+Do not stop prescribed allopathic medication abruptly.
+The correct approach is to begin these dietary and
+lifestyle changes, monitor BP weekly, and gradually
+taper medication with the physician's guidance as
+BP normalizes. Many patients successfully reduce or
+eliminate BP medication within three to six months
+of consistent lifestyle change under physician
+supervision. Never do this without medical oversight.
+
+================================================================
+END OF MEAL PATTERN LIBRARY
+================================================================
+
+INSTRUCTIONS FOR AI SYSTEM:
+1. When generating a meal plan, retrieve the relevant
+   pattern sections based on each member's stated goal
+   and health conditions.
+2. Apply the pattern's rules as hard constraints.
+   No output may violate a Hard Rule or Strict Rule
+   from the relevant pattern.
+3. Fill the meal slots with recipes from the recipe
+   database that match the pattern's food requirements.
+4. When multiple members have different patterns,
+   use the One Base Many Plates approach — identify
+   a base dish that satisfies the most restrictive
+   member, then document modifications for each other
+   member alongside.
+5. Always cite which pattern was applied in the
+   icmrCompliance field of the output JSON.
+6. When a member's condition is not covered by any
+   pattern above, use Google Search Grounding to
+   retrieve the most current ICMR or WHO dietary
+   recommendation for that condition in the Indian
+   context before generating the plan.
+================================================================
+```

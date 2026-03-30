@@ -1,0 +1,1264 @@
+You are a senior ML engineer implementing a production-grade
+RAG (Retrieval Augmented Generation) system for the
+ParivarSehat AI meal planner. This is the most important
+technical upgrade to the entire system.
+
+Read every word of this prompt before writing any code.
+Execute in the exact order given. Do not skip any step.
+After each step confirm completion before moving forward.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT WE ARE BUILDING — READ THIS FIRST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Currently the meal plan generation sends a basic prompt
+to Gemini and hopes for a good answer. This produces
+generic, inaccurate output.
+
+We are replacing this with a 3-layer RAG system:
+
+LAYER 1 — KNOWLEDGE BASE (pgvector + document chunks)
+  The system reads from three authoritative documents:
+  - ICMR-NIN 2024 dietary guidelines PDF
+  - Meal pattern document (clinical rules per goal/condition)
+  - Processed recipe database CSV
+  Before calling Gemini, the system retrieves the most
+  relevant chunks from these documents and injects them
+  as verified context into the prompt.
+
+LAYER 2 — GOOGLE SEARCH GROUNDING
+  Gemini 2.5 Flash has native Google Search grounding.
+  We enable it so Gemini can fetch current seasonal
+  recipes, regional variations, and updated nutritional
+  research before generating the plan.
+
+LAYER 3 — STRUCTURED MEAL PATTERN ENFORCEMENT
+  A rule document defines exact clinical meal patterns
+  per goal (weight loss, weight gain, diabetes, anaemia
+  etc.) per region. Gemini follows these as hard rules
+  and only fills recipe slots from the knowledge base.
+
+The result: Gemini reasons from authoritative Indian
+medical sources and a real recipe database instead of
+guessing from general training. Output becomes
+clinically accurate and regionally appropriate.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — INSTALL REQUIRED PACKAGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run these in the Replit shell:
+
+  npm install @google/generative-ai
+  npm install pdf-parse
+  npm install csv-parse
+  npm install natural
+
+These handle PDF text extraction, CSV parsing,
+text tokenization for chunking, and the Gemini SDK.
+
+Also run this SQL command on your PostgreSQL database
+to enable the pgvector extension:
+
+  CREATE EXTENSION IF NOT EXISTS vector;
+
+Then run this SQL to add the embedding column to
+the recipes table if it does not already exist:
+
+  ALTER TABLE recipes
+  ADD COLUMN IF NOT EXISTS embedding vector(768);
+
+Create a new table for document chunk embeddings:
+
+  CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id SERIAL PRIMARY KEY,
+    source TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(768),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_idx
+  ON knowledge_chunks
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+  CREATE INDEX IF NOT EXISTS recipes_embedding_idx
+  ON recipes
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — CREATE THE EMBEDDING SERVICE
+File: server/services/embedding.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create this file. It handles converting any text
+into a vector embedding using Gemini's embedding
+model. This is the foundation of the entire RAG system.
+
+  import { GoogleGenerativeAI } from '@google/generative-ai';
+
+  const genAI = new GoogleGenerativeAI(
+    process.env.GEMINI_API_KEY!
+  );
+
+  const embeddingModel = genAI.getGenerativeModel({
+    model: 'text-embedding-004'
+  });
+
+  export async function generateEmbedding(
+    text: string
+  ): Promise<number[]> {
+    // Clean and truncate text to safe token limit
+    const cleaned = text
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 8000);
+
+    const result = await embeddingModel.embedContent(cleaned);
+    return result.embedding.values;
+  }
+
+  export async function generateEmbeddingsBatch(
+    texts: string[]
+  ): Promise<number[][]> {
+    // Process in batches of 20 to avoid rate limits
+    const batchSize = 20;
+    const results: number[][] = [];
+
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      const embeddings = await Promise.all(
+        batch.map(text => generateEmbedding(text))
+      );
+      results.push(...embeddings);
+
+      // Rate limit pause between batches
+      if (i + batchSize < texts.length) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      console.log(
+        `Embedded ${Math.min(i + batchSize, texts.length)}
+        of ${texts.length} texts`
+      );
+    }
+
+    return results;
+  }
+
+  export async function findSimilarChunks(
+    query: string,
+    tableName: 'knowledge_chunks' | 'recipes',
+    limit: number = 8,
+    filter?: {
+      source?: string;
+      zone?: string;
+      diet?: string;
+    }
+  ): Promise<any[]> {
+    const { db } = await import('../db');
+    const queryEmbedding = await generateEmbedding(query);
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+    if (tableName === 'knowledge_chunks') {
+      let whereClause = '';
+      const params: any[] = [embeddingStr, limit];
+
+      if (filter?.source) {
+        params.push(filter.source);
+        whereClause = `WHERE source = $${params.length}`;
+      }
+
+      const result = await db.execute(`
+        SELECT id, source, content, metadata,
+          1 - (embedding <=> $1::vector) as similarity
+        FROM knowledge_chunks
+        ${whereClause}
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+      ` as any, params);
+
+      return result.rows;
+    }
+
+    if (tableName === 'recipes') {
+      let whereClause = 'WHERE embedding IS NOT NULL';
+      const params: any[] = [embeddingStr, limit];
+
+      if (filter?.zone) {
+        params.push(filter.zone);
+        whereClause += ` AND cuisine = $${params.length}`;
+      }
+      if (filter?.diet) {
+        params.push(filter.diet);
+        whereClause += ` AND diet = $${params.length}`;
+      }
+
+      const result = await db.execute(`
+        SELECT id, name, cuisine, course, diet,
+          ingredients, instructions,
+          "prepTimeInMins", servings,
+          1 - (embedding <=> $1::vector) as similarity
+        FROM recipes
+        ${whereClause}
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+      ` as any, params);
+
+      return result.rows;
+    }
+
+    return [];
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — CREATE THE DOCUMENT INGESTION SERVICE
+File: server/services/ingestion.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This service reads the knowledge base files,
+splits them into chunks, generates embeddings,
+and stores them in the knowledge_chunks table.
+
+  import fs from 'fs';
+  import path from 'path';
+  import pdfParse from 'pdf-parse';
+  import { parse } from 'csv-parse/sync';
+  import { db } from '../db';
+  import {
+    generateEmbedding,
+    generateEmbeddingsBatch
+  } from './embedding';
+
+  const KNOWLEDGE_BASE_PATH = path.join(
+    process.cwd(), 'knowledge_base'
+  );
+
+  // Split text into overlapping chunks
+  // Overlap ensures context is not lost at boundaries
+  function chunkText(
+    text: string,
+    chunkSize: number = 800,
+    overlap: number = 150
+  ): string[] {
+    const words = text.split(' ');
+    const chunks: string[] = [];
+
+    let start = 0;
+    while (start < words.length) {
+      const end = Math.min(start + chunkSize, words.length);
+      const chunk = words.slice(start, end).join(' ');
+      if (chunk.trim().length > 50) {
+        chunks.push(chunk.trim());
+      }
+      start += chunkSize - overlap;
+    }
+
+    return chunks;
+  }
+
+  // Ingest a PDF file into knowledge_chunks
+  async function ingestPDF(
+    filename: string,
+    sourceName: string
+  ): Promise<void> {
+    const filePath = path.join(KNOWLEDGE_BASE_PATH, filename);
+
+    if (!fs.existsSync(filePath)) {
+      console.warn(`PDF not found: ${filePath}. Skipping.`);
+      return;
+    }
+
+    console.log(`Ingesting PDF: ${filename}`);
+    const buffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(buffer);
+    const text = pdfData.text;
+
+    // Split into sections by looking for page breaks
+    // and heading patterns
+    const chunks = chunkText(text, 600, 100);
+    console.log(
+      `Created ${chunks.length} chunks from ${filename}`
+    );
+
+    const embeddings = await generateEmbeddingsBatch(chunks);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const embeddingStr =
+        `[${embeddings[i].join(',')}]`;
+
+      await db.execute(`
+        INSERT INTO knowledge_chunks
+          (source, chunk_index, content, embedding, metadata)
+        VALUES ($1, $2, $3, $4::vector, $5)
+        ON CONFLICT DO NOTHING
+      ` as any, [
+        sourceName,
+        i,
+        chunks[i],
+        embeddingStr,
+        JSON.stringify({ filename, page_estimate: i })
+      ]);
+    }
+
+    console.log(`Ingested ${chunks.length} chunks from ${filename}`);
+  }
+
+  // Ingest the meal patterns text file
+  async function ingestMealPatterns(): Promise<void> {
+    const filePath = path.join(
+      KNOWLEDGE_BASE_PATH, 'meal_patterns.txt'
+    );
+
+    if (!fs.existsSync(filePath)) {
+      console.warn('meal_patterns.txt not found. Skipping.');
+      return;
+    }
+
+    console.log('Ingesting meal_patterns.txt');
+    const text = fs.readFileSync(filePath, 'utf-8');
+
+    // Split by double newline to preserve pattern sections
+    const sections = text
+      .split(/\n\n+/)
+      .filter(s => s.trim().length > 50);
+
+    const embeddings =
+      await generateEmbeddingsBatch(sections);
+
+    for (let i = 0; i < sections.length; i++) {
+      const embeddingStr =
+        `[${embeddings[i].join(',')}]`;
+
+      await db.execute(`
+        INSERT INTO knowledge_chunks
+          (source, chunk_index, content, embedding, metadata)
+        VALUES ($1, $2, $3, $4::vector, $5)
+        ON CONFLICT DO NOTHING
+      ` as any, [
+        'meal_patterns',
+        i,
+        sections[i],
+        embeddingStr,
+        JSON.stringify({ type: 'clinical_pattern' })
+      ]);
+    }
+
+    console.log(
+      `Ingested ${sections.length} meal pattern sections`
+    );
+  }
+
+  // Embed all recipes in the recipes table
+  async function embedRecipes(): Promise<void> {
+    console.log('Embedding recipes...');
+
+    const result = await db.execute(`
+      SELECT id, name, cuisine, course, diet,
+             ingredients, instructions
+      FROM recipes
+      WHERE embedding IS NULL
+      LIMIT 500
+    ` as any);
+
+    const recipes = result.rows;
+    if (recipes.length === 0) {
+      console.log('All recipes already embedded.');
+      return;
+    }
+
+    console.log(`Embedding ${recipes.length} recipes`);
+
+    for (const recipe of recipes) {
+      // Combine all recipe fields into one rich text
+      // for embedding — this makes semantic search work
+      const recipeText = [
+        `Recipe: ${recipe.name}`,
+        `Zone: ${recipe.cuisine}`,
+        `Course: ${recipe.course}`,
+        `Diet: ${recipe.diet}`,
+        `Ingredients: ${recipe.ingredients}`,
+        `Instructions: ${recipe.instructions}`
+      ].join('. ');
+
+      const embedding = await generateEmbedding(recipeText);
+      const embeddingStr = `[${embedding.join(',')}]`;
+
+      await db.execute(`
+        UPDATE recipes
+        SET embedding = $1::vector
+        WHERE id = $2
+      ` as any, [embeddingStr, recipe.id]);
+    }
+
+    console.log(`Embedded ${recipes.length} recipes`);
+  }
+
+  // Main ingestion function — run once on setup
+  // and re-run if knowledge base files change
+  export async function ingestKnowledgeBase(): Promise<void> {
+    console.log('Starting knowledge base ingestion...');
+
+    // Check if already ingested
+    const existing = await db.execute(`
+      SELECT COUNT(*) as count FROM knowledge_chunks
+    ` as any);
+
+    const count = parseInt(existing.rows[0].count);
+
+    if (count > 0) {
+      console.log(
+        `Knowledge base already has ${count} chunks.
+        Skipping document ingestion.
+        Run with FORCE_REINGEST=true to re-ingest.`
+      );
+    } else {
+      // Ingest all knowledge base documents
+      await ingestPDF(
+        'icmr_nin_guidelines.pdf',
+        'icmr_guidelines'
+      );
+      await ingestPDF(
+        'icmr_nin_rda.pdf',
+        'icmr_rda'
+      );
+      await ingestMealPatterns();
+    }
+
+    // Always embed any unembedded recipes
+    await embedRecipes();
+
+    console.log('Knowledge base ingestion complete.');
+  }
+
+  // Force re-ingestion (call manually when files change)
+  export async function forceReingestKnowledgeBase()
+  : Promise<void> {
+    console.log('Force re-ingesting knowledge base...');
+
+    await db.execute(
+      'DELETE FROM knowledge_chunks' as any
+    );
+
+    await db.execute(
+      'UPDATE recipes SET embedding = NULL' as any
+    );
+
+    await ingestKnowledgeBase();
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — CREATE THE RAG RETRIEVAL SERVICE
+File: server/services/retrieval.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This service builds the context package that gets
+injected into every Gemini prompt. It retrieves
+the right chunks from every knowledge source
+simultaneously based on the family's specific needs.
+
+  import { findSimilarChunks } from './embedding';
+
+  interface FamilyContext {
+    zone: string;
+    budget: number;
+    members: Array<{
+      name: string;
+      age: number;
+      gender: string;
+      activityLevel: string;
+      goal: string;
+      healthConditions: string[];
+      dietType: string;
+      spiceTolerance: string;
+      fastingDays: string[];
+      allergies: string[];
+      dislikes: string[];
+    }>;
+    weeklyContext?: {
+      cookingTime: string;
+      specialRequest?: string;
+      fastingThisWeek: string[];
+      feelingNotes?: string;
+    };
+  }
+
+  interface RetrievedContext {
+    icmrGuidelines: string;
+    mealPatterns: string;
+    relevantRecipes: any[];
+    nutritionRules: string;
+    contextSummary: string;
+  }
+
+  export async function retrieveContextForFamily(
+    family: FamilyContext
+  ): Promise<RetrievedContext> {
+
+    // Build a rich query string from family profile
+    // This determines what gets retrieved from the
+    // knowledge base
+    const memberQueries = family.members.map(m => {
+      const conditions =
+        m.healthConditions.join(', ') || 'none';
+      return `${m.name} age ${m.age} ${m.gender}
+        goal ${m.goal} conditions ${conditions}
+        diet ${m.dietType}`;
+    }).join('; ');
+
+    const familyQuery = `
+      Indian family meal plan ${family.zone} zone
+      budget ${family.budget} rupees monthly
+      ${memberQueries}
+    `;
+
+    // Retrieve ICMR-NIN guidelines relevant to
+    // this family's health conditions
+    const conditionQuery = family.members
+      .flatMap(m => m.healthConditions)
+      .filter(c => c !== 'none')
+      .join(' ');
+
+    const icmrQuery = conditionQuery
+      ? `ICMR NIN dietary guidelines ${conditionQuery}
+         calorie protein iron calcium requirements
+         Indian adults ${conditionQuery}`
+      : `ICMR NIN dietary guidelines daily calorie
+         protein carbohydrate fat requirements
+         Indian adults general population`;
+
+    // Retrieve meal patterns for each member's goal
+    const goalQuery = family.members
+      .map(m => `${m.goal} meal pattern ${family.zone}
+        Indian food ${m.dietType}`)
+      .join(' ');
+
+    // Run all retrievals in parallel
+    const [
+      icmrChunks,
+      patternChunks,
+      relevantRecipes
+    ] = await Promise.all([
+
+      findSimilarChunks(
+        icmrQuery,
+        'knowledge_chunks',
+        6,
+        { source: 'icmr_guidelines' }
+      ),
+
+      findSimilarChunks(
+        goalQuery,
+        'knowledge_chunks',
+        8,
+        { source: 'meal_patterns' }
+      ),
+
+      findSimilarChunks(
+        familyQuery,
+        'recipes',
+        40,
+        {
+          zone: family.zone,
+          diet: family.members[0]?.dietType
+        }
+      )
+    ]);
+
+    // Also retrieve RDA numbers specifically
+    const rdaChunks = await findSimilarChunks(
+      `recommended dietary allowance calories protein
+       iron calcium age gender India ICMR`,
+      'knowledge_chunks',
+      4,
+      { source: 'icmr_rda' }
+    );
+
+    // Format the retrieved chunks into clean context strings
+    const icmrGuidelines = [
+      ...icmrChunks,
+      ...rdaChunks
+    ]
+      .map(c => c.content)
+      .join('\n\n---\n\n');
+
+    const mealPatterns = patternChunks
+      .map(c => c.content)
+      .join('\n\n---\n\n');
+
+    // Format recipes as a structured reference list
+    const nutritionRules = `
+      RETRIEVED FROM ICMR-NIN 2024 GUIDELINES:
+      ${icmrGuidelines}
+    `;
+
+    // Build a human-readable summary of what was retrieved
+    const contextSummary = `
+      Retrieved ${icmrChunks.length + rdaChunks.length}
+      ICMR-NIN guideline sections,
+      ${patternChunks.length} meal pattern rules,
+      ${relevantRecipes.length} regional recipes
+      for ${family.zone} zone.
+    `;
+
+    return {
+      icmrGuidelines,
+      mealPatterns,
+      relevantRecipes,
+      nutritionRules,
+      contextSummary
+    };
+  }
+
+  // Build a formatted recipe reference string
+  // for injection into the Gemini prompt
+  export function formatRecipesForPrompt(
+    recipes: any[]
+  ): string {
+    return recipes.map((r, i) => `
+      RECIPE ${i + 1}:
+      Name: ${r.name}
+      Zone: ${r.cuisine}
+      Course: ${r.course}
+      Diet: ${r.diet}
+      Time: ${r.prepTimeInMins} minutes
+      Ingredients: ${r.ingredients}
+    `).join('\n');
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — REBUILD THE MEAL PLAN PROMPT
+File: server/services/mealPlanPrompt.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the existing prompt builder with this
+RAG-powered version. This is the most important
+file in the entire system.
+
+  import { formatRecipesForPrompt } from './retrieval';
+
+  interface PromptInput {
+    family: any;
+    members: any[];
+    weeklyContext: any;
+    retrievedContext: {
+      icmrGuidelines: string;
+      mealPatterns: string;
+      relevantRecipes: any[];
+      nutritionRules: string;
+    };
+    dislikedMeals: string[];
+    fastingDaysThisWeek: string[];
+  }
+
+  export function buildMealPlanPrompt(
+    input: PromptInput
+  ): string {
+    const {
+      family,
+      members,
+      weeklyContext,
+      retrievedContext,
+      dislikedMeals,
+      fastingDaysThisWeek
+    } = input;
+
+    const memberProfiles = members.map(m => `
+      MEMBER: ${m.name}
+      Age: ${m.age} | Gender: ${m.gender}
+      Activity: ${m.activityLevel}
+      Goal: ${m.goal}
+      Health conditions: ${
+        m.healthConditions?.join(', ') || 'None'
+      }
+      Dietary type: ${m.dietType}
+      Allergies: ${m.allergies?.join(', ') || 'None'}
+      Dislikes: ${m.dislikes?.join(', ') || 'None'}
+      Spice tolerance: ${m.spiceTolerance}
+      Fasting days: ${
+        m.fastingDays?.join(', ') || 'None'
+      }
+      ${m.weight ? `Current weight: ${m.weight}kg` : ''}
+      ${m.height ? `Height: ${m.height}cm` : ''}
+      ${m.feelingNote ?
+        `How they are feeling: ${m.feelingNote}` : ''
+      }
+    `).join('\n');
+
+    return `
+You are ParivarSehat AI, India's most advanced clinical
+family nutrition system. You are built on ICMR-NIN 2024
+guidelines and trained on authentic Indian regional recipes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR KNOWLEDGE BASE — USE ONLY THIS DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following has been retrieved from authoritative
+sources. You MUST reason from this data.
+Do NOT use general knowledge that contradicts
+anything written below.
+
+SECTION A — ICMR-NIN 2024 DIETARY GUIDELINES
+(Retrieved from official ICMR-NIN documents)
+
+${retrievedContext.icmrGuidelines}
+
+SECTION B — CLINICAL MEAL PATTERNS
+(Retrieved from ParivarSehat clinical pattern library)
+
+${retrievedContext.mealPatterns}
+
+SECTION C — AVAILABLE REGIONAL RECIPES
+(Retrieved from ParivarSehat recipe database —
+ only suggest meals from this list)
+
+${formatRecipesForPrompt(retrievedContext.relevantRecipes)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FAMILY PROFILE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Zone: ${family.zone} (use only recipes from this zone
+      unless unavailable)
+Monthly food budget: ₹${weeklyContext.budget} per month
+  = ₹${Math.round(weeklyContext.budget / 4)} per week
+  = ₹${Math.round(weeklyContext.budget / 28)} per day
+  = ₹${Math.round(weeklyContext.budget / 84)} per meal
+
+Weekday cooking time available:
+  ${weeklyContext.cookingTime}
+
+Number of meals per day:
+  ${family.mealsPerDay || 3}
+
+${memberProfiles}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THIS WEEK'S CONTEXT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fasting days this week:
+  ${fastingDaysThisWeek.length > 0
+    ? fastingDaysThisWeek.join(', ')
+    : 'None'}
+
+On fasting days use ONLY:
+  Sabudana, kuttu atta, singhara atta, makhana,
+  sendha namak, fruits, milk, dahi, sweet potato,
+  aloo (when allowed). No regular salt, no grains.
+
+Meals to avoid (previously disliked):
+  ${dislikedMeals.length > 0
+    ? dislikedMeals.join(', ')
+    : 'None'}
+
+Special request this week:
+  ${weeklyContext.specialRequest || 'None'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HARD RULES — NEVER VIOLATE THESE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Every meal must come from SECTION C recipes above.
+   If a slot cannot be filled from SECTION C, you may
+   suggest a simple home-cooked variant of an
+   ingredient already in SECTION C. Never invent
+   a completely new recipe.
+
+2. Apply the clinical meal patterns from SECTION B
+   to every member's meal slots. The pattern defines
+   what type of food goes in each slot. The recipe
+   from SECTION C fills that slot.
+
+3. Calorie targets must follow ICMR-NIN 2024 values
+   from SECTION A. Do not use any other calorie
+   reference.
+
+4. For diabetic members: glycemic index must be low
+   to medium at every meal. No white rice alone —
+   always pair with dal or sabzi. No fruit juice.
+   No maida. Use millets where available.
+
+5. For anaemia members: every meal must include an
+   iron-rich ingredient. Every vitamin C source must
+   be paired with the iron source in the same meal
+   to improve absorption. Examples: nimbu with palak,
+   amla with dal, tomato with rajma.
+
+6. For hypertension members: no added salt instruction
+   in every meal. No pickles. No papad. Low sodium
+   ingredients only.
+
+7. Never repeat the same protein source two days in
+   a row for the same member.
+
+8. Monday dinner dal or sabzi must become Tuesday
+   breakfast or lunch in a new form (leftover chain).
+   Mark this explicitly in the plan.
+
+9. Total weekly grocery cost must stay within
+   ₹${Math.round(weeklyContext.budget / 4)}.
+   Show cost estimate per meal.
+
+10. Members with a tiffin requirement get a
+    separate packable lunch marked as TIFFIN.
+    It must be non-messy and room-temperature safe.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT — RETURN VALID JSON ONLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Return a single valid JSON object.
+No markdown. No explanation outside the JSON.
+No trailing commas.
+
+{
+  "weekPlan": {
+    "monday": {
+      "breakfast": {
+        "baseDish": "Recipe name from SECTION C",
+        "baseIngredients": ["ingredient1", "ingredient2"],
+        "memberPlates": {
+          "MemberName": {
+            "modification": "what is different for them",
+            "portionSize": "2 roti / 1 cup etc",
+            "calories": 350,
+            "protein": 12,
+            "carbs": 45,
+            "fat": 8,
+            "iron": 3,
+            "calcium": 80,
+            "clinicalNote": "why this meal suits their condition"
+          }
+        },
+        "cookingTime": 20,
+        "estimatedCost": 45,
+        "isTiffin": false,
+        "leftoverNote": null
+      },
+      "lunch": { ... },
+      "snack": { ... },
+      "dinner": { ... }
+    },
+    "tuesday": { ... },
+    "wednesday": { ... },
+    "thursday": { ... },
+    "friday": { ... },
+    "saturday": { ... },
+    "sunday": { ... }
+  },
+  "weekSummary": {
+    "totalEstimatedCost": 2100,
+    "budgetStatus": "within budget",
+    "harmonyScore": 82,
+    "memberSummaries": {
+      "MemberName": {
+        "avgDailyCalories": 1850,
+        "avgDailyProtein": 55,
+        "avgDailyIron": 18,
+        "avgDailyCalcium": 600,
+        "goalAlignment": "On track for weight loss",
+        "nutritionGaps": ["Iron at 78% of target — add more palak"],
+        "weekHighlight": "Low sodium maintained all 7 days"
+      }
+    },
+    "leftoverChains": [
+      {
+        "from": "Monday dinner — dal tadka",
+        "to": "Tuesday lunch — dal paratha",
+        "ingredientSaved": "dal tadka"
+      }
+    ],
+    "groceryList": {
+      "vegetables": [
+        { "item": "Palak", "quantity": "500g",
+          "estimatedCost": 20 }
+      ],
+      "grains": [],
+      "dairy": [],
+      "protein": [],
+      "spicesAndOil": []
+    }
+  },
+  "icmrCompliance": {
+    "guidelinesFollowed": [
+      "ICMR-NIN 2024 macro ratio 60-65% carbs applied",
+      "Iron absorption pairing applied for anaemic member"
+    ],
+    "deviations": [],
+    "dataSource": "ICMR-NIN 2024 Dietary Guidelines for Indians"
+  }
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GROUNDING INSTRUCTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If any member has a health condition not fully
+covered by SECTION A and SECTION B, use Google
+Search to find the latest ICMR or WHO dietary
+recommendation for that condition in the Indian
+context before filling those meal slots.
+Cite the source in the icmrCompliance field.
+    `;
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — REBUILD THE MEAL PLAN GENERATION ROUTE
+File: server/routes/mealPlans/index.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the existing meal plan generation handler
+with this RAG-powered version. Do not change
+the route path or any other routes in this file.
+
+Only replace the handler function for
+POST /meal-plans/generate.
+
+  import {
+    retrieveContextForFamily
+  } from '../../services/retrieval';
+  import {
+    buildMealPlanPrompt
+  } from '../../services/mealPlanPrompt';
+  import {
+    GoogleGenerativeAI
+  } from '@google/generative-ai';
+
+  const genAI = new GoogleGenerativeAI(
+    process.env.GEMINI_API_KEY!
+  );
+
+  router.post('/generate', requireAuth, async (req, res) => {
+    try {
+      const { familyId, weeklyContext } = req.body;
+
+      // 1. Fetch family and all members from DB
+      const family = await db.query.families
+        .findFirst({
+          where: eq(families.id, familyId)
+        });
+
+      const members = await db.query.familyMembers
+        .findMany({
+          where: eq(familyMembers.familyId, familyId)
+        });
+
+      if (!members || members.length === 0) {
+        return res.status(422).json({
+          error: 'Add at least one family member first'
+        });
+      }
+
+      // 2. Fetch disliked meals from feedback table
+      const dislikedFeedback = await db.query
+        .mealFeedback.findMany({
+          where: and(
+            eq(mealFeedback.familyId, familyId),
+            eq(mealFeedback.rating, 'dislike')
+          ),
+          orderBy: desc(mealFeedback.createdAt),
+          limit: 30
+        });
+
+      const dislikedMeals = dislikedFeedback
+        .map(f => f.mealName)
+        .filter(Boolean);
+
+      // 3. Detect fasting days this week
+      const fastingDaysThisWeek =
+        weeklyContext.fastingDays || [];
+
+      // 4. RAG RETRIEVAL — this is the core upgrade
+      // Build family context for retrieval
+      console.log('Starting RAG retrieval...');
+
+      const familyContext = {
+        zone: family.zone || 'Pan-Indian',
+        budget: weeklyContext.budget
+          || family.monthlyBudget,
+        members: members.map(m => ({
+          name: m.name,
+          age: m.age,
+          gender: m.gender,
+          activityLevel: m.activityLevel,
+          goal: weeklyContext.memberGoals?.[m.id]
+            || m.primaryGoal,
+          healthConditions:
+            weeklyContext.memberConditions?.[m.id]
+            || m.healthConditions || [],
+          dietType: m.dietType,
+          spiceTolerance: m.spiceTolerance,
+          fastingDays: m.fastingDays || [],
+          allergies: m.allergies || [],
+          dislikes: m.ingredientDislikes || [],
+          feelingNote:
+            weeklyContext.memberFeelings?.[m.id]
+        })),
+        weeklyContext
+      };
+
+      const retrievedContext =
+        await retrieveContextForFamily(familyContext);
+
+      console.log(retrievedContext.contextSummary);
+
+      // 5. BUILD RAG-POWERED PROMPT
+      const prompt = buildMealPlanPrompt({
+        family,
+        members,
+        weeklyContext,
+        retrievedContext,
+        dislikedMeals,
+        fastingDaysThisWeek
+      });
+
+      // 6. CALL GEMINI WITH GROUNDING ENABLED
+      // Google Search Grounding is enabled via tools
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 16000,
+          temperature: 0.3  // Lower = more consistent
+        },
+        tools: [{
+          googleSearch: {}  // Enables web grounding
+        }]
+      });
+
+      // 7. CALL WITH RETRY LOGIC
+      let planData = null;
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`Gemini attempt ${attempt}...`);
+          const result =
+            await model.generateContent(prompt);
+          const text = result.response.text();
+
+          // Extract JSON safely
+          const jsonStart = text.indexOf('{');
+          const jsonEnd = text.lastIndexOf('}');
+
+          if (jsonStart === -1 || jsonEnd === -1) {
+            throw new Error('No JSON found in response');
+          }
+
+          planData = JSON.parse(
+            text.slice(jsonStart, jsonEnd + 1)
+          );
+          break;
+
+        } catch (err) {
+          lastError = err;
+          console.warn(
+            `Attempt ${attempt} failed:`, err
+          );
+          if (attempt < 3) {
+            await new Promise(
+              r => setTimeout(r, 2000 * attempt)
+            );
+          }
+        }
+      }
+
+      if (!planData) {
+        throw lastError || new Error(
+          'Failed to generate plan after 3 attempts'
+        );
+      }
+
+      // 8. SAVE TO DATABASE
+      const [savedPlan] = await db.insert(mealPlans)
+        .values({
+          familyId,
+          weekStart: weeklyContext.weekStart
+            || new Date().toISOString(),
+          plan: planData.weekPlan,
+          nutritionSummary: planData.weekSummary,
+          icmrCompliance: planData.icmrCompliance,
+          ragContextUsed: {
+            chunksRetrieved:
+              retrievedContext.relevantRecipes.length,
+            sourcesUsed: [
+              'icmr_guidelines',
+              'icmr_rda',
+              'meal_patterns',
+              'recipe_database'
+            ]
+          }
+        })
+        .returning();
+
+      return res.json({
+        success: true,
+        plan: savedPlan,
+        contextSummary: retrievedContext.contextSummary
+      });
+
+    } catch (error: any) {
+      console.error('Meal plan generation error:', error);
+      return res.status(500).json({
+        error: error.message || 'Generation failed',
+        suggestion: 'Try again or reduce the number of members'
+      });
+    }
+  });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — WIRE UP INGESTION ON SERVER START
+File: server/index.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add this import at the top of server/index.ts:
+
+  import { ingestKnowledgeBase }
+    from './services/ingestion';
+
+Add this call after the database connection
+is confirmed working, before any routes are
+registered:
+
+  console.log('Initializing knowledge base...');
+  await ingestKnowledgeBase().catch(err => {
+    console.error(
+      'Knowledge base ingestion failed:', err
+    );
+    console.warn(
+      'App will start but RAG will not work
+       until knowledge_base/ files are added'
+    );
+  });
+
+Add an admin route to force re-ingestion when
+knowledge base files are updated:
+
+  app.post('/api/admin/reingest',
+    requireAuth,
+    async (req, res) => {
+      const user = req.user as any;
+      if (user.email !== process.env.ADMIN_EMAIL) {
+        return res.status(403).json({
+          error: 'Admin only'
+        });
+      }
+      const { forceReingestKnowledgeBase }
+        = await import('./services/ingestion');
+      await forceReingestKnowledgeBase();
+      return res.json({
+        success: true,
+        message: 'Knowledge base re-ingested'
+      });
+    }
+  );
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — UPGRADE THE CHAT RAG
+File: server/routes/chat/index.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the naive keyword extraction in the
+chat route with vector retrieval:
+
+  import { findSimilarChunks }
+    from '../../services/embedding';
+
+  // Replace the keyword extraction block with:
+  const relevantRecipes = await findSimilarChunks(
+    userMessage,
+    'recipes',
+    8
+  );
+
+  const relevantGuidelines = await findSimilarChunks(
+    userMessage,
+    'knowledge_chunks',
+    4
+  );
+
+  const recipeContext = relevantRecipes
+    .map(r =>
+      `${r.name} (${r.cuisine}, ${r.diet}):
+       ${r.ingredients}`
+    ).join('\n');
+
+  const guidelineContext = relevantGuidelines
+    .map(c => c.content)
+    .join('\n\n');
+
+  // Inject both into the chat system prompt
+  const systemPrompt = `
+    You are ParivarSehat AI, a clinical Indian
+    family nutrition assistant.
+    
+    RELEVANT RECIPES FROM DATABASE:
+    ${recipeContext}
+    
+    RELEVANT ICMR-NIN GUIDELINES:
+    ${guidelineContext}
+    
+    Answer the user's question using only the
+    above context where relevant. For recipes,
+    always recommend from the database above.
+    For nutrition advice, always cite ICMR-NIN.
+  `;
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9 — ADD SCHEMA COLUMNS IF MISSING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run this SQL to add columns needed for RAG
+tracking to existing tables:
+
+  ALTER TABLE meal_plans
+  ADD COLUMN IF NOT EXISTS icmr_compliance JSONB,
+  ADD COLUMN IF NOT EXISTS rag_context_used JSONB;
+
+Update the Drizzle schema file to include
+these new columns on the mealPlans table.
+Run drizzle-kit push after updating.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10 — VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After all steps are complete run these checks:
+
+□ Server starts without errors
+
+□ GET /healthz returns database connected
+
+□ Run this SQL and confirm count > 0:
+  SELECT COUNT(*) FROM knowledge_chunks;
+
+□ Run this SQL and confirm count > 0:
+  SELECT COUNT(*) FROM recipes
+  WHERE embedding IS NOT NULL;
+
+□ Test RAG retrieval directly:
+  POST /api/admin/test-retrieval
+  Body: { "query": "weight loss dal chawal diabetes" }
+  Should return relevant chunks and recipes
+
+□ Generate a meal plan for a diabetic member
+  and confirm the output contains
+  icmrCompliance.guidelinesFollowed array
+  with at least one entry
+
+□ Confirm meal plan JSON parses without error
+
+□ Confirm chat returns recipe suggestions
+  from the database not invented ones
+
+□ Check server logs during generation —
+  should show "Starting RAG retrieval..."
+  and "Retrieved X chunks" messages
+
+□ No TypeScript compilation errors
