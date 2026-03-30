@@ -15,14 +15,14 @@ function getGenAI(): GoogleGenAI | null {
   const integrationKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
   const integrationBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
 
-  if (directKey) {
-    return new GoogleGenAI({ apiKey: directKey });
-  }
   if (integrationKey && integrationBase) {
     return new GoogleGenAI({
       apiKey: integrationKey,
       httpOptions: { apiVersion: "", baseUrl: integrationBase },
     });
+  }
+  if (directKey) {
+    return new GoogleGenAI({ apiKey: directKey });
   }
   return null;
 }

@@ -14,7 +14,7 @@ import {
   UpdateMealPlanBody,
   DeleteMealPlanParams,
 } from "@workspace/api-zod";
-import { ai } from "@workspace/integrations-gemini-ai";
+import { ai, isModelfarm } from "@workspace/integrations-gemini-ai";
 import { getICMRNINTargets } from "../../lib/icmr-nin.js";
 import { validatePlanClinically } from "../../services/planValidator.js";
 import { getFestivalFastingForWeek } from "../../lib/festival-fasting.js";
@@ -215,7 +215,7 @@ async function callGeminiWithJsonRetry(
         config: {
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           responseMimeType: "application/json",
-          tools: [{ googleSearch: {} }],
+          ...(isModelfarm() ? {} : { tools: [{ googleSearch: {} }] }),
         },
         abortSignal: signal,
       });

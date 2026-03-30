@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, sql, desc, and, lte, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
-import { ai } from "@workspace/integrations-gemini-ai";
+import { ai, isModelfarm } from "@workspace/integrations-gemini-ai";
 import {
   CreateGeminiConversationBody,
   GetGeminiConversationParams,
@@ -287,7 +287,7 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
       ],
       config: {
         maxOutputTokens: 8192,
-        tools: [{ googleSearch: {} }],
+        ...(isModelfarm() ? {} : { tools: [{ googleSearch: {} }] }),
       },
       abortSignal: abortController.signal,
     });

@@ -5,9 +5,6 @@ const integrationBaseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
 const directApiKey = process.env.GEMINI_API_KEY;
 
 function getAI(): GoogleGenAI {
-  if (directApiKey) {
-    return new GoogleGenAI({ apiKey: directApiKey });
-  }
   if (integrationApiKey && integrationBaseUrl) {
     return new GoogleGenAI({
       apiKey: integrationApiKey,
@@ -17,13 +14,16 @@ function getAI(): GoogleGenAI {
       },
     });
   }
+  if (directApiKey) {
+    return new GoogleGenAI({ apiKey: directApiKey });
+  }
   throw new Error(
     "Gemini AI not configured. Set GEMINI_API_KEY or configure the Gemini integration (AI_INTEGRATIONS_GEMINI_BASE_URL and AI_INTEGRATIONS_GEMINI_API_KEY)."
   );
 }
 
-function isModelfarm(): boolean {
-  return !!(integrationApiKey && integrationBaseUrl && !directApiKey);
+export function isModelfarm(): boolean {
+  return !!(integrationApiKey && integrationBaseUrl);
 }
 
 interface GeminiContent {
