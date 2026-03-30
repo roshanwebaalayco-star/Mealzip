@@ -78,5 +78,5 @@ waitForPort = 5000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && NODE_ENV=production PORT=3000 DEMO_MODE=true node --enable-source-maps artifacts/api-server/dist/index.mjs"]
-build = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r artifacts/nutrinext/dist/public artifacts/api-server/dist/public"]
+run = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && NODE_ENV=production PORT=3000 DEMO_MODE=true node --enable-source-maps /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/index.mjs"]
+build = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext/dist/public /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/public"]
