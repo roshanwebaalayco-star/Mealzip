@@ -1,9 +1,13 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { createProxyMiddleware } from "http-proxy-middleware";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 
@@ -32,7 +36,10 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 app.use("/api", router);
 
-// Global error handler — must be registered after all routes
+app.use("/api", (_req: express.Request, res: express.Response) => {
+  res.status(404).json({ error: "API endpoint not found" });
+});
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const logger = (req as unknown as { log?: { error: (obj: Record<string, unknown>, msg: string) => void } }).log;
@@ -46,17 +53,29 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   res.status(status).json({ error: message });
 });
 
-// In development, proxy all non-API requests to the Vite dev server
-// so the Replit preview (which points to this port) shows the frontend.
-if (process.env.NODE_ENV !== "production") {
-  const VITE_PORT = process.env.VITE_DEV_PORT ?? "24170";
-  app.use(
-    createProxyMiddleware({
-      target: `http://localhost:${VITE_PORT}`,
-      changeOrigin: true,
-      ws: true,
-    }),
-  );
+if (process.env.NODE_ENV === "production") {
+  const clientDist = path.resolve(__dirname, "public");
+  if (existsSync(clientDist)) {
+    app.use(express.static(clientDist, { maxAge: "1d" }));
+    app.use((_req: express.Request, res: express.Response) => {
+      res.sendFile(path.join(clientDist, "index.html"));
+    });
+    logger.info({ clientDist }, "Serving static frontend from built assets");
+  } else {
+    logger.warn({ clientDist }, "No built frontend found — API-only mode");
+  }
+} else {
+  (async () => {
+    const { createProxyMiddleware } = await import("http-proxy-middleware");
+    const VITE_PORT = process.env.VITE_DEV_PORT ?? "24170";
+    app.use(
+      createProxyMiddleware({
+        target: `http://localhost:${VITE_PORT}`,
+        changeOrigin: true,
+        ws: true,
+      }),
+    );
+  })();
 }
 
 export default app;

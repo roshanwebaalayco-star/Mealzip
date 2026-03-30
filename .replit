@@ -77,4 +77,6 @@ args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @w
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd Family-Nutrition-Planner && NODE_ENV=production PORT=3000 DEMO_MODE=true node --enable-source-maps artifacts/api-server/dist/index.mjs"]
+build = ["bash", "-c", "cd Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r artifacts/nutrinext/dist/public artifacts/api-server/dist/public"]

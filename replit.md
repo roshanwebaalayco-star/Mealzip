@@ -74,3 +74,13 @@ PostgreSQL serves as the primary data store, managed by Drizzle ORM. Key tables 
 - **`esbuild`**: API server bundling.
 - **`vite`**: Frontend bundling.
 - **`tailwindcss`**: Styling.
+
+## Deployment
+
+**Target**: Replit Autoscale (single port 3000).
+
+**Build**: Vite builds the frontend to `nutrinext/dist/public/`, esbuild bundles the API server to `api-server/dist/`, then the frontend is copied into `api-server/dist/public/`. In production, the Express server serves the built frontend as static files and handles SPA routing with a catch-all `index.html` fallback.
+
+**Run**: `NODE_ENV=production PORT=3000 DEMO_MODE=true node --enable-source-maps artifacts/api-server/dist/index.mjs`
+
+**Static serving**: In production, `app.ts` serves `dist/public/` via `express.static` with 1-day cache and a `*` catch-all for SPA routing. In development, non-API requests are proxied to the Vite dev server.
