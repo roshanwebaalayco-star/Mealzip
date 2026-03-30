@@ -13,6 +13,9 @@ ICMR-NIN 2024 Recommended Dietary Allowances (RDA) document. Contains specific c
 ### `meal_patterns.txt`
 Clinical meal pattern definitions per health goal (weight loss, weight gain, diabetes management, anaemia correction, etc.) and per Indian regional zone. Each section defines the exact meal structure, portion sizes, and food group distribution. Sections should be separated by double newlines.
 
+### `*.csv` (any CSV files)
+Any CSV files placed in this directory are auto-discovered and ingested. Rows are grouped into chunks of 15 with the header row prepended for context. Useful for nutrient composition tables, food exchange lists, or supplementary nutrition data.
+
 ## How It Works
 
 On server startup, the ingestion service reads these files, splits them into overlapping text chunks, generates vector embeddings using Gemini's text-embedding-004 model, and stores them in the `knowledge_chunks` PostgreSQL table with pgvector.

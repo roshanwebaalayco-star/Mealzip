@@ -3,7 +3,16 @@ import { forceReingestKnowledgeBase } from "../../services/ingestion.js";
 
 const router = Router();
 
-router.post("/admin/reingest", async (_req: Request, res: Response) => {
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+router.post("/admin/reingest", async (req: Request, res: Response) => {
+  const providedSecret = req.headers["x-admin-secret"];
+
+  if (!ADMIN_SECRET || providedSecret !== ADMIN_SECRET) {
+    res.status(403).json({ error: "Forbidden. Valid x-admin-secret header required." });
+    return;
+  }
+
   try {
     res.json({ status: "started", message: "Re-ingestion started in background." });
     forceReingestKnowledgeBase().catch((err) => {

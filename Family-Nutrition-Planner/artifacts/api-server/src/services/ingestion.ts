@@ -59,13 +59,67 @@ async function ingestPDF(
       `INSERT INTO knowledge_chunks
         (source, chunk_index, content, embedding, metadata)
       VALUES ($1, $2, $3, $4::vector, $5)
-      ON CONFLICT DO NOTHING`,
+      ON CONFLICT (source, chunk_index) DO NOTHING`,
       [
         sourceName,
         i,
         chunks[i],
         embeddingStr,
         JSON.stringify({ filename, page_estimate: i }),
+      ],
+    );
+  }
+
+  console.log(`Ingested ${chunks.length} chunks from ${filename}`);
+}
+
+async function ingestCSV(
+  filename: string,
+  sourceName: string,
+): Promise<void> {
+  const filePath = path.join(KNOWLEDGE_BASE_PATH, filename);
+
+  if (!fs.existsSync(filePath)) {
+    console.warn(`CSV not found: ${filePath}. Skipping.`);
+    return;
+  }
+
+  console.log(`Ingesting CSV: ${filename}`);
+  const text = fs.readFileSync(filePath, "utf-8");
+
+  const rows = text.split("\n").filter((row) => row.trim().length > 10);
+  const header = rows[0];
+  const dataRows = rows.slice(1);
+
+  const chunks: string[] = [];
+  const ROWS_PER_CHUNK = 15;
+
+  for (let i = 0; i < dataRows.length; i += ROWS_PER_CHUNK) {
+    const chunkRows = dataRows.slice(i, i + ROWS_PER_CHUNK);
+    const chunkText = `${header}\n${chunkRows.join("\n")}`;
+    if (chunkText.trim().length > 50) {
+      chunks.push(chunkText.trim());
+    }
+  }
+
+  console.log(`Created ${chunks.length} chunks from ${filename}`);
+
+  const embeddings = await generateEmbeddingsBatch(chunks);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const embeddingStr = `[${embeddings[i].join(",")}]`;
+
+    await pool.query(
+      `INSERT INTO knowledge_chunks
+        (source, chunk_index, content, embedding, metadata)
+      VALUES ($1, $2, $3, $4::vector, $5)
+      ON CONFLICT (source, chunk_index) DO NOTHING`,
+      [
+        sourceName,
+        i,
+        chunks[i],
+        embeddingStr,
+        JSON.stringify({ filename, rows_in_chunk: Math.min(ROWS_PER_CHUNK, dataRows.length - i * ROWS_PER_CHUNK) }),
       ],
     );
   }
@@ -97,7 +151,7 @@ async function ingestMealPatterns(): Promise<void> {
       `INSERT INTO knowledge_chunks
         (source, chunk_index, content, embedding, metadata)
       VALUES ($1, $2, $3, $4::vector, $5)
-      ON CONFLICT DO NOTHING`,
+      ON CONFLICT (source, chunk_index) DO NOTHING`,
       [
         "meal_patterns",
         i,
@@ -109,6 +163,21 @@ async function ingestMealPatterns(): Promise<void> {
   }
 
   console.log(`Ingested ${sections.length} meal pattern sections`);
+}
+
+async function ingestAllCSVs(): Promise<void> {
+  if (!fs.existsSync(KNOWLEDGE_BASE_PATH)) return;
+
+  const files = fs.readdirSync(KNOWLEDGE_BASE_PATH).filter((f) => f.endsWith(".csv"));
+  if (files.length === 0) {
+    console.log("No CSV files found in knowledge_base/. Skipping CSV ingestion.");
+    return;
+  }
+
+  for (const file of files) {
+    const sourceName = `csv_${path.basename(file, ".csv")}`;
+    await ingestCSV(file, sourceName);
+  }
 }
 
 async function embedRecipes(): Promise<void> {
@@ -190,6 +259,7 @@ export async function ingestKnowledgeBase(): Promise<void> {
     await ingestPDF("icmr_nin_guidelines.pdf", "icmr_guidelines");
     await ingestPDF("icmr_nin_rda.pdf", "icmr_rda");
     await ingestMealPatterns();
+    await ingestAllCSVs();
   }
 
   await embedRecipes();

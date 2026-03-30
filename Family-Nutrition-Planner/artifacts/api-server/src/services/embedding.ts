@@ -30,6 +30,27 @@ export function isEmbeddingConfigured(): boolean {
   return !!(process.env.GEMINI_API_KEY || (process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL));
 }
 
+export interface ChunkResult {
+  id: number;
+  source: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  similarity: number;
+}
+
+export interface RecipeResult {
+  id: number;
+  name: string;
+  cuisine: string;
+  course: string;
+  diet: string;
+  ingredients: string;
+  instructions: string;
+  prepTimeMin: number | null;
+  servings: number | null;
+  similarity: number;
+}
+
 export async function generateEmbedding(text: string): Promise<number[]> {
   const cleaned = text.replace(/\s+/g, " ").trim().slice(0, 8000);
 
@@ -72,6 +93,18 @@ export async function generateEmbeddingsBatch(
 
 export async function findSimilarChunks(
   query: string,
+  tableName: "knowledge_chunks",
+  limit?: number,
+  filter?: { source?: string },
+): Promise<ChunkResult[]>;
+export async function findSimilarChunks(
+  query: string,
+  tableName: "recipes",
+  limit?: number,
+  filter?: { zone?: string; diet?: string },
+): Promise<RecipeResult[]>;
+export async function findSimilarChunks(
+  query: string,
   tableName: "knowledge_chunks" | "recipes",
   limit: number = 8,
   filter?: {
@@ -79,20 +112,20 @@ export async function findSimilarChunks(
     zone?: string;
     diet?: string;
   },
-): Promise<any[]> {
+): Promise<ChunkResult[] | RecipeResult[]> {
   const queryEmbedding = await generateEmbedding(query);
   const embeddingStr = `[${queryEmbedding.join(",")}]`;
 
   if (tableName === "knowledge_chunks") {
     let whereClause = "";
-    const params: any[] = [embeddingStr, limit];
+    const params: (string | number)[] = [embeddingStr, limit];
 
     if (filter?.source) {
       params.push(filter.source);
       whereClause = `WHERE source = $${params.length}`;
     }
 
-    const result = await pool.query(
+    const result = await pool.query<ChunkResult>(
       `SELECT id, source, content, metadata,
         1 - (embedding <=> $1::vector) as similarity
       FROM knowledge_chunks
@@ -107,7 +140,7 @@ export async function findSimilarChunks(
 
   if (tableName === "recipes") {
     let whereClause = "WHERE embedding IS NOT NULL";
-    const params: any[] = [embeddingStr, limit];
+    const params: (string | number)[] = [embeddingStr, limit];
 
     if (filter?.zone) {
       params.push(filter.zone);
@@ -118,7 +151,7 @@ export async function findSimilarChunks(
       whereClause += ` AND diet = $${params.length}`;
     }
 
-    const result = await pool.query(
+    const result = await pool.query<RecipeResult>(
       `SELECT id, name, cuisine, course, diet,
         ingredients, instructions,
         "prep_time_min" as "prepTimeMin", servings,
