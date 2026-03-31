@@ -18,7 +18,6 @@ app.get("/healthz", (_req, res) => {
 app.use(
   pinoHttp({
     logger,
-    ignore: "req.url === '/healthz'",
     serializers: {
       req(req) {
         return {
