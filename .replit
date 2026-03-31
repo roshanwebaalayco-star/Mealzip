@@ -29,6 +29,10 @@ localPort = 4445
 externalPort = 5173
 
 [[ports]]
+localPort = 4446
+externalPort = 6000
+
+[[ports]]
 localPort = 5000
 externalPort = 5000
 
@@ -86,5 +90,5 @@ waitForPort = 5000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["node", "--enable-source-maps", "Family-Nutrition-Planner/start.mjs"]
+run = ["node", "Family-Nutrition-Planner/start.mjs"]
 build = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext/dist/public /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/public"]
