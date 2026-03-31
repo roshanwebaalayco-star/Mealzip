@@ -1,9 +1,9 @@
 import { pgTable, serial, text, integer, jsonb, timestamp, index, uniqueIndex, customType } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-const vector768 = customType<{ data: string }>({
+const vector1024 = customType<{ data: string }>({
   dataType() {
-    return "vector(768)";
+    return "vector(1024)";
   },
 });
 
@@ -12,7 +12,7 @@ export const knowledgeChunksTable = pgTable("knowledge_chunks", {
   source: text("source").notNull(),
   chunkIndex: integer("chunk_index").notNull(),
   content: text("content").notNull(),
-  embedding: vector768("embedding"),
+  embedding: vector1024("embedding"),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [

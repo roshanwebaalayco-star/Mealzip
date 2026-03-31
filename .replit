@@ -15,6 +15,8 @@ GEMINI_API_KEY = "AIzaSyCzc-lSibsLJKdT3aH2wvWkyLCLe4QcdEQ"
 ADMIN_SECRET = "nutritest-admin-2026"
 SARVAM_API_KEY = "sk_h8xr05ku_SwjlS85uELaFZ4toGRSkWrF1"
 VOYAGE_API_KEY = "pa-C1ptM27qKxPbNoqyI1_CTPr_FKgXfyws2xgj1Nhpb4K"
+SUPABASE_SERVICE_ROLE_KEY = "sb_secret_I2f6PPiOP2r0bkqyS8dfSw_sxa-0ZxU"
+SUPABASE_DATABASE_URL = "postgresql://postgres.kpwgbmubunfwvelkntsw:2vBnizzXiqHRaeEn@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 [[ports]]
 localPort = 3000
