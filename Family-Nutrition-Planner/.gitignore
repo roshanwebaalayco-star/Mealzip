@@ -1,7 +1,10 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # compiled output
-dist
+# NOTE: artifacts/api-server/dist/ is intentionally tracked for zero-build deployment.
+# Only ignore dist directories that should NOT be committed.
+artifacts/nutrinext/dist/
+lib/*/dist/
 tmp
 out-tsc
 *.tsbuildinfo
