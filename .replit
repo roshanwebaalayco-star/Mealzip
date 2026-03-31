@@ -52,6 +52,6 @@ args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @w
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 run = ["node", "start.mjs"]
 build = ["bash", "build.sh"]
