@@ -5,9 +5,12 @@ import * as schema from "./schema";
 const { Pool } = pg;
 
 if (!process.env.DATABASE_URL && !process.env.SUPABASE_DATABASE_URL) {
-  throw new Error(
-    "Either DATABASE_URL or SUPABASE_DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  const msg =
+    "[FATAL] Neither DATABASE_URL nor SUPABASE_DATABASE_URL is set. " +
+    "The server cannot connect to the database. " +
+    "Ensure this secret is configured in the Deployments → Secrets pane.";
+  console.error(msg);
+  throw new Error(msg);
 }
 
 // Local PostgreSQL pool — used for read-only recipe/ICMR data and health checks

@@ -67,6 +67,9 @@ if (process.env.NODE_ENV === "production") {
     logger.info({ clientDist }, "Serving static frontend from built assets");
   } else {
     logger.warn({ clientDist }, "No built frontend found — API-only mode");
+    app.use((_req: express.Request, res: express.Response) => {
+      res.status(200).json({ status: "ok", message: "ParivarSehat AI API is running" });
+    });
   }
 } else {
   (async () => {
