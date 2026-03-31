@@ -71,5 +71,5 @@ waitForPort = 5000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["node", "start.mjs"]
+run = ["bash", "-c", "cd Family-Nutrition-Planner/artifacts/api-server && NODE_ENV=production PORT=3000 node dist/index.mjs"]
 build = ["bash", "build.sh"]
