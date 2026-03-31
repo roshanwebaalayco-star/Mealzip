@@ -4,19 +4,20 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL && !process.env.SUPABASE_DATABASE_URL) {
-  const msg =
-    "[FATAL] Neither DATABASE_URL nor SUPABASE_DATABASE_URL is set. " +
-    "The server cannot connect to the database. " +
-    "Ensure this secret is configured in the Deployments → Secrets pane.";
-  console.error(msg);
-  throw new Error(msg);
+const dbUrl = process.env.DATABASE_URL ?? process.env.SUPABASE_DATABASE_URL;
+
+if (!dbUrl) {
+  console.warn(
+    "[WARN] Neither DATABASE_URL nor SUPABASE_DATABASE_URL is set. " +
+    "Database queries will fail. Set the secret in Deployments → Secrets pane. " +
+    "Server will still start and health checks will pass."
+  );
 }
 
 // Local PostgreSQL pool — used for read-only recipe/ICMR data and health checks
 // Higher max: recipes are read-heavy with many concurrent requests
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL ?? process.env.SUPABASE_DATABASE_URL,
+  connectionString: dbUrl,
   max: 20,
   idleTimeoutMillis: 60000,
   connectionTimeoutMillis: 5000,
