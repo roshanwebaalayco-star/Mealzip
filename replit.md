@@ -77,10 +77,16 @@ PostgreSQL serves as the primary data store, managed by Drizzle ORM. Key tables 
 
 ## Deployment
 
-**Target**: Replit Autoscale (single port 3000).
+**Target**: Replit Autoscale.
 
-**Build**: Vite builds the frontend to `nutrinext/dist/public/`, esbuild bundles the API server to `api-server/dist/`, then the frontend is copied into `api-server/dist/public/`. In production, the Express server serves the built frontend as static files and handles SPA routing with a catch-all `index.html` fallback.
+**Build**: `bash build.sh` at workspace root. Has a fast path (skips compilation if pre-built `dist/` exists) and a slow path (full compile: frontend via Vite, API server via esbuild, copy frontend into `api-server/dist/public/`).
 
-**Run**: `NODE_ENV=production PORT=3000 DEMO_MODE=true node --enable-source-maps artifacts/api-server/dist/index.mjs`
+**Run**: `node start.mjs` at workspace root. Respects the `PORT` env var from the deployment system (defaults to 3000 if unset). Sets `NODE_ENV=production` and `DEMO_MODE=true` by default.
 
 **Static serving**: In production, `app.ts` serves `dist/public/` via `express.static` with 1-day cache and a `*` catch-all for SPA routing. In development, non-API requests are proxied to the Vite dev server.
+
+**Health check**: `GET /healthz` returns `{"status":"ok"}`.
+
+**Knowledge base**: The ingestion service reads from `process.cwd()/knowledge_base/`. Files are at both workspace root and `artifacts/api-server/knowledge_base/`.
+
+**Database**: Schema uses `vector(1024)` columns (Voyage AI voyage-3 embeddings). Both local PostgreSQL and Supabase have schemas pushed via Drizzle.

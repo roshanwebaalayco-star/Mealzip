@@ -26,6 +26,18 @@ externalPort = 80
 localPort = 5000
 externalPort = 5000
 
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 24170
+externalPort = 3000
+
 
 [postMerge]
 path = "Family-Nutrition-Planner/scripts/post-merge.sh"
@@ -56,6 +68,6 @@ args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @w
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "autoscale"
 run = ["node", "start.mjs"]
 build = ["bash", "build.sh"]

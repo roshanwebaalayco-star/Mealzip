@@ -1,8 +1,4 @@
-// ── Port must be 3000 ──────────────────────────────────────────────────────
-// Replit routes all external traffic to localPort=3000 (see [[ports]] in .replit).
-// Cloud Run may inject PORT=8080 via its own env, which would cause a mismatch.
-// We always override to 3000 so the server and the health-check probe agree.
-process.env.PORT = "3000";
+if (!process.env.PORT) process.env.PORT = "3000";
 process.env.NODE_ENV = process.env.NODE_ENV || "production";
 process.env.DEMO_MODE = process.env.DEMO_MODE || "true";
 
