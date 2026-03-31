@@ -20,6 +20,10 @@ VOYAGE_API_KEY = "pa-C1ptM27qKxPbNoqyI1_CTPr_FKgXfyws2xgj1Nhpb4K"
 localPort = 3000
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
 
 [postMerge]
 path = "Family-Nutrition-Planner/scripts/post-merge.sh"
