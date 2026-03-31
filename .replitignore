@@ -1,0 +1,11 @@
+.local
+.cache
+.agents
+attached_assets
+Family-Nutrition-Planner/attached_assets
+Family-Nutrition-Planner/artifacts/nutrinext/dist
+Family-Nutrition-Planner/artifacts/mockup-sandbox
+Family-Nutrition-Planner/lib/*/dist
+Family-Nutrition-Planner/tests
+Family-Nutrition-Planner/TEST_REPORT.md
+*.tsbuildinfo
