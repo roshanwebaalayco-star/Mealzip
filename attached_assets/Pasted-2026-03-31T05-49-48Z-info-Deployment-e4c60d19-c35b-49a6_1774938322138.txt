@@ -1,0 +1,145 @@
+2026-03-31T05:49:48Z info: Deployment: e4c60d19-c35b-49a6-85ba-fbca8de55023
+2026-03-31T05:49:48Z info: Build: a6aae37f-7a65-474a-888f-6ed078ead93d
+2026-03-31T05:49:49Z info: Running Security Scan
+2026-03-31T05:50:15Z info: Security Scan Complete
+2026-03-31T05:50:18Z info: Installing packages
+2026-03-31T05:50:18Z info: Starting Build
+[build] workspace root: /home/runner/workspace
+[build] monorepo dir:   /home/runner/workspace/Family-Nutrition-Planner
+
+[build] step 1/3 — building nutrinext frontend...
+
+
+> @workspace/nutrinext@0.0.0 build /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext
+> vite build --config vite.config.ts
+
+
+vite v7.3.1 building client environment for production...
+
+transforming...
+
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/collapsible.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+✓ 3442 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+dist/public/index.html                     0.77 kB │ gzip:   0.43 kB
+
+dist/public/assets/index-DYlicnc_.css    144.00 kB │ gzip:  22.04 kB
+dist/public/assets/index-Bm89_-No.js   1,496.10 kB │ gzip: 439.31 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 6.93s
+
+[build] nutrinext output confirmed at /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext/dist/public
+[build] step 2/3 — building api-server bundle...
+
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server
+> node ./build.mjs
+
+
+
+  dist/index.mjs                       5.4mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   9.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.1kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 895ms
+
+[build] api-server bundle confirmed at /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/index.mjs
+[build] step 3/3 — copying frontend into api-server dist...
+
+[build] frontend copied to /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/public
+[build] done.
+
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server
+> node ./build.mjs
+
+
+
+  dist/index.mjs                       5.4mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   9.9mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.1kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+
+⚡ Done in 413ms
+
+
+> @workspace/nutrinext@0.0.0 build /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext
+> vite build --config vite.config.ts
+
+
+vite v7.3.1 building client environment for production...
+
+transforming...
+
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/collapsible.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+
+✓ 3442 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+dist/public/index.html                     0.77 kB │ gzip:   0.43 kB
+dist/public/assets/index-DYlicnc_.css    144.00 kB │ gzip:  22.04 kB
+
+dist/public/assets/index-Bm89_-No.js   1,496.10 kB │ gzip: 439.31 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 5.53s
+
+2026-03-31T05:50:38Z info: Pushing pid1 binary layer...
+2026-03-31T05:50:40Z info: Created pid1 binary layer
+2026-03-31T05:50:40Z info: Pushing Repl layer...
+2026-03-31T05:50:40Z info: Pushing hosting layer...
+2026-03-31T05:50:40Z info: Retrieved cached nix layer
+2026-03-31T05:50:41Z info: Created hosting layer
+2026-03-31T05:51:25Z info: Created Repl layer
+2026-03-31T05:51:27Z info: Pushed image manifest
+2026-03-31T05:51:30Z info: Creating Autoscale service
+2026-03-31T06:01:00Z info: Creating Autoscale service
+2026-03-31T06:10:14Z info: Creating Autoscale service
