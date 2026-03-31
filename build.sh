@@ -3,18 +3,18 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FNLP="$SCRIPT_DIR/Family-Nutrition-Planner"
 API_DIST="$FNLP/artifacts/api-server/dist"
+CLIENT_DIR="$SCRIPT_DIR/client"
 
 echo "[build] workspace root: $SCRIPT_DIR"
 echo "[build] monorepo dir:   $FNLP"
 echo "[build] api dist:       $API_DIST"
+echo "[build] client dir:     $CLIENT_DIR"
 
 # ── Fast path: use committed pre-built artifacts if present ─────────────────
-# dist/ is committed to git, so in a fresh deployment container the bundle
-# and frontend are already on disk — no compilation needed.
-if [ -f "$API_DIST/index.mjs" ] && [ -d "$API_DIST/public" ]; then
+if [ -f "$API_DIST/index.mjs" ] && [ -d "$CLIENT_DIR" ] && [ -f "$CLIENT_DIR/index.html" ]; then
   echo "[build] Pre-built artifacts found — skipping rebuild."
   echo "[build] Bundle: $(wc -c < "$API_DIST/index.mjs") bytes"
-  echo "[build] Frontend files: $(find "$API_DIST/public" -type f | wc -l)"
+  echo "[build] Frontend files: $(find "$CLIENT_DIR" -type f | wc -l)"
   echo "[build] done."
   exit 0
 fi
@@ -53,8 +53,10 @@ if [ ! -f "$API_DIST/index.mjs" ]; then
 fi
 echo "[build] api-server bundle confirmed at $API_DIST/index.mjs"
 
-echo "[build] step 3/3 — copying frontend into api-server dist..."
+echo "[build] step 3/3 — copying frontend to workspace root client/..."
+rm -rf "$CLIENT_DIR"
+cp -r "$NUTRI_OUT" "$CLIENT_DIR"
 cp -r "$NUTRI_OUT" "$API_DIST/public"
-echo "[build] frontend copied to $API_DIST/public"
+echo "[build] frontend copied to $CLIENT_DIR and $API_DIST/public"
 
 echo "[build] done."

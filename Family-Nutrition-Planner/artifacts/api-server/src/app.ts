@@ -81,15 +81,20 @@ function isDbConnectivityError(err: unknown): boolean {
 }
 
 if (process.env.NODE_ENV === "production") {
-  const clientDist = path.resolve(__dirname, "public");
-  if (existsSync(clientDist)) {
+  const candidates = [
+    path.resolve(__dirname, "public"),
+    path.resolve(process.cwd(), "client"),
+    path.resolve(process.cwd(), "Family-Nutrition-Planner/artifacts/api-server/dist/public"),
+  ];
+  const clientDist = candidates.find((p) => existsSync(p));
+  if (clientDist) {
     app.use(express.static(clientDist, { maxAge: "1d" }));
     app.use((_req: express.Request, res: express.Response) => {
       res.sendFile(path.join(clientDist, "index.html"));
     });
     logger.info({ clientDist }, "Serving static frontend from built assets");
   } else {
-    logger.warn({ clientDist }, "No built frontend found — API-only mode");
+    logger.warn({ candidates }, "No built frontend found — API-only mode");
     app.use((_req: express.Request, res: express.Response) => {
       res.status(200).json({ status: "ok", message: "ParivarSehat AI API is running" });
     });
