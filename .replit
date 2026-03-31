@@ -89,6 +89,6 @@ args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @w
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 run = ["node", "Family-Nutrition-Planner/start.mjs"]
 build = ["bash", "-c", "cd /home/runner/workspace/Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext/dist/public /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/public"]
