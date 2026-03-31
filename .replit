@@ -72,4 +72,4 @@ waitForPort = 5000
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "start.mjs"]
-build = ["bash", "-c", "cd Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r artifacts/nutrinext/dist/public artifacts/api-server/dist/public"]
+build = ["bash", "build.sh"]
