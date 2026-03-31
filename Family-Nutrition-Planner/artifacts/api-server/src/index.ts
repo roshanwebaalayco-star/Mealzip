@@ -4,14 +4,7 @@ import { pool } from "@workspace/db";
 import { ingestKnowledgeBase } from "./services/ingestion.js";
 import { startEmbeddingQueue } from "./services/embeddingQueue.js";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+const rawPort = process.env["PORT"] ?? "3000";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
@@ -53,17 +46,21 @@ async function checkDbHealth(): Promise<void> {
 
 const server = app.listen(port, "0.0.0.0", () => {
   logger.info({ port }, "Server listening on 0.0.0.0");
+
+  checkDbHealth().catch(() => {});
+
+  setTimeout(() => {
+    ingestKnowledgeBase().catch((err) => {
+      logger.warn({ err }, "Knowledge base ingestion failed (non-fatal). RAG features may be degraded.");
+    });
+  }, 30_000);
+
+  setTimeout(() => {
+    startEmbeddingQueue().catch((err) =>
+      logger.warn({ err }, "Could not start embedding queue (non-fatal)."),
+    );
+  }, 60_000);
 });
 
 server.setTimeout(120000);
 server.keepAliveTimeout = 65000;
-
-checkDbHealth().catch(() => {});
-
-startEmbeddingQueue().catch((err) =>
-  logger.warn({ err }, "Could not start embedding queue (non-fatal)."),
-);
-
-ingestKnowledgeBase().catch((err) => {
-  logger.warn({ err }, "Knowledge base ingestion failed (non-fatal). RAG features may be degraded.");
-});

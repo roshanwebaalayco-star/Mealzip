@@ -11,9 +11,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 app.use(
   pinoHttp({
     logger,
+    ignore: "req.url === '/healthz'",
     serializers: {
       req(req) {
         return {
