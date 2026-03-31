@@ -21,6 +21,10 @@ localPort = 3000
 externalPort = 80
 
 [[ports]]
+localPort = 3099
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 5000
 
@@ -66,10 +70,6 @@ args = "cd Family-Nutrition-Planner && PORT=3000 DEMO_MODE=true pnpm --filter @w
 waitForPort = 5000
 
 [deployment]
-deploymentTarget = "vm"
-run = ["node", "Family-Nutrition-Planner/start.mjs"]
-build = [
-  "bash",
-  "-c",
-  "cd /home/runner/workspace/Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r /home/runner/workspace/Family-Nutrition-Planner/artifacts/nutrinext/dist/public /home/runner/workspace/Family-Nutrition-Planner/artifacts/api-server/dist/public",
-]
+deploymentTarget = "autoscale"
+run = ["node", "start.mjs"]
+build = ["bash", "-c", "cd Family-Nutrition-Planner && pnpm --filter @workspace/nutrinext run build && pnpm --filter @workspace/api-server run build && cp -r artifacts/nutrinext/dist/public artifacts/api-server/dist/public"]
