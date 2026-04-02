@@ -1,0 +1,300 @@
+﻿Login : authentication system based on superbase(singapore)
+Everything is saved on that server only from user profile curation to the grocery ingrediants inventory management.
+If the user has not created family profile i.e. a new user then direct it the page for profile curation .
+The profile curation can be via 2 methods : i) By filling a form ii) By simply taking with an AI assisant in any language (using sarvam for transalation and gemini if interpretation is required)
+This is all what is required to taken in.
+## PROFILE SETUP — Collected once, editable anytime from profile page
+
+
+
+
+**Family level**
+- Number of members
+- State / region
+- Language preference — Hindi / English
+- Household dietary baseline — strictly veg / veg with eggs / non-veg / mixed
+- Number of meals per day — 2 meals / 3 meals / 3 meals + snacks
+- Cooking skill level — beginner / intermediate / experienced
+- Available appliances (multi-select) — gas stove / microwave / oven or OTG / mixer-grinder / air fryer / pressure cooker
+
+
+
+
+**Per member**
+- Name
+- Age
+- Gender
+- Height (cm) — optional
+- Current weight (kg) — optional
+- Activity level — sedentary / lightly active / moderately active / very active
+- Primary goal — weight loss / weight gain / maintain / build muscle / manage condition / no specific goal
+- Goal pace — slow 0.25 kg/week / moderate 0.5 kg/week — only shows if goal is weight loss or weight gain
+- Health conditions (multi-select,) — none / diabetes type 2 / hypertension / anaemia / obesity / high cholesterol / hypothyroid / PCOS / kidney issues / can type any valid one
+- Dietary type — strictly vegetarian / Jain vegetarian / eggetarian / non-vegetarian / occasional non-veg
+- If occasional non-veg — which days by default (Mon–Sun checkboxes) + which types (chicken / mutton / fish / eggs)
+- Religious or cultural rules — none / no beef / no pork / sattvic no onion no garlic / Jain rules
+- Spice tolerance — mild / medium / spicy
+- Allergies (multi-select) — none / peanuts / dairy / gluten / tree nuts / shellfish / soy / sesame
+- Ingredient dislikes — free text, up to 5 (e.g. karela, brinjal, methi)
+- Fasting baseline — no fasting / weekly fasting days Mon–Sun checkboxes / Ekadashi yes or no
+- Festival fasting alerts — yes / no (app auto-detects calendar but user sets preference here)
+- Tiffin or lunchbox needed — no / yes school / yes office
+
+
+
+
+**Auto-assignment rules — never ask the user, calculated silently**
+- Age under 5 → goal auto-set to early childhood nutrition
+- Age 5–12 → goal auto-set to healthy growth and school nutrition, goal field hidden
+- Age 13–17 → weight loss option hidden, goal field shows maintain / build muscle / manage condition only
+- Age 60+ → goal auto-set to senior nutrition unless user overrides
+- Any member with goal set and weight provided → app auto-calculates daily calorie target using ICMR-NIN and shows it to user
+
+
+
+
+---
+
+
+
+
+
+
+
+
+---
+
+
+
+
+## The logic in one line
+
+
+
+
+Profile holds who each person permanently is. Popup holds what is true this week. Gemini receives both — profile as background context, popup as the active instruction set for this generation.
+provide an optional things of pantry scan.
+i)user can either again talk and tell the estimate quantity and the name of ingrediants in any language (using sarvam for transalation and gemini if interpretation is required) 
+ii) user can chat with AI and tell what all it has.the estimate quantity and the name of ingrediants(using sarvam for transalation and gemini if interpretation is required)
+
+
+
+
+section in our app :
+1)Profile
+It should be editable.
+
+
+
+
+2)Meal (Generation) 
+For the first time user clicks this without creating profile, it shows an appropriate message. If the the user has just created profile and clicked the meal section and then user would be directed to a page where user has to fill these for the first time only :
+User would be aksed only once their monthly budget which is not modifiable weekly. It would be only once for the month . Now the monthly budget would be divided into 2 parts : a)staples and the fixed things that would be required in every majorly every meal for the month 
+b)weekly perishable good that would be further divided by number of days in the month and then it would make a weekly budget that would be modifiable before the generation of weekly meal plan.
+
+
+So user creates the account , then complete the profile curation and then click on the meal generation section , there the user fills the below things for the first and then user gets a option to enter the monthly budget then calculation take place. Then the with all the inputs gemini is api is given all and then it outlines the meal for the week and after that it automatically generated a) the grocery list for the staples and the fixed thing b) the weekly list of perishable goods as per thee meal plan .  
+
+
+these are directly stored in database . moreover it would be visible on the grocery list .
+- Eating out this week — none / 1 to 2 times / frequently (adjusts home meal budget accordingly)
+
+
+
+
+**Cooking availability this week**
+- Weekday cooking time — under 20 mins / 20–40 mins / no limit
+- Weekend cooking time — quick / elaborate / no preference
+
+
+
+
+**Per member — goal check**
+- Current goal — pre-filled from profile, editable this week
+- Current weight update — only shows if goal is weight loss or weight gain — "Any change since last time?" with a weight input field
+
+
+
+
+**Per member — health this week**
+- Health conditions — pre-filled from profile, user can add or remove for this week
+- How are you feeling this week — optional free text per member (e.g. low energy, bloating, heavy cold) passed directly to Gemini as priority context
+- Active medications & timing — free text (e.g. Metformin with breakfast, Iron pill at night)
+
+
+
+
+
+
+**Per member — fasting this week**
+- Fasting days this week — pre-filled from profile fasting baseline, editable per week
+- Ekadashi this week — yes / no, pre-filled, editable
+- Any festival fast this week — yes / no, app auto-detects but user can override
+
+
+
+
+**Per member — non-veg this week (only shows for occasional non-veg members)**
+- Which days is non-veg okay this week — day checkboxes pre-filled from profile, editable
+- Which types this week — chicken / mutton / fish / eggs / all, pre-filled from profile, editable
+
+
+
+
+**Per member — tiffin this week**
+- Tiffin needed this week — yes / no toggle, pre-filled from profile, editable
+
+
+
+
+**Per member — spice this week**
+- Any spice change from usual — pre-filled from profile, editable
+
+
+
+
+**Special request this week — optional free text**
+- Free text, one field for the whole family (e.g. "more protein for Papa this week", "light meals Thursday and Friday, family has a function", "no rice at all this week", "use up the spinach in the fridge")
+- This is passed directly to Gemini as a high-priority instruction and overrides recipe defaults
+
+
+
+
+
+
+
+
+
+
+
+
+```````
+After the first IT is filled then the user would be directed to page where he would be given a option to continue without any change in the details or modify it. If user selects no change Directly to the meal generation else if user selects change then he should be able to modify them and then directly save and go for meal generation.
+After meal generation, it would only show the user what to make and when and what to give to whom. 
+
+
+MEDICATION ABSORPTION WINDOWS — The feature that destroys the competition
+This is the one feature that a doctor on the jury will applaud. No app in the world does this correctly.
+Build a hardcoded medication-food interaction table in your backend. Not AI-generated. A static lookup table. Cover the 12 most common Indian medications:
+Metformin: must be taken with or after food. Schedule meal before medication window. Avoid high-sugar meals in the same slot.
+Iron supplements (Ferrous Sulphate): avoid calcium-rich foods within 2 hours. Never pair with dairy, spinach, or tea in the same meal.
+Levothyroxine (thyroid): must be taken 30–60 minutes before food. The first meal of the day must be scheduled accordingly.
+Warfarin: avoid sudden increase in Vitamin K foods (leafy greens). The system monitors weekly leafy green frequency, not just individual meals.
+Amlodipine (hypertension): avoid grapefruit entirely. Flag if recipe contains it.
+When user inputs "Metformin with breakfast, Iron pill at night" — your backend parses this with regex, looks up the interaction table, and adds hard constraints to API Call 2: "Breakfast must contain food, not be empty. Dinner must not contain dairy, spinach, or tea. Iron supplement timing scheduled for 9 PM, so dinner at 7:30 PM latest."
+This is deterministic logic. It cannot be wrong. It is medically defensible. Gemini never makes the medication decision — your code does.
+
+
+
+
+
+
+
+
+3)Recipes: It is not page(if present remove ). It would be like a dataset or page. After meal generation user can click on the meal name and should be directed to the recipe page of those all meals in row may be page by page for better experience. The user would be showed internet searched image and ingredients and the process ( how to make ) . One by one  
+Member Modifications. Inside the recipe steps, inject dynamic text: "Step 3: Add salt. (⚠️ For Papa: Use half quantity and add lemon instead)."
+
+
+4) Grocery list section :  there would be two section one for the monthly fixed items staples and etc.
+And the other would be about the perishable  things or things that vary as per per meal weekly .
+For the first time ask user about the pincode of their location and store it and also keep a option where it could be edited. Then as per pincode do the location based search on internet and try to find the approximate price
+
+
+
+
+5)AI-chat( It is where user can upload their log meals(sometime consumed street food or somebody's else home visit food) so that the modification of the plan proposed can be done and thereby go futher with their goals.  
+
+
+
+
+Phase 1: Intelligent Onboarding & Regional Economics
+Before the AI even touches a recipe, the system establishes a highly realistic financial baseline.
+Regional Price Calibration: The app recognizes the user's location. Instead of starting from scratch, it auto-suggests a realistic baseline based on regional food inflation data (e.g., suggesting ₹7,260 for a family in Bokaro vs. ₹14,850 for Delhi).
+Custom Input: The user can accept this regional average or type in any custom number for their monthly grocery budget.
+Deep Clinical Profiling: The system logs each family member's specific medical conditions (e.g., diabetes, anemia), taste preferences, allergies, and crucially, active medications.
+Phase 2: Deterministic Pre-Processing (The Math Guardrail)
+To prevent the AI from hallucinating or blowing the budget, your backend code executes a rigid mathematical split in milliseconds before any AI generation begins.
+The 10% Decoupled Buffer: 10% of the budget is instantly locked away for dry fruits and seasonal fresh fruits.
+The 40% Fixed Staples: 40% is allocated for bulk, monthly dry goods (Atta, Rice, Dal, Oil).
+The 50% Active Daily Budget: The remaining 50% is divided by 30 days to get the daily perishable limit (e.g., ₹166/day).
+Weighted Meal Limits: The daily ₹166 is not divided equally by three. The code assigns a smaller weight to breakfast (e.g., ₹46) and larger weights to lunch and dinner (e.g., ₹60 each) to reflect the real-world cost of those meals.
+Phase 3: The "Delta" Inventory Scan
+The Virtual Pantry: Before generating lists, the app checks the user's logged inventory.
+Zero-Waste Mandate: The system forces the upcoming AI generation to "burn down" existing perishable ingredients (e.g., leftover cabbage or paneer from last week) before adding new items to the shopping list.
+Phase 4: The 3-Step Prompt Chain (The Engine)
+The app runs three isolated API calls to keep the AI focused and accurate.
+API Call 1 (Staples): Uses the 40% budget to generate a precise monthly bulk grocery list for the family size.
+API Call 2 (Core Meals & Clinical Algorithms): Uses the 50% active budget, regional tags, pantry data, and medical profiles to generate the 21 weekly meals.
+The "One Base, Many Plates" Rule: It generates one affordable main dish (e.g., Palak Dal & Roti) to keep costs low and kitchen efficiency high.
+Plate-Level Instructions: It modifies that single base for each member (e.g., Papa gets Jowar roti and low salt; Mama gets added lemon).
+Food-Drug Interoperability: The AI actively avoids pairing foods that block medication (e.g., ensuring calcium-heavy meals aren't scheduled when an iron supplement is taken).
+API Call 3 (The Nutritional Bandaid): Uses the 10% Buffer budget. It suggests a monthly batch of shelf-stable dry fruits (e.g., almonds for the diabetic profile) and outputs a weekly line-item budget for "Seasonal Fresh Fruits" (e.g., ₹150) so the user can buy what is cheap locally.
+Phase 5: The Trust-Building UI (The Waiting Room)
+The user does not get an instant answer. They are placed in a 90 seconds generation screen to build trust in the complex calculations.
+Transparent Status Updates: The screen cycles through exact processes:
+"Calibrating regional food prices..."
+"Scanning pantry for zero-waste utilization..."
+"Calculating 1:4:5 budget splits for family of 4..."
+"Cross-referencing active medications with ingredient macros..."
+"Finalizing 'One Base, Many Plates' daily instructions..."
+Phase 6: Dynamic Edge Cases (When Reality Hits)
+The system is designed to bend, not break, when a user's schedule changes.
+The Dining Out / Skipped Meal Scenario: If a user taps "Changed my mind" or goes out for dinner, the app does not recalculate the whole week.
+The "Nutritional Bandaid" Deployment: To fix the macro-nutrient gap from the missed meal, the app simply pulls from the 10% Fruit/Dry Fruit buffer (e.g., "Missed your protein at lunch? Grab a handful of your monthly almonds now.").
+Rolling Micro-Budgeting: The unused raw ingredients from that skipped meal are automatically pushed to the top of the queue for the next day, and any saved money rolls over, ensuring the ₹10,000 budget is strictly protected over the 30 days. 
+THE GENERATION SCREEN — Reduce from 3-4 minutes to under 90 seconds
+3-4 minutes at a live expo demo means the jury walks to the next stall. You lose Prototype Quality marks.
+The pre-processing in your backend takes under 1 second. API Call 1 takes 8-15 seconds (Gemini). API Call 2 takes 15-25 seconds. API Call 3 takes 8-12 seconds. Total realistic time: 35-55 seconds.
+Show real status updates with actual timings: "Resolving 3 conflicts in your family's health requirements... done (0.8s)" "Checking 5 pantry items for zero-waste priority... done (0.2s)" "Calculating medication absorption windows... done (0.3s)" "Generating monthly staples within ₹4,000... (12s)" "Building 21 meals with plate-level instructions... (22s)" "Optimising nutritional buffer for Dadi's fasting days... (10s)" "Plan ready."
+The waiting screen is not fake. The timings are real. The specificity of the status messages is what builds trust — not the length of time.
+Priority hierarchy, hardcoded in your backend:
+Level 1 — allergy (absolute, never violated)
+Level 2 — religious/cultural rule (absolute, never violated)
+Level 3 — medication interaction window (absolute for the specific meal slot)
+Level 4 — clinical condition management (diabetes, kidney, hypertension)
+Level 5 — goal (weight loss, weight gain, muscle)
+Level 6 — preference (spice, dislike)
+
+
+When two members conflict at the same priority level — e.g., diabetic dad needs low-carb and underweight child needs high-calorie — the engine does not collapse. It resolves by: generating a low-carb base dish (satisfying level 4 for dad) and adding a calorie-dense side specifically for the child (satisfying level 5 for child). This is the plate-level instruction that goes to Gemini.
+This conflict resolution step, with its reasoning, is shown to the user visually. "We detected 3 conflicts in your family's requirements. Here is how NutriNext resolved them." This transparency is what no app shows and what judges will remember.
+
+
+
+
+Nutritional Pre-Loading (Backend Logic):
+* If the system knows Dadi is fasting on Tuesday, the meals generated for Sunday and Monday must automatically be tagged to increase her Iron/B12.
+
+
+
+
+
+
+
+
+________________
+
+
+
+
+
+
+
+
+6)The "Clinical Insights" Dashboard (What to Build)
+Divide this page into 3 distinct UI cards:
+
+
+
+
+1. The Nutritional Debt Ledger (Visual Bar Charts)
+ 2. The "Nutritional Shadow" Warning (The Mocked Moonshot)
+3. The Medication Guardrail Timeline
+
+
+THE HARMONY SCORE — Make it explainable, not just a number
+The Family Harmony Score is not a vague output. It is calculated deterministically from the constraint graph.
+Formula: Start at 100. For each unresolvable constraint (e.g., Jain member in a household that cooks non-veg), deduct 5 points. For each constraint resolved through plate modification rather than base dish change, deduct 2 points. For each constraint resolved at base dish level, deduct 0 points. For each pantry ingredient successfully used to avoid purchase, add 2 points. For each medication absorption window correctly scheduled, add 3 points.
+Show the score breakdown: "91/100 — 6 points deducted: 4 from Dad's low-sodium requirement causing base dish restriction, 2 from Dadi's Tuesday fast requiring a full meal replacement. 3 points added for correct Metformin scheduling."
+This is an original scoring methodology that does not exist anywhere.
+________________

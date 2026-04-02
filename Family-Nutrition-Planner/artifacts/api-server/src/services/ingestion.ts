@@ -5,6 +5,7 @@ import { generateEmbedding, isEmbeddingConfigured } from "./embedding.js";
 
 const KNOWLEDGE_BASE_PATH = path.join(
   process.cwd(),
+  "..",
   "knowledge_base",
 );
 
