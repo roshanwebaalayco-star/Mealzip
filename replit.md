@@ -61,6 +61,33 @@ When `API_PORT=8080` is set (as in the Start application workflow), the frontend
 
 Built with Node.js 24, TypeScript 5.9, Express 5, Drizzle ORM, PostgreSQL, pino logging, esbuild bundling.
 
+### ParivarSehat AI Meal Generation Engine
+
+Located at `artifacts/api-server/src/engine/`. A multi-step pipeline that:
+1. Loads family/weekly context from Supabase
+2. Runs ICMR-NIN calorie calculations per member
+3. Detects & resolves dietary conflicts (6 priority levels)
+4. Applies medication-food interaction guardrails (9 drug classes)
+5. Calls Gemini 2.5 Flash 3× (staples → 7-day meal plan → buffer list)
+6. Computes Family Harmony Score and stores results
+
+Key files:
+- `src/engine/types.ts` — All shared types
+- `src/engine/calorie-calculator.ts` — ICMR-NIN calorie targets, auto-assignment rules
+- `src/engine/budget-engine.ts` — Budget splits, regional pricing
+- `src/engine/conflict-engine.ts` — 6-level conflict detection & resolution
+- `src/engine/prompt-chain.ts` — 3-step Gemini generation (staples, meals, buffer)
+- `src/engine/lib/harmonyScore.ts` — Harmony Score card builder, final result assembler
+- `src/engine/lib/medicationRules.ts` — 9 drug-class medication interaction rules
+- `src/engine/meal-generation-service.ts` — Express router (4 routes)
+- `db/index.ts` + `db/schema.ts` — Bridge layer re-exporting @workspace/db with short aliases
+
+Routes mounted at `/api/meal-plans/` (behind auth middleware):
+- `POST /generate` — Starts async generation, returns 202 with meal_plan_id
+- `GET /:id/status` — Poll for generation progress + final result
+- `GET /:id/conflicts` — Harmony Score breakdown card
+- `POST /:id/skip-meal` — Mark meal skipped with nutritional bandaid
+
 ### Two Database Pools (CRITICAL)
 
 The app uses **two separate PostgreSQL connections**:
@@ -81,6 +108,10 @@ The app uses **two separate PostgreSQL connections**:
 | `GET /api/demo/instant` | Creates demo Sharma family + returns JWT token. No DEMO_MODE env required |
 | `GET/POST /api/families`, `GET /api/families/:id/members` | Family & member CRUD |
 | `GET /api/meal-plans?familyId=`, `POST /api/meal-plans/generate` | Meal plan CRUD + AI generation |
+| `POST /api/meal-plans/generate` (engine) | ParivarSehat AI pipeline: async 7-day plan generation (returns 202 + poll) |
+| `GET /api/meal-plans/:id/status` (engine) | Poll generation progress (log entries + final result on completion) |
+| `GET /api/meal-plans/:id/conflicts` (engine) | Harmony Score card + conflict transparency panel |
+| `POST /api/meal-plans/:id/skip-meal` (engine) | Mark meal skipped; returns nutritional bandaid + carry-forward |
 | `GET /api/recipes?q=&cuisine=&diet=&limit=&page=` | Full-text recipe search with weighted ts_rank |
 | `GET /api/recipes/:id` | Single recipe detail |
 | `POST /api/chat` | SSE-streaming AI chat (Gemini 2.5 Flash) |

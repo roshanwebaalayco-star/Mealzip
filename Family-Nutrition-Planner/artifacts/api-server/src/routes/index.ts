@@ -16,6 +16,7 @@ import marketRouter from "./market/index.js";
 import leftoversRouter from "./leftovers/index.js";
 import adminRouter from "./admin/index.js";
 import chatRouter from "./chat/index.js";
+import mealGenEngineRouter from "../engine/meal-generation-service.js";
 
 const router: IRouter = Router();
 
@@ -41,5 +42,6 @@ router.use(healthRouter); // /health-logs, /nutrition-logs, /symptom-check, /fas
 router.use(marketRouter); // /market/prices, /market/trigger-surge, /market/prep-alerts
 router.use(leftoversRouter); // /leftovers — leftover item tracking
 router.use("/chat", chatRouter); // /chat — ParivarSehat AI SSE streaming chat
+router.use("/meal-plans", mealGenEngineRouter); // ParivarSehat AI engine: /generate, /:id/status, /:id/conflicts, /:id/skip-meal
 
 export default router;
