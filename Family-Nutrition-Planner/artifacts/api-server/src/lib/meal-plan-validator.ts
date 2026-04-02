@@ -1,7 +1,7 @@
 export interface MemberProfile {
   name: string;
   healthConditions: string[];
-  dietaryRestrictions: string[];
+  dietaryType: string;
   allergies: string[];
 }
 
@@ -203,7 +203,7 @@ export function validateMealForMembers(
 
   for (const member of members) {
     const conditions = (member.healthConditions ?? []).map(c => c.toLowerCase());
-    const restrictions = (member.dietaryRestrictions ?? []).map(r => r.toLowerCase());
+    const dietType = (member.dietaryType ?? "").toLowerCase();
 
     if (conditions.includes("diabetes") || conditions.includes("diabetes_type2")) {
       violations.push(...checkDiabetic(ingredientText, member.name));

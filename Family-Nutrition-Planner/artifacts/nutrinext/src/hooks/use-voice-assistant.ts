@@ -28,7 +28,6 @@ export interface VoiceFormData {
   mealsPerDay?: number;
   members?: Array<{
     name: string | null;
-    role: string;
     age: number | null;
     gender: string;
     healthConditions: string[];
@@ -36,8 +35,8 @@ export interface VoiceFormData {
     activityLevel?: string;
     dietaryType?: string;
     spiceTolerance?: string;
-    nonVegDays?: string[];
-    nonVegTypes?: string[];
+    occasionalNonvegDays?: string[];
+    occasionalNonvegTypes?: string[];
   }>;
 }
 
@@ -157,7 +156,6 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
     const m = parsed.currentMember as Record<string, unknown>;
     const member: NonNullable<VoiceFormData["members"]>[number] = {
       name: m.name != null ? String(m.name) : null,
-      role: m.role ? String(m.role) : "other",
       age: typeof m.age === "number" ? (m.age as number) : null,
       gender: m.gender ? String(m.gender) : "male",
       healthConditions: Array.isArray(m.healthConditions)
@@ -167,8 +165,8 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
       activityLevel: m.activityLevel ? String(m.activityLevel) : undefined,
       dietaryType: m.dietaryType ? String(m.dietaryType) : undefined,
       spiceTolerance: m.spiceTolerance ? String(m.spiceTolerance) : undefined,
-      nonVegDays: Array.isArray(m.nonVegDays) ? (m.nonVegDays as string[]) : undefined,
-      nonVegTypes: Array.isArray(m.nonVegTypes) ? (m.nonVegTypes as string[]) : undefined,
+      occasionalNonvegDays: Array.isArray(m.nonVegDays) ? (m.nonVegDays as string[]) : undefined,
+      occasionalNonvegTypes: Array.isArray(m.nonVegTypes) ? (m.nonVegTypes as string[]) : undefined,
     };
     if (!next.members) next.members = [];
     next.members = [...next.members, member];

@@ -142,7 +142,7 @@ router.get("/families/:familyId/members", async (req, res): Promise<void> => {
     .select()
     .from(familyMembersTable)
     .where(eq(familyMembersTable.familyId, familyId))
-    .orderBy(familyMembersTable.id);
+    .orderBy(familyMembersTable.displayOrder);
   res.json(members);
 });
 
@@ -178,15 +178,13 @@ router.post("/families/:familyId/members", async (req, res): Promise<void> => {
     activityLevel: parsed.data.activityLevel,
     primary_goal: canonicalGoal,
     goalPace: parsed.data.goalPace,
-    healthConditions: parsed.data.healthConditions,
   });
   const memberData = {
     ...parsed.data,
     familyId: params.data.familyId,
-    primaryGoal: raiResult.primary_goal ?? canonicalGoal,
+    primaryGoal: raiResult.primary_goal ?? canonicalGoal ?? "no_specific_goal",
     goalPace: raiResult.goalPace,
-    calorieTarget: parsed.data.calorieTarget ?? raiResult.icmrCaloricTarget,
-    icmrCaloricTarget: raiResult.icmrCaloricTarget,
+    dailyCalorieTarget: parsed.data.dailyCalorieTarget ?? raiResult.dailyCalorieTarget,
   };
   const [member] = await db
     .insert(familyMembersTable)
@@ -219,8 +217,6 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     return;
   }
 
-  // Hydrate existing member so RAI always sees the full merged profile,
-  // not just the partial patch — prevents age defaulting to 0 on partial updates
   const [existing] = await db
     .select()
     .from(familyMembersTable)
@@ -238,12 +234,11 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
   const merged = {
     age: parsed.data.age ?? existing.age,
     gender: parsed.data.gender ?? existing.gender,
-    weightKg: parsed.data.weightKg ?? existing.weightKg,
-    heightCm: parsed.data.heightCm ?? existing.heightCm,
+    weightKg: parsed.data.weightKg ?? (existing.weightKg ? Number(existing.weightKg) : undefined),
+    heightCm: parsed.data.heightCm ?? (existing.heightCm ? Number(existing.heightCm) : undefined),
     activityLevel: parsed.data.activityLevel ?? existing.activityLevel,
     primaryGoal: normalizeGoal(parsed.data.primaryGoal) ?? normalizeGoal(existing.primaryGoal),
     goalPace: parsed.data.goalPace ?? existing.goalPace,
-    healthConditions: parsed.data.healthConditions ?? existing.healthConditions,
   };
 
   const raiResult = applyResponsibleAIRules({
@@ -254,17 +249,13 @@ router.put("/families/:familyId/members/:memberId", async (req, res): Promise<vo
     activityLevel: merged.activityLevel ?? undefined,
     primary_goal: merged.primaryGoal ?? undefined,
     goalPace: merged.goalPace ?? undefined,
-    healthConditions: merged.healthConditions ?? undefined,
   });
 
-  // Only override goal fields when the merged (full) profile requires it,
-  // not just because the patch omitted optional fields
   const updateData = {
     ...parsed.data,
     ...(raiResult.primary_goal ? { primaryGoal: raiResult.primary_goal } : {}),
     ...(raiResult.goalPace ? { goalPace: raiResult.goalPace } : {}),
-    ...(raiResult.icmrCaloricTarget && !parsed.data.calorieTarget ? { calorieTarget: raiResult.icmrCaloricTarget } : {}),
-    ...(raiResult.icmrCaloricTarget ? { icmrCaloricTarget: raiResult.icmrCaloricTarget } : {}),
+    ...(raiResult.dailyCalorieTarget && !parsed.data.dailyCalorieTarget ? { dailyCalorieTarget: raiResult.dailyCalorieTarget } : {}),
   };
   const [member] = await db
     .update(familyMembersTable)
@@ -322,15 +313,14 @@ const PROFILE_CHAT_SYSTEM = `You are ParivarSehat AI — a warm, conversational 
 GOAL: Collect a complete family profile by asking ONE question at a time in a friendly, conversational way. The language to use will be specified in the first user message.
 
 Required info to collect:
-1. Family name (परिवार का नाम)
-2. Indian state they live in
-3. Monthly food budget in ₹
-4. Household dietary baseline: strictly_veg / veg_with_eggs / non_veg / mixed
-5. Cooking skill level: beginner / intermediate / experienced
-6. Meals per day: 2 / 3 / 3+snacks (store as 2/3/4)
-7. Number of family members (min 2, max 5)
-8. For each member: first name, age, gender (male/female), role (father/mother/son/daughter/grandfather/grandmother/other), activity level (sedentary/lightly_active/moderately_active/very_active), dietary type (strictly_vegetarian/jain_vegetarian/eggetarian/non_vegetarian/occasional_nonveg), any health conditions (diabetes/hypertension/anaemia/none), spice tolerance (mild/medium/spicy)
-9. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have — most families at minimum have tawa, pressure cooker and kadai.
+1. Family name
+2. Indian state/region they live in
+3. Household dietary baseline: strictly_veg / veg_with_eggs / non_veg / mixed
+4. Cooking skill level: beginner / intermediate / experienced
+5. Meals per day: 2_meals / 3_meals / 3_meals_plus_snacks
+6. Number of family members (min 2, max 5)
+7. For each member: first name, age, gender (male/female), activity level (sedentary/lightly_active/moderately_active/very_active), dietary type (strictly_vegetarian/jain_vegetarian/eggetarian/non_vegetarian/occasional_nonveg), any health conditions (diabetes/hypertension/anaemia/none), spice tolerance (mild/medium/spicy)
+8. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have.
 
 Age-based goal rules (auto-assign, do not ask):
 - Under 5 → childhood_nutrition
@@ -347,15 +337,14 @@ Rules:
 \`\`\`json
 {
   "familyName": "Sharma",
-  "state": "Maharashtra",
-  "monthlyBudget": 8000,
-  "dietaryType": "non_veg",
-  "cookingSkill": "intermediate",
-  "mealsPerDay": 3,
+  "stateRegion": "Maharashtra",
+  "householdDietaryBaseline": "non_veg",
+  "cookingSkillLevel": "intermediate",
+  "mealsPerDay": "3_meals",
   "appliances": ["tawa", "pressure_cooker", "kadai"],
   "members": [
-    { "name": "Rajesh", "age": 42, "gender": "male", "role": "father", "activityLevel": "moderately_active", "dietaryType": "non_vegetarian", "healthConditions": ["diabetes"], "spiceTolerance": "medium" },
-    { "name": "Priya", "age": 38, "gender": "female", "role": "mother", "activityLevel": "lightly_active", "dietaryType": "strictly_vegetarian", "healthConditions": [], "spiceTolerance": "mild" }
+    { "name": "Rajesh", "age": 42, "gender": "male", "activityLevel": "moderately_active", "dietaryType": "non_vegetarian", "healthConditions": ["diabetes"], "spiceTolerance": "medium" },
+    { "name": "Priya", "age": 38, "gender": "female", "activityLevel": "lightly_active", "dietaryType": "strictly_vegetarian", "healthConditions": [], "spiceTolerance": "mild" }
   ]
 }
 \`\`\`
@@ -385,7 +374,7 @@ router.post("/families/profile-chat", async (req, res): Promise<void> => {
       model: "gemini-2.5-flash",
       contents: [
         { role: "user", parts: [{ text: PROFILE_CHAT_SYSTEM + langNote }] },
-        { role: "model", parts: [{ text: "Namaste! 🙏 I will help you set up your family profile for personalized nutrition planning. I'll ask you a few simple questions." }] },
+        { role: "model", parts: [{ text: "Namaste! I will help you set up your family profile for personalized nutrition planning. I'll ask you a few simple questions." }] },
         ...geminiMessages,
       ],
       config: { maxOutputTokens: 1024 },

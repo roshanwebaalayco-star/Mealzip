@@ -83,7 +83,7 @@ export function getICMRNINTargets(
 
 export function calculateHarmonyScore(
   mealNutrition: ICMRTargets,
-  members: Array<{ age: number; gender: string; activityLevel: string; healthConditions: string[]; dietaryRestrictions: string[] }>,
+  members: Array<{ age: number; gender: string; activityLevel: string; healthConditions: string[]; dietaryType: string }>,
   diet: string,
   budget: number,
   costEstimate: number
@@ -105,8 +105,8 @@ export function calculateHarmonyScore(
     const fiberRatio = mealNutrition.fiber / targets.fiber;
     if (fiberRatio < 0.7) memberScore -= 10;
 
-    if (member.dietaryRestrictions?.includes("vegetarian") && diet === "non-vegetarian") memberScore -= 30;
-    if (member.dietaryRestrictions?.includes("vegan") && diet !== "vegan") memberScore -= 30;
+    if ((member.dietaryType === "strictly_vegetarian" || member.dietaryType === "vegetarian") && diet === "non-vegetarian") memberScore -= 30;
+    if (member.dietaryType === "vegan" && diet !== "vegan") memberScore -= 30;
 
     totalScore += Math.max(0, memberScore);
     memberCount++;

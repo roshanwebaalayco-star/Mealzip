@@ -16,42 +16,42 @@ export interface ApiError {
 export interface Family {
   id: number;
   name: string;
-  /** Indian state (e.g. "Jharkhand") */
-  state: string;
-  city?: string;
-  /** Monthly food budget in INR */
-  monthlyBudget: number;
-  /** Primary language (e.g. "hindi", "english", "bengali") */
-  primaryLanguage: string;
-  /** Preferred cuisines */
-  cuisinePreferences?: string[];
-  isDemo?: boolean;
-  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
-  appliances?: string[];
+  stateRegion: string;
+  languagePreference: string;
+  householdDietaryBaseline: string;
+  mealsPerDay: string;
+  cookingSkillLevel: string;
+  appliances: unknown;
+  pincode?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface FamilyMember {
   id: number;
   familyId: number;
   name: string;
-  /** Family role: father, mother, child, grandparent, other */
-  role: string;
   age: number;
-  /** male, female, other */
   gender: string;
-  weightKg?: number;
-  heightCm?: number;
-  /** sedentary, light, moderate, active, very_active */
+  heightCm?: string | null;
+  weightKg?: string | null;
   activityLevel: string;
-  /** Health conditions (e.g. "diabetes", "hypertension", "obesity") */
-  healthConditions?: string[];
-  /** Dietary restrictions (e.g. "vegetarian", "vegan", "gluten_free") */
-  dietaryRestrictions?: string[];
-  allergies?: string[];
-  /** Daily calorie target (ICMR-NIN 2024 based) */
-  calorieTarget?: number;
+  primaryGoal: string;
+  goalPace?: string | null;
+  dailyCalorieTarget?: number | null;
+  dietaryType: string;
+  spiceTolerance: string;
+  tiffinNeeded: string;
+  festivalFastingAlerts: boolean;
+  displayOrder: number;
+  healthConditions: unknown;
+  allergies: unknown;
+  ingredientDislikes: unknown;
+  religiousCulturalRules: unknown;
+  occasionalNonvegConfig?: unknown | null;
+  fastingConfig: unknown;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type FamilyWithMembers = Family & {
@@ -60,138 +60,70 @@ export type FamilyWithMembers = Family & {
 
 export interface CreateFamilyBody {
   name: string;
-  state: string;
-  city?: string;
-  monthlyBudget: number;
-  primaryLanguage: string;
-  cuisinePreferences?: string[];
-  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
-  appliances?: string[];
-  mealsAreShared?: boolean;
-  sharedTypicalBreakfast?: string;
-  sharedTypicalLunch?: string;
-  sharedTypicalDinner?: string;
+  stateRegion: string;
+  languagePreference?: string;
+  householdDietaryBaseline?: string;
+  mealsPerDay?: string;
+  cookingSkillLevel?: string;
+  appliances?: unknown;
+  pincode?: string;
 }
 
 export interface UpdateFamilyBody {
   name?: string;
-  state?: string;
-  city?: string;
-  monthlyBudget?: number;
-  primaryLanguage?: string;
-  cuisinePreferences?: string[];
-  /** Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer) */
-  appliances?: string[];
-  mealsAreShared?: boolean;
-  sharedTypicalBreakfast?: string;
-  sharedTypicalLunch?: string;
-  sharedTypicalDinner?: string;
+  stateRegion?: string;
+  languagePreference?: string;
+  householdDietaryBaseline?: string;
+  mealsPerDay?: string;
+  cookingSkillLevel?: string;
+  appliances?: unknown;
+  pincode?: string;
 }
-
-export type CreateMemberBodyGoalPace =
-  (typeof CreateMemberBodyGoalPace)[keyof typeof CreateMemberBodyGoalPace];
-
-export const CreateMemberBodyGoalPace = {
-  none: "none",
-  "025": "0.25",
-  "05": "0.5",
-} as const;
-
-export type CreateMemberBodyTiffinType =
-  (typeof CreateMemberBodyTiffinType)[keyof typeof CreateMemberBodyTiffinType];
-
-export const CreateMemberBodyTiffinType = {
-  none: "none",
-  school: "school",
-  office: "office",
-} as const;
-
-export type CreateMemberBodyReligiousRules =
-  (typeof CreateMemberBodyReligiousRules)[keyof typeof CreateMemberBodyReligiousRules];
-
-export const CreateMemberBodyReligiousRules = {
-  none: "none",
-  no_beef: "no_beef",
-  no_pork: "no_pork",
-  sattvic: "sattvic",
-  jain: "jain",
-} as const;
 
 export interface CreateMemberBody {
   name: string;
-  role: string;
   age: number;
   gender: string;
-  weightKg?: number;
   heightCm?: number;
-  activityLevel: string;
-  healthConditions?: string[];
-  dietaryRestrictions?: string[];
-  allergies?: string[];
+  weightKg?: number;
+  activityLevel?: string;
   primaryGoal?: string;
-  calorieTarget?: number;
-  goalPace?: CreateMemberBodyGoalPace;
-  tiffinType?: CreateMemberBodyTiffinType;
-  religiousRules?: CreateMemberBodyReligiousRules;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  individualTypicalBreakfast?: string;
-  individualTypicalLunch?: string;
-  individualTypicalDinner?: string;
+  goalPace?: string;
+  dailyCalorieTarget?: number;
+  dietaryType?: string;
+  spiceTolerance?: string;
+  tiffinNeeded?: string;
+  festivalFastingAlerts?: boolean;
+  displayOrder?: number;
+  healthConditions?: unknown;
+  allergies?: unknown;
+  ingredientDislikes?: unknown;
+  religiousCulturalRules?: unknown;
+  occasionalNonvegConfig?: unknown;
+  fastingConfig?: unknown;
 }
-
-export type UpdateMemberBodyGoalPace =
-  (typeof UpdateMemberBodyGoalPace)[keyof typeof UpdateMemberBodyGoalPace];
-
-export const UpdateMemberBodyGoalPace = {
-  none: "none",
-  "025": "0.25",
-  "05": "0.5",
-} as const;
-
-export type UpdateMemberBodyTiffinType =
-  (typeof UpdateMemberBodyTiffinType)[keyof typeof UpdateMemberBodyTiffinType];
-
-export const UpdateMemberBodyTiffinType = {
-  none: "none",
-  school: "school",
-  office: "office",
-} as const;
-
-export type UpdateMemberBodyReligiousRules =
-  (typeof UpdateMemberBodyReligiousRules)[keyof typeof UpdateMemberBodyReligiousRules];
-
-export const UpdateMemberBodyReligiousRules = {
-  none: "none",
-  no_beef: "no_beef",
-  no_pork: "no_pork",
-  sattvic: "sattvic",
-  jain: "jain",
-} as const;
 
 export interface UpdateMemberBody {
   name?: string;
-  role?: string;
   age?: number;
   gender?: string;
-  weightKg?: number;
   heightCm?: number;
+  weightKg?: number;
   activityLevel?: string;
-  healthConditions?: string[];
-  dietaryRestrictions?: string[];
-  allergies?: string[];
   primaryGoal?: string;
-  calorieTarget?: number;
-  goalPace?: UpdateMemberBodyGoalPace;
-  tiffinType?: UpdateMemberBodyTiffinType;
-  religiousRules?: UpdateMemberBodyReligiousRules;
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  individualTypicalBreakfast?: string;
-  individualTypicalLunch?: string;
-  individualTypicalDinner?: string;
+  goalPace?: string;
+  dailyCalorieTarget?: number;
+  dietaryType?: string;
+  spiceTolerance?: string;
+  tiffinNeeded?: string;
+  festivalFastingAlerts?: boolean;
+  displayOrder?: number;
+  healthConditions?: unknown;
+  allergies?: unknown;
+  ingredientDislikes?: unknown;
+  religiousCulturalRules?: unknown;
+  occasionalNonvegConfig?: unknown;
+  fastingConfig?: unknown;
 }
 
 export interface Recipe {
@@ -236,19 +168,15 @@ export interface RecipeListResponse {
 export interface MealPlan {
   id: number;
   familyId: number;
-  name: string;
-  weekStartDate: string;
-  /** Family Harmony Score 0-100 */
-  harmonyScore: number;
-  /** Estimated weekly cost in INR */
-  totalBudgetEstimate?: number;
-  /** JSON plan data - 7-day meal structure */
-  plan: unknown;
-  /** Per-member nutrition summary JSON */
-  nutritionSummary?: unknown;
-  /** Gemini AI insights in the family's primary language */
-  aiInsights?: string;
+  weeklyContextId?: number | null;
+  harmonyScore?: number | null;
+  generationStatus: string;
+  harmonyScoreBreakdown: unknown;
+  generationLog: unknown;
+  days: unknown;
+  nutritionalSummary: unknown;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type GenerateMealPlanBodyPreferences = {
@@ -332,10 +260,10 @@ export interface GenerateMealPlanBody {
 }
 
 export interface UpdateMealPlanBody {
-  name?: string;
-  /** Updated plan JSON */
-  plan?: unknown;
+  days?: unknown;
   harmonyScore?: number;
+  generationStatus?: string;
+  nutritionalSummary?: unknown;
 }
 
 export interface AnalyzeNutritionBody {
@@ -561,19 +489,9 @@ export interface GroceryItem {
   priority: GroceryItemPriority;
 }
 
-export type GroceryListDataBudgetStatus =
-  (typeof GroceryListDataBudgetStatus)[keyof typeof GroceryListDataBudgetStatus];
-
-export const GroceryListDataBudgetStatus = {
-  within: "within",
-  over: "over",
-  under: "under",
-} as const;
-
 export interface GroceryListData {
   items?: GroceryItem[];
   totalEstimatedCost?: number;
-  budgetStatus?: GroceryListDataBudgetStatus;
   savingsTips?: string[];
   seasonalSuggestions?: string[];
 }
@@ -582,11 +500,14 @@ export interface GroceryList {
   id: number;
   familyId: number;
   mealPlanId?: number | null;
-  weekOf: string;
-  items: GroceryListData;
-  totalEstimatedCost: number;
-  budgetStatus: string;
-  createdAt?: string;
+  listType: string;
+  monthYear?: string | null;
+  weekStartDate?: string | null;
+  totalEstimatedCost?: string | null;
+  status: string;
+  items: unknown;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**

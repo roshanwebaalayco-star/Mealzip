@@ -46,23 +46,13 @@ export const ListFamiliesResponse = zod.array(ListFamiliesResponseItem);
  */
 export const CreateFamilyBody = zod.object({
   name: zod.string(),
-  state: zod.string(),
-  city: zod.string().optional(),
-  monthlyBudget: zod.number(),
-  primaryLanguage: zod.string(),
-  cuisinePreferences: zod.array(zod.string()).optional(),
-  appliances: zod
-    .array(zod.string())
-    .optional()
-    .describe(
-      "Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)",
-    ),
-  mealsAreShared: zod.boolean().optional(),
-  sharedTypicalBreakfast: zod.string().optional(),
-  sharedTypicalLunch: zod.string().optional(),
-  sharedTypicalDinner: zod.string().optional(),
-  cookingSkill: zod.enum(["beginner", "intermediate", "experienced"]).optional().describe("Family cooking skill level"),
-  mealsPerDay: zod.number().optional().describe("Number of meals per day (2-6)"),
+  stateRegion: zod.string(),
+  languagePreference: zod.string().optional().default("hindi"),
+  householdDietaryBaseline: zod.string().optional().default("mixed"),
+  mealsPerDay: zod.string().optional().default("3_meals"),
+  cookingSkillLevel: zod.string().optional().default("intermediate"),
+  appliances: zod.unknown().optional(),
+  pincode: zod.string().optional(),
 });
 
 /**
@@ -144,23 +134,13 @@ export const UpdateFamilyParams = zod.object({
 
 export const UpdateFamilyBody = zod.object({
   name: zod.string().optional(),
-  state: zod.string().optional(),
-  city: zod.string().optional(),
-  monthlyBudget: zod.number().optional(),
-  primaryLanguage: zod.string().optional(),
-  cuisinePreferences: zod.array(zod.string()).optional(),
-  appliances: zod
-    .array(zod.string())
-    .optional()
-    .describe(
-      "Kitchen appliances owned (tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer)",
-    ),
-  mealsAreShared: zod.boolean().optional(),
-  sharedTypicalBreakfast: zod.string().optional(),
-  sharedTypicalLunch: zod.string().optional(),
-  sharedTypicalDinner: zod.string().optional(),
-  cookingSkill: zod.enum(["beginner", "intermediate", "experienced"]).optional(),
-  mealsPerDay: zod.number().optional(),
+  stateRegion: zod.string().optional(),
+  languagePreference: zod.string().optional(),
+  householdDietaryBaseline: zod.string().optional(),
+  mealsPerDay: zod.string().optional(),
+  cookingSkillLevel: zod.string().optional(),
+  appliances: zod.unknown().optional(),
+  pincode: zod.string().optional(),
 });
 
 export const UpdateFamilyResponse = zod.object({
@@ -246,32 +226,25 @@ export const AddFamilyMemberParams = zod.object({
 
 export const AddFamilyMemberBody = zod.object({
   name: zod.string(),
-  role: zod.string(),
   age: zod.number(),
   gender: zod.string(),
   weightKg: zod.number().optional(),
   heightCm: zod.number().optional(),
   activityLevel: zod.string(),
-  healthConditions: zod.array(zod.string()).optional(),
-  dietaryRestrictions: zod.array(zod.string()).optional(),
-  allergies: zod.array(zod.string()).optional(),
   primaryGoal: zod.string().optional(),
-  calorieTarget: zod.number().optional(),
   goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
-  tiffinType: zod.enum(["none", "school", "office"]).optional(),
-  religiousRules: zod
-    .enum(["none", "no_beef", "no_pork", "sattvic", "jain"])
-    .optional(),
-  ingredientDislikes: zod.array(zod.string()).optional(),
-  nonVegDays: zod.array(zod.string()).optional(),
-  nonVegTypes: zod.array(zod.string()).optional(),
-  spiceTolerance: zod.enum(["mild", "medium", "spicy"]).optional().describe("Spice tolerance level"),
-  fastingBaseline: zod.array(zod.string()).optional().describe("Regular fasting days"),
-  ekadashi: zod.boolean().optional().describe("Observes Ekadashi fasting"),
-  festivalFastingAlerts: zod.boolean().optional().describe("Receive festival fasting alerts"),
-  individualTypicalBreakfast: zod.string().optional(),
-  individualTypicalLunch: zod.string().optional(),
-  individualTypicalDinner: zod.string().optional(),
+  dailyCalorieTarget: zod.number().optional(),
+  dietaryType: zod.string().optional().default("strictly_vegetarian"),
+  spiceTolerance: zod.enum(["mild", "medium", "spicy"]).optional(),
+  tiffinNeeded: zod.string().optional().default("no"),
+  festivalFastingAlerts: zod.boolean().optional(),
+  displayOrder: zod.number().optional(),
+  healthConditions: zod.unknown().optional(),
+  allergies: zod.unknown().optional(),
+  ingredientDislikes: zod.unknown().optional(),
+  religiousCulturalRules: zod.unknown().optional(),
+  occasionalNonvegConfig: zod.unknown().optional(),
+  fastingConfig: zod.unknown().optional(),
 });
 
 /**
@@ -284,32 +257,25 @@ export const UpdateFamilyMemberParams = zod.object({
 
 export const UpdateFamilyMemberBody = zod.object({
   name: zod.string().optional(),
-  role: zod.string().optional(),
   age: zod.number().optional(),
   gender: zod.string().optional(),
   weightKg: zod.number().optional(),
   heightCm: zod.number().optional(),
   activityLevel: zod.string().optional(),
-  healthConditions: zod.array(zod.string()).optional(),
-  dietaryRestrictions: zod.array(zod.string()).optional(),
-  allergies: zod.array(zod.string()).optional(),
   primaryGoal: zod.string().optional(),
-  calorieTarget: zod.number().optional(),
   goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
-  tiffinType: zod.enum(["none", "school", "office"]).optional(),
-  religiousRules: zod
-    .enum(["none", "no_beef", "no_pork", "sattvic", "jain"])
-    .optional(),
-  ingredientDislikes: zod.array(zod.string()).optional(),
-  nonVegDays: zod.array(zod.string()).optional(),
-  nonVegTypes: zod.array(zod.string()).optional(),
+  dailyCalorieTarget: zod.number().optional(),
+  dietaryType: zod.string().optional(),
   spiceTolerance: zod.enum(["mild", "medium", "spicy"]).optional(),
-  fastingBaseline: zod.array(zod.string()).optional(),
-  ekadashi: zod.boolean().optional(),
+  tiffinNeeded: zod.string().optional(),
   festivalFastingAlerts: zod.boolean().optional(),
-  individualTypicalBreakfast: zod.string().optional(),
-  individualTypicalLunch: zod.string().optional(),
-  individualTypicalDinner: zod.string().optional(),
+  displayOrder: zod.number().optional(),
+  healthConditions: zod.unknown().optional(),
+  allergies: zod.unknown().optional(),
+  ingredientDislikes: zod.unknown().optional(),
+  religiousCulturalRules: zod.unknown().optional(),
+  occasionalNonvegConfig: zod.unknown().optional(),
+  fastingConfig: zod.unknown().optional(),
 });
 
 export const UpdateFamilyMemberResponse = zod.object({
@@ -646,8 +612,7 @@ export const UpdateMealPlanParams = zod.object({
 });
 
 export const UpdateMealPlanBody = zod.object({
-  name: zod.string().optional(),
-  plan: zod.unknown().optional().describe("Updated plan JSON"),
+  days: zod.unknown().optional().describe("Updated days JSON"),
   harmonyScore: zod.number().optional(),
 });
 
@@ -1128,68 +1093,38 @@ export const SeedDemoDataResponse = zod.object({
 /**
  * @summary List all conversations
  */
-export const ListGeminiConversationsResponseItem = zod.object({
+export const ListAiChatLogsResponseItem = zod.object({
   id: zod.number(),
-  title: zod.string(),
+  familyId: zod.number(),
+  sessionType: zod.string(),
+  messages: zod.unknown(),
+  extractedData: zod.unknown(),
   createdAt: zod.date(),
+  updatedAt: zod.date(),
 });
-export const ListGeminiConversationsResponse = zod.array(
-  ListGeminiConversationsResponseItem,
-);
+export const ListAiChatLogsResponse = zod.array(ListAiChatLogsResponseItem);
 
-/**
- * @summary Create a new conversation
- */
-export const CreateGeminiConversationBody = zod.object({
-  title: zod.string(),
+export const CreateAiChatLogBody = zod.object({
+  familyId: zod.number(),
+  sessionType: zod.string(),
 });
 
-/**
- * @summary Get conversation with messages
- */
-export const GetGeminiConversationParams = zod.object({
+export const GetAiChatLogParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetGeminiConversationResponse = zod.object({
-  id: zod.number(),
-  title: zod.string(),
-  createdAt: zod.date(),
-  messages: zod.array(
-    zod.object({
-      id: zod.number(),
-      conversationId: zod.number(),
-      role: zod.string(),
-      content: zod.string(),
-      createdAt: zod.date(),
-    }),
-  ),
-});
-
-/**
- * @summary Delete a conversation
- */
-export const DeleteGeminiConversationParams = zod.object({
+export const DeleteAiChatLogParams = zod.object({
   id: zod.coerce.number(),
 });
 
-/**
- * @summary List messages in a conversation
- */
-export const ListGeminiMessagesParams = zod.object({
+export const SendAiChatMessageParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const ListGeminiMessagesResponseItem = zod.object({
-  id: zod.number(),
-  conversationId: zod.number(),
-  role: zod.string(),
+export const SendAiChatMessageBody = zod.object({
   content: zod.string(),
-  createdAt: zod.date(),
+  familyId: zod.number().optional(),
 });
-export const ListGeminiMessagesResponse = zod.array(
-  ListGeminiMessagesResponseItem,
-);
 
 /**
  * @summary Send a message and receive an AI response (SSE stream)

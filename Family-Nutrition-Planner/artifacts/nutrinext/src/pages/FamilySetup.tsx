@@ -18,34 +18,29 @@ import { INDIAN_LANGUAGES } from "@/lib/languages";
 import { useLanguageStore } from "@/store/useLanguageStore";
 import type { IMemberProfileFields } from "@/components/MemberEditSheet";
 
-type MemberDraft = Omit<
-  IMemberProfileFields,
-  "age" | "gender" | "activityLevel" | "primaryGoal" | "goalPace" | "tiffinType" | "religiousRules" | "nonVegDays" | "nonVegTypes" | "healthConditions" | "dietaryRestrictions" | "ingredientDislikes"
-> & {
+type MemberDraft = {
   _id: number;
+  name: string;
   age: number | "";
   gender: string;
+  weightKg?: number;
+  heightCm?: number;
   activityLevel?: string;
+  dietaryType: string;
+  healthConditions: string[];
+  ingredientDislikes: string[];
+  healthGoal: string;
   primaryGoal?: string;
   goalPace?: string;
-  tiffinType?: string;
-  religiousRules?: string;
-  healthConditions: string[];
-  dietaryRestrictions: string[];
-  ingredientDislikes: string[];
+  tiffinNeeded?: string;
+  religiousCulturalRules?: string;
   nonVegDays: string[];
   nonVegTypes: string[];
-  healthGoal: string;
-  dietaryType: string;
   memberFastingDays: string[];
   foodAllergies: string;
   spiceTolerance: string;
-  fastingBaseline: string[];
   ekadashi: boolean;
   festivalFastingAlerts: boolean;
-  individualTypicalBreakfast: string;
-  individualTypicalLunch: string;
-  individualTypicalDinner: string;
 };
 
 type MemberErrors = { name?: string; age?: string };
@@ -67,33 +62,27 @@ export default function FamilySetup() {
 
   const [familyData, setFamilyData] = useState({
     name: "",
-    state: "Jharkhand",
-    city: "",
-    monthlyBudget: 5000,
-    primaryLanguage: "hindi",
-    cuisinePreferences: [] as string[],
+    stateRegion: "Jharkhand",
+    languagePreference: "hindi",
+    householdDietaryBaseline: "mixed" as "strictly_vegetarian" | "ovo_vegetarian" | "mixed" | "non_vegetarian",
     cookingTimePreference: "moderate" as "quick" | "moderate" | "elaborate",
     dietaryType: "non_veg" as "strictly_veg" | "veg_with_eggs" | "non_veg" | "mixed",
     healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
     fastingDays: [] as string[],
     appliances: ["tawa", "pressure_cooker", "kadai"] as string[],
-    mealsAreShared: true,
-    sharedTypicalBreakfast: "",
-    sharedTypicalLunch: "",
-    sharedTypicalDinner: "",
-    cookingSkill: "intermediate" as "beginner" | "intermediate" | "experienced",
-    mealsPerDay: 3,
+    cookingSkillLevel: "intermediate" as "beginner" | "intermediate" | "experienced",
+    mealsPerDay: "3_meals" as string,
+    pincode: "",
   });
 
   const [members, setMembers] = useState<MemberDraft[]>([
     {
-      _id: ++_memberIdCounter, name: "", role: "father", age: 35, gender: "male", weightKg: 70, heightCm: 170,
-      activityLevel: "moderately_active", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      _id: ++_memberIdCounter, name: "", age: 35, gender: "male", weightKg: 70, heightCm: 170,
+      activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
-      goalPace: "none", tiffinType: "none", religiousRules: "none",
+      goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
-      spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
-      individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
+      spiceTolerance: "medium", ekadashi: false, festivalFastingAlerts: false,
     }
   ]);
 
@@ -142,9 +131,10 @@ export default function FamilySetup() {
       if (data.isComplete && data.extractedData) {
         const p = data.extractedData as {
           familyName?: string;
+          stateRegion?: string;
           state?: string;
-          monthlyBudget?: number;
           dietaryType?: string;
+          householdDietaryBaseline?: string;
           appliances?: string[];
           members?: Array<{ name?: string; age?: number; gender?: string; role?: string; healthConditions?: string[] }>;
         };
@@ -152,41 +142,35 @@ export default function FamilySetup() {
         const newFamilyData = {
           ...familyData,
           ...(p.familyName ? { name: p.familyName } : {}),
-          ...(p.state ? { state: p.state } : {}),
-          ...(p.monthlyBudget ? { monthlyBudget: p.monthlyBudget } : {}),
+          ...(p.stateRegion || p.state ? { stateRegion: (p.stateRegion || p.state)! } : {}),
+          ...(p.householdDietaryBaseline ? { householdDietaryBaseline: p.householdDietaryBaseline as typeof familyData.householdDietaryBaseline } : {}),
           ...(p.dietaryType ? { dietaryType: p.dietaryType as typeof familyData.dietaryType } : {}),
           ...(p.appliances ? { appliances: p.appliances } : {}),
-          ...(ep.cookingSkill ? { cookingSkill: ep.cookingSkill as typeof familyData.cookingSkill } : {}),
-          ...(ep.mealsPerDay ? { mealsPerDay: ep.mealsPerDay as number } : {}),
+          ...(ep.cookingSkillLevel ? { cookingSkillLevel: ep.cookingSkillLevel as typeof familyData.cookingSkillLevel } : {}),
+          ...(ep.mealsPerDay ? { mealsPerDay: String(ep.mealsPerDay) } : {}),
         };
         const newMembers: MemberDraft[] = (p.members ?? []).filter(m => m.name).map(m => ({
           _id: ++_memberIdCounter,
           name: m.name ?? "",
-          role: m.role ?? "other",
           age: m.age ?? 25,
           gender: m.gender ?? "male",
           weightKg: 65,
           heightCm: 165,
           activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
-          dietaryRestrictions: [],
           ingredientDislikes: [],
-          nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
-          nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
+          nonVegDays: ((m as Record<string,unknown>).occasionalNonvegDays as string[]) ?? [],
+          nonVegTypes: ((m as Record<string,unknown>).occasionalNonvegTypes as string[]) ?? [],
           goalPace: "none",
-          tiffinType: "none",
-          religiousRules: "none",
+          tiffinNeeded: "no",
+          religiousCulturalRules: "none",
           healthGoal: m.healthGoal ?? "general_wellness",
           dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
           spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
-          fastingBaseline: [],
           ekadashi: false,
           festivalFastingAlerts: false,
-          individualTypicalBreakfast: "",
-          individualTypicalLunch: "",
-          individualTypicalDinner: "",
         }));
         setFamilyData(newFamilyData);
         if (newMembers.length > 0) setMembers(newMembers);
@@ -232,13 +216,12 @@ export default function FamilySetup() {
 
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
-      _id: ++_memberIdCounter, name: "", role: "other", age: 25, gender: "female", weightKg: 60, heightCm: 160,
-      activityLevel: "moderately_active", healthConditions: [], dietaryRestrictions: [], healthGoal: "general_wellness",
+      _id: ++_memberIdCounter, name: "", age: 25, gender: "female", weightKg: 60, heightCm: 160,
+      activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
-      goalPace: "none", tiffinType: "none", religiousRules: "none",
+      goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
-      spiceTolerance: "medium", fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
-      individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
+      spiceTolerance: "medium", ekadashi: false, festivalFastingAlerts: false,
     }]);
   };
 
@@ -333,62 +316,55 @@ export default function FamilySetup() {
 
     setIsSubmitting(true);
     try {
-      const enrichedPreferences = [
-        ...fd.cuisinePreferences,
-        fd.dietaryType,
-        `cooking_time:${fd.cookingTimePreference}`,
-        `health_goal:${fd.healthGoal}`,
-        ...fd.fastingDays.map(d => `fasting:${d}`),
-      ];
       const fam = await createFamily.mutateAsync({
         data: {
-          ...fd,
-          cuisinePreferences: enrichedPreferences,
-          appliances: fd.appliances,
-          cookingSkill: fd.cookingSkill,
+          name: fd.name,
+          stateRegion: fd.stateRegion,
+          languagePreference: fd.languagePreference,
+          householdDietaryBaseline: fd.householdDietaryBaseline,
           mealsPerDay: fd.mealsPerDay,
+          cookingSkillLevel: fd.cookingSkillLevel,
+          appliances: fd.appliances,
+          pincode: fd.pincode || undefined,
         },
       });
 
       for (const member of mems) {
         if (member.name) {
-          const enrichedDietaryRestrictions = [
-            ...member.dietaryRestrictions,
-            ...(member.dietaryType ? [`diet_type:${member.dietaryType}`] : []),
-            ...(member.healthGoal && member.healthGoal !== "general_wellness" ? [`health_goal:${member.healthGoal}`] : []),
-            ...member.memberFastingDays.filter(d => d !== "none").map(d => `fasting:${d}`),
-          ];
           const allergyList = member.foodAllergies
             .split(",")
             .map(s => s.trim())
             .filter(Boolean);
+          const occasionalNonvegConfig = member.nonVegDays.length > 0 || member.nonVegTypes.length > 0
+            ? { days: member.nonVegDays, types: member.nonVegTypes }
+            : undefined;
+          const fastingConfig = member.memberFastingDays.length > 0 || member.ekadashi
+            ? { baselineDays: member.memberFastingDays, ekadashi: member.ekadashi }
+            : undefined;
+          const religiousCulturalRules = member.religiousCulturalRules && member.religiousCulturalRules !== "none"
+            ? { primary: member.religiousCulturalRules }
+            : undefined;
           await addMember.mutateAsync({
             familyId: fam.id,
             data: {
               name: member.name,
-              role: member.role,
               age: Number(member.age),
               gender: member.gender,
               weightKg: member.weightKg,
               heightCm: member.heightCm,
-              activityLevel: member.activityLevel ?? "moderately_active",
+              activityLevel: member.activityLevel ?? "lightly_active",
               healthConditions: member.healthConditions.filter(c => c !== "none"),
-              dietaryRestrictions: enrichedDietaryRestrictions,
               allergies: allergyList,
+              ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
               primaryGoal: member.healthGoal !== "general_wellness" ? member.healthGoal : undefined,
               goalPace: member.goalPace !== "none" ? member.goalPace : undefined,
-              tiffinType: member.tiffinType !== "none" ? member.tiffinType : undefined,
-              religiousRules: member.religiousRules !== "none" ? member.religiousRules : undefined,
-              ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
-              nonVegDays: member.nonVegDays.length > 0 ? member.nonVegDays : undefined,
-              nonVegTypes: member.nonVegTypes.length > 0 ? member.nonVegTypes : undefined,
-              spiceTolerance: member.spiceTolerance as "mild" | "medium" | "spicy",
-              fastingBaseline: member.fastingBaseline.length > 0 ? member.fastingBaseline : undefined,
-              ekadashi: member.ekadashi || undefined,
+              dietaryType: member.dietaryType ?? "strictly_vegetarian",
+              tiffinNeeded: member.tiffinNeeded !== "no" ? member.tiffinNeeded : "no",
+              spiceTolerance: member.spiceTolerance,
               festivalFastingAlerts: member.festivalFastingAlerts || undefined,
-              individualTypicalBreakfast: member.individualTypicalBreakfast || undefined,
-              individualTypicalLunch: member.individualTypicalLunch || undefined,
-              individualTypicalDinner: member.individualTypicalDinner || undefined,
+              occasionalNonvegConfig,
+              fastingConfig,
+              religiousCulturalRules,
             }
           });
         }
@@ -412,14 +388,13 @@ export default function FamilySetup() {
     const mergedFamilyData = {
       ...familyData,
       ...(voiceData.familyName ? { name: voiceData.familyName } : {}),
-      ...(voiceData.state ? { state: voiceData.state } : {}),
-      ...(voiceData.monthlyBudget ? { monthlyBudget: voiceData.monthlyBudget } : {}),
+      ...(voiceData.state ? { stateRegion: voiceData.state } : {}),
       ...(voiceData.dietaryType
         ? { dietaryType: voiceData.dietaryType as typeof familyData.dietaryType }
         : {}),
       ...(vd.appliances ? { appliances: vd.appliances as string[] } : {}),
-      ...(vd.cookingSkill ? { cookingSkill: vd.cookingSkill as typeof familyData.cookingSkill } : {}),
-      ...(vd.mealsPerDay ? { mealsPerDay: vd.mealsPerDay as number } : {}),
+      ...(vd.cookingSkillLevel ? { cookingSkillLevel: vd.cookingSkillLevel as typeof familyData.cookingSkillLevel } : {}),
+      ...(vd.mealsPerDay ? { mealsPerDay: String(vd.mealsPerDay) } : {}),
     };
 
     const voiceMembers: MemberDraft[] = (voiceData.members ?? [])
@@ -427,25 +402,22 @@ export default function FamilySetup() {
       .map(m => ({
         _id: ++_memberIdCounter,
         name: m.name ?? "",
-        role: m.role ?? "other",
         age: m.age ?? 25,
         gender: m.gender ?? "male",
         weightKg: 65,
         heightCm: 165,
         activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
         healthConditions: m.healthConditions ?? [],
-        dietaryRestrictions: [],
         healthGoal: m.healthGoal ?? "general_wellness",
         dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
         memberFastingDays: [],
         foodAllergies: "",
-        goalPace: "none", tiffinType: "none", religiousRules: "none",
+        goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
         ingredientDislikes: [],
-        nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
-        nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
+        nonVegDays: ((m as Record<string,unknown>).occasionalNonvegDays as string[]) ?? [],
+        nonVegTypes: ((m as Record<string,unknown>).occasionalNonvegTypes as string[]) ?? [],
         spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
-        fastingBaseline: [], ekadashi: false, festivalFastingAlerts: false,
-        individualTypicalBreakfast: "", individualTypicalLunch: "", individualTypicalDinner: "",
+        ekadashi: false, festivalFastingAlerts: false,
       }));
 
     const finalMembers = voiceMembers.length > 0 ? voiceMembers : members;
@@ -464,13 +436,12 @@ export default function FamilySetup() {
     setFamilyData(prev => ({
       ...prev,
       ...(partialData.familyName ? { name: partialData.familyName } : {}),
-      ...(partialData.state ? { state: partialData.state } : {}),
-      ...(partialData.monthlyBudget ? { monthlyBudget: partialData.monthlyBudget } : {}),
+      ...(partialData.state ? { stateRegion: partialData.state } : {}),
       ...(partialData.dietaryType
         ? { dietaryType: partialData.dietaryType as typeof familyData.dietaryType }
         : {}),
-      ...(pd.cookingSkill ? { cookingSkill: pd.cookingSkill as typeof familyData.cookingSkill } : {}),
-      ...(pd.mealsPerDay ? { mealsPerDay: pd.mealsPerDay as number } : {}),
+      ...(pd.cookingSkillLevel ? { cookingSkillLevel: pd.cookingSkillLevel as typeof familyData.cookingSkillLevel } : {}),
+      ...(pd.mealsPerDay ? { mealsPerDay: String(pd.mealsPerDay) } : {}),
     }));
     if (partialData.members && partialData.members.length > 0) {
       setMembers(partialData.members
@@ -478,31 +449,25 @@ export default function FamilySetup() {
         .map(m => ({
           _id: ++_memberIdCounter,
           name: m.name ?? "",
-          role: m.role ?? "other",
           age: m.age ?? 25,
           gender: m.gender ?? "male",
           weightKg: 65,
           heightCm: 165,
           activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
-          dietaryRestrictions: [],
           ingredientDislikes: [],
-          nonVegDays: ((m as Record<string,unknown>).nonVegDays as string[]) ?? [],
-          nonVegTypes: ((m as Record<string,unknown>).nonVegTypes as string[]) ?? [],
+          nonVegDays: ((m as Record<string,unknown>).occasionalNonvegDays as string[]) ?? [],
+          nonVegTypes: ((m as Record<string,unknown>).occasionalNonvegTypes as string[]) ?? [],
           goalPace: "none",
-          tiffinType: "none",
-          religiousRules: "none",
+          tiffinNeeded: "no",
+          religiousCulturalRules: "none",
           healthGoal: m.healthGoal ?? "general_wellness",
           dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
           spiceTolerance: ((m as Record<string,unknown>).spiceTolerance as string) ?? "medium",
-          fastingBaseline: [],
           ekadashi: false,
           festivalFastingAlerts: false,
-          individualTypicalBreakfast: "",
-          individualTypicalLunch: "",
-          individualTypicalDinner: "",
         }))
       );
     }
@@ -711,7 +676,7 @@ export default function FamilySetup() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label>{t("State", "राज्य")}</Label>
-                  <Select value={familyData.state} onValueChange={v => setFamilyData({...familyData, state: v})}>
+                  <Select value={familyData.stateRegion} onValueChange={v => setFamilyData({...familyData, stateRegion: v})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Select State" />
                     </SelectTrigger>
@@ -749,17 +714,8 @@ export default function FamilySetup() {
                   </Select>
                 </div>
                 <div>
-                  <Label>{t("Monthly Food Budget (₹)", "मासिक खाद्य बजट (₹)")}</Label>
-                  <Input 
-                    type="number" 
-                    value={familyData.monthlyBudget}
-                    onChange={(e) => setFamilyData({...familyData, monthlyBudget: parseInt(e.target.value) || 0})}
-                    className="mt-2 h-12 rounded-xl bg-background"
-                  />
-                </div>
-                <div>
                   <Label>{t("Primary Language", "मुख्य भाषा")}</Label>
-                  <Select value={familyData.primaryLanguage} onValueChange={v => setFamilyData({...familyData, primaryLanguage: v})}>
+                  <Select value={familyData.languagePreference} onValueChange={v => setFamilyData({...familyData, languagePreference: v})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Language" />
                     </SelectTrigger>
@@ -807,7 +763,7 @@ export default function FamilySetup() {
                 </div>
                 <div>
                   <Label>{t("Cooking Skill", "पाक कौशल")}</Label>
-                  <Select value={familyData.cookingSkill} onValueChange={v => setFamilyData({...familyData, cookingSkill: v as typeof familyData.cookingSkill})}>
+                  <Select value={familyData.cookingSkillLevel} onValueChange={v => setFamilyData({...familyData, cookingSkillLevel: v as typeof familyData.cookingSkillLevel})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Cooking skill" />
                     </SelectTrigger>
@@ -820,7 +776,7 @@ export default function FamilySetup() {
                 </div>
                 <div>
                   <Label>{t("Meals Per Day", "प्रतिदिन भोजन")}</Label>
-                  <Select value={String(familyData.mealsPerDay)} onValueChange={v => setFamilyData({...familyData, mealsPerDay: parseInt(v)})}>
+                  <Select value={familyData.mealsPerDay} onValueChange={v => setFamilyData({...familyData, mealsPerDay: v})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Meals" />
                     </SelectTrigger>
@@ -914,63 +870,7 @@ export default function FamilySetup() {
                 </div>
               </div>
 
-              <div className="pt-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Current Dietary Baseline", "वर्तमान आहार दिनचर्या")} <span className="normal-case font-normal text-muted-foreground">({t("optional — helps AI improve your meals", "वैकल्पिक — AI को आपके भोजन सुधारने में मदद मिलेगी")})</span></p>
-
-                <div className="flex items-center gap-3 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setFamilyData(fd => ({ ...fd, mealsAreShared: !fd.mealsAreShared }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${familyData.mealsAreShared ? "bg-primary" : "bg-muted-foreground/30"}`}
-                  >
-                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${familyData.mealsAreShared ? "translate-x-6" : "translate-x-1"}`} />
-                  </button>
-                  <Label className="cursor-pointer" onClick={() => setFamilyData(fd => ({ ...fd, mealsAreShared: !fd.mealsAreShared }))}>
-                    {t("All family members eat the same meals", "सभी सदस्य एक जैसा खाना खाते हैं")}
-                  </Label>
-                </div>
-
-                {familyData.mealsAreShared && (
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
-                      <Textarea
-                        value={familyData.sharedTypicalBreakfast}
-                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalBreakfast: e.target.value }))}
-                        placeholder={t("e.g. Paratha with curd and chai", "जैसे पराठा, दही और चाय")}
-                        className="mt-1 rounded-xl bg-background resize-none"
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
-                      <Textarea
-                        value={familyData.sharedTypicalLunch}
-                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalLunch: e.target.value }))}
-                        placeholder={t("e.g. Dal chawal, sabzi, roti", "जैसे दाल चावल, सब्जी, रोटी")}
-                        className="mt-1 rounded-xl bg-background resize-none"
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
-                      <Textarea
-                        value={familyData.sharedTypicalDinner}
-                        onChange={e => setFamilyData(fd => ({ ...fd, sharedTypicalDinner: e.target.value }))}
-                        placeholder={t("e.g. Roti, sabzi, dal", "जैसे रोटी, सब्जी, दाल")}
-                        className="mt-1 rounded-xl bg-background resize-none"
-                        rows={2}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {!familyData.mealsAreShared && (
-                  <p className="text-sm text-muted-foreground bg-secondary/10 rounded-xl px-4 py-3">
-                    {t("You can enter each member's individual meals on the next step.", "अगले चरण में प्रत्येक सदस्य का अलग भोजन दर्ज कर सकते हैं।")}
-                  </p>
-                )}
-              </div>
+              
 
               <div className="pt-4 flex justify-end">
                 <Button 
@@ -1016,20 +916,6 @@ export default function FamilySetup() {
                       className={`mt-1 ${memberErrors[member._id]?.name ? "border-destructive" : ""}`}
                     />
                     {memberErrors[member._id]?.name && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].name}</p>}
-                  </div>
-                  <div>
-                    <Label>{t("Role", "संबंध")}</Label>
-                    <Select value={member.role} onValueChange={v => handleUpdateMember(idx, "role", v)}>
-                      <SelectTrigger className="mt-1"><SelectValue/></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="father">{t("Father", "पिता")}</SelectItem>
-                        <SelectItem value="mother">{t("Mother", "माँ")}</SelectItem>
-                        <SelectItem value="spouse">{t("Spouse", "जीवनसाथी")}</SelectItem>
-                        <SelectItem value="child">{t("Child", "बच्चा")}</SelectItem>
-                        <SelectItem value="grandparent">{t("Grandparent", "दादा-दादी")}</SelectItem>
-                        <SelectItem value="other">{t("Other", "अन्य")}</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   
                   <div>
@@ -1261,7 +1147,7 @@ export default function FamilySetup() {
                     )}
                     <div>
                       <Label className="text-sm font-semibold">{t("Tiffin Type", "टिफिन प्रकार")}</Label>
-                      <Select value={member.tiffinType} onValueChange={v => handleUpdateMember(idx, "tiffinType", v)}>
+                      <Select value={member.tiffinNeeded} onValueChange={v => handleUpdateMember(idx, "tiffinNeeded", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
@@ -1272,7 +1158,7 @@ export default function FamilySetup() {
                     </div>
                     <div>
                       <Label className="text-sm font-semibold">{t("Religious / Cultural Rules", "धार्मिक नियम")}</Label>
-                      <Select value={member.religiousRules} onValueChange={v => handleUpdateMember(idx, "religiousRules", v)}>
+                      <Select value={member.religiousCulturalRules} onValueChange={v => handleUpdateMember(idx, "religiousCulturalRules", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
@@ -1373,43 +1259,6 @@ export default function FamilySetup() {
                   )}
                 </div>
 
-                {!familyData.mealsAreShared && (
-                  <div className="mt-4 pt-4 border-t border-dashed border-border">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Individual Meal Baseline", "व्यक्तिगत भोजन दिनचर्या")} <span className="normal-case font-normal">({t("optional", "वैकल्पिक")})</span></p>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div>
-                        <Label className="text-sm">{t("Typical Breakfast", "सामान्य नाश्ता")}</Label>
-                        <Textarea
-                          value={member.individualTypicalBreakfast}
-                          onChange={e => handleUpdateMember(idx, "individualTypicalBreakfast", e.target.value)}
-                          placeholder={t("e.g. Poha and tea", "जैसे पोहा और चाय")}
-                          className="mt-1 rounded-xl text-sm resize-none"
-                          rows={2}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm">{t("Typical Lunch", "सामान्य दोपहर का खाना")}</Label>
-                        <Textarea
-                          value={member.individualTypicalLunch}
-                          onChange={e => handleUpdateMember(idx, "individualTypicalLunch", e.target.value)}
-                          placeholder={t("e.g. Tiffin box with rice and sabzi", "जैसे टिफिन बॉक्स")}
-                          className="mt-1 rounded-xl text-sm resize-none"
-                          rows={2}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm">{t("Typical Dinner", "सामान्य रात का खाना")}</Label>
-                        <Textarea
-                          value={member.individualTypicalDinner}
-                          onChange={e => handleUpdateMember(idx, "individualTypicalDinner", e.target.value)}
-                          placeholder={t("e.g. Light roti and dal", "जैसे रोटी और दाल")}
-                          className="mt-1 rounded-xl text-sm resize-none"
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
 
@@ -1439,7 +1288,7 @@ export default function FamilySetup() {
 
       <VoiceAssistantModal
         open={voiceModalOpen}
-        language={familyData.primaryLanguage}
+        language={familyData.languagePreference}
         onClose={handleVoiceClose}
         onComplete={handleVoiceComplete}
       />

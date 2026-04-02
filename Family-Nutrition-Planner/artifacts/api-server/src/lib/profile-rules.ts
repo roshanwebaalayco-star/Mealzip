@@ -6,22 +6,15 @@ export interface IMemberProfile {
   activityLevel?: string;
   primary_goal?: string;
   goalPace?: string;
-  healthConditions?: string[];
-  ingredientDislikes?: string[];
-  nonVegDays?: string[];
-  tiffinType?: string;
-  religiousRules?: string;
+  healthConditions?: unknown;
 }
 
-/** @deprecated use IMemberProfile */
 export type MemberProfileInput = IMemberProfile;
 
 export interface MemberProfileOutput {
   primary_goal?: string;
   goalPace: string;
-  icmrCaloricTarget?: number;
-  /** @deprecated use icmrCaloricTarget — kept for back-compat during transition */
-  calorieTarget?: number;
+  dailyCalorieTarget?: number;
 }
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
@@ -34,13 +27,10 @@ const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   very_active: 1.9,
 };
 
-// Normalize UI-facing goal aliases to canonical DB / RAI values.
-// This is the single source of truth for goal taxonomy. Any new UI value
-// must be mapped here to prevent CHECK constraint failures on DB write.
 const GOAL_ALIAS_MAP: Record<string, string> = {
-  muscle_gain:      "build_muscle",     // UI label → DB canonical
-  child_growth:     "healthy_growth",   // UI label → DB canonical
-  anemia_recovery:  "anemia_recovery",  // already in DB CHECK — pass through
+  muscle_gain:      "build_muscle",
+  child_growth:     "healthy_growth",
+  anemia_recovery:  "anemia_recovery",
 };
 
 export function normalizeGoal(goal: string | undefined | null): string | undefined {
@@ -52,7 +42,7 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
   const result: MemberProfileOutput = {
     primary_goal: member.primary_goal,
     goalPace: member.goalPace ?? "none",
-    calorieTarget: undefined,
+    dailyCalorieTarget: undefined,
   };
 
   const age = member.age ?? 0;
@@ -87,9 +77,7 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
       tdee += pace === "0.5" ? 500 : 250;
     }
 
-    const computed = Math.max(1000, Math.round(tdee));
-    result.icmrCaloricTarget = computed;
-    result.calorieTarget = computed;
+    result.dailyCalorieTarget = Math.max(1000, Math.round(tdee));
   }
 
   return result;

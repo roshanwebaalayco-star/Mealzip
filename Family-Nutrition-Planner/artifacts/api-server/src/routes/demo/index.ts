@@ -22,13 +22,6 @@ function requireDemoMode(res: import("express").Response): boolean {
   return true;
 }
 
-/**
- * GET /api/demo/instant
- * One-tap instant demo for hackathon judges.
- * Creates / reuses the Sharma family demo, signs a 2-hour JWT, and returns
- * { token, user, family, mealPlan, message } in a single response.
- * Does NOT require DEMO_MODE=true — available in all environments.
- */
 router.get("/demo/instant", async (_req, res): Promise<void> => {
   try {
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
@@ -164,32 +157,35 @@ async function seedSharmaFamily(userId?: number) {
   const [family] = await db.insert(familiesTable).values({
     name: SHARMA_FAMILY_NAME,
     userId: userId ?? null,
-    state: "Jharkhand",
-    city: "Bokaro Steel City",
-    monthlyBudget: 5000,
-    primaryLanguage: "hindi",
-    cuisinePreferences: ["Jharkhand", "North Indian", "Bihari"],
-    isDemo: true,
+    stateRegion: "Jharkhand",
+    languagePreference: "hindi",
+    householdDietaryBaseline: "mixed",
+    mealsPerDay: "3_meals",
+    cookingSkillLevel: "intermediate",
+    appliances: ["tawa", "pressure_cooker", "kadai", "blender_mixie"],
   }).returning();
 
   const membersData = [
     {
-      familyId: family.id, name: "Rajesh Sharma", role: "father", age: 45, gender: "male",
-      weightKg: 82, heightCm: 170, activityLevel: "sedentary",
-      healthConditions: ["diabetes", "hypertension"], dietaryRestrictions: ["vegetarian"],
-      allergies: [], calorieTarget: 1800,
+      familyId: family.id, name: "Rajesh Sharma", age: 45, gender: "male",
+      weightKg: "82", heightCm: "170", activityLevel: "sedentary",
+      dietaryType: "strictly_vegetarian", dailyCalorieTarget: 1800,
+      healthConditions: ["diabetes", "hypertension"], allergies: [], ingredientDislikes: [],
+      spiceTolerance: "medium", displayOrder: 0,
     },
     {
-      familyId: family.id, name: "Sunita Sharma", role: "mother", age: 40, gender: "female",
-      weightKg: 68, heightCm: 158, activityLevel: "moderate",
-      healthConditions: ["obesity"], dietaryRestrictions: ["vegetarian"],
-      allergies: [], calorieTarget: 1600,
+      familyId: family.id, name: "Sunita Sharma", age: 40, gender: "female",
+      weightKg: "68", heightCm: "158", activityLevel: "moderately_active",
+      dietaryType: "strictly_vegetarian", dailyCalorieTarget: 1600,
+      healthConditions: ["obesity"], allergies: [], ingredientDislikes: [],
+      spiceTolerance: "medium", displayOrder: 1,
     },
     {
-      familyId: family.id, name: "Arjun Sharma", role: "child", age: 8, gender: "male",
-      weightKg: 25, heightCm: 128, activityLevel: "active",
-      healthConditions: [], dietaryRestrictions: ["vegetarian"],
-      allergies: [], calorieTarget: 1690,
+      familyId: family.id, name: "Arjun Sharma", age: 8, gender: "male",
+      weightKg: "25", heightCm: "128", activityLevel: "very_active",
+      dietaryType: "strictly_vegetarian", dailyCalorieTarget: 1690,
+      healthConditions: [], allergies: [], ingredientDislikes: [],
+      spiceTolerance: "mild", primaryGoal: "healthy_growth", displayOrder: 2,
     },
   ];
 
@@ -198,13 +194,10 @@ async function seedSharmaFamily(userId?: number) {
   const demoMealPlanData = getDemoMealPlanData();
   const [mealPlan] = await db.insert(mealPlansTable).values({
     familyId: family.id,
-    name: "ParivarSehat Demo Week - Sharma Family",
-    weekStartDate: new Date().toISOString().split("T")[0],
     harmonyScore: 78,
-    totalBudgetEstimate: 1150,
-    plan: demoMealPlanData,
-    nutritionSummary: { members: members.map(m => ({ name: m.name, role: m.role })) },
-    aiInsights: "शर्मा परिवार के लिए यह भोजन योजना ICMR-NIN 2024 मानकों के अनुसार तैयार की गई है। राजेश जी के मधुमेह को ध्यान में रखते हुए कम ग्लाइसेमिक इंडेक्स वाले खाद्य पदार्थ शामिल किए गए हैं। सुनीता जी के वजन प्रबंधन के लिए कम कैलोरी और उच्च फाइबर वाले विकल्प चुने गए हैं। अर्जुन के विकास के लिए पर्याप्त प्रोटीन और कैल्शियम सुनिश्चित किया गया है।",
+    generationStatus: "completed",
+    days: demoMealPlanData,
+    nutritionalSummary: { members: members.map(m => ({ name: m.name, dietaryType: m.dietaryType })) },
   }).returning();
 
   return {
@@ -218,13 +211,10 @@ function getDemoMealPlan(familyId: number) {
   return {
     id: 0,
     familyId,
-    name: "ParivarSehat Demo Week",
-    weekStartDate: new Date().toISOString().split("T")[0],
     harmonyScore: 78,
-    totalBudgetEstimate: "1150",
-    plan: getDemoMealPlanData(),
-    nutritionSummary: null,
-    aiInsights: "Demo meal plan loaded",
+    generationStatus: "completed",
+    days: getDemoMealPlanData(),
+    nutritionalSummary: null,
     createdAt: new Date(),
   };
 }
@@ -241,20 +231,16 @@ function getDemoMealPlanData() {
     { breakfast: "Rava Upma / रवा उपमा", lunch: "Dal Makhani + Rice / दाल मखनी + चावल", dinner: "Khichdi + Dahi / खिचड़ी + दही", snack: "Murmura Chaat / मुरमुरे चाट" },
   ];
 
-  return {
-    harmonyScore: 78,
-    totalBudgetEstimate: 1150,
-    days: days.map((day, i) => ({
-      day,
-      meals: {
-        breakfast: { recipeId: null, recipeName: mealsByDay[i].breakfast, servings: 3, estimatedCost: [45, 52, 38, 60, 41, 55, 48][i % 7] },
-        lunch: { recipeId: null, recipeName: mealsByDay[i].lunch, servings: 3, estimatedCost: [85, 110, 72, 95, 105, 78, 90][i % 7] },
-        dinner: { recipeId: null, recipeName: mealsByDay[i].dinner, servings: 3, estimatedCost: [70, 90, 65, 88, 75, 95, 80][i % 7] },
-        snack: { recipeId: null, recipeName: mealsByDay[i].snack, servings: 3, estimatedCost: [20, 28, 22, 35, 18, 30, 25][i % 7] },
-      },
-      dailyHarmonyScore: [82, 87, 76, 91, 84, 79, 88][i % 7],
-    })),
-  };
+  return days.map((day, i) => ({
+    day,
+    meals: {
+      breakfast: { recipeId: null, recipeName: mealsByDay[i].breakfast, servings: 3, estimatedCost: [45, 52, 38, 60, 41, 55, 48][i % 7] },
+      lunch: { recipeId: null, recipeName: mealsByDay[i].lunch, servings: 3, estimatedCost: [85, 110, 72, 95, 105, 78, 90][i % 7] },
+      dinner: { recipeId: null, recipeName: mealsByDay[i].dinner, servings: 3, estimatedCost: [70, 90, 65, 88, 75, 95, 80][i % 7] },
+      snack: { recipeId: null, recipeName: mealsByDay[i].snack, servings: 3, estimatedCost: [20, 28, 22, 35, 18, 30, 25][i % 7] },
+    },
+    dailyHarmonyScore: [82, 87, 76, 91, 84, 79, 88][i % 7],
+  }));
 }
 
 export default router;

@@ -22,13 +22,23 @@ export interface WeeklyContext {
 export interface FamilyMember {
   id: number;
   name: string;
-  role: string;
   age?: number;
+  gender: string;
   healthConditions?: string[];
-  dietaryRestrictions?: string[];
+  dietaryType?: string;
   primaryGoal?: string;
-  nonVegDays?: string[];
-  nonVegTypes?: string[];
-  tiffinType?: string;
-  weightKg?: number;
+  tiffinNeeded?: string;
+  weightKg?: number | string;
+  heightCm?: number | string;
+  activityLevel: string;
+  spiceTolerance?: string;
+  occasionalNonvegConfig?: { days?: string[]; types?: string[] };
+  fastingConfig?: { baselineDays?: string[]; ekadashi?: boolean };
+  religiousCulturalRules?: { primary?: string };
+  ingredientDislikes?: string[];
+  allergies?: string[];
+  dailyCalorieTarget?: number;
+  festivalFastingAlerts?: boolean;
+  goalPace?: string;
+  displayOrder?: number;
 }

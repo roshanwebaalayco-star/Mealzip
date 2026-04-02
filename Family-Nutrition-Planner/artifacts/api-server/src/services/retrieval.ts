@@ -17,7 +17,7 @@ export interface FamilyContext {
     age: number;
     gender: string;
     healthConditions: string[];
-    dietaryRestrictions: string[];
+    dietaryType: string;
   }>;
   diet?: string;
   cuisinePreferences?: string[];
@@ -53,8 +53,8 @@ export async function retrieveContextForMealPlan(
 
   const conditions = family.memberSummaries.flatMap(m => m.healthConditions);
   const uniqueConditions = [...new Set(conditions)];
-  const restrictions = family.memberSummaries.flatMap(m => m.dietaryRestrictions);
-  const uniqueRestrictions = [...new Set(restrictions)];
+  const dietaryTypes = family.memberSummaries.map(m => m.dietaryType);
+  const uniqueRestrictions = [...new Set(dietaryTypes)];
 
   const memberAges = family.memberSummaries.map(m => m.age);
   const hasChildren = memberAges.some(a => a < 18);

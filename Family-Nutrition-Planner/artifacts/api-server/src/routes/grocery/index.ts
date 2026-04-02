@@ -67,19 +67,15 @@ router.post("/grocery-lists/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const budget = family.monthlyBudget;
-  const weeklyBudget = Math.round(budget / 4);
-
   const pantryNote = pantryIngredients && pantryIngredients.length > 0
     ? `\nPantry items already available (DO NOT include in shopping list unless extra quantity needed): ${pantryIngredients.join(", ")}`
     : "";
 
   const prompt = `You are ParivarSehat AI — a smart Indian Kirana grocery assistant. Generate a comprehensive weekly grocery list for this family's meal plan.
 
-Family: ${family.name}, State: ${family.state}
-Weekly grocery budget: ₹${weeklyBudget}${pantryNote}
+Family: ${family.name}, Region: ${family.stateRegion}${pantryNote}
 
-Meal plan summary: ${JSON.stringify(mealPlan.plan).slice(0, 2500)}
+Meal plan summary: ${JSON.stringify(mealPlan.days).slice(0, 2500)}
 
 Return ONLY valid JSON with this structure — every item MUST have a healthRationale:
 {
@@ -97,7 +93,6 @@ Return ONLY valid JSON with this structure — every item MUST have a healthRati
     }
   ],
   "totalEstimatedCost": 850,
-  "budgetStatus": "within|over|under",
   "savingsTips": ["tip 1", "tip 2", "tip 3"],
   "seasonalSuggestions": ["seasonal produce tip"]
 }
@@ -117,7 +112,6 @@ Rules:
 
     const groceryData = JSON.parse(response.text ?? "{}");
 
-    // Deterministic server-side pantry subtraction: remove items already in pantry
     if (updateMode === "subtract" && pantryIngredients && pantryIngredients.length > 0) {
       const pantrySet = pantryIngredients.map(p => p.toLowerCase().trim());
       if (Array.isArray(groceryData.items)) {
@@ -127,25 +121,22 @@ Rules:
           return !pantrySet.some(p => ingredientMatches(p, itemName));
         });
         const subtracted = before - groceryData.items.length;
-        // Recalculate total after subtraction
         groceryData.totalEstimatedCost = groceryData.items.reduce(
           (sum: number, i: { estimatedCost?: number }) => sum + (i.estimatedCost ?? 0), 0
         );
         groceryData.pantrySubtracted = subtracted;
-        groceryData.budgetStatus =
-          groceryData.totalEstimatedCost <= (family.monthlyBudget / 4) ? "within" : "over";
       }
     }
 
-    const weekOf = mealPlan.weekStartDate;
+    const weekStartDate = new Date().toISOString().split("T")[0];
 
     const [list] = await db.insert(groceryListsTable).values({
       familyId,
       mealPlanId: mealPlan.id,
-      weekOf,
+      weekStartDate,
       items: groceryData,
-      totalEstimatedCost: groceryData.totalEstimatedCost || 0,
-      budgetStatus: groceryData.budgetStatus || "within",
+      totalEstimatedCost: String(groceryData.totalEstimatedCost || 0),
+      status: "active",
     }).returning();
 
     res.json(list);
@@ -155,7 +146,6 @@ Rules:
   }
 });
 
-// Hindi/English ingredient alias map for pantry subtraction matching
 const INGREDIENT_ALIASES: Record<string, string[]> = {
   "mustard oil": ["sarson oil", "sarso tel", "sarson ka tel", "sarsi tel"],
   "ghee": ["clarified butter", "desi ghee", "cow ghee"],
@@ -214,7 +204,6 @@ const INGREDIENT_ALIASES: Record<string, string[]> = {
   "brinjal": ["eggplant", "baingan", "aubergine"],
 };
 
-// 7b: Flexible ingredient matching for pantry subtraction
 function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, "").trim();
   const p = normalize(pantryItem);
@@ -222,12 +211,10 @@ function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
 
   if (p.includes(g) || g.includes(p)) return true;
 
-  // Word-level match
   const wordsP = p.split(" ").filter(w => w.length > 3);
   const wordsG = g.split(" ").filter(w => w.length > 3);
   if (wordsP.some(w => wordsG.includes(w))) return true;
 
-  // Alias match: check if both items map to the same canonical ingredient
   for (const [canonical, aliases] of Object.entries(INGREDIENT_ALIASES)) {
     const allForms = [canonical, ...aliases];
     const pMatches = allForms.some(f => p.includes(f));
@@ -238,42 +225,6 @@ function ingredientMatches(pantryItem: string, groceryItem: string): boolean {
   return false;
 }
 
-// 7a: Persist accepted swap for a grocery list item
-router.patch("/grocery-lists/:id/swaps", async (req, res): Promise<void> => {
-  const listId = parseInt(req.params.id);
-  if (isNaN(listId)) { res.status(400).json({ error: "Invalid list id", retryable: false }); return; }
-
-  const { itemName, swappedWith, cost, source } = req.body as {
-    itemName: string;
-    swappedWith: string | null;
-    cost?: number;
-    source?: "db" | "ai";
-  };
-  if (!itemName) { res.status(400).json({ error: "itemName is required", retryable: false }); return; }
-
-  try {
-    const [list] = await db.select({ id: groceryListsTable.id, acceptedSwaps: groceryListsTable.acceptedSwaps })
-      .from(groceryListsTable).where(eq(groceryListsTable.id, listId));
-    if (!list) { res.status(404).json({ error: "Grocery list not found", retryable: false }); return; }
-
-    const existing = (list.acceptedSwaps as Record<string, unknown> | null) ?? {};
-    let updated: Record<string, unknown>;
-    if (swappedWith === null) {
-      updated = { ...existing };
-      delete updated[itemName];
-    } else {
-      updated = { ...existing, [itemName]: { name: swappedWith, cost: cost ?? 0, source: source ?? "ai" } };
-    }
-
-    await db.update(groceryListsTable).set({ acceptedSwaps: updated }).where(eq(groceryListsTable.id, listId));
-    res.json({ success: true, acceptedSwaps: updated });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Failed to update swap", details: msg, retryable: true });
-  }
-});
-
-// DB-backed cheaper alternative ingredient lookup endpoint
 router.get("/grocery/cheaper-alternative", async (req, res): Promise<void> => {
   const item = (req.query.item as string)?.trim();
   const budget = parseFloat(req.query.budget as string);

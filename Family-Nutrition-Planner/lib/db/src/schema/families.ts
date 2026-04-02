@@ -1,30 +1,26 @@
-import { pgTable, serial, text, integer, boolean, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { sql } from "drizzle-orm";
 import { usersTable } from "./users";
 
 export const familiesTable = pgTable("families", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  state: text("state").notNull(),
-  city: text("city"),
-  monthlyBudget: integer("monthly_budget").notNull().default(5000),
-  primaryLanguage: text("primary_language").notNull().default("hindi"),
-  cuisinePreferences: text("cuisine_preferences").array(),
-  isDemo: boolean("is_demo").notNull().default(false),
-  mealsAreShared: boolean("meals_are_shared").notNull().default(true),
-  sharedTypicalBreakfast: text("shared_typical_breakfast"),
-  sharedTypicalLunch: text("shared_typical_lunch"),
-  sharedTypicalDinner: text("shared_typical_dinner"),
-  appliances: text("appliances").array().notNull().default(["tawa", "pressure_cooker", "kadai"]),
-  cookingSkill: text("cooking_skill").notNull().default("intermediate"),
-  mealsPerDay: integer("meals_per_day").notNull().default(3),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  stateRegion: text("state_region").notNull(),
+  languagePreference: text("language_preference").notNull().default("hindi"),
+  householdDietaryBaseline: text("household_dietary_baseline").notNull().default("mixed"),
+  mealsPerDay: text("meals_per_day").notNull().default("3_meals"),
+  cookingSkillLevel: text("cooking_skill_level").notNull().default("intermediate"),
+  appliances: jsonb("appliances").notNull().default(sql`'[]'::jsonb`),
+  pincode: text("pincode"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("families_user_id_idx").on(table.userId),
 ]);
 
-export const insertFamilySchema = createInsertSchema(familiesTable).omit({ id: true, createdAt: true });
+export const insertFamilySchema = createInsertSchema(familiesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type Family = typeof familiesTable.$inferSelect;

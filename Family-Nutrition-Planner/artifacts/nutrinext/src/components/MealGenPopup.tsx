@@ -64,16 +64,13 @@ function isWeightGoalMember(member: FamilyMember): boolean {
 }
 
 function isOccasionalNonVeg(member: FamilyMember): boolean {
-  const restrictions = member.dietaryRestrictions ?? [];
-  const nonVegDays = member.nonVegDays ?? [];
-  const dietaryType = (member as Record<string, unknown>).dietaryType as string | undefined;
-  if (restrictions.includes("vegetarian") || restrictions.includes("vegan") || restrictions.includes("jain")) return false;
+  const dietaryType = member.dietaryType ?? "strictly_vegetarian";
+  if (dietaryType === "strictly_vegetarian" || dietaryType === "vegan" || dietaryType === "jain_vegetarian") return false;
+  const nonvegConfig = member.occasionalNonvegConfig;
   return (
-    restrictions.includes("occasional_non_veg") ||
-    restrictions.includes("non_vegetarian") ||
     dietaryType === "non_vegetarian" ||
     dietaryType === "occasional_nonveg" ||
-    nonVegDays.length > 0
+    (nonvegConfig?.days?.length ?? 0) > 0
   );
 }
 
@@ -82,10 +79,11 @@ function buildProfileDefaults(members: FamilyMember[], defaultBudget: number): W
   const memberOverrides: Record<string, MemberContextOverride> = {};
   for (const m of members) {
     const ov: MemberContextOverride = { memberId: m.id };
-    if (m.tiffinType && m.tiffinType !== "none") ov.tiffin_override = true;
-    if (m.nonVegDays && m.nonVegDays.length > 0) ov.nonveg_days_override = m.nonVegDays;
-    if (m.nonVegTypes && m.nonVegTypes.length > 0) ov.nonveg_type_override = m.nonVegTypes[0];
-    if (m.weightKg && isWeightGoalMember(m)) ov.weight_kg = m.weightKg;
+    if (m.tiffinNeeded && m.tiffinNeeded !== "no") ov.tiffin_override = true;
+    const nonvegConfig = m.occasionalNonvegConfig;
+    if (nonvegConfig?.days && nonvegConfig.days.length > 0) ov.nonveg_days_override = nonvegConfig.days;
+    if (nonvegConfig?.types && nonvegConfig.types.length > 0) ov.nonveg_type_override = nonvegConfig.types[0];
+    if (m.weightKg && isWeightGoalMember(m)) ov.weight_kg = Number(m.weightKg);
     if (Object.keys(ov).length > 1) memberOverrides[String(m.id)] = ov;
   }
   return {
@@ -444,7 +442,7 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
                               </div>
                               <div className="text-left">
                                 <p className="text-xs font-semibold">{member.name}</p>
-                                <p className="text-[10px] text-muted-foreground capitalize">{member.role}</p>
+                                <p className="text-[10px] text-muted-foreground capitalize">{member.age}y · {member.gender}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5">

@@ -411,22 +411,24 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                   id: member.id,
                   familyId: member.familyId,
                   name: member.name,
-                  role: member.role,
                   age: member.age,
                   gender: member.gender as "male" | "female" | "other",
                   weightKg: member.weightKg ?? undefined,
                   heightCm: member.heightCm ?? undefined,
                   activityLevel: (member.activityLevel ?? undefined) as IMemberProfile["activityLevel"],
+                  dietaryType: (member as unknown as Record<string, unknown>).dietaryType as string ?? "strictly_vegetarian",
                   healthConditions: member.healthConditions ?? [],
-                  dietaryRestrictions: member.dietaryRestrictions ?? [],
-                  primaryGoal: (((member as unknown) as Record<string, unknown>).primaryGoal ?? undefined) as IMemberProfile["primaryGoal"],
-                  goalPace: (((member as unknown) as Record<string, unknown>).goalPace ?? "none") as IMemberProfile["goalPace"],
-                  tiffinType: (((member as unknown) as Record<string, unknown>).tiffinType ?? "none") as IMemberProfile["tiffinType"],
-                  religiousRules: (((member as unknown) as Record<string, unknown>).religiousRules ?? "none") as IMemberProfile["religiousRules"],
-                  ingredientDislikes: (((member as unknown) as Record<string, unknown>).ingredientDislikes as string[] | undefined) ?? [],
-                  nonVegDays: (((member as unknown) as Record<string, unknown>).nonVegDays as string[] | undefined ?? []) as IMemberProfile["nonVegDays"],
-                  nonVegTypes: (((member as unknown) as Record<string, unknown>).nonVegTypes as string[] | undefined ?? []) as IMemberProfile["nonVegTypes"],
-                  calorieTarget: member.calorieTarget ?? undefined,
+                  primaryGoal: (member as unknown as Record<string, unknown>).primaryGoal as string ?? undefined,
+                  goalPace: ((member as unknown as Record<string, unknown>).goalPace ?? "none") as IMemberProfile["goalPace"],
+                  tiffinNeeded: ((member as unknown as Record<string, unknown>).tiffinNeeded ?? "no") as IMemberProfile["tiffinNeeded"],
+                  religiousCulturalRules: (member as unknown as Record<string, unknown>).religiousCulturalRules as Record<string, unknown> ?? undefined,
+                  ingredientDislikes: ((member as unknown as Record<string, unknown>).ingredientDislikes as string[] | undefined) ?? [],
+                  occasionalNonvegConfig: (member as unknown as Record<string, unknown>).occasionalNonvegConfig as IMemberProfile["occasionalNonvegConfig"] ?? undefined,
+                  fastingConfig: (member as unknown as Record<string, unknown>).fastingConfig as IMemberProfile["fastingConfig"] ?? undefined,
+                  dailyCalorieTarget: (member as unknown as Record<string, unknown>).dailyCalorieTarget as number ?? undefined,
+                  spiceTolerance: ((member as unknown as Record<string, unknown>).spiceTolerance ?? "medium") as IMemberProfile["spiceTolerance"],
+                  festivalFastingAlerts: (member as unknown as Record<string, unknown>).festivalFastingAlerts as boolean ?? false,
+                  allergies: ((member as unknown as Record<string, unknown>).allergies as string[] | undefined) ?? [],
                 })}
                 className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/50 border border-white/70 hover:bg-white/80 transition-colors text-left"
               >
@@ -437,15 +439,15 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                   <div>
                     <p className="font-semibold text-sm">{member.name}</p>
                     <p className="text-xs text-muted-foreground capitalize">
-                      {member.role} · {member.age}y
+                      {member.age}y · {member.gender}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  {member.icmrCaloricTarget && member.weightKg && member.heightCm && (member.primaryGoal === "weight_loss" || member.primaryGoal === "muscle_gain") ? (
+                  {(member as unknown as Record<string, unknown>).dailyCalorieTarget && member.weightKg && member.heightCm && (member.primaryGoal === "weight_loss" || member.primaryGoal === "muscle_gain") ? (
                     <div className="flex items-center justify-end gap-1 mb-0.5">
                       <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full leading-none">ICMR</span>
-                      <span className="text-xs font-semibold text-foreground/80">{member.icmrCaloricTarget ?? member.calorieTarget ?? "—"} kcal</span>
+                      <span className="text-xs font-semibold text-foreground/80">{String((member as unknown as Record<string, unknown>).dailyCalorieTarget ?? "—")} kcal</span>
                     </div>
                   ) : null}
                   <div className="flex gap-1 mt-0.5 justify-end flex-wrap">

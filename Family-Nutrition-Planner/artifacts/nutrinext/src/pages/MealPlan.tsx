@@ -124,10 +124,9 @@ interface FastingCalendar {
 interface FamilyMember {
   id: number;
   name: string;
-  role: string;
   age: number;
   healthConditions: string[];
-  dietaryRestrictions: string[];
+  dietaryType: string;
 }
 
 const MEMBER_COLORS = [
@@ -154,7 +153,6 @@ const CONDITION_BADGES: Record<string, { label: string; labelHi: string; color: 
 
 function getMemberVariation(member: FamilyMember, mealType: string): string | null {
   const conditions = member.healthConditions ?? [];
-  const restrictions = member.dietaryRestrictions ?? [];
 
   if (conditions.includes("diabetes") || conditions.includes("diabetes_type2")) {
     if (mealType === "Lunch" || mealType === "Dinner") return "Low-carb portion";
@@ -168,16 +166,13 @@ function getMemberVariation(member: FamilyMember, mealType: string): string | nu
   if (conditions.includes("anemia") || conditions.includes("iron_deficiency")) {
     return "+ Iron-rich add-on";
   }
-  if (restrictions.includes("jain")) {
-    return "No root vegetables";
-  }
   if (member.age < 5) {
     return "Mashed + mild spice";
   }
   if (member.age < 12) {
     return "Extra nutrition";
   }
-  if (member.role === "grandparent" && member.age > 60) {
+  if (member.age > 60) {
     return "Soft texture";
   }
   return null;
@@ -1506,9 +1501,6 @@ export default function MealPlan() {
                       <div key={member.id} className={`rounded-2xl border p-3 space-y-1.5 ${MEMBER_COLORS[idx % MEMBER_COLORS.length]}`}>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-xs">{member.name}</span>
-                          {member.role && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-white/50 text-muted-foreground capitalize">{member.role}</span>
-                          )}
                           {(member.healthConditions ?? []).slice(0, 4).map(c => {
                             const badge = CONDITION_BADGES[c];
                             return badge ? (

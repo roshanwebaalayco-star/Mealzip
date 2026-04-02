@@ -15,19 +15,16 @@ import { useQueryClient } from "@tanstack/react-query";
 
 type MemberEdit = {
   name: string;
-  role: string;
   age: number;
   gender: string;
   weightKg: number;
   heightCm: number;
   activityLevel: string;
   healthConditions: string[];
-  dietaryRestrictions: string[];
   allergies: string[];
   primaryGoal: string;
   goalPace: string;
-  tiffinType: string;
-  religiousRules: string;
+  tiffinNeeded: string;
   ingredientDislikes: string[];
   nonVegDays: string[];
   nonVegTypes: string[];
@@ -35,54 +32,41 @@ type MemberEdit = {
   foodAllergies: string;
   dietaryType: string;
   healthGoal: string;
+  spiceTolerance: string;
+  festivalFastingAlerts: boolean;
+  religiousCulturalRules: string;
 };
 
-function deriveDietaryType(restrictions: string[]): string {
-  const tag = restrictions.find(r => r.startsWith("diet_type:"));
-  return tag ? tag.replace("diet_type:", "") : "vegetarian";
-}
-
-function deriveHealthGoal(restrictions: string[], primaryGoal?: string): string {
-  if (primaryGoal && primaryGoal !== "general_wellness") return primaryGoal;
-  const tag = restrictions.find(r => r.startsWith("health_goal:"));
-  return tag ? tag.replace("health_goal:", "") : "general_wellness";
-}
-
-function deriveFastingDays(restrictions: string[]): string[] {
-  return restrictions.filter(r => r.startsWith("fasting:")).map(r => r.replace("fasting:", ""));
-}
-
 function memberToEdit(m: FamilyMember): MemberEdit {
-  const restrictions = m.dietaryRestrictions ?? [];
-  const dietaryType = deriveDietaryType(restrictions);
-  const healthGoal = deriveHealthGoal(restrictions, m.primaryGoal ?? undefined);
-  const fastingDays = deriveFastingDays(restrictions);
-  const baseRestrictions = restrictions.filter(r =>
-    !r.startsWith("diet_type:") && !r.startsWith("health_goal:") && !r.startsWith("fasting:")
-  );
+  const healthConditions = Array.isArray(m.healthConditions) ? m.healthConditions as string[] : [];
+  const allergies = Array.isArray(m.allergies) ? m.allergies as string[] : [];
+  const ingredientDislikes = Array.isArray(m.ingredientDislikes) ? m.ingredientDislikes as string[] : [];
+  const nonvegConfig = (m.occasionalNonvegConfig ?? {}) as { days?: string[]; types?: string[] };
+  const fastingConfig = (m.fastingConfig ?? {}) as { baselineDays?: string[]; ekadashi?: boolean };
+  const religiousConfig = (m.religiousCulturalRules ?? {}) as { primary?: string };
 
   return {
     name: m.name,
-    role: m.role,
     age: m.age,
     gender: m.gender,
-    weightKg: m.weightKg ?? 60,
-    heightCm: m.heightCm ?? 160,
+    weightKg: Number(m.weightKg) || 60,
+    heightCm: Number(m.heightCm) || 160,
     activityLevel: m.activityLevel,
-    healthConditions: m.healthConditions ?? [],
-    dietaryRestrictions: baseRestrictions,
-    allergies: m.allergies ?? [],
-    primaryGoal: m.primaryGoal ?? "general_wellness",
+    healthConditions,
+    allergies,
+    primaryGoal: m.primaryGoal ?? "no_specific_goal",
     goalPace: m.goalPace ?? "none",
-    tiffinType: m.tiffinType ?? "none",
-    religiousRules: m.religiousRules ?? "none",
-    ingredientDislikes: m.ingredientDislikes ?? [],
-    nonVegDays: m.nonVegDays ?? [],
-    nonVegTypes: m.nonVegTypes ?? [],
-    memberFastingDays: fastingDays,
-    foodAllergies: (m.allergies ?? []).join(", "),
-    dietaryType,
-    healthGoal,
+    tiffinNeeded: m.tiffinNeeded ?? "no",
+    ingredientDislikes,
+    nonVegDays: nonvegConfig.days ?? [],
+    nonVegTypes: nonvegConfig.types ?? [],
+    memberFastingDays: fastingConfig.baselineDays ?? [],
+    foodAllergies: allergies.join(", "),
+    dietaryType: m.dietaryType ?? "strictly_vegetarian",
+    healthGoal: m.primaryGoal ?? "no_specific_goal",
+    spiceTolerance: m.spiceTolerance ?? "medium",
+    festivalFastingAlerts: m.festivalFastingAlerts ?? false,
+    religiousCulturalRules: religiousConfig.primary ?? "none",
   };
 }
 
@@ -180,34 +164,31 @@ export default function Profile() {
     const edit = getEdit(member);
     setSavingIds(prev => new Set(prev).add(member.id));
     try {
-      const enrichedDietaryRestrictions = [
-        ...edit.dietaryRestrictions,
-        ...(edit.dietaryType ? [`diet_type:${edit.dietaryType}`] : []),
-        ...(edit.healthGoal && edit.healthGoal !== "general_wellness" ? [`health_goal:${edit.healthGoal}`] : []),
-        ...edit.memberFastingDays.filter(d => d !== "none").map(d => `fasting:${d}`),
-      ];
       const allergyList = edit.foodAllergies.split(",").map(s => s.trim()).filter(Boolean);
       await updateMember.mutateAsync({
         familyId,
         memberId: member.id,
         data: {
           name: edit.name,
-          role: edit.role,
           age: edit.age,
           gender: edit.gender,
           weightKg: edit.weightKg,
           heightCm: edit.heightCm,
           activityLevel: edit.activityLevel,
+          dietaryType: edit.dietaryType,
           healthConditions: edit.healthConditions.filter(c => c !== "none"),
-          dietaryRestrictions: enrichedDietaryRestrictions,
           allergies: allergyList,
-          primaryGoal: edit.healthGoal !== "general_wellness" ? edit.healthGoal : undefined,
+          primaryGoal: edit.healthGoal !== "no_specific_goal" ? edit.healthGoal : undefined,
           goalPace: edit.goalPace !== "none" ? edit.goalPace : undefined,
-          tiffinType: edit.tiffinType !== "none" ? edit.tiffinType : undefined,
-          religiousRules: edit.religiousRules !== "none" ? edit.religiousRules : undefined,
+          tiffinNeeded: edit.tiffinNeeded !== "no" ? edit.tiffinNeeded : undefined,
+          religiousCulturalRules: edit.religiousCulturalRules !== "none" ? { primary: edit.religiousCulturalRules } : undefined,
           ingredientDislikes: edit.ingredientDislikes.length > 0 ? edit.ingredientDislikes : undefined,
-          nonVegDays: edit.nonVegDays.length > 0 ? edit.nonVegDays : undefined,
-          nonVegTypes: edit.nonVegTypes.length > 0 ? edit.nonVegTypes : undefined,
+          occasionalNonvegConfig: (edit.nonVegDays.length > 0 || edit.nonVegTypes.length > 0)
+            ? { days: edit.nonVegDays, types: edit.nonVegTypes } : undefined,
+          fastingConfig: edit.memberFastingDays.filter(d => d !== "none").length > 0
+            ? { baselineDays: edit.memberFastingDays.filter(d => d !== "none") } : undefined,
+          spiceTolerance: edit.spiceTolerance,
+          festivalFastingAlerts: edit.festivalFastingAlerts,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["/api/families"] });
@@ -249,7 +230,7 @@ export default function Profile() {
           const isSaving = savingIds.has(member.id);
           const weightChangeGoal = edit.healthGoal === "weight_loss" || edit.healthGoal === "muscle_gain";
           const hasBodyMetrics = !!(member.weightKg && member.heightCm);
-          const kcal = hasBodyMetrics && weightChangeGoal ? (member.icmrCaloricTarget ?? null) : null;
+          const kcal = hasBodyMetrics && weightChangeGoal ? (member.dailyCalorieTarget ?? null) : null;
           const showGoalPaceField = weightChangeGoal && edit.age >= 18;
 
           return (
@@ -265,7 +246,7 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="font-semibold">{member.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{member.role} · {member.age}y · {member.gender}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{member.age}y · {member.gender}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -287,20 +268,6 @@ export default function Profile() {
                     <div className="md:col-span-2">
                       <Label>{t("Name", "नाम")}</Label>
                       <Input value={edit.name} onChange={e => updateEdit(member.id, "name", e.target.value)} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>{t("Role", "संबंध")}</Label>
-                      <Select value={edit.role} onValueChange={v => updateEdit(member.id, "role", v)}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="father">{t("Father", "पिता")}</SelectItem>
-                          <SelectItem value="mother">{t("Mother", "माँ")}</SelectItem>
-                          <SelectItem value="spouse">{t("Spouse", "जीवनसाथी")}</SelectItem>
-                          <SelectItem value="child">{t("Child", "बच्चा")}</SelectItem>
-                          <SelectItem value="grandparent">{t("Grandparent", "दादा-दादी")}</SelectItem>
-                          <SelectItem value="other">{t("Other", "अन्य")}</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                     <div>
                       <Label>{t("Age", "आयु")}</Label>
@@ -410,18 +377,18 @@ export default function Profile() {
                       )}
                       <div>
                         <Label className="text-sm font-semibold">{t("Tiffin Type", "टिफिन प्रकार")}</Label>
-                        <Select value={edit.tiffinType} onValueChange={v => updateEdit(member.id, "tiffinType", v)}>
+                        <Select value={edit.tiffinNeeded} onValueChange={v => updateEdit(member.id, "tiffinNeeded", v)}>
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
-                            <SelectItem value="school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
-                            <SelectItem value="office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
+                            <SelectItem value="no">{t("Not required", "नहीं")}</SelectItem>
+                            <SelectItem value="school_tiffin">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
+                            <SelectItem value="office_tiffin">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
                         <Label className="text-sm font-semibold">{t("Religious / Cultural Rules", "धार्मिक नियम")}</Label>
-                        <Select value={edit.religiousRules} onValueChange={v => updateEdit(member.id, "religiousRules", v)}>
+                        <Select value={edit.religiousCulturalRules} onValueChange={v => updateEdit(member.id, "religiousCulturalRules", v)}>
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>

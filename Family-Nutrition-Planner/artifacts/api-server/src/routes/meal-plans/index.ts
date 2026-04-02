@@ -554,15 +554,19 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const zone = getZoneForState(family.state || "Delhi");
-  const weeklyBudget = Math.round(Number(family.monthlyBudget) / 4);
+  const zone = getZoneForState(family.stateRegion || "Delhi");
+  const weeklyBudget = 5000;
   const budgetPerMeal = Math.round(weeklyBudget / (7 * 4));
 
-  const allRestrictions = members.flatMap(m => m.dietaryRestrictions ?? []);
+  const allDietaryTypes = members.map(m => m.dietaryType ?? "strictly_vegetarian");
+  const allRestrictions = allDietaryTypes;
 
-  // Auto-detect fasting: explicit preference overrides; otherwise derive from festival calendar + member prefs
   const explicitFasting = preferences?.isFasting;
-  const memberFastingDays = allRestrictions.filter(r => r.startsWith("fasting:"));
+  const memberFastingConfigs = members.map(m => m.fastingConfig as Record<string, unknown> | null).filter(Boolean);
+  const memberFastingDays = memberFastingConfigs.flatMap(fc => {
+    const days = (fc as Record<string, unknown>)?.weeklyFastDays;
+    return Array.isArray(days) ? days.map((d: unknown) => `fasting:${d}`) : [];
+  });
   const hasMemberFastingPrefs = memberFastingDays.length > 0;
 
   const weekStart = new Date(weekStartDate);
@@ -590,12 +594,8 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     ? `\n🎉 FESTIVAL WEEK: ${festivalFasting.festivals.map(f => `${f.name} (${f.fastingType} fast)`).join(", ")}. Recommended festival foods: ${festivalFasting.recommendedFoods.slice(0, 8).join(", ")}\n`
     : "";
 
-  // Extract cooking time preference from family cuisinePreferences array (stored as "cooking_time:moderate")
-  const cookingTimePref = (family.cuisinePreferences ?? []).find(p => p.startsWith("cooking_time:"));
-  const maxCookTimeMin = cookingTimePref
-    ? cookingTimePref.includes("quick") ? 30
-      : cookingTimePref.includes("moderate") ? 60
-      : null
+  const maxCookTimeMin: number | null = family.cookingSkillLevel === "beginner" ? 30
+    : family.cookingSkillLevel === "intermediate" ? 60
     : null;
 
   if (members.length === 0) {
@@ -665,13 +665,13 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
 
   let flavorFatigueNote = "";
   try {
-    const [lastPlan] = await db.select({ plan: mealPlansTable.plan })
+    const [lastPlan] = await db.select({ days: mealPlansTable.days })
       .from(mealPlansTable)
       .where(eq(mealPlansTable.familyId, familyId))
       .orderBy(desc(mealPlansTable.createdAt))
       .limit(1);
-    if (lastPlan?.plan) {
-      const lastDays = (lastPlan.plan as { days?: Array<{ meals?: Record<string, { base_dish_name?: string; recipeName?: string }> }> }).days ?? [];
+    if (lastPlan?.days) {
+      const lastDays = (lastPlan.days as Array<{ meals?: Record<string, { base_dish_name?: string; recipeName?: string }> }>) ?? [];
       const recentDishes = lastDays.slice(-3).flatMap(d => {
         const meals = d.meals ?? {};
         return Object.values(meals).map(m => m.base_dish_name || m.recipeName).filter(Boolean);
@@ -683,20 +683,19 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   } catch { /* non-critical */ }
 
   const memberSummaries = members.map(m => ({
-    name: m.name, role: m.role, age: m.age, gender: m.gender,
+    name: m.name, age: m.age, gender: m.gender,
     activityLevel: m.activityLevel,
-    healthConditions: m.healthConditions ?? [],
-    dietaryRestrictions: m.dietaryRestrictions ?? [],
-    allergies: m.allergies ?? [],
+    dietaryType: m.dietaryType ?? "strictly_vegetarian",
+    healthConditions: (m.healthConditions ?? []) as string[],
+    allergies: (m.allergies ?? []) as string[],
     primaryGoal: m.primaryGoal ?? null,
     goalPace: m.goalPace ?? null,
-    tiffinType: m.tiffinType ?? null,
-    religiousRules: m.religiousRules ?? null,
-    ingredientDislikes: m.ingredientDislikes ?? [],
-    nonVegDays: m.nonVegDays ?? [],
-    nonVegTypes: m.nonVegTypes ?? [],
-    icmrCaloricTarget: m.icmrCaloricTarget ?? null,
-    targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
+    tiffinNeeded: m.tiffinNeeded ?? false,
+    religiousCulturalRules: m.religiousCulturalRules ?? null,
+    ingredientDislikes: (m.ingredientDislikes ?? []) as string[],
+    occasionalNonvegConfig: m.occasionalNonvegConfig ?? null,
+    dailyCalorieTarget: m.dailyCalorieTarget ?? null,
+    targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, (m.healthConditions ?? []) as string[]),
   }));
 
   const dietPrefForRag = resolveDietPreference(allRestrictions) ?? "vegetarian";
@@ -705,10 +704,10 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
     memberSummaries: memberSummaries.map(m => ({
       name: m.name, age: m.age, gender: m.gender,
       healthConditions: m.healthConditions,
-      dietaryRestrictions: m.dietaryRestrictions,
+      dietaryType: m.dietaryType,
     })),
     diet: dietPrefForRag,
-    cuisinePreferences: family.cuisinePreferences ?? [],
+    cuisinePreferences: [],
     isFasting,
     budget: budgetPerMeal,
   };
@@ -800,18 +799,17 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   const applianceNote = `\n🍳 KITCHEN APPLIANCES AVAILABLE: ${ownedAppliances.join(", ")}.\nNEVER suggest recipes requiring: ${missingAppliances.join(", ")}.\nFor each meal slot, include "required_appliances":["tawa"] (array of appliances needed from the available list).\n`;
 
   const memberListForPrompt = memberSummaries.map(m => ({
-    name: m.name, role: m.role, age: m.age, gender: m.gender,
+    name: m.name, age: m.age, gender: m.gender,
     conditions: m.healthConditions,
-    diet: m.dietaryRestrictions,
+    dietaryType: m.dietaryType,
     allergies: m.allergies,
     ...(m.primaryGoal ? { goal: m.primaryGoal } : {}),
     ...(m.goalPace && m.goalPace !== "none" ? { goalPace: `${m.goalPace}kg/week` } : {}),
-    ...(m.tiffinType && m.tiffinType !== "none" ? { tiffin: m.tiffinType } : {}),
-    ...(m.religiousRules && m.religiousRules !== "none" ? { religiousRules: m.religiousRules } : {}),
+    ...(m.tiffinNeeded ? { tiffin: "needed" } : {}),
+    ...(m.religiousCulturalRules ? { religiousRules: m.religiousCulturalRules } : {}),
     ...(m.ingredientDislikes && m.ingredientDislikes.length > 0 ? { dislikes: m.ingredientDislikes } : {}),
-    ...(m.nonVegDays && m.nonVegDays.length > 0 ? { nonVegDays: m.nonVegDays } : {}),
-    ...(m.nonVegTypes && m.nonVegTypes.length > 0 ? { nonVegTypes: m.nonVegTypes } : {}),
-    ...(m.icmrCaloricTarget ? { icmrKcalTarget: m.icmrCaloricTarget } : {}),
+    ...(m.occasionalNonvegConfig ? { nonvegConfig: m.occasionalNonvegConfig } : {}),
+    ...(m.dailyCalorieTarget ? { dailyKcalTarget: m.dailyCalorieTarget } : {}),
   }));
 
   const recipeListForPrompt = filteredRecipes.slice(0, 25).map(r => ({
@@ -821,29 +819,7 @@ router.post("/meal-plans/generate", async (req, res): Promise<void> => {
   // ── Master Prompt Architecture ─────────────────────────────────────────────────
   // Three explicit labeled sections as per ICMR-NIN 2024 guardrails design pattern.
   // Section priority order (highest→lowest): WEEKLY CONTEXT OVERRIDES > STATIC PROFILE > CLINICAL GUARDRAILS
-  const baselineLines: string[] = [];
-  if (family.mealsAreShared && (family.sharedTypicalBreakfast || family.sharedTypicalLunch || family.sharedTypicalDinner)) {
-    baselineLines.push("CURRENT DIETARY BASELINE — shared by all members (IMPROVE upon this, keep familiar where possible):");
-    if (family.sharedTypicalBreakfast) baselineLines.push(`  Breakfast: ${family.sharedTypicalBreakfast}`);
-    if (family.sharedTypicalLunch) baselineLines.push(`  Lunch: ${family.sharedTypicalLunch}`);
-    if (family.sharedTypicalDinner) baselineLines.push(`  Dinner: ${family.sharedTypicalDinner}`);
-  } else if (!family.mealsAreShared) {
-    const memberBaselines = members
-      .filter(m => m.individualTypicalBreakfast || m.individualTypicalLunch || m.individualTypicalDinner)
-      .map(m => {
-        const parts: string[] = [];
-        if (m.individualTypicalBreakfast) parts.push(`Breakfast: ${m.individualTypicalBreakfast}`);
-        if (m.individualTypicalLunch) parts.push(`Lunch: ${m.individualTypicalLunch}`);
-        if (m.individualTypicalDinner) parts.push(`Dinner: ${m.individualTypicalDinner}`);
-        return parts.length > 0 ? `  ${m.name}: ${parts.join(" | ")}` : "";
-      })
-      .filter(Boolean);
-    if (memberBaselines.length > 0) {
-      baselineLines.push("CURRENT DIETARY BASELINE — per member (IMPROVE upon this, keep familiar where possible):");
-      baselineLines.push(...memberBaselines);
-    }
-  }
-  const baselineNote = baselineLines.length > 0 ? `\n${baselineLines.join("\n")}\n` : "";
+  const baselineNote = `\nHousehold dietary baseline: ${family.householdDietaryBaseline ?? "mixed"}\nMeals per day: ${family.mealsPerDay ?? "3_meals"}\nCooking skill: ${family.cookingSkillLevel ?? "intermediate"}\n`;
 
   const masterPromptSection1 = `
 ══════════════════════════════════════════════════════════════════
@@ -851,9 +827,9 @@ SECTION 1 — STATIC FAMILY PROFILE (permanent dietary contract)
 ══════════════════════════════════════════════════════════════════
 You are ParivarSehat AI — certified ICMR-NIN 2024 India family nutritionist.
 
-Family: ${family.name} from ${family.state} (${zone.toUpperCase()} zone), ${members.length} members.
+Family: ${family.name} from ${family.stateRegion} (${zone.toUpperCase()} zone), ${members.length} members.
 Weekly budget: ₹${weeklyBudget} (≤₹${budgetPerMeal * members.length}/meal)
-Cuisine preference: ${(family.cuisinePreferences ?? []).join(", ") || "North Indian"}
+Dietary baseline: ${family.householdDietaryBaseline ?? "mixed"}
 
 FAMILY MEMBERS (permanent profile — always apply):
 ${JSON.stringify(memberListForPrompt)}
@@ -944,7 +920,7 @@ OUTPUT RULES — BE TERSE, minimize text length:
 - member_adjustments: per-member customisations as {MemberName:{add:[{ingredient,qty_grams}],reduce:[string],avoid:[string]}}; only for members with specific health needs; also include as member_plates for compat
 - icmr_rationale: ≤8 words
 - nameHindi: required
-- aiInsights: ≤60 words in ${family.primaryLanguage === "hindi" ? "Hindi" : "English"}
+- aiInsights: ≤60 words in ${family.languagePreference === "hindi" ? "Hindi" : "English"}
 - dinner: add leftoverChain array (3 steps: next-day lunch, breakfast, snack — dish name only)
 - leftoverNote: if this meal uses leftover from a previous meal, set {"from":"<source day+meal>","uses":"<what ingredient>","transformation":"<how it's used>","costSaving":"₹<amount> saved"}. If no leftover, set leftoverNote to null.
 - CANDIDATES: For breakfast, lunch, and dinner slots, provide exactly 3 different recipe options as a "candidates" array. Each candidate has the same shape as the main meal object (base_dish_name, recipeName, nameHindi, calories, estimatedCost, icmr_rationale, required_appliances, base_ingredients if AI). Rank by confidence — candidate 1 is the primary choice. Options 2 and 3 may have shorter descriptions. The top-level slot fields should match candidate 1. mid_morning and evening_snack do NOT need candidates.
@@ -1053,9 +1029,9 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 
     const memberProfiles: MemberProfile[] = members.map(m => ({
       name: m.name,
-      healthConditions: m.healthConditions ?? [],
-      dietaryRestrictions: m.dietaryRestrictions ?? [],
-      allergies: m.allergies ?? [],
+      healthConditions: (m.healthConditions ?? []) as string[],
+      dietaryType: m.dietaryType ?? "strictly_vegetarian",
+      allergies: (m.allergies ?? []) as string[],
     }));
     const dietPref = resolveDietPreference(allRestrictions) ?? "vegetarian";
     let validationWarnings: Violation[] = [];
@@ -1161,13 +1137,13 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
 
     const [mealPlan] = await db.insert(mealPlansTable).values({
       familyId,
-      name: `Week of ${weekStartDateStr} — ${family.name} Family Plan`,
-      weekStartDate: weekStartDateStr,
       harmonyScore,
-      totalBudgetEstimate,
-      plan: enrichedPlanData,
-      nutritionSummary: {
+      generationStatus: "completed",
+      days: enrichedPlanData,
+      nutritionalSummary: {
         zone,
+        totalBudgetEstimate,
+        aiInsights,
         members: memberSummaries.map(m => ({ name: m.name, targets: m.targets })),
         isFasting,
         fastingAutoDetected: explicitFasting === undefined,
@@ -1175,19 +1151,18 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         festivalFasting: festivalFasting.isFestivalFasting ? festivalFasting.festivals.map(f => f.name) : [],
         recipeSource: `recipe_db:${filteredRecipes.length}_filtered`,
         leftoverChainSource: "recipe_db_primary_ai_fallback",
-      },
-      aiInsights,
-      icmrCompliance: {
-        ragSourcesUsed: ragResult.sources,
-        guidelinesRetrieved: ragResult.chunkCount,
-        googleSearchGroundingEnabled: true,
-      },
-      ragContextUsed: {
-        knowledgeChunks: ragResult.chunkCount,
-        similarRecipes: ragResult.recipeCount,
-        sources: ragResult.sources,
-        contextSummary: ragResult.contextSummary,
-        embeddingModel: "gemini-embedding-001",
+        icmrCompliance: {
+          ragSourcesUsed: ragResult.sources,
+          guidelinesRetrieved: ragResult.chunkCount,
+          googleSearchGroundingEnabled: true,
+        },
+        ragContextUsed: {
+          knowledgeChunks: ragResult.chunkCount,
+          similarRecipes: ragResult.recipeCount,
+          sources: ragResult.sources,
+          contextSummary: ragResult.contextSummary,
+          embeddingModel: "gemini-embedding-001",
+        },
       },
     }).returning();
 
@@ -1269,15 +1244,14 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
       .orderBy(desc(mealFeedbackTable.createdAt))
       .limit(50);
 
-    const zone = getZoneForState(family.state || "Delhi");
-    const weeklyBudget = Math.round(Number(family.monthlyBudget) / 4);
+    const zone = getZoneForState(family.stateRegion || "Delhi");
+    const weeklyBudget = 5000;
     const budgetPerMeal = Math.round(weeklyBudget / (7 * 4));
-    const allRestrictions = members.flatMap(m => m.dietaryRestrictions ?? []);
-    const existingSummary = existingPlan.nutritionSummary as Record<string, unknown> | null;
+    const allRestrictions = members.map(m => m.dietaryType ?? "strictly_vegetarian");
+    const existingSummary = existingPlan.nutritionalSummary as Record<string, unknown> | null;
     const isFasting = Boolean(existingSummary?.isFasting ?? false);
-    const cookingTimePref = (family.cuisinePreferences ?? []).find(p => p.startsWith("cooking_time:"));
-    const maxCookTimeMin = cookingTimePref
-      ? cookingTimePref.includes("quick") ? 30 : cookingTimePref.includes("moderate") ? 60 : null
+    const maxCookTimeMin: number | null = family.cookingSkillLevel === "beginner" ? 30
+      : family.cookingSkillLevel === "intermediate" ? 60
       : null;
     const ownedAppliancesRegen = family.appliances ?? ["tawa", "pressure_cooker", "kadai"];
     let freshRecipes = await getFilteredRecipes(zone, allRestrictions, budgetPerMeal, isFasting, maxCookTimeMin, 100);
@@ -1296,13 +1270,13 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
 
     const finalRecipes = constrainedRecipes.length >= 20 ? constrainedRecipes : freshRecipes;
 
-    const memberSummaries = members.map(m => ({
-      name: m.name, role: m.role, age: m.age, gender: m.gender,
+    const regenMemberSummaries = members.map(m => ({
+      name: m.name, age: m.age, gender: m.gender,
       activityLevel: m.activityLevel,
-      healthConditions: m.healthConditions ?? [],
-      dietaryRestrictions: m.dietaryRestrictions ?? [],
-      allergies: m.allergies ?? [],
-      targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, m.healthConditions ?? []),
+      dietaryType: m.dietaryType ?? "strictly_vegetarian",
+      healthConditions: (m.healthConditions ?? []) as string[],
+      allergies: (m.allergies ?? []) as string[],
+      targets: getICMRNINTargets(m.age, m.gender, m.activityLevel, (m.healthConditions ?? []) as string[]),
     }));
 
     const dislikedList = allFeedback.filter(f => !f.liked)
@@ -1310,35 +1284,13 @@ router.post("/meal-plans/:id/regenerate", async (req, res): Promise<void> => {
     const likedList = allFeedback.filter(f => f.liked && (f.rating ?? 0) >= 4)
       .map(f => f.mealType).join(", ");
 
-    const regenBaselineLines: string[] = [];
-    if (family.mealsAreShared && (family.sharedTypicalBreakfast || family.sharedTypicalLunch || family.sharedTypicalDinner)) {
-      regenBaselineLines.push("CURRENT DIETARY BASELINE — shared by all members (IMPROVE upon this, keep familiar where possible):");
-      if (family.sharedTypicalBreakfast) regenBaselineLines.push(`  Breakfast: ${family.sharedTypicalBreakfast}`);
-      if (family.sharedTypicalLunch) regenBaselineLines.push(`  Lunch: ${family.sharedTypicalLunch}`);
-      if (family.sharedTypicalDinner) regenBaselineLines.push(`  Dinner: ${family.sharedTypicalDinner}`);
-    } else if (!family.mealsAreShared) {
-      const regenMemberBaselines = members
-        .filter(m => m.individualTypicalBreakfast || m.individualTypicalLunch || m.individualTypicalDinner)
-        .map(m => {
-          const parts: string[] = [];
-          if (m.individualTypicalBreakfast) parts.push(`Breakfast: ${m.individualTypicalBreakfast}`);
-          if (m.individualTypicalLunch) parts.push(`Lunch: ${m.individualTypicalLunch}`);
-          if (m.individualTypicalDinner) parts.push(`Dinner: ${m.individualTypicalDinner}`);
-          return parts.length > 0 ? `  ${m.name}: ${parts.join(" | ")}` : "";
-        })
-        .filter(Boolean);
-      if (regenMemberBaselines.length > 0) {
-        regenBaselineLines.push("CURRENT DIETARY BASELINE — per member (IMPROVE upon this, keep familiar where possible):");
-        regenBaselineLines.push(...regenMemberBaselines);
-      }
-    }
-    const regenBaselineNote = regenBaselineLines.length > 0 ? `\n${regenBaselineLines.join("\n")}\n` : "";
+    const regenBaselineNote = `\nHousehold dietary baseline: ${family.householdDietaryBaseline ?? "mixed"}\nMeals per day: ${family.mealsPerDay ?? "3_meals"}\nCooking skill: ${family.cookingSkillLevel ?? "intermediate"}\n`;
 
-    const regenPrompt = `You are NutriNext AI. Regenerate a 7-day meal plan for ${family.name} family from ${family.state}.
+    const regenPrompt = `You are NutriNext AI. Regenerate a 7-day meal plan for ${family.name} family from ${family.stateRegion}.
 Zone: ${zone.toUpperCase()} India.
 
 FAMILY MEMBERS:
-${JSON.stringify(memberSummaries, null, 2)}
+${JSON.stringify(regenMemberSummaries, null, 2)}
 
 BUDGET: ₹${weeklyBudget}/week → ₹${budgetPerMeal * members.length}/meal
 ${isFasting ? "\n🙏 FASTING MODE: Use sabudana, kuttu, singhara, fruits, milk-based dishes.\n" : ""}${regenBaselineNote}
@@ -1387,12 +1339,13 @@ Return valid JSON:
     const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
 
     const [updatedPlan] = await db.update(mealPlansTable).set({
-      plan: enrichedPlanData,
+      days: enrichedPlanData,
       harmonyScore: Number(planData.harmonyScore ?? 70),
-      totalBudgetEstimate: Number(planData.totalBudgetEstimate ?? 0),
-      aiInsights: String(planData.aiInsights ?? ""),
-      nutritionSummary: {
+      generationStatus: "completed",
+      nutritionalSummary: {
         ...(existingSummary ?? {}),
+        totalBudgetEstimate: Number(planData.totalBudgetEstimate ?? 0),
+        aiInsights: String(planData.aiInsights ?? ""),
         regenerated: true,
         regeneratedAt: new Date().toISOString(),
         recipeSource: `recipe_db:${finalRecipes.length}_feedback_filtered`,
@@ -1423,8 +1376,7 @@ router.put("/meal-plans/:id", async (req, res): Promise<void> => {
   }
   try {
     const updateData: Record<string, unknown> = {};
-    if (parsed.data.name) updateData.name = parsed.data.name;
-    if (parsed.data.plan) updateData.plan = parsed.data.plan;
+    if ((parsed.data as Record<string, unknown>).days) updateData.days = (parsed.data as Record<string, unknown>).days;
     if (parsed.data.harmonyScore !== undefined) updateData.harmonyScore = String(parsed.data.harmonyScore);
     const [plan] = await db.update(mealPlansTable).set(updateData).where(eq(mealPlansTable.id, params.data.id)).returning();
     if (!plan) {

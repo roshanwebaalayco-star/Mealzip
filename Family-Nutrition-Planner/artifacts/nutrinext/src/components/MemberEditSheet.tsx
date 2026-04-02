@@ -14,26 +14,25 @@ import { useLanguage } from "@/contexts/language-context";
 
 export interface IMemberProfileFields {
   name: string;
-  role: "admin" | "member" | string;
   age: number;
   gender: "male" | "female" | "other";
   weightKg?: number;
   heightCm?: number;
   activityLevel?: "sedentary" | "lightly_active" | "moderately_active" | "very_active";
+  dietaryType?: string;
   healthConditions?: string[];
-  dietaryRestrictions?: string[];
-  primaryGoal?: "general_wellness" | "weight_loss" | "build_muscle" | "manage_diabetes" | "heart_health" | "anemia_recovery" | "healthy_growth" | "senior_nutrition";
+  primaryGoal?: string;
   goalPace?: "none" | "0.25" | "0.5";
-  tiffinType?: "none" | "school" | "office";
-  religiousRules?: "none" | "no_beef" | "no_pork" | "sattvic" | "jain";
+  tiffinNeeded?: "no" | "school_tiffin" | "office_tiffin";
+  religiousCulturalRules?: Record<string, unknown>;
   ingredientDislikes?: string[];
-  nonVegDays?: ("monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday")[];
-  nonVegTypes?: ("chicken" | "fish" | "mutton" | "eggs")[];
-  calorieTarget?: number;
+  occasionalNonvegConfig?: { days?: string[]; types?: string[] };
+  fastingConfig?: { baselineDays?: string[]; ekadashi?: boolean };
+  dailyCalorieTarget?: number;
   spiceTolerance?: "mild" | "medium" | "spicy";
-  fastingBaseline?: string[];
-  ekadashi?: boolean;
   festivalFastingAlerts?: boolean;
+  allergies?: string[];
+  displayOrder?: number;
 }
 
 export interface IMemberProfile extends IMemberProfileFields {
@@ -87,9 +86,18 @@ export default function MemberEditSheet({ member, onClose }: Props) {
   const set = <K extends keyof IMemberProfile>(key: K, value: IMemberProfile[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
-  const toggleArrayItem = (key: "nonVegDays" | "nonVegTypes", item: string) => {
-    const arr = (form[key] ?? []) as string[];
-    set(key, (arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]) as IMemberProfile[typeof key]);
+  const toggleNonvegDay = (day: string) => {
+    const config = form.occasionalNonvegConfig ?? { days: [], types: [] };
+    const days = config.days ?? [];
+    const newDays = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
+    set("occasionalNonvegConfig", { ...config, days: newDays });
+  };
+
+  const toggleNonvegType = (type: string) => {
+    const config = form.occasionalNonvegConfig ?? { days: [], types: [] };
+    const types = config.types ?? [];
+    const newTypes = types.includes(type) ? types.filter(t => t !== type) : [...types, type];
+    set("occasionalNonvegConfig", { ...config, types: newTypes });
   };
 
   const addDislike = () => {
@@ -112,22 +120,21 @@ export default function MemberEditSheet({ member, onClose }: Props) {
         memberId: member.id,
         data: {
           name: form.name,
-          role: form.role,
           age: form.age,
           gender: form.gender,
           weightKg: form.weightKg,
           heightCm: form.heightCm,
           activityLevel: form.activityLevel,
+          dietaryType: form.dietaryType,
           healthConditions: form.healthConditions,
           primaryGoal: form.primaryGoal,
           goalPace: (form.goalPace as "none" | "0.25" | "0.5") ?? "none",
-          tiffinType: (form.tiffinType as "none" | "school" | "office") ?? "none",
-          religiousRules: (form.religiousRules as "none" | "no_beef" | "no_pork" | "sattvic" | "jain") ?? "none",
+          tiffinNeeded: form.tiffinNeeded ?? "no",
+          religiousCulturalRules: form.religiousCulturalRules,
           ingredientDislikes: form.ingredientDislikes,
-          nonVegDays: form.nonVegDays,
-          nonVegTypes: form.nonVegTypes,
+          occasionalNonvegConfig: form.occasionalNonvegConfig,
+          fastingConfig: form.fastingConfig,
           spiceTolerance: form.spiceTolerance,
-          ekadashi: form.ekadashi,
           festivalFastingAlerts: form.festivalFastingAlerts,
         },
       });
@@ -140,7 +147,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
   };
 
   const showGoalPace = form.primaryGoal === "weight_loss" || form.primaryGoal === "build_muscle";
-  const isNonVeg = (form.dietaryRestrictions ?? []).every(r => r !== "vegetarian" && r !== "vegan");
+  const isNonVeg = form.dietaryType === "non_vegetarian" || form.dietaryType === "occasional_nonveg";
 
   return (
     <Sheet open={!!member} onOpenChange={open => { if (!open) onClose(); }}>
@@ -209,20 +216,23 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           )}
 
           <div>
-            <Label className="text-xs font-semibold">{t("Tiffin Type", "टिफिन")}</Label>
-            <Select value={form.tiffinType ?? "none"} onValueChange={v => set("tiffinType", v as IMemberProfile["tiffinType"])}>
+            <Label className="text-xs font-semibold">{t("Tiffin Needed", "टिफिन")}</Label>
+            <Select value={form.tiffinNeeded ?? "no"} onValueChange={v => set("tiffinNeeded", v as IMemberProfile["tiffinNeeded"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">{t("None", "नहीं")}</SelectItem>
-                <SelectItem value="school">{t("School", "स्कूल")}</SelectItem>
-                <SelectItem value="office">{t("Office", "ऑफिस")}</SelectItem>
+                <SelectItem value="no">{t("None", "नहीं")}</SelectItem>
+                <SelectItem value="school_tiffin">{t("School", "स्कूल")}</SelectItem>
+                <SelectItem value="office_tiffin">{t("Office", "ऑफिस")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div>
             <Label className="text-xs font-semibold">{t("Religious Rules", "धार्मिक नियम")}</Label>
-            <Select value={form.religiousRules ?? "none"} onValueChange={v => set("religiousRules", v as IMemberProfile["religiousRules"])}>
+            <Select
+              value={(form.religiousCulturalRules as Record<string, string>)?.primary ?? "none"}
+              onValueChange={v => set("religiousCulturalRules", v !== "none" ? { primary: v } : {})}
+            >
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
@@ -242,8 +252,8 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                   {DAYS_OF_WEEK.map(day => (
                     <label key={day.key} className="flex items-center gap-1.5 cursor-pointer">
                       <Checkbox
-                        checked={(form.nonVegDays ?? []).includes(day.key)}
-                        onCheckedChange={() => toggleArrayItem("nonVegDays", day.key)}
+                        checked={(form.occasionalNonvegConfig?.days ?? []).includes(day.key)}
+                        onCheckedChange={() => toggleNonvegDay(day.key)}
                         className="rounded-md"
                       />
                       <span className="text-xs">{day.label}</span>
@@ -258,8 +268,8 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                   {NON_VEG_TYPES.map(type => (
                     <label key={type} className="flex items-center gap-1.5 cursor-pointer">
                       <Checkbox
-                        checked={(form.nonVegTypes ?? []).includes(type)}
-                        onCheckedChange={() => toggleArrayItem("nonVegTypes", type)}
+                        checked={(form.occasionalNonvegConfig?.types ?? []).includes(type)}
+                        onCheckedChange={() => toggleNonvegType(type)}
                         className="rounded-md"
                       />
                       <span className="text-xs capitalize">{type}</span>

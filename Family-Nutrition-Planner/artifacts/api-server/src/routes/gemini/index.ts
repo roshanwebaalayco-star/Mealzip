@@ -1,15 +1,14 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and, lte, or } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { conversations as conversationsTable, messages as messagesTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
+import { aiChatLogsTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
 import { ai, isModelfarm } from "@workspace/integrations-gemini-ai";
 import {
-  CreateGeminiConversationBody,
-  GetGeminiConversationParams,
-  DeleteGeminiConversationParams,
-  ListGeminiMessagesParams,
-  SendGeminiMessageParams,
-  SendGeminiMessageBody,
+  CreateAiChatLogBody,
+  GetAiChatLogParams,
+  DeleteAiChatLogParams,
+  SendAiChatMessageParams,
+  SendAiChatMessageBody,
   GenerateGeminiImageBody,
 } from "@workspace/api-zod";
 import { generateImage } from "@workspace/integrations-gemini-ai/image";
@@ -58,10 +57,20 @@ Savings tip: [one practical tip]
 
 Follow this format strictly. List essential items first, then optional. Include ICMR-NIN 2024 health rationale for at least the top 5 items.`;
 
-router.get("/gemini/conversations", async (_req, res): Promise<void> => {
+router.get("/gemini/conversations", async (req, res): Promise<void> => {
   try {
-    const conversations = await db.select().from(conversationsTable).orderBy(conversationsTable.createdAt);
-    res.json(conversations);
+    const familyId = req.query.familyId ? parseInt(req.query.familyId as string) : undefined;
+    const conditions = familyId ? eq(aiChatLogsTable.familyId, familyId) : undefined;
+    const logs = await db.select().from(aiChatLogsTable)
+      .where(conditions)
+      .orderBy(desc(aiChatLogsTable.updatedAt));
+    res.json(logs.map(l => ({
+      id: l.id,
+      title: (l.extractedData as Record<string, unknown>)?.title ?? `Chat ${l.id}`,
+      familyId: l.familyId,
+      sessionType: l.sessionType,
+      createdAt: l.createdAt,
+    })));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to fetch conversations", details: msg, retryable: true });
@@ -69,14 +78,19 @@ router.get("/gemini/conversations", async (_req, res): Promise<void> => {
 });
 
 router.post("/gemini/conversations", async (req, res): Promise<void> => {
-  const parsed = CreateGeminiConversationBody.safeParse(req.body);
+  const parsed = CreateAiChatLogBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
   }
   try {
-    const [conv] = await db.insert(conversationsTable).values({ title: parsed.data.title }).returning();
-    res.status(201).json(conv);
+    const [log] = await db.insert(aiChatLogsTable).values({
+      familyId: parsed.data.familyId,
+      sessionType: parsed.data.sessionType || "general_chat",
+      messages: [],
+      extractedData: {},
+    }).returning();
+    res.status(201).json(log);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to create conversation", details: msg, retryable: true });
@@ -84,19 +98,23 @@ router.post("/gemini/conversations", async (req, res): Promise<void> => {
 });
 
 router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
-  const params = GetGeminiConversationParams.safeParse(req.params);
+  const params = GetAiChatLogParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
   try {
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
-    if (!conv) {
+    const [log] = await db.select().from(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id));
+    if (!log) {
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
-    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
-    res.json({ ...conv, messages });
+    const msgs = (log.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
+    res.json({
+      ...log,
+      title: (log.extractedData as Record<string, unknown>)?.title ?? `Chat ${log.id}`,
+      messages: msgs.map((m, i) => ({ id: i + 1, role: m.role, content: m.content, createdAt: m.createdAt ?? log.createdAt })),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to fetch conversation", details: msg, retryable: true });
@@ -104,14 +122,14 @@ router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
-  const params = DeleteGeminiConversationParams.safeParse(req.params);
+  const params = DeleteAiChatLogParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
   try {
-    const [conv] = await db.delete(conversationsTable).where(eq(conversationsTable.id, params.data.id)).returning();
-    if (!conv) {
+    const [log] = await db.delete(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id)).returning();
+    if (!log) {
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
@@ -123,14 +141,19 @@ router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
-  const params = ListGeminiMessagesParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message, retryable: false });
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id", retryable: false });
     return;
   }
   try {
-    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, params.data.id)).orderBy(messagesTable.createdAt);
-    res.json(messages);
+    const [log] = await db.select().from(aiChatLogsTable).where(eq(aiChatLogsTable.id, id));
+    if (!log) {
+      res.status(404).json({ error: "Conversation not found", retryable: false });
+      return;
+    }
+    const msgs = (log.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
+    res.json(msgs.map((m, i) => ({ id: i + 1, role: m.role, content: m.content, createdAt: m.createdAt ?? log.createdAt })));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to fetch messages", details: msg, retryable: true });
@@ -138,12 +161,12 @@ router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void>
 });
 
 router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void> => {
-  const params = SendGeminiMessageParams.safeParse(req.params);
+  const params = SendAiChatMessageParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message, retryable: false });
     return;
   }
-  const parsed = SendGeminiMessageBody.safeParse(req.body);
+  const parsed = SendAiChatMessageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message, retryable: false });
     return;
@@ -151,83 +174,81 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
 
   const requestedLanguage: string | undefined = (req.body as Record<string, unknown>)?.language as string | undefined;
 
-  let conv: typeof import("@workspace/db").conversationsTable.$inferSelect | undefined;
-  let allMessages: Array<typeof import("@workspace/db").messagesTable.$inferSelect>;
+  let chatLog: typeof aiChatLogsTable.$inferSelect | undefined;
+  let existingMessages: Array<{ role: string; content: string; createdAt?: string }>;
   try {
-    [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
-    if (!conv) {
+    [chatLog] = await db.select().from(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id));
+    if (!chatLog) {
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
-    await db.insert(messagesTable).values({ conversationId: params.data.id, role: "user", content: parsed.data.content });
-    allMessages = await db.select().from(messagesTable)
-      .where(eq(messagesTable.conversationId, params.data.id))
-      .orderBy(messagesTable.createdAt);
+    existingMessages = (chatLog.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
+    existingMessages.push({ role: "user", content: parsed.data.content, createdAt: new Date().toISOString() });
+    await db.update(aiChatLogsTable)
+      .set({ messages: existingMessages, updatedAt: new Date() })
+      .where(eq(aiChatLogsTable.id, params.data.id));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to process message", details: msg, retryable: true });
     return;
   }
 
-  // 6b: Trim conversation history to avoid context window overflow
   const MAX_HISTORY_MESSAGES = 20;
-  const chatMessages = allMessages.slice(-MAX_HISTORY_MESSAGES);
+  const chatMessages = existingMessages.slice(-MAX_HISTORY_MESSAGES);
 
   const userMsg = parsed.data.content;
   let recipeContext = "";
   let knowledgeContext = "";
 
   let dynamicContext = "";
-  let familyGreeting = "Namaste! I'm NutriNext AI. How can I help your family with nutrition today? / नमस्ते! मैं NutriNext AI हूं। आज मैं आपके परिवार की पोषण संबंधी कैसे मदद कर सकता हूं?";
+  let familyGreeting = "Namaste! I'm NutriNext AI. How can I help your family with nutrition today?";
   let familyState: string | undefined;
-  const { familyId } = parsed.data;
+  const familyId = chatLog.familyId;
   if (familyId) {
     try {
       const [family] = await db.select().from(familiesTable)
         .where(and(eq(familiesTable.id, familyId), eq(familiesTable.userId, req.user!.userId)))
         .limit(1);
       if (family) {
-        familyState = family.state ?? undefined;
+        familyState = family.stateRegion ?? undefined;
         const members = await db.select().from(familyMembersTable)
           .where(eq(familyMembersTable.familyId, familyId));
         const memberLines = members.map(m => {
-          const parts: string[] = [`- ${m.name} (${m.role}, ${m.age}y, ${m.gender})`];
-          if (m.healthConditions?.length) parts.push(`  Health: ${m.healthConditions.join(", ")}`);
-          if (m.dietaryRestrictions?.length) parts.push(`  Diet restrictions: ${m.dietaryRestrictions.join(", ")}`);
-          if (m.allergies?.length) parts.push(`  Allergies: ${m.allergies.join(", ")}`);
-          if (m.primaryGoal && m.primaryGoal !== "none") parts.push(`  Goal: ${m.primaryGoal}`);
+          const hc = Array.isArray(m.healthConditions) ? (m.healthConditions as string[]) : [];
+          const al = Array.isArray(m.allergies) ? (m.allergies as string[]) : [];
+          const dl = Array.isArray(m.ingredientDislikes) ? (m.ingredientDislikes as string[]) : [];
+          const parts: string[] = [`- ${m.name} (${m.age}y, ${m.gender}, ${m.dietaryType})`];
+          if (hc.length) parts.push(`  Health: ${hc.join(", ")}`);
+          if (al.length) parts.push(`  Allergies: ${al.join(", ")}`);
+          if (m.primaryGoal && m.primaryGoal !== "no_specific_goal") parts.push(`  Goal: ${m.primaryGoal}`);
           if (m.weightKg) parts.push(`  Weight: ${m.weightKg}kg${m.heightCm ? `, Height: ${m.heightCm}cm` : ""}`);
-          if (m.calorieTarget) parts.push(`  Calorie target: ${m.calorieTarget} kcal/day`);
-          if (m.ingredientDislikes?.length) parts.push(`  Dislikes: ${m.ingredientDislikes.join(", ")}`);
-          if (m.religiousRules && m.religiousRules !== "none") parts.push(`  Religious rules: ${m.religiousRules}`);
+          if (m.dailyCalorieTarget) parts.push(`  Calorie target: ${m.dailyCalorieTarget} kcal/day`);
+          if (dl.length) parts.push(`  Dislikes: ${dl.join(", ")}`);
           return parts.join("\n");
         });
         dynamicContext = `\n\n--- ACTIVE FAMILY CONTEXT ---
 Family name: ${family.name}
-Location: ${family.city ? `${family.city}, ` : ""}${family.state}
-Monthly food budget: ₹${family.monthlyBudget} (≈ ₹${Math.round(family.monthlyBudget / 4)}/week)
-Cuisine preferences: ${(family.cuisinePreferences ?? []).join(", ") || "Not specified"}
+Region: ${family.stateRegion}
+Dietary baseline: ${family.householdDietaryBaseline}
 Members (${members.length}):
 ${memberLines.join("\n")}
 
 When the user refers to any member by name or pronoun (he/she/they/uska/unka), immediately cross-reference the above list to identify them. Do NOT ask who they are talking about — you already know.
 -----------------------------`;
 
-        // Set family-aware greeting (hardcoded string — not LLM generated)
         familyGreeting = `Namaste ${family.name} family! I see your profile is loaded with ${members.length} member${members.length !== 1 ? "s" : ""}. How can I help with your nutrition today?`;
 
-        // Fetch latest meal plan for this family (Kitchen Assistant context)
         try {
           const [latestPlan] = await db.select()
             .from(mealPlansTable)
             .where(eq(mealPlansTable.familyId, familyId))
             .orderBy(desc(mealPlansTable.createdAt))
             .limit(1);
-          if (latestPlan?.meals) {
-            const mealsStr = typeof latestPlan.meals === "string"
-              ? latestPlan.meals
-              : JSON.stringify(latestPlan.meals, null, 2);
-            dynamicContext += `\n\nCURRENT MEAL PLAN (use for Kitchen Assistant queries — cross-reference member health conditions when answering meal-specific questions):\n${mealsStr.slice(0, 4000)}`;
+          if (latestPlan?.days) {
+            const daysStr = typeof latestPlan.days === "string"
+              ? latestPlan.days
+              : JSON.stringify(latestPlan.days, null, 2);
+            dynamicContext += `\n\nCURRENT MEAL PLAN (use for Kitchen Assistant queries — cross-reference member health conditions when answering meal-specific questions):\n${daysStr.slice(0, 4000)}`;
           }
         } catch { /* non-critical */ }
       }
@@ -318,11 +339,10 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
   }
 
   try {
-    await db.insert(messagesTable).values({ conversationId: params.data.id, role: "assistant", content: fullResponse });
+    existingMessages.push({ role: "assistant", content: fullResponse, createdAt: new Date().toISOString() });
 
-    // 6d: Auto-generate conversation title from the first user message
-    // allMessages includes the message we just inserted, so length === 1 means this is the first
-    if (allMessages.length === 1) {
+    const extractedData = (chatLog.extractedData as Record<string, unknown>) ?? {};
+    if (existingMessages.filter(m => m.role === "user").length === 1) {
       try {
         const titleResp = await ai.models.generateContent({
           model: "gemini-2.5-flash",
@@ -331,13 +351,16 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
         });
         const autoTitle = titleResp.text?.trim().replace(/^["']|["']$/g, "").slice(0, 60);
         if (autoTitle) {
-          await db.update(conversationsTable).set({ title: autoTitle }).where(eq(conversationsTable.id, params.data.id));
+          extractedData.title = autoTitle;
         }
       } catch { /* non-critical */ }
     }
+
+    await db.update(aiChatLogsTable)
+      .set({ messages: existingMessages, extractedData, updatedAt: new Date() })
+      .where(eq(aiChatLogsTable.id, params.data.id));
   } catch (err) {
     req.log?.error({ err }, "Failed to persist assistant message to DB");
-    /* SSE already streaming — cannot send error to client, just log */
   }
 
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -395,7 +418,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
   const { message, familyId } = req.body as { message?: string; familyId?: number | null };
   if (!message) { res.status(400).json({ error: "message required" }); return; }
 
-  // Ownership check: familyId must exist AND belong to the authenticated user (prevent IDOR)
   if (familyId) {
     const [family] = await db.select({ id: familiesTable.id })
       .from(familiesTable)
@@ -411,7 +433,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
   }
 
   try {
-    // Step 1: Gemini structured food extraction
     const extractResult = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: HFSS_EXTRACTION_PROMPT(message) }] }],
@@ -437,7 +458,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
           (f.sodium_mg_per_serve ?? 0) > 2000,
         );
         const rawNova = Number(f.nova_group ?? 0);
-        // If Gemini returns NOVA group, use it; otherwise infer from HFSS flag
         const nova_group = (rawNova >= 1 && rawNova <= 4) ? rawNova : (isHfss ? 4 : 1);
         return {
           name: String(f.name ?? ""),
@@ -456,8 +476,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       return;
     }
 
-    // Step 2: Apply HFSS threshold classification
-    // Include both canonical (per100g) and legacy (per_serve) aliases for FE compatibility
     const foodLog = extractedFoods.map(f => ({
       food: f.name,
       kcal_per_100g: f.kcal_per_100g,
@@ -466,7 +484,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
       sugar_g_per_100g: f.sugar_g_per_100g,
       nova_group: f.nova_group,
       is_hfss: f.is_hfss,
-      // Legacy aliases expected by Chat.tsx
       kcal_per_serve: f.kcal_per_100g,
       sodium_mg: f.sodium_mg_per_serve,
       fat_g: f.fat_g_per_100g,
@@ -484,7 +501,6 @@ router.post("/gemini/hfss-classify", async (req, res): Promise<void> => {
     const totalKcal = hfssFoods.reduce((s, f) => s + f.kcal_per_100g, 0);
     const totalSodium = hfssFoods.reduce((s, f) => s + f.sodium_mg_per_serve, 0);
 
-    // Step 3: Gemini rebalance strategy for detected HFSS items
     const rebalancePrompt = `A user consumed these HFSS-classified foods: ${detectedNames.join(", ")} (total ~${totalKcal} kcal, ~${totalSodium}mg sodium in this serving).
 As an ICMR-NIN 2024 expert, give a SHORT (2-3 lines) practical rebalance_strategy for the rest of today:
 - Which micronutrients to compensate (iron, fibre, vitamin C, calcium)
@@ -495,115 +511,59 @@ Keep it encouraging. Respond in English only. No bullet points, just flowing tex
     const rebalanceResult = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: rebalancePrompt }] }],
-      config: { maxOutputTokens: 300 },
+      config: { maxOutputTokens: 256 },
     });
-    const rebalance_strategy = rebalanceResult.candidates?.[0]?.content?.parts?.[0]?.text
-      ?? "Balance with a bowl of dal + vegetables at your next meal, and drink 2 glasses of water to flush excess sodium.";
 
-    let patchedSlot: { day: string; mealType: string; planId: number } | null = null;
-
-    // Step 4: Persist to NutritionLog + patch next meal slot (non-critical, both guarded)
-    if (familyId) {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        await db.insert(nutritionLogsTable).values({
-          familyId,
-          logDate: today,
-          mealType: "snack",
-          foodDescription: `[HFSS] ${detectedNames.join(", ")} (${totalKcal}kcal, ${totalSodium}mg Na) | Rebalance: ${rebalance_strategy.slice(0, 300)}`,
-          calories: totalKcal,
-          source: "ai",
-        }).catch(() => { /* non-critical */ });
-
-        const [latestPlan] = await db.select().from(mealPlansTable)
-          .where(eq(mealPlansTable.familyId, familyId))
-          .orderBy(desc(mealPlansTable.createdAt))
-          .limit(1);
-
-        if (latestPlan) {
-          const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-          const hourIST = nowIST.getUTCHours();
-          let targetMealType: string;
-          let dayOffset = 0;
-          if (hourIST < 11) { targetMealType = "lunch"; }
-          else if (hourIST < 16) { targetMealType = "dinner"; }
-          else { targetMealType = "breakfast"; dayOffset = 1; }
-
-          const weekStart = new Date((latestPlan.weekStartDate as string) + "T00:00:00Z");
-          const daysSinceStart = Math.floor((nowIST.getTime() - weekStart.getTime()) / (24 * 3600 * 1000));
-          const targetDayIdx = Math.max(0, Math.min(daysSinceStart + dayOffset, 6));
-
-          type PlanJSON = { days?: Array<Record<string, unknown>> };
-          const planData = latestPlan.plan as PlanJSON;
-          const targetDay = planData?.days?.[targetDayIdx];
-          if (targetDay) {
-            const meals = (targetDay.meals as Record<string, unknown>) ?? {};
-            const targetMeal = meals[targetMealType] as Record<string, unknown> | undefined;
-            if (targetMeal) {
-              // Perform actual nutritional recomposition: swap to a potassium/fibre-rich
-              // low-fat recipe from the DB for the target meal type (deterministic substitution)
-              const mealCourse = targetMealType === "mid_morning" || targetMealType === "evening_snack" ? "snack" : targetMealType;
-              const healthyRecipes = await db
-                .select({ id: recipesTable.id, name: recipesTable.name, nameHindi: recipesTable.nameHindi, calories: recipesTable.calories, costPerServing: recipesTable.costPerServing })
-                .from(recipesTable)
-                .where(
-                  and(
-                    or(eq(recipesTable.course, mealCourse), eq(recipesTable.category, mealCourse)),
-                    lte(recipesTable.fat, 8),
-                    lte(recipesTable.calories, 350),
-                    eq(recipesTable.isActive, true),
-                  )
-                )
-                .orderBy(sql`RANDOM()`)
-                .limit(1)
-                .catch(() => []);
-
-              const swapRecipe = healthyRecipes[0];
-              const originalRecipeName = String(targetMeal.recipeName ?? targetMeal.base_dish_name ?? "unknown");
-
-              if (swapRecipe) {
-                // Recompose the slot with the healthier DB recipe
-                targetMeal.recipeId = swapRecipe.id;
-                targetMeal.recipeName = swapRecipe.name;
-                targetMeal.base_dish_name = swapRecipe.name;
-                targetMeal.nameHindi = swapRecipe.nameHindi ?? targetMeal.nameHindi;
-                targetMeal.calories = swapRecipe.calories ?? targetMeal.calories;
-                targetMeal.estimatedCost = swapRecipe.costPerServing ?? targetMeal.estimatedCost;
-                targetMeal.icmr_rationale = "HFSS rebalance: low-fat, high-fibre substitute";
-              }
-
-              targetMeal._hfssRebalance = {
-                detectedAt: new Date().toISOString(),
-                items: detectedNames,
-                totalKcal,
-                originalRecipeName,
-                swappedTo: swapRecipe?.name ?? "metadata-only",
-                rebalanceNote: rebalance_strategy.slice(0, 200),
-              };
-              await db.update(mealPlansTable)
-                .set({ plan: planData })
-                .where(eq(mealPlansTable.id, latestPlan.id))
-                .catch(() => { /* non-critical */ });
-              patchedSlot = { day: String(targetDay.day ?? `Day ${targetDayIdx + 1}`), mealType: targetMealType, planId: latestPlan.id };
-            }
-          }
-        }
-      } catch { /* non-critical — never block the HFSS classify response */ }
-    }
+    const rebalanceSuggestion = rebalanceResult.text?.trim() ?? null;
 
     res.json({
       isHFSS: true,
       items: detectedNames,
       foodLog,
       totalKcal,
-      totalSodiumMg: totalSodium,
-      rebalanceSuggestion: rebalance_strategy,
-      rebalance_strategy,
-      patchedSlot,
+      totalSodium,
+      rebalanceSuggestion,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "HFSS classify failed", details: msg, retryable: true });
+    res.status(500).json({ error: "HFSS classification failed", details: msg, retryable: true });
+  }
+});
+
+router.post("/gemini/symptom-check", async (req, res): Promise<void> => {
+  const { symptoms, age, gender, familyId, language } = req.body as {
+    symptoms?: string;
+    age?: number;
+    gender?: string;
+    familyId?: number;
+    language?: string;
+  };
+  if (!symptoms) { res.status(400).json({ error: "symptoms required" }); return; }
+
+  const prompt = `You are a cautious triage assistant (NOT a doctor). 
+Patient info: ${age ? `age ${age}` : "unknown age"}, ${gender ?? "unknown gender"}.
+Symptoms: "${symptoms}"
+
+Respond in ${language ?? "english"} with:
+1. Urgency level: "low" | "medium" | "high" | "emergency"
+2. Brief assessment (2-3 lines)
+3. Dietary recommendations (Indian food context)
+4. Whether they should see a doctor
+
+Return JSON only:
+{"urgency":"low|medium|high|emergency","assessment":"...","dietaryAdvice":"...","seeDoctor":true|false}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 512, responseMimeType: "application/json" },
+    });
+    const data = JSON.parse(result.text ?? "{}");
+    res.json(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Symptom check failed", details: msg, retryable: true });
   }
 });
 
