@@ -9,14 +9,8 @@ integrations = ["javascript_gemini_ai_integrations:2.0.0"]
 [userenv]
 
 [userenv.shared]
-JWT_SECRET = "2e612f0f617094ec9b7dd866abeaf9ac8ff685930af9ca014a0601d6e8f53fa01a79794b8cfdffc0b58a26712f5863d17e11be2271a926064f53aad9f49a21d2"
 DEMO_MODE = "true"
-GEMINI_API_KEY = "AIzaSyCzc-lSibsLJKdT3aH2wvWkyLCLe4QcdEQ"
 ADMIN_SECRET = "nutritest-admin-2026"
-SARVAM_API_KEY = "sk_h8xr05ku_SwjlS85uELaFZ4toGRSkWrF1"
-VOYAGE_API_KEY = "pa-C1ptM27qKxPbNoqyI1_CTPr_FKgXfyws2xgj1Nhpb4K"
-SUPABASE_SERVICE_ROLE_KEY = "sb_secret_I2f6PPiOP2r0bkqyS8dfSw_sxa-0ZxU"
-SUPABASE_DATABASE_URL = "postgresql://postgres.kpwgbmubunfwvelkntsw:2vBnizzXiqHRaeEn@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 [[ports]]
 localPort = 3000
@@ -25,6 +19,10 @@ externalPort = 80
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[[ports]]
+localPort = 5001
+externalPort = 3002
 
 [[ports]]
 localPort = 5173
@@ -39,8 +37,16 @@ localPort = 8081
 externalPort = 8081
 
 [[ports]]
+localPort = 8082
+externalPort = 3003
+
+[[ports]]
 localPort = 24170
 externalPort = 3000
+
+[[ports]]
+localPort = 24171
+externalPort = 4200
 
 
 [postMerge]
