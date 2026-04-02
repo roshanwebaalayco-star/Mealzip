@@ -18,9 +18,23 @@ The project is organized as a pnpm workspace monorepo, facilitating modular deve
 
 The backend is built with Node.js 24, TypeScript 5.9, and Express 5. It uses Drizzle ORM with PostgreSQL as the primary database. Key architectural features include JWT-based authentication, structured JSON logging with pino, and esbuild for server bundling. The API exposes modules for authentication, family management (including AI-driven profile curation), recipe search, AI-generated meal plans, nutrition analysis (including YOLOv11 food scanning and Gemini Vision pantry analysis), multilingual voice support via Sarvam AI, grocery list generation with ICMR health rationale, health logging, and Gemini AI conversation endpoints. Shared libraries manage festival fasting calendars, ICMR-NIN RDA targets, diet tag resolution, appliance filtering, seasonal ingredient calendars, and a sophisticated meal plan validator that uses Gemini AI for candidate selection and clinical post-generation validation. RAG services are implemented for embedding generation, ingestion of knowledge bases (including ICMR-NIN PDFs), and context retrieval for meal planning and chat interactions.
 
+#### AI Chat with SSE Streaming (`POST /api/chat`)
+The chat route (`routes/chat/index.ts`) provides SSE-streaming AI responses via Gemini 1.5 Pro with:
+- **Mega-prompt system** (`lib/megaPrompt.ts`): ParivarSehat persona with ICMR-grounded nutrition guidance
+- **RAG search** (`lib/ragSearch.ts`): Retrieves relevant ICMR knowledge chunks using Gemini `text-embedding-004` embeddings from `localDb`
+- **Context assembly** (`lib/assembleContext.ts`): Injects family profile, meal plans, nutrition logs, medications, and RAG evidence into every Gemini call
+- **Action extraction**: Parses `---ACTION---` delimiter in responses for structured UI actions (meal plan generation, recipe search, etc.)
+- **IDOR protection**: Validates `familyId` ownership against JWT `userId` before context assembly
+- SSE event contract: `delta` (streaming text), `action` (parsed action payload), `done` (stream complete), `error` (error message)
+
 ### Frontend Architecture
 
 The frontend is a React 18 application built with Vite, utilizing Wouter for routing and TanStack React Query for state management. UI components are developed using shadcn/ui, Tailwind CSS v4, and tw-animate-css, adhering to an Apple-tier Glass Design System. It features DM Sans and Outfit fonts, Framer Motion for animations, and a `LanguageContext` for English ↔ Hindi toggling. Core functionalities include a dashboard, multi-step family setup wizard (supporting voice, text-chat, and manual input), weekly meal plan view with preparation reminders and ThaliScoreBadge, recipe explorer, detailed recipe pages, AI chat with SSE streaming, food scanner, grocery lists, nutrition charts, and health logs. Client-side utilities manage prep reminders for various ingredients.
+
+#### AI Chat Frontend (`pages/Chat.tsx`)
+- **`useChat` hook** (`hooks/useChat.ts`): SSE streaming client using `apiFetch`, passes `familyId` from `activeFamily`, handles `delta`/`action`/`done`/`error` events, supports action cards in UI
+- **`useVoice` hook** (`hooks/useVoice.ts`): Browser-native Web Speech API for STT (speech recognition) and TTS (speech synthesis) with barge-in support
+- **Chat page**: Full ParivarSehat AI chat UI with language selector (8 Indian languages), voice toggle, streaming response display, and action card rendering
 
 ### API Client Code Generation
 

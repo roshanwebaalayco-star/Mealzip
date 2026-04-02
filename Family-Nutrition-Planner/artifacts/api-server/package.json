@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
+    "@google/generative-ai": "^0.24.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-gemini-ai": "workspace:*",

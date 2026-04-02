@@ -1,0 +1,32 @@
+I have attached a ZIP file containing the complete backend and frontend code for the ParivarSehat AI Chat & Voice Engine. Your job is to integrate these files into the existing project — do not rewrite them, do not refactor them, do not improve them. Drop them in exactly as provided.
+
+**Files in the ZIP and where they go:**
+
+- `server/lib/megaPrompt.ts` → `server/lib/megaPrompt.ts`
+- `server/lib/ragSearch.ts` → `server/lib/ragSearch.ts`
+- `server/lib/assembleContext.ts` → `server/lib/assembleContext.ts`
+- `server/routes/chat.ts` → `server/routes/chat.ts`
+- `client/hooks/useVoice.ts` → `client/hooks/useVoice.ts`
+- `client/hooks/useChat.ts` → `client/hooks/useChat.ts`
+- `client/components/Chat.tsx` → `client/components/Chat.tsx`
+
+**Step 1 — Register the route.** Open your main server entry file (whichever file contains your Express `app` setup — likely `server/index.ts` or `server/app.ts`). Add exactly these two lines, grouped with your other route imports and registrations:
+
+```ts
+import chatRouter from "./routes/chat";
+app.use("/api/chat", chatRouter);
+```
+
+**Step 2 — Fix import paths inside the new files.** Open each of the four server files and update only the lines marked with `← ADJUST PATH`. These are the imports for `db` and the Drizzle schema tables. Match them to whatever paths your existing database and schema files use. Do not change anything else in those files.
+
+**Step 3 — Add the secret.** In the Replit Secrets panel, add one secret: key = `GEMINI_API_KEY`, value = your Google Gemini API key.
+
+**Step 4 — Mobile compatibility.** The `Chat.tsx` component and both hooks in `client/hooks/` use only standard React, the browser's native Web Speech API, and Tailwind CSS. They work as-is in any React Native Web setup or Capacitor wrapper. If you are using React Native (non-web), replace `Chat.tsx` with your existing native chat shell and import only `useChat.ts` and `useVoice.ts` — the hook logic is fully portable. The Web Speech API calls inside `useVoice.ts` are already guarded with `typeof window !== "undefined"` checks and will not crash in a native environment.
+
+**Do not:**
+- Modify any Drizzle schema files
+- Install any new npm packages
+- Move or rename any of the provided files
+- Rewrite any logic inside the provided files
+
+Verify the integration by hitting `GET /api/chat/health` — it should return `{ "status": "ok" }`. If it returns an error about `GEMINI_API_KEY`, the secret is missing or the server has not been restarted.
