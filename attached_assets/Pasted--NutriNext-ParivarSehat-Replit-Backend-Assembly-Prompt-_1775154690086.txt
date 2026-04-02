@@ -1,0 +1,793 @@
+# NutriNext ParivarSehat — Replit Backend Assembly Prompt
+
+You are assembling a production Node.js/TypeScript/Express backend for a hackathon project called **NutriNext ParivarSehat** — an AI-based Indian family meal planning app. 
+
+**YOUR ROLE IS STRICTLY AN ASSEMBLER, NOT AN ARCHITECT.**
+
+All the complex logic files have already been written by a senior engineer and are provided to you as source files. Your job is to:
+1. Create the project structure exactly as specified
+2. Write ONLY the missing infrastructure files (server, db connection, schema)
+3. Copy the provided source files into the correct paths WITHOUT modifying them
+4. Wire the imports together correctly
+5. Make it run
+
+**DO NOT rewrite, refactor, simplify, or "improve" any provided source file. Copy them verbatim.**
+
+---
+
+## STEP 0 — READ THIS BEFORE TOUCHING ANYTHING
+
+This project is deployed on Replit with a Node.js environment. Key constraints:
+- Use `tsx` to run TypeScript directly (no build step needed for development)
+- Database is Supabase PostgreSQL (Singapore region) — connection via `DATABASE_URL` env var
+- Gemini API key is in `GEMINI_API_KEY` env var
+- All secrets go in Replit Secrets, not `.env` file (but also create `.env` for local)
+- The pg pool must have `ssl: { rejectUnauthorized: false }` for Supabase
+- Do NOT use `@google/generative-ai` (old SDK). Use `@google/genai` (new SDK)
+
+---
+
+## STEP 1 — EXACT PROJECT STRUCTURE
+
+Create this EXACT directory structure. Every path matters because source files import each other using relative paths.
+
+```
+nutrinext-backend/
+├── package.json
+├── tsconfig.json
+├── .env.example
+├── .replit                          ← Replit run config
+├── replit.nix                       ← Replit nix config
+│
+├── db/
+│   ├── index.ts                     ← Drizzle client (YOU WRITE THIS)
+│   └── schema.ts                    ← Drizzle schema (YOU WRITE THIS)
+│
+├── src/
+│   ├── server.ts                    ← Express entry point (YOU WRITE THIS)
+│   ├── app.ts                       ← Express app config (YOU WRITE THIS)
+│   │
+│   ├── engine/
+│   │   ├── types.ts                 ← PROVIDED — copy verbatim
+│   │   ├── budgetEngine.ts          ← PROVIDED — copy verbatim
+│   │   ├── calorieCalculator.ts     ← PROVIDED — copy verbatim
+│   │   ├── conflict-engine.ts       ← PROVIDED — copy verbatim
+│   │   ├── prompt-chain.ts          ← PROVIDED — copy verbatim
+│   │   ├── meal-generation-service.ts ← PROVIDED — copy verbatim
+│   │   │
+│   │   └── lib/
+│   │       ├── harmonyScore.ts      ← PROVIDED — copy verbatim
+│   │       └── medicationRules.ts   ← PROVIDED — copy verbatim
+│   │
+│   ├── icmr/
+│   │   ├── icmr_nutrition_constants_part1.ts  ← PROVIDED — copy verbatim
+│   │   ├── icmr_nutrition_constants_part2.ts  ← PROVIDED — copy verbatim
+│   │   ├── icmr_nutrition_constants_part3.ts  ← PROVIDED — copy verbatim
+│   │   └── icmr_nutrition_constants_part4.ts  ← PROVIDED — copy verbatim
+│   │
+│   └── recipes/
+│       ├── region-mapper.ts         ← PROVIDED — copy verbatim
+│       └── recipe-selector.ts       ← PROVIDED — copy verbatim
+│
+├── scripts/
+│   ├── import-recipes-csv.ts        ← PROVIDED — copy verbatim
+│   └── tag-recipes-batch.ts         ← PROVIDED — copy verbatim
+│
+└── sql/
+    ├── recipes-ddl.sql              ← PROVIDED — copy verbatim
+    └── verification-queries.sql     ← PROVIDED — copy verbatim
+```
+
+---
+
+## STEP 2 — package.json
+
+Create this EXACT `package.json`. Use these exact versions. Do not upgrade or change any version.
+
+```json
+{
+  "name": "nutrinext-parivarseehat-backend",
+  "version": "1.0.0",
+  "description": "NutriNext ParivarSehat — AI Family Meal Planning Engine",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "import-recipes": "tsx scripts/import-recipes-csv.ts",
+    "tag-recipes": "tsx scripts/tag-recipes-batch.ts",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@google/genai": "^0.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.10",
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "@types/pg": "^8.11.5",
+    "drizzle-kit": "^0.21.4",
+    "tsx": "^4.8.2",
+    "typescript": "^5.4.5"
+  }
+}
+```
+
+---
+
+## STEP 3 — tsconfig.json
+
+Create this EXACT `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "paths": {
+      "../../db": ["./db/index.ts"],
+      "../../db/schema": ["./db/schema.ts"]
+    }
+  },
+  "include": ["src/**/*", "db/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+---
+
+## STEP 4 — .replit file
+
+Create `.replit` with this EXACT content:
+
+```toml
+run = "npm run dev"
+entrypoint = "src/server.ts"
+
+[nix]
+channel = "stable-23_11"
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+```
+
+---
+
+## STEP 5 — .env.example
+
+Create `.env.example`:
+
+```
+# Supabase — get from Supabase Dashboard → Settings → Database → URI
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+
+# Gemini — get from Google AI Studio
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# App
+PORT=3000
+NODE_ENV=development
+```
+
+---
+
+## STEP 6 — db/index.ts (YOU WRITE THIS)
+
+Create `db/index.ts` with EXACTLY this content. Do not change anything:
+
+```typescript
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import * as schema from "./schema";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is not set.");
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },  // Required for Supabase
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+export const db = drizzle(pool, { schema });
+export { pool };
+```
+
+---
+
+## STEP 7 — db/schema.ts (YOU WRITE THIS)
+
+This is the Drizzle ORM schema. It MUST match the Supabase database exactly.
+Write this file with EXACTLY these table definitions:
+
+```typescript
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  numeric,
+  boolean,
+  timestamp,
+  date,
+  jsonb,
+  unique,
+  index,
+} from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+
+// ─── Timestamp helper ─────────────────────────────────────────────────────────
+const timestamps = {
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+};
+
+// ─── TABLE: families ─────────────────────────────────────────────────────────
+export const families = pgTable(
+  "families",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    stateRegion: text("state_region").notNull(),
+    languagePreference: text("language_preference").notNull().default("hindi"),
+    householdDietaryBaseline: text("household_dietary_baseline").notNull(),
+    mealsPerDay: text("meals_per_day").notNull().default("3_meals"),
+    cookingSkillLevel: text("cooking_skill_level").notNull().default("intermediate"),
+    appliances: jsonb("appliances").notNull().default(sql`'[]'::jsonb`),
+    pincode: text("pincode"),
+    ...timestamps,
+  },
+  (table) => ({
+    userIdIdx: unique("families_user_id_idx").on(table.userId),
+  })
+);
+
+// ─── TABLE: family_members ────────────────────────────────────────────────────
+export const familyMembers = pgTable(
+  "family_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    age: integer("age").notNull(),
+    gender: text("gender").notNull(),
+    heightCm: numeric("height_cm", { precision: 5, scale: 1 }),
+    weightKg: numeric("weight_kg", { precision: 5, scale: 1 }),
+    activityLevel: text("activity_level").notNull().default("lightly_active"),
+    primaryGoal: text("primary_goal").notNull().default("no_specific_goal"),
+    goalPace: text("goal_pace"),
+    dailyCalorieTarget: integer("daily_calorie_target"),
+    dietaryType: text("dietary_type").notNull(),
+    spiceTolerance: text("spice_tolerance").notNull().default("medium"),
+    tiffinNeeded: text("tiffin_needed").notNull().default("no"),
+    festivalFastingAlerts: boolean("festival_fasting_alerts").notNull().default(false),
+    displayOrder: integer("display_order").notNull().default(0),
+    healthConditions: jsonb("health_conditions").notNull().default(sql`'[]'::jsonb`),
+    allergies: jsonb("allergies").notNull().default(sql`'[]'::jsonb`),
+    ingredientDislikes: jsonb("ingredient_dislikes").notNull().default(sql`'[]'::jsonb`),
+    religiousCulturalRules: jsonb("religious_cultural_rules").notNull().default(sql`'{}'::jsonb`),
+    occasionalNonvegConfig: jsonb("occasional_nonveg_config"),
+    fastingConfig: jsonb("fasting_config").notNull().default(sql`'{}'::jsonb`),
+    ...timestamps,
+  },
+  (table) => ({
+    familyIdIdx: index("family_members_family_id_idx").on(table.familyId),
+  })
+);
+
+// ─── TABLE: monthly_budgets ───────────────────────────────────────────────────
+export const monthlyBudgets = pgTable(
+  "monthly_budgets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    monthYear: text("month_year").notNull(),
+    totalMonthlyBudget: numeric("total_monthly_budget", { precision: 10, scale: 2 }).notNull(),
+    staplesBudget: numeric("staples_budget", { precision: 10, scale: 2 }).notNull(),
+    perishablesBudget: numeric("perishables_budget", { precision: 10, scale: 2 }).notNull(),
+    bufferBudget: numeric("buffer_budget", { precision: 10, scale: 2 }).notNull(),
+    dailyPerishableLimit: numeric("daily_perishable_limit", { precision: 10, scale: 2 }).notNull(),
+    regionalPriceSuggestion: numeric("regional_price_suggestion", { precision: 10, scale: 2 }),
+    budgetBreakdown: jsonb("budget_breakdown").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniq: unique("monthly_budgets_family_month_unique").on(table.familyId, table.monthYear),
+  })
+);
+
+// ─── TABLE: weekly_contexts ───────────────────────────────────────────────────
+export const weeklyContexts = pgTable(
+  "weekly_contexts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    weekStartDate: date("week_start_date").notNull(),
+    eatingOutFrequency: text("eating_out_frequency").notNull().default("none"),
+    weekdayCookingTime: text("weekday_cooking_time").notNull().default("20_40_mins"),
+    weekendCookingTime: text("weekend_cooking_time").notNull().default("no_preference"),
+    weeklyPerishableBudgetOverride: numeric("weekly_perishable_budget_override", { precision: 10, scale: 2 }),
+    specialRequest: text("special_request"),
+    status: text("status").notNull().default("draft"),
+    pantrySnapshot: jsonb("pantry_snapshot").notNull().default(sql`'[]'::jsonb`),
+    ...timestamps,
+  },
+  (table) => ({
+    familyIdIdx: index("weekly_contexts_family_id_idx").on(table.familyId),
+    weekStartIdx: index("weekly_contexts_week_start_idx").on(table.weekStartDate),
+    uniq: unique("weekly_contexts_family_week_unique").on(table.familyId, table.weekStartDate),
+  })
+);
+
+// ─── TABLE: member_weekly_contexts ────────────────────────────────────────────
+export const memberWeeklyContexts = pgTable(
+  "member_weekly_contexts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    weeklyContextId: uuid("weekly_context_id").notNull().references(() => weeklyContexts.id, { onDelete: "cascade" }),
+    familyMemberId: uuid("family_member_id").notNull().references(() => familyMembers.id, { onDelete: "cascade" }),
+    currentGoalOverride: text("current_goal_override"),
+    currentWeightKg: numeric("current_weight_kg", { precision: 5, scale: 1 }),
+    feelingThisWeek: text("feeling_this_week"),
+    spiceToleranceOverride: text("spice_tolerance_override"),
+    tiffinNeededOverride: text("tiffin_needed_override"),
+    ekadashiThisWeek: boolean("ekadashi_this_week").notNull().default(false),
+    festivalFastThisWeek: boolean("festival_fast_this_week").notNull().default(false),
+    healthConditionsOverride: jsonb("health_conditions_override"),
+    activeMedications: jsonb("active_medications").notNull().default(sql`'[]'::jsonb`),
+    fastingDaysThisWeek: jsonb("fasting_days_this_week").notNull().default(sql`'[]'::jsonb`),
+    nonvegDaysThisWeek: jsonb("nonveg_days_this_week").notNull().default(sql`'[]'::jsonb`),
+    nonvegTypesThisWeek: jsonb("nonveg_types_this_week").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    weeklyCtxIdx: index("mwc_weekly_context_id_idx").on(table.weeklyContextId),
+    uniq: unique("member_weekly_ctx_unique").on(table.weeklyContextId, table.familyMemberId),
+  })
+);
+
+// ─── TABLE: meal_plans ────────────────────────────────────────────────────────
+export const mealPlans = pgTable(
+  "meal_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    weeklyContextId: uuid("weekly_context_id").notNull().references(() => weeklyContexts.id, { onDelete: "cascade" }),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    harmonyScore: integer("harmony_score"),
+    generationStatus: text("generation_status").notNull().default("pending"),
+    harmonyScoreBreakdown: jsonb("harmony_score_breakdown").notNull().default(sql`'{}'::jsonb`),
+    generationLog: jsonb("generation_log").notNull().default(sql`'[]'::jsonb`),
+    days: jsonb("days").notNull().default(sql`'[]'::jsonb`),
+    nutritionalSummary: jsonb("nutritional_summary").notNull().default(sql`'{}'::jsonb`),
+    ...timestamps,
+  },
+  (table) => ({
+    familyIdIdx: index("meal_plans_family_id_idx").on(table.familyId),
+    weeklyCtxIdx: index("meal_plans_weekly_context_id_idx").on(table.weeklyContextId),
+    statusIdx: index("meal_plans_generation_status_idx").on(table.generationStatus),
+  })
+);
+
+// ─── TABLE: grocery_lists ─────────────────────────────────────────────────────
+export const groceryLists = pgTable(
+  "grocery_lists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    mealPlanId: uuid("meal_plan_id").references(() => mealPlans.id, { onDelete: "set null" }),
+    listType: text("list_type").notNull(),
+    monthYear: text("month_year"),
+    weekStartDate: date("week_start_date"),
+    totalEstimatedCost: numeric("total_estimated_cost", { precision: 10, scale: 2 }),
+    status: text("status").notNull().default("active"),
+    items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
+    ...timestamps,
+  },
+  (table) => ({
+    familyIdIdx: index("grocery_lists_family_id_idx").on(table.familyId),
+    mealPlanIdIdx: index("grocery_lists_meal_plan_id_idx").on(table.mealPlanId),
+  })
+);
+
+// ─── TABLE: ai_chat_logs ──────────────────────────────────────────────────────
+export const aiChatLogs = pgTable(
+  "ai_chat_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+    sessionType: text("session_type").notNull(),
+    messages: jsonb("messages").notNull().default(sql`'[]'::jsonb`),
+    extractedData: jsonb("extracted_data").notNull().default(sql`'{}'::jsonb`),
+    ...timestamps,
+  },
+  (table) => ({
+    familyIdIdx: index("ai_chat_logs_family_id_idx").on(table.familyId),
+    sessionTypeIdx: index("ai_chat_logs_session_type_idx").on(table.sessionType),
+  })
+);
+
+// ─── TABLE: recipes ───────────────────────────────────────────────────────────
+export const recipes = pgTable(
+  "recipes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recipeName: text("recipe_name").notNull(),
+    zone: text("zone"),
+    isForeign: boolean("is_foreign").notNull().default(false),
+    cuisine: text("cuisine"),
+    course: text("course"),
+    diet: text("diet"),
+    totalTimeMins: integer("total_time_mins"),
+    servings: integer("servings"),
+    ingredients: text("ingredients"),
+    instructions: text("instructions"),
+    url: text("url"),
+    regionGroup: text("region_group"),
+    dietaryTags: text("dietary_tags").array().notNull().default(sql`'{}'::text[]`),
+    allergenTags: text("allergen_tags").array().notNull().default(sql`'{}'::text[]`),
+    mealType: text("meal_type").array().notNull().default(sql`'{}'::text[]`),
+    healthTags: text("health_tags").array().notNull().default(sql`'{}'::text[]`),
+    fastingFriendly: boolean("fasting_friendly").notNull().default(false),
+    cookingSkillReq: text("cooking_skill_req"),
+    popularityScore: numeric("popularity_score", { precision: 4, scale: 3 }).notNull().default("0.500"),
+    tagsGeneratedAt: timestamp("tags_generated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+// ─── RELATIONS ────────────────────────────────────────────────────────────────
+export const familiesRelations = relations(families, ({ many }) => ({
+  members: many(familyMembers),
+  weeklyContexts: many(weeklyContexts),
+  monthlyBudgets: many(monthlyBudgets),
+  mealPlans: many(mealPlans),
+  groceryLists: many(groceryLists),
+  aiChatLogs: many(aiChatLogs),
+}));
+
+export const familyMembersRelations = relations(familyMembers, ({ one, many }) => ({
+  family: one(families, { fields: [familyMembers.familyId], references: [families.id] }),
+  weeklyContexts: many(memberWeeklyContexts),
+}));
+
+export const weeklyContextsRelations = relations(weeklyContexts, ({ one, many }) => ({
+  family: one(families, { fields: [weeklyContexts.familyId], references: [families.id] }),
+  memberWeeklyContexts: many(memberWeeklyContexts),
+  mealPlans: many(mealPlans),
+}));
+
+export const memberWeeklyContextsRelations = relations(memberWeeklyContexts, ({ one }) => ({
+  weeklyContext: one(weeklyContexts, { fields: [memberWeeklyContexts.weeklyContextId], references: [weeklyContexts.id] }),
+  familyMember: one(familyMembers, { fields: [memberWeeklyContexts.familyMemberId], references: [familyMembers.id] }),
+}));
+
+export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
+  family: one(families, { fields: [mealPlans.familyId], references: [families.id] }),
+  weeklyContext: one(weeklyContexts, { fields: [mealPlans.weeklyContextId], references: [weeklyContexts.id] }),
+  groceryLists: many(groceryLists),
+}));
+
+export const groceryListsRelations = relations(groceryLists, ({ one }) => ({
+  family: one(families, { fields: [groceryLists.familyId], references: [families.id] }),
+  mealPlan: one(mealPlans, { fields: [groceryLists.mealPlanId], references: [mealPlans.id] }),
+}));
+```
+
+---
+
+## STEP 8 — src/app.ts (YOU WRITE THIS)
+
+```typescript
+import express from "express";
+import cors from "cors";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+const app = express();
+
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "NutriNext ParivarSehat Backend",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV ?? "development",
+  });
+});
+
+// ── Meal generation routes ────────────────────────────────────────────────────
+// Import AFTER express is configured
+import mealPlanRouter from "./engine/meal-generation-service";
+app.use("/api/meal-plans", mealPlanRouter);
+
+// ── 404 handler ──────────────────────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+// ── Global error handler ─────────────────────────────────────────────────────
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[GlobalError]", err);
+  res.status(500).json({
+    error: err?.message ?? "Internal server error",
+    stack: process.env.NODE_ENV === "development" ? err?.stack : undefined,
+  });
+});
+
+export default app;
+```
+
+---
+
+## STEP 9 — src/server.ts (YOU WRITE THIS)
+
+```typescript
+import * as dotenv from "dotenv";
+dotenv.config();
+
+import app from "./app";
+
+const PORT = parseInt(process.env.PORT ?? "3000", 10);
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`
+╔═══════════════════════════════════════════════╗
+║  NutriNext ParivarSehat Backend               ║
+║  Running on port ${PORT}                        ║
+║  Environment: ${process.env.NODE_ENV ?? "development"}             ║
+╚═══════════════════════════════════════════════╝
+  `);
+});
+
+// Graceful shutdown for Replit
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("Server closed.");
+    process.exit(0);
+  });
+});
+
+process.on("SIGINT", () => {
+  console.log("SIGINT received. Shutting down gracefully...");
+  server.close(() => process.exit(0));
+});
+
+export default server;
+```
+
+---
+
+## STEP 10 — FIX IMPORT PATHS IN PROVIDED SOURCE FILES
+
+The provided source files use import paths based on the file structure. You must check and fix these imports when copying the files. Here are the EXACT corrections:
+
+### In `src/engine/meal-generation-service.ts`:
+- `import { db } from "../../db"` → stays as-is (resolves to `db/index.ts`)
+- `import { ... } from "../../db/schema"` → stays as-is (resolves to `db/schema.ts`)
+- `import { ... } from "./types"` → stays as-is
+- `import { ... } from "./calorie-calculator"` → stays as-is ⚠️ **check file is named `calorieCalculator.ts`** — rename to `calorie-calculator.ts` OR change import to `./calorieCalculator`
+- `import { ... } from "./conflict-engine"` → stays as-is
+- `import { ... } from "./prompt-chain"` → stays as-is
+- `import { buildHarmonyScoreCard, formatHarmonyScorePlainText, assembleFinalResult } from "./src/lib/harmonyScore"` → **CHANGE TO** `import { buildHarmonyScoreCard, formatHarmonyScorePlainText, assembleFinalResult } from "./lib/harmonyScore"`
+
+### In `src/engine/conflict-engine.ts`:
+- `import { resolveAllMedicationGuardrails } from "./src/lib/medicationRules"` → **CHANGE TO** `import { resolveAllMedicationGuardrails } from "./lib/medicationRules"`
+- All other imports stay as-is
+
+### In `src/engine/lib/harmonyScore.ts`:
+- `import type { ... } from "../../types"` → **CHANGE TO** `import type { ... } from "../types"`
+
+### In `src/engine/lib/medicationRules.ts`:
+- `import type { ... } from "../../types"` → **CHANGE TO** `import type { ... } from "../types"`
+
+### In `src/engine/prompt-chain.ts`:
+- `import { cookingTimeToConstraintString } from "./budget-engine"` → stays as-is ⚠️ **check if this function is exported from budgetEngine.ts** — if not exported, add this export to budgetEngine.ts:
+  ```typescript
+  export function cookingTimeToConstraintString(weekdayTime: string, weekendTime: string): string {
+    const weekdayMap: Record<string, string> = {
+      under_20_mins: "All weekday recipes must be under 20 minutes total. One-pot dishes preferred.",
+      "20_40_mins": "Weekday recipes should take 20-40 minutes total.",
+      no_limit: "No time restriction on weekdays.",
+    };
+    const weekendMap: Record<string, string> = {
+      quick: "Keep weekend meals quick.",
+      elaborate: "Weekend meals can be elaborate — biryani, multi-curry, dessert allowed.",
+      no_preference: "No weekend time preference.",
+    };
+    return `WEEKDAY: ${weekdayMap[weekdayTime] ?? weekdayMap["20_40_mins"]} | WEEKEND: ${weekendMap[weekendTime] ?? weekendMap.no_preference}`;
+  }
+  ```
+
+### In `src/engine/calorieCalculator.ts` (check if this function exists, add if missing):
+The meal-generation-service.ts imports `applyAutoAssignmentRules` and `calculateDailyCalorieTarget` from `./calorie-calculator`. Check that both are exported from `calorieCalculator.ts`. If the file uses different function names, update the import in `meal-generation-service.ts` to match.
+
+### In `src/recipes/recipe-selector.ts`:
+- The file imports from `"./region-mapper"` → stays as-is
+- It imports from `"../engine/types"` if present → check and fix to match actual path
+
+---
+
+## STEP 11 — drizzle.config.ts (YOU WRITE THIS)
+
+Create in project root:
+
+```typescript
+import type { Config } from "drizzle-kit";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+export default {
+  schema: "./db/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL!,
+  },
+} satisfies Config;
+```
+
+---
+
+## STEP 12 — FINAL VERIFICATION CHECKLIST
+
+After assembly, verify each of these before running:
+
+**1. File existence check** — confirm every file in the structure from Step 1 exists:
+```
+src/engine/types.ts               ✓
+src/engine/budgetEngine.ts         ✓
+src/engine/calorieCalculator.ts    ✓ (may be named differently — unify the name)
+src/engine/conflict-engine.ts      ✓
+src/engine/prompt-chain.ts         ✓
+src/engine/meal-generation-service.ts ✓
+src/engine/lib/harmonyScore.ts     ✓
+src/engine/lib/medicationRules.ts  ✓
+src/icmr/icmr_nutrition_constants_part1.ts ✓
+src/icmr/icmr_nutrition_constants_part2.ts ✓
+src/icmr/icmr_nutrition_constants_part3.ts ✓
+src/icmr/icmr_nutrition_constants_part4.ts ✓
+src/recipes/region-mapper.ts       ✓
+src/recipes/recipe-selector.ts     ✓
+db/index.ts                        ✓
+db/schema.ts                       ✓
+src/app.ts                         ✓
+src/server.ts                      ✓
+package.json                       ✓
+tsconfig.json                      ✓
+drizzle.config.ts                  ✓
+```
+
+**2. Import path audit** — run this mentally for each provided file:
+- Does the import path point to a file that actually exists in the structure?
+- Are relative paths (`./`, `../`, `../../`) correct for the file's location?
+- If `../../db` is used from `src/engine/`, it resolves to `db/` — correct.
+- If `./lib/harmonyScore` is used from `src/engine/`, it resolves to `src/engine/lib/harmonyScore.ts` — correct.
+
+**3. Install dependencies:**
+```bash
+npm install
+```
+
+**4. Test the health endpoint:**
+```bash
+npm run dev
+# Then in another terminal:
+curl http://localhost:3000/health
+# Expected: {"status":"ok","service":"NutriNext ParivarSehat Backend",...}
+```
+
+**5. Verify DB connection:**
+Add this temporary route to `src/app.ts` (remove after testing):
+```typescript
+app.get("/test-db", async (_req, res) => {
+  try {
+    const { db } = await import("../db");
+    const result = await db.execute(sql`SELECT NOW() as time`);
+    res.json({ db: "connected", time: result.rows[0] });
+  } catch (e: any) {
+    res.status(500).json({ db: "failed", error: e.message });
+  }
+});
+```
+
+---
+
+## STEP 13 — API ROUTES REFERENCE (Do Not Change These)
+
+The meal generation service exposes these routes. Mount at `/api/meal-plans`:
+
+```
+POST   /api/meal-plans/generate
+       Body: { familyId, weekStartDate, monthYear }
+       Returns: 202 { mealPlanId, message, pollIntervalMs }
+       → Starts async generation, returns immediately
+
+GET    /api/meal-plans/:id/status
+       Returns: { status, generationLog, harmonyScore }
+       → Frontend polls this every 2 seconds during waiting screen
+
+GET    /api/meal-plans/:id/conflicts
+       Returns: { conflicts, resolutions, harmonyScore, harmonyLabel }
+       → Used by the Conflict Transparency UI card
+
+POST   /api/meal-plans/:id/skip-meal
+       Body: { day_date, meal_slot }
+       Returns: { success, nutritional_bandaid, carry_forward, saved_amount_inr }
+       → Called when user marks a meal as eaten out / skipped
+```
+
+---
+
+## STEP 14 — THINGS REPLIT MUST NOT DO
+
+1. **DO NOT** install `@google/generative-ai` — use `@google/genai` only
+2. **DO NOT** add a build step — `tsx` runs TypeScript directly  
+3. **DO NOT** change `ssl: { rejectUnauthorized: false }` in db/index.ts — Supabase requires it
+4. **DO NOT** use `import()` dynamic imports for db — use static imports
+5. **DO NOT** rewrite the business logic in any engine file — those files are final
+6. **DO NOT** use `process.exit()` on uncaught errors in the main pipeline — let Express handle them
+7. **DO NOT** add authentication middleware yet — that comes in a separate phase
+8. **DO NOT** change `temperature: 0.3` or `responseMimeType: "application/json"` in prompt-chain.ts — these are intentional
+9. **DO NOT** rename `meal-generation-service.ts` — the import in app.ts depends on this exact name
+10. **DO NOT** use `JSON.parse(JSON.stringify(...))` on Drizzle query results — the cast functions in meal-generation-service.ts handle this
+
+---
+
+## SUMMARY — WHAT YOU ARE BUILDING
+
+This is the backend for an Indian family meal planning AI app. The architecture is:
+
+1. **Family creates profile** → stored in Supabase via Drizzle ORM
+2. **Family fills weekly check-in** → creates weekly_contexts + member_weekly_contexts rows
+3. **Frontend calls POST /api/meal-plans/generate** → returns 202 immediately with a meal plan ID
+4. **Backend runs async pipeline:**
+   - Loads all data from DB
+   - Runs ICMR calorie calculations (hardcoded, no AI)
+   - Runs conflict engine (detects allergy/religious/medical/goal conflicts, resolves them)
+   - Runs medication rules engine (food-drug interactions for 12 Indian drugs)
+   - SQL-filters 12,000 recipes from Supabase to 80-120 safe candidates
+   - Calls Gemini 3 times: staples list, 21-meal calendar, buffer recommendations
+   - Saves everything to DB
+   - Updates generation_status to "completed"
+5. **Frontend polls GET /api/meal-plans/:id/status** → shows live log on waiting screen
+6. **When complete** → frontend shows the 7-day meal plan
+7. **On-demand** → user taps a meal → frontend calls Gemini directly for full recipe steps
+
+The entire generation takes 35-90 seconds. The waiting screen builds trust by showing real-time status messages from the `generation_log` JSONB array.
+
+Begin assembly now. Start with package.json, then tsconfig.json, then db/index.ts, then db/schema.ts, then src/server.ts, then src/app.ts. Then copy all provided source files. Then fix import paths. Then run npm install.
