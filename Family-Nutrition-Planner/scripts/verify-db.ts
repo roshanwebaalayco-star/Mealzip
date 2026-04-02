@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { localDb as db } from "@workspace/db";
 import { recipesTable, icmrNinRdaTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 

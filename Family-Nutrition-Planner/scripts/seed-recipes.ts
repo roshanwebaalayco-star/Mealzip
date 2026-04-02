@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { parse } from "csv-parse/sync";
 import { sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { localDb as db } from "@workspace/db";
 import { recipesTable } from "@workspace/db";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), "..");

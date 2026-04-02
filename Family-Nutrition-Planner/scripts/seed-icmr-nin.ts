@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { localDb as db } from "@workspace/db";
 import { icmrNinRdaTable } from "@workspace/db";
 
 const RDA_DATA = [
