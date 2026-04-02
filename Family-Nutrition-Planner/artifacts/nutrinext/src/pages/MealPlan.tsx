@@ -12,7 +12,13 @@ import {
   X, Plus, Timer
 } from "lucide-react";
 import { recordOnce } from "@/lib/audio-utils";
-import { format, startOfMonth, getDaysInMonth, getDay, addDays } from "date-fns";
+import { format, startOfMonth, getDaysInMonth, getDay, addDays, isValid } from "date-fns";
+
+function safeFormatDate(value: unknown, fmt: string, fallback = "This Week"): string {
+  if (!value) return fallback;
+  const d = new Date(value as string | number);
+  return isValid(d) ? format(d, fmt) : fallback;
+}
 import { HarmonyScore } from "@/components/HarmonyScore";
 import { motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -686,7 +692,7 @@ export default function MealPlan() {
             {t("Weekly Meal Plan", "साप्ताहिक भोजन योजना")}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            {format(new Date(currentPlan.weekStartDate), "MMM d, yyyy")}
+            {safeFormatDate(currentPlan.weekStartDate ?? currentPlan.createdAt, "MMM d, yyyy")}
           </p>
           {/* Budget tracker — green < 80%, orange 80-100%, red > 100% */}
           {(() => {
@@ -790,7 +796,7 @@ export default function MealPlan() {
           <div className="flex items-center gap-2 mb-4">
             <Moon className="w-4 h-4 text-purple-600" />
             <h3 className="font-semibold">
-              {t("Fasting Calendar", "व्रत कैलेंडर")} — {format(new Date(fastingData.year, fastingData.month - 1, 1), "MMMM yyyy")}
+              {t("Fasting Calendar", "व्रत कैलेंडर")} — {safeFormatDate(new Date(fastingData.year ?? new Date().getFullYear(), (fastingData.month ?? 1) - 1, 1), "MMMM yyyy", "")}
             </h3>
             <Badge variant="secondary" className="text-xs">
               {fastingData.isFallbackYear
@@ -809,7 +815,7 @@ export default function MealPlan() {
 
           {/* Calendar date cells */}
           {(() => {
-            const monthStart = startOfMonth(new Date(fastingData.year, fastingData.month - 1, 1));
+            const monthStart = startOfMonth(new Date(fastingData.year ?? new Date().getFullYear(), (fastingData.month ?? 1) - 1, 1));
             const totalDays = getDaysInMonth(monthStart);
             const startOffset = getDay(monthStart);
             const cells: (Date | null)[] = Array(startOffset).fill(null);
