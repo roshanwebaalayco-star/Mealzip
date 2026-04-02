@@ -15,4 +15,5 @@ export * from "./grocery_lists";
 export * from "./food_gi_nutrition";
 export * from "./leftover_items";
 export * from "./knowledge_chunks";
+export * from "./chat_messages";
 export * from "./relations";

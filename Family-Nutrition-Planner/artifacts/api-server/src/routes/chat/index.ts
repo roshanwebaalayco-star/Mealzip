@@ -1,33 +1,19 @@
-/**
- * FILE: server/routes/chat/index.ts
- * PURPOSE: The main chat API route. Handles:
- *   1. Input validation and auth checks
- *   2. Context assembly (State Payload + RAG)
- *   3. Gemini streaming via SSE (Server-Sent Events)
- *   4. Action-Extraction parsing (---ACTION--- delimiter)
- *   5. Clean SSE teardown and disconnect handling
- *
- * AUTH: Uses JWT auth middleware (req.user.userId) + familyId from request body
- * ENV: Requires GEMINI_API_KEY or AI_INTEGRATIONS_GEMINI_API_KEY in env
- *
- * SSE EVENT CONTRACT (what the frontend receives):
- *   { type: "delta",  text: "..." }         — streaming text token
- *   { type: "action", payload: {...} }      — parsed action (hidden from chat UI)
- *   { type: "done" }                        — stream complete
- *   { type: "error",  message: "..." }      — error during generation
- */
-
 import { Router, Request, Response } from "express";
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { db, familiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { assembleChatContext } from "../../lib/assembleContext.js";
 import { MEGA_PROMPT }         from "../../lib/megaPrompt.js";
+import {
+  saveChatMessage,
+  loadChatHistory,
+  listSessionsForFamily,
+} from "../../lib/chatHistory.js";
 
 const router = Router();
 
-const ACTION_DELIMITER = "---ACTION---";
-const GEMINI_MODEL     = "gemini-1.5-pro";
+const ACTION_DELIMITER   = "---ACTION---";
+const GEMINI_MODEL       = "gemini-1.5-pro";
 const MAX_MESSAGE_LENGTH = 2_000;
 
 let _geminiModel: GenerativeModel | null = null;
@@ -58,6 +44,14 @@ function getGeminiModel(): GenerativeModel {
   return _geminiModel;
 }
 
+function isValidSessionId(id: unknown): id is string {
+  return (
+    typeof id === "string" &&
+    id.trim().length > 0 &&
+    id.trim().length <= 128
+  );
+}
+
 interface ParsedResponse {
   conversationalText: string;
   actionPayload: Record<string, unknown> | null;
@@ -68,7 +62,7 @@ function parseActionFromResponse(rawText: string): ParsedResponse {
     return { conversationalText: rawText.trim(), actionPayload: null };
   }
 
-  const delimiterIndex = rawText.indexOf(ACTION_DELIMITER);
+  const delimiterIndex    = rawText.indexOf(ACTION_DELIMITER);
   const conversationalText = rawText.slice(0, delimiterIndex).trim();
   const jsonCandidate      = rawText.slice(delimiterIndex + ACTION_DELIMITER.length).trim();
 
@@ -83,17 +77,11 @@ function parseActionFromResponse(rawText: string): ParsedResponse {
         .trim();
 
       const parsed = JSON.parse(cleaned);
-
       if (parsed && typeof parsed.action === "string") {
         actionPayload = parsed;
-      } else {
-        console.warn("[ActionParser] JSON parsed but missing string 'action' key. Discarding.");
       }
-    } catch (e) {
-      console.error(
-        "[ActionParser] Failed to parse action JSON:",
-        jsonCandidate.slice(0, 200)
-      );
+    } catch {
+      console.error("[ActionParser] Failed to parse JSON:", jsonCandidate.slice(0, 200));
     }
   }
 
@@ -109,12 +97,79 @@ function closeSseStream(res: Response): void {
   res.end();
 }
 
+async function validateFamilyOwnership(familyId: number, userId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: familiesTable.id })
+    .from(familiesTable)
+    .where(and(eq(familiesTable.id, familyId), eq(familiesTable.userId, userId)))
+    .limit(1);
+  return !!row;
+}
+
+function getUserId(req: Request): number | null {
+  const userId = (req as any).user?.userId;
+  if (typeof userId !== "number" || !Number.isInteger(userId) || userId <= 0) return null;
+  return userId;
+}
+
+router.get("/history", async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+
+  const { sessionId, familyId: qFamilyId } = req.query;
+  if (!isValidSessionId(sessionId)) {
+    res.status(400).json({ error: "sessionId query parameter is required." });
+    return;
+  }
+
+  const familyId = typeof qFamilyId === "string" ? parseInt(qFamilyId, 10) : null;
+  if (!familyId || !Number.isInteger(familyId) || familyId <= 0) {
+    res.status(400).json({ error: "familyId query parameter is required." });
+    return;
+  }
+
+  if (!(await validateFamilyOwnership(familyId, userId))) {
+    res.status(403).json({ error: "You do not have access to this family." });
+    return;
+  }
+
+  const messages = await loadChatHistory({ familyId, sessionId, limit: 100 });
+  res.json({ messages });
+});
+
+router.get("/sessions", async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+
+  const { familyId: qFamilyId } = req.query;
+  const familyId = typeof qFamilyId === "string" ? parseInt(qFamilyId, 10) : null;
+  if (!familyId || !Number.isInteger(familyId) || familyId <= 0) {
+    res.status(400).json({ error: "familyId query parameter is required." });
+    return;
+  }
+
+  if (!(await validateFamilyOwnership(familyId, userId))) {
+    res.status(403).json({ error: "You do not have access to this family." });
+    return;
+  }
+
+  const sessions = await listSessionsForFamily(familyId);
+  res.json({ sessions });
+});
+
 router.post("/", async (req: Request, res: Response) => {
 
-  const { message, language, familyId: bodyFamilyId } = req.body as {
-    message?: unknown;
-    language?: unknown;
-    familyId?: unknown;
+  const { message, language, familyId: bodyFamilyId, sessionId } = req.body as {
+    message?:   unknown;
+    language?:  unknown;
+    familyId?:  unknown;
+    sessionId?: unknown;
   };
 
   if (!message || typeof message !== "string") {
@@ -124,10 +179,9 @@ router.post("/", async (req: Request, res: Response) => {
 
   const trimmedMessage = message.trim();
   if (trimmedMessage.length === 0) {
-    res.status(400).json({ error: "message cannot be empty or whitespace only." });
+    res.status(400).json({ error: "message cannot be empty." });
     return;
   }
-
   if (trimmedMessage.length > MAX_MESSAGE_LENGTH) {
     res.status(400).json({
       error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`,
@@ -140,28 +194,32 @@ router.post("/", async (req: Request, res: Response) => {
       ? language.trim()
       : "en-IN";
 
+  const userId = getUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+
   const familyIdRaw = typeof bodyFamilyId === "number" ? bodyFamilyId : null;
 
   if (familyIdRaw && Number.isInteger(familyIdRaw) && familyIdRaw > 0) {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      res.status(401).json({ error: "Authentication required." });
-      return;
-    }
-    const [ownershipCheck] = await db
-      .select({ id: familiesTable.id })
-      .from(familiesTable)
-      .where(and(eq(familiesTable.id, familyIdRaw), eq(familiesTable.userId, userId)))
-      .limit(1);
-    if (!ownershipCheck) {
+    if (!(await validateFamilyOwnership(familyIdRaw, userId))) {
       res.status(403).json({ error: "You do not have access to this family." });
       return;
     }
   }
 
-  res.setHeader("Content-Type",    "text/event-stream");
-  res.setHeader("Cache-Control",   "no-cache");
-  res.setHeader("Connection",      "keep-alive");
+  if (!isValidSessionId(sessionId)) {
+    res.status(400).json({
+      error: "sessionId is required. Generate a UUID on the client and include it in the request body.",
+    });
+    return;
+  }
+  const safeSessionId = (sessionId as string).trim();
+
+  res.setHeader("Content-Type",      "text/event-stream");
+  res.setHeader("Cache-Control",     "no-cache");
+  res.setHeader("Connection",        "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
@@ -172,6 +230,15 @@ router.post("/", async (req: Request, res: Response) => {
   });
 
   try {
+    if (familyIdRaw && Number.isInteger(familyIdRaw) && familyIdRaw > 0) {
+      await saveChatMessage({
+        familyId: familyIdRaw,
+        sessionId: safeSessionId,
+        role: "user",
+        text: trimmedMessage,
+      });
+    }
+
     let contextString = "";
 
     if (familyIdRaw && Number.isInteger(familyIdRaw) && familyIdRaw > 0) {
@@ -187,7 +254,7 @@ router.post("/", async (req: Request, res: Response) => {
       "USER MESSAGE:",
       trimmedMessage,
       safeLanguage !== "en-IN"
-        ? `[Language note: The user is communicating in language code "${safeLanguage}". Respond in the same language register.]`
+        ? `[Language note: Respond in language code "${safeLanguage}".]`
         : "",
     ]
       .filter(Boolean)
@@ -235,28 +302,33 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     if (!isClientDisconnected) {
-      const { actionPayload } = parseActionFromResponse(fullResponseBuffer);
+      const { conversationalText, actionPayload } = parseActionFromResponse(fullResponseBuffer);
+
+      if (familyIdRaw && Number.isInteger(familyIdRaw) && familyIdRaw > 0 && conversationalText) {
+        await saveChatMessage({
+          familyId: familyIdRaw,
+          sessionId: safeSessionId,
+          role: "assistant",
+          text: conversationalText,
+        });
+      }
 
       if (actionPayload) {
         sendSseEvent(res, { type: "action", payload: actionPayload });
       }
-    }
 
-    if (!isClientDisconnected) {
       closeSseStream(res);
     }
 
   } catch (err: unknown) {
-    const errorMessage =
-      err instanceof Error ? err.message : "An unknown error occurred.";
-
-    console.error("[Chat] Stream error:", errorMessage);
+    const msg = err instanceof Error ? err.message : "An unknown error occurred.";
+    console.error("[Chat] Error:", msg);
 
     if (res.headersSent) {
-      sendSseEvent(res, { type: "error", message: errorMessage });
+      sendSseEvent(res, { type: "error", message: msg });
       closeSseStream(res);
     } else {
-      res.status(500).json({ error: errorMessage });
+      res.status(500).json({ error: msg });
     }
   }
 });

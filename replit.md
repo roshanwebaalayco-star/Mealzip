@@ -25,6 +25,7 @@ The chat route (`routes/chat/index.ts`) provides SSE-streaming AI responses via 
 - **Context assembly** (`lib/assembleContext.ts`): Injects family profile, meal plans, nutrition logs, medications, and RAG evidence into every Gemini call
 - **Action extraction**: Parses `---ACTION---` delimiter in responses for structured UI actions (meal plan generation, recipe search, etc.)
 - **IDOR protection**: Validates `familyId` ownership against JWT `userId` before context assembly
+- **Chat history** (`lib/chatHistory.ts`): Persists messages to `chat_messages` table per session UUID. Endpoints: `GET /api/chat/history`, `GET /api/chat/sessions`
 - SSE event contract: `delta` (streaming text), `action` (parsed action payload), `done` (stream complete), `error` (error message)
 
 ### Frontend Architecture
@@ -32,9 +33,10 @@ The chat route (`routes/chat/index.ts`) provides SSE-streaming AI responses via 
 The frontend is a React 18 application built with Vite, utilizing Wouter for routing and TanStack React Query for state management. UI components are developed using shadcn/ui, Tailwind CSS v4, and tw-animate-css, adhering to an Apple-tier Glass Design System. It features DM Sans and Outfit fonts, Framer Motion for animations, and a `LanguageContext` for English ↔ Hindi toggling. Core functionalities include a dashboard, multi-step family setup wizard (supporting voice, text-chat, and manual input), weekly meal plan view with preparation reminders and ThaliScoreBadge, recipe explorer, detailed recipe pages, AI chat with SSE streaming, food scanner, grocery lists, nutrition charts, and health logs. Client-side utilities manage prep reminders for various ingredients.
 
 #### AI Chat Frontend (`pages/Chat.tsx`)
-- **`useChat` hook** (`hooks/useChat.ts`): SSE streaming client using `apiFetch`, passes `familyId` from `activeFamily`, handles `delta`/`action`/`done`/`error` events, supports action cards in UI
+- **`useChat` hook** (`hooks/useChat.ts`): SSE streaming client using `apiFetch`, passes `familyId` from `activeFamily`, handles `delta`/`action`/`done`/`error` events, supports action cards in UI. Session management via UUID in `sessionStorage`; loads history on mount from `GET /api/chat/history`; "New Chat" (+) button clears session and starts fresh thread
 - **`useVoice` hook** (`hooks/useVoice.ts`): Browser-native Web Speech API for STT (speech recognition) and TTS (speech synthesis) with barge-in support
-- **Chat page**: Full ParivarSehat AI chat UI with language selector (8 Indian languages), voice toggle, streaming response display, and action card rendering
+- **`MarkdownMessage`** (`components/MarkdownMessage.tsx`): Zero-dependency custom markdown renderer for assistant messages. Handles bold, italic, code, fenced code blocks, headings, ordered/unordered lists, horizontal rules. Strips raw HTML tags for XSS prevention. User messages render as plain text
+- **Chat page**: Full ParivarSehat AI chat UI with language selector (8 Indian languages), voice toggle, streaming response display, action card rendering, history skeleton loading, and "Previous messages" divider
 
 ### API Client Code Generation
 
@@ -51,6 +53,7 @@ PostgreSQL serves as the primary data store, managed by Drizzle ORM. Two DB pool
 - `meal_plans`: restructured with `weeklyContextId`, `generationStatus`, JSONB columns
 - `grocery_lists`: restructured with `listType`, `monthYear`, `weekStartDate`, `status`
 - `ai_chat_logs` (replaces `conversations` + `messages`)
+- `chat_messages`: Per-session chat history persistence (familyId, sessionId UUID, role, text, createdAt). Indexed on (family_id, session_id)
 
 **Removed fields:** `role`, `dietaryRestrictions`, `tiffinType`, `religiousRules`, `fastingBaseline`, `calorieTarget`, `icmrCaloricTarget`, `mealsAreShared`, `sharedTypical*`, `individualTypical*`
 
