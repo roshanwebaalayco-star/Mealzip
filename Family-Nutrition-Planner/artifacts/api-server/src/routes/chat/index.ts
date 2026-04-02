@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { ai } from "@workspace/integrations-gemini-ai";
 import { db, familiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { assembleChatContext } from "../../lib/assembleContext.js";
@@ -13,36 +13,8 @@ import {
 const router = Router();
 
 const ACTION_DELIMITER   = "---ACTION---";
-const GEMINI_MODEL       = "gemini-1.5-pro";
+const GEMINI_MODEL       = "gemini-2.5-flash";
 const MAX_MESSAGE_LENGTH = 2_000;
-
-let _geminiModel: GenerativeModel | null = null;
-
-function getGeminiModel(): GenerativeModel {
-  if (_geminiModel) return _geminiModel;
-
-  const apiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is not set. Add it to Replit Secrets and restart the server."
-    );
-  }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  _geminiModel = genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    systemInstruction: MEGA_PROMPT,
-    generationConfig: {
-      temperature:      0.4,
-      topP:             0.85,
-      topK:             40,
-      maxOutputTokens:  1024,
-      candidateCount:   1,
-    },
-  });
-
-  return _geminiModel;
-}
 
 function isValidSessionId(id: unknown): id is string {
   return (
@@ -260,17 +232,23 @@ router.post("/", async (req: Request, res: Response) => {
       .filter(Boolean)
       .join("\n");
 
-    const model = getGeminiModel();
-
-    const streamResult = await model.generateContentStream(contextualizedMessage);
+    const streamResult = ai.models.generateContentStream({
+      model: GEMINI_MODEL,
+      contents: [{ role: "user", parts: [{ text: contextualizedMessage }] }],
+      config: {
+        temperature:     0.4,
+        maxOutputTokens: 1024,
+      },
+      systemInstruction: { parts: [{ text: MEGA_PROMPT }] },
+    });
 
     let fullResponseBuffer = "";
     let streamedUpTo = 0;
 
-    for await (const chunk of streamResult.stream) {
+    for await (const chunk of streamResult) {
       if (isClientDisconnected) break;
 
-      const chunkText = chunk.text();
+      const chunkText = typeof chunk === "object" && chunk !== null && "text" in chunk ? (chunk as any).text : "";
       if (!chunkText) continue;
 
       fullResponseBuffer += chunkText;
@@ -334,9 +312,8 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 router.get("/health", (_req: Request, res: Response) => {
-  const hasApiKey = Boolean(process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY);
   res.json({
-    status:    hasApiKey ? "ok" : "error — GEMINI_API_KEY not set",
+    status:    "ok",
     model:     GEMINI_MODEL,
     timestamp: new Date().toISOString(),
   });
