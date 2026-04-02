@@ -342,12 +342,12 @@ export default function MealPlan() {
   });
 
   const tomorrowPrepReminders = useMemo((): PrepReminder[] => {
-    const raw = plans?.[0]?.plan;
+    const raw = (plans?.[0] as any)?.days ?? (plans?.[0] as any)?.plan;
     if (!raw) return [];
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const tomorrowName = dayNames[(new Date().getDay() + 1) % 7];
-    const dayArr = parsed?.days as Array<{
+    const dayArr = (Array.isArray(parsed) ? parsed : parsed?.days) as Array<{
       day: string;
       meals: Record<string, {
         ingredients?: string[];
@@ -369,7 +369,7 @@ export default function MealPlan() {
   }, [plans]);
 
   const arbitrageData = useMemo(() => {
-    const raw = plans?.[0]?.plan;
+    const raw = (plans?.[0] as any)?.days ?? (plans?.[0] as any)?.plan;
     if (!raw) return { mods: [] as Array<{ original: string; substituted: string; savingPerKg: number }>, saving: 0 };
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     const mods = (Array.isArray(parsed?.arbitrageMods) ? parsed.arbitrageMods : []) as Array<{ original: string; substituted: string; savingPerKg: number }>;
@@ -392,12 +392,12 @@ export default function MealPlan() {
   });
 
   const quickChips = useMemo(() => {
-    const raw = plans?.[0]?.plan;
+    const raw = (plans?.[0] as any)?.days ?? (plans?.[0] as any)?.plan;
     if (!raw) return [];
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const todayName = dayNames[new Date().getDay()];
-    const dayArr = parsed?.days as DayData[] | undefined;
+    const dayArr = (Array.isArray(parsed) ? parsed : parsed?.days) as DayData[] | undefined;
     const todayData = dayArr?.find(d => d.day === todayName);
     if (!todayData) return [];
     const chips = new Set<string>();
@@ -565,7 +565,8 @@ export default function MealPlan() {
     );
   }
 
-  const planData = typeof currentPlan.plan === "string" ? JSON.parse(currentPlan.plan) : currentPlan.plan;
+  const rawPlanField = (currentPlan as any).days ?? (currentPlan as any).plan;
+  const planData = typeof rawPlanField === "string" ? (() => { try { return JSON.parse(rawPlanField); } catch { return rawPlanField; } })() : rawPlanField;
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const meals = ["Breakfast", "Mid Morning", "Lunch", "Evening Snack", "Dinner"];
   const MEAL_SLOTS = [
@@ -577,7 +578,7 @@ export default function MealPlan() {
   ];
 
   const getDayData = (day: string): DayData | null => {
-    const dayArr = planData?.days as DayData[] | undefined;
+    const dayArr = (Array.isArray(planData) ? planData : planData?.days) as DayData[] | undefined;
     return dayArr?.find(d => d.day === day) || null;
   };
 
@@ -1001,7 +1002,7 @@ export default function MealPlan() {
       {/* ♻️ Leftover Intelligence panel — collapsible */}
       {(() => {
         const chains: { day: string; meal: string; dish: string; isLeftover: boolean; icmrVerified: boolean }[] = [];
-        const dayArr = planData?.days as DayData[] | undefined;
+        const dayArr = (Array.isArray(planData) ? planData : planData?.days) as DayData[] | undefined;
         dayArr?.forEach(dayObj => {
           Object.entries(dayObj.meals ?? {}).forEach(([mealKey, cell]) => {
             const c = cell as MealCell;

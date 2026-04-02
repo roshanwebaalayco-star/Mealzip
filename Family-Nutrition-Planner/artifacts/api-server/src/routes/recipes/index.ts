@@ -18,12 +18,15 @@ router.get("/recipes", async (req, res): Promise<void> => {
 
   const conditions: Parameters<typeof and>[0][] = [];
 
+  let hasTextSearch = false;
+  let tsQueryParam = "";
   if (q) {
-    // Use GIN full-text search index for sub-500ms performance
     const safeQuery = q.trim().replace(/[^a-zA-Z0-9\u0900-\u097F\s]/g, "").split(/\s+/).filter(Boolean).join(" & ");
     if (safeQuery) {
+      tsQueryParam = safeQuery + ":*";
+      hasTextSearch = true;
       conditions.push(
-        sql`to_tsvector('simple', coalesce(${recipesTable.name}, '') || ' ' || coalesce(${recipesTable.nameHindi}, '') || ' ' || coalesce(${recipesTable.ingredients}, '')) @@ to_tsquery('simple', ${safeQuery + ":*"})`
+        sql`to_tsvector('simple', coalesce(${recipesTable.name}, '') || ' ' || coalesce(${recipesTable.nameHindi}, '') || ' ' || coalesce(${recipesTable.ingredients}, '')) @@ to_tsquery('simple', ${tsQueryParam})`
       );
     }
   }
@@ -35,12 +38,21 @@ router.get("/recipes", async (req, res): Promise<void> => {
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+  const orderClause = hasTextSearch
+    ? sql`(
+        ts_rank(setweight(to_tsvector('simple', coalesce(${recipesTable.name}, '')), 'A') ||
+               setweight(to_tsvector('simple', coalesce(${recipesTable.nameHindi}, '')), 'B') ||
+               setweight(to_tsvector('simple', coalesce(${recipesTable.ingredients}, '')), 'C'),
+               to_tsquery('simple', ${tsQueryParam}))
+      ) DESC, ${recipesTable.name} ASC`
+    : sql`${recipesTable.name} ASC`;
+
   const [recipes, countResult] = await Promise.all([
     localDb.select().from(recipesTable)
       .where(whereClause)
       .limit(limit)
       .offset(offset)
-      .orderBy(recipesTable.name),
+      .orderBy(orderClause),
     localDb.select({ count: sql<number>`count(*)` }).from(recipesTable).where(whereClause)
   ]);
 

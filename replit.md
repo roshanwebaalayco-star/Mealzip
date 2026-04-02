@@ -21,7 +21,7 @@ The backend is built with Node.js 24, TypeScript 5.9, and Express 5. It uses Dri
 #### AI Chat with SSE Streaming (`POST /api/chat`)
 The chat route (`routes/chat/index.ts`) provides SSE-streaming AI responses via Gemini 2.5 Flash with:
 - **Mega-prompt system** (`lib/megaPrompt.ts`): ParivarSehat persona with ICMR-grounded nutrition guidance
-- **RAG search** (`lib/ragSearch.ts`): Retrieves relevant ICMR knowledge chunks using Gemini `text-embedding-004` embeddings from `localDb`
+- **RAG search** (`lib/ragSearch.ts`): Retrieves relevant ICMR knowledge chunks from `localDb`. Two modes: (1) Vector mode uses Gemini `text-embedding-004` embeddings + cosine similarity when a direct `GEMINI_API_KEY` is available, (2) BM25 mode uses proper BM25 ranking (TF-IDF with document-length normalization, k1=1.2, b=0.75) on Replit modelfarm since `embedContent` is not supported. Vector mode falls back to BM25 on failure
 - **Context assembly** (`lib/assembleContext.ts`): Injects family profile, meal plans, nutrition logs, medications, and RAG evidence into every Gemini call
 - **Action extraction**: Parses `---ACTION---` delimiter in responses for structured UI actions (meal plan generation, recipe search, etc.)
 - **IDOR protection**: Validates `familyId` ownership against JWT `userId` before context assembly
