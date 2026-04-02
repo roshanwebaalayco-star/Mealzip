@@ -26,9 +26,21 @@ The frontend is a React 18 application built with Vite, utilizing Wouter for rou
 
 OpenAPI specifications (`lib/api-spec/openapi.yaml`) are used with Orval to automatically generate TanStack Query hooks for React and Zod validation schemas, ensuring type safety and consistency between frontend and backend.
 
-### Database Schema
+### Database Schema (NutriNext Blueprint v2)
 
-PostgreSQL serves as the primary data store, managed by Drizzle ORM. Key tables include `families`, `family_members` (with detailed profiles like caloric targets, dislikes, and religious rules), `recipes` (with nutrition data and embeddings for semantic search), `icmr_nin_rda`, `knowledge_chunks` (for RAG with embeddings), `meal_plans` (storing AI-generated plans and RAG audit trails), `meal_feedback`, `grocery_lists`, `health_logs`, and `conversations`/`messages` for chat history.
+PostgreSQL serves as the primary data store, managed by Drizzle ORM. Two DB pools: `localDb` (recipes, ICMR — local PG) and `db` (user data — Supabase via DATABASE_URL).
+
+**User-data tables (8 total):**
+- `families`: `stateRegion`, `languagePreference`, `householdDietaryBaseline`, `mealsPerDay` (text), `cookingSkillLevel`, `appliances` (JSONB), `pincode`
+- `family_members`: `dietaryType`, `dailyCalorieTarget`, `tiffinNeeded` (text: "no"/"school"/"office"), `religiousCulturalRules` (JSONB `{primary}`), `occasionalNonvegConfig` (JSONB `{days, types}`), `fastingConfig` (JSONB `{baselineDays, ekadashi}`), `spiceTolerance`, `festivalFastingAlerts`, `displayOrder`
+- `monthly_budgets`, `weekly_contexts`, `member_weekly_contexts` (NEW)
+- `meal_plans`: restructured with `weeklyContextId`, `generationStatus`, JSONB columns
+- `grocery_lists`: restructured with `listType`, `monthYear`, `weekStartDate`, `status`
+- `ai_chat_logs` (replaces `conversations` + `messages`)
+
+**Removed fields:** `role`, `dietaryRestrictions`, `tiffinType`, `religiousRules`, `fastingBaseline`, `calorieTarget`, `icmrCaloricTarget`, `mealsAreShared`, `sharedTypical*`, `individualTypical*`
+
+**Key invariants:** All PKs remain `serial`, all FKs remain `integer`.
 
 ### Profile Setup Field Taxonomy (v2)
 

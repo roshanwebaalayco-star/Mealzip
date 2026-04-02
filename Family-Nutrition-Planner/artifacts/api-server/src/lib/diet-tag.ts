@@ -1,5 +1,7 @@
 const VEGAN_TAGS = new Set(["vegan"]);
-const VEGETARIAN_TAGS = new Set(["vegetarian", "jain", "sattvic"]);
+const VEGETARIAN_TAGS = new Set([
+  "vegetarian", "strictly_vegetarian", "jain", "jain_vegetarian", "sattvic",
+]);
 
 export function parseDietTag(raw: string): string {
   return raw.toLowerCase().replace(/^diet_type:/, "").trim();

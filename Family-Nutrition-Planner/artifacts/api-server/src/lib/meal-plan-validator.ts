@@ -213,7 +213,7 @@ export function validateMealForMembers(
       violations.push(...checkHypertension(ingredientText, member.name));
     }
 
-    if (restrictions.includes("jain")) {
+    if (dietType === "jain" || dietType === "jain_vegetarian") {
       violations.push(...checkJain(ingredientText, member.name));
     }
 
