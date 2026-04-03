@@ -7,8 +7,8 @@ import { LanguageProvider } from "@/contexts/language-context";
 import { AppStateProvider } from "@/contexts/app-state-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useEffect } from "react";
+import { useAppState } from "@/hooks/use-app-state";
 
-// Pages
 import Dashboard from "@/pages/Dashboard";
 import FamilySetup from "@/pages/FamilySetup";
 import MealPlan from "@/pages/MealPlan";
@@ -35,6 +35,28 @@ function isAuthenticated(): boolean {
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   if (!isAuthenticated()) {
     return <Redirect to="/login" />;
+  }
+  return <Component />;
+}
+
+function ProfileGatedRoute({ component: Component }: { component: React.ComponentType }) {
+  if (!isAuthenticated()) {
+    return <Redirect to="/login" />;
+  }
+  return <ProfileGate component={Component} />;
+}
+
+function ProfileGate({ component: Component }: { component: React.ComponentType }) {
+  const { activeFamily, isLoading } = useAppState();
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!activeFamily) {
+    return <Redirect to="/family-setup" />;
   }
   return <Component />;
 }
@@ -75,15 +97,15 @@ function Router() {
         <Route path="/family-setup" component={() => <ProtectedRoute component={FamilySetup} />} />
         <Route path="/meal-plan" component={() => <ProtectedRoute component={MealPlan} />} />
         <Route path="/meal-plan/context" component={() => <ProtectedRoute component={WeeklyContext} />} />
-        <Route path="/recipes/:id" component={() => <ProtectedRoute component={RecipeDetail} />} />
-        <Route path="/recipes" component={() => <ProtectedRoute component={RecipeExplorer} />} />
+        <Route path="/recipes/:id" component={() => <ProfileGatedRoute component={RecipeDetail} />} />
+        <Route path="/recipes" component={() => <ProfileGatedRoute component={RecipeExplorer} />} />
         <Route path="/chat" component={() => <ProtectedRoute component={Chat} />} />
-        <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
+        <Route path="/grocery" component={() => <ProfileGatedRoute component={Grocery} />} />
         <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
         <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
         <Route path="/nutrition">{() => <Redirect to="/health" />}</Route>
-        <Route path="/health" component={() => <ProtectedRoute component={HealthLog} />} />
+        <Route path="/health" component={() => <ProfileGatedRoute component={HealthLog} />} />
         <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
         <Route component={NotFound} />
       </Switch>

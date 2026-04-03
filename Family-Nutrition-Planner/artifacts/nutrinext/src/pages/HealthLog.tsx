@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Heart, Scale, Activity, User, Plus, Sparkles, Target, TrendingUp, ActivitySquare, CheckCircle2, XCircle, Lightbulb, RotateCcw, ClipboardList, Stethoscope } from "lucide-react";
+import { Heart, Scale, Activity, User, Plus, Sparkles, Target, TrendingUp, ActivitySquare, CheckCircle2, XCircle, Lightbulb, RotateCcw, ClipboardList, Stethoscope, AlertTriangle, Shield, Pill } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -336,15 +336,19 @@ export default function HealthLog() {
 
   const urgencyColor = { routine: "bg-green-500/20 text-green-700", soon: "bg-yellow-500/20 text-yellow-700", urgent: "bg-red-500/20 text-red-700" };
 
+  const debtNutrients = chartData.filter(d => d.pct < 80);
+  const shadowNutrients = chartData.filter(d => d.pct < 50);
+  const memberConditions = activeMember?.healthConditions ?? [];
+
   return (
     <div className="p-4 md:p-8 space-y-6 animate-fade-up">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-semibold text-2xl md:text-3xl" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
-            {t("Health & Nutrition", "स्वास्थ्य और पोषण")}
+            {t("Clinical Insights", "नैदानिक जानकारी")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {t("Track nutrition, vitals & get insights", "पोषण, स्वास्थ्य संकेतक ट्रैक करें और अंतर्दृष्टि पाएं")}
+            {t("Track nutrition, vitals & get AI-powered insights", "पोषण, स्वास्थ्य संकेतक ट्रैक करें और AI अंतर्दृष्टि पाएं")}
           </p>
         </div>
         {activeTab === "health" && (
@@ -353,6 +357,96 @@ export default function HealthLog() {
             {t("Log Today", "आज लॉग करें")}
           </Button>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="glass-card rounded-3xl p-5 border border-amber-200/50" style={{ background: "rgba(255,251,235,0.70)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-xl bg-amber-500/10 flex items-center justify-center">
+              <Target className="w-4 h-4 text-amber-600" />
+            </span>
+            <h3 className="font-semibold text-sm">{t("Nutritional Debt Ledger", "पोषण ऋण खाता")}</h3>
+          </div>
+          {!summary ? (
+            <p className="text-xs text-muted-foreground py-3">{t("Log meals to see nutrient debt analysis", "पोषक तत्व विश्लेषण देखने के लिए भोजन लॉग करें")}</p>
+          ) : debtNutrients.length > 0 ? (
+            <div className="space-y-2">
+              {debtNutrients.slice(0, 4).map(d => (
+                <div key={d.key} className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-foreground">{d.name}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.pct < 50 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                    {d.pct}%
+                  </span>
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {t(`${debtNutrients.length} nutrient(s) below 80% of ICMR target`, `${debtNutrients.length} पोषक तत्व ICMR लक्ष्य के 80% से नीचे`)}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-3">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <p className="text-sm text-green-700 font-medium">{t("All nutrients on track!", "सभी पोषक तत्व सही!")}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card rounded-3xl p-5 border border-red-200/50" style={{ background: "rgba(254,242,242,0.70)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+            </span>
+            <h3 className="font-semibold text-sm">{t("Nutritional Shadow Warning", "पोषण चेतावनी")}</h3>
+          </div>
+          {!summary ? (
+            <p className="text-xs text-muted-foreground py-3">{t("Log meals to detect critical deficiencies", "गंभीर कमियों का पता लगाने के लिए भोजन लॉग करें")}</p>
+          ) : shadowNutrients.length > 0 ? (
+            <div className="space-y-2">
+              {shadowNutrients.map(d => (
+                <div key={d.key} className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-xs font-medium text-foreground flex-1">{d.name}</span>
+                  <span className="text-xs font-bold text-red-600">{d.actual} / {d.target} {d.unit}</span>
+                </div>
+              ))}
+              <p className="text-[11px] text-red-600/70 mt-1 font-medium">
+                {t("Critical deficiency risk — immediate dietary attention needed", "गंभीर कमी का खतरा — तुरंत आहार पर ध्यान दें")}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-3">
+              <Shield className="w-5 h-5 text-green-500" />
+              <p className="text-sm text-green-700 font-medium">{t("No shadow warnings", "कोई चेतावनी नहीं")}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card rounded-3xl p-5 border border-blue-200/50" style={{ background: "rgba(239,246,255,0.70)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <Pill className="w-4 h-4 text-blue-600" />
+            </span>
+            <h3 className="font-semibold text-sm">{t("Medication Guardrail", "दवा सुरक्षा मार्गदर्शन")}</h3>
+          </div>
+          {memberConditions.length > 0 ? (
+            <div className="space-y-2">
+              {memberConditions.slice(0, 3).map(c => (
+                <div key={c} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-100">
+                  <Stethoscope className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <span className="text-xs font-medium text-blue-800 capitalize">{c.replace(/_/g, " ")}</span>
+                </div>
+              ))}
+              <p className="text-[11px] text-blue-600/70 mt-1">
+                {t("Meal plans account for these conditions", "भोजन योजनाएं इन स्थितियों को ध्यान में रखती हैं")}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-3">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <p className="text-sm text-green-700 font-medium">{t("No conditions flagged", "कोई स्थिति चिह्नित नहीं")}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {members && members.length > 0 && (

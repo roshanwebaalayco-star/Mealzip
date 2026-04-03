@@ -1,0 +1,290 @@
+You are doing a full validation and bug-fix pass on the NutriNext / ParivarSehat app.
+Do NOT touch anything related to meal generation or the AI chat section.
+Your job is to find every broken thing, fix it, and confirm it works.
+Work through each section in the exact order listed below.
+After finishing each section, print a one-line status: [SECTION NAME] — PASS or FAIL + what was wrong.
+
+────────────────────────────────────────────────────────────────
+SECTION 1 — SUPABASE AUTHENTICATION
+────────────────────────────────────────────────────────────────
+
+Test 1.1 — Sign Up
+Open the app as a guest (no session). Confirm the signup page loads.
+Enter a new email + password. Submit. Confirm:
+  - Supabase creates the user (check Supabase dashboard → Authentication → Users)
+  - A success message or redirect occurs — no raw error object shown to the user
+  - If email confirmation is required, confirm the app tells the user to check their inbox — it does not silently hang
+
+Test 1.2 — Login
+Use the credentials from Test 1.1. Confirm:
+  - Login succeeds and the user is redirected into the app
+  - The session is persisted (refresh the page — the user must still be logged in, not kicked to the login screen)
+  - The JWT / session token is stored correctly (Supabase handles this — confirm it is not accidentally stored in localStorage as a raw string that could be overwritten)
+
+Test 1.3 — New User Redirect
+Log in with a freshly created account that has NO family profile yet. Confirm:
+  - The app detects the missing profile
+  - The user is automatically redirected to the Profile Setup / Profile Curation page
+  - The user cannot navigate to the Grocery, Recipes, Dashboard, or any other section until the profile is complete
+  - This gate must work on hard refresh too — not just on first load
+
+Test 1.4 — Logout
+Confirm a logout button exists and works. After logout:
+  - Session is fully cleared
+  - Navigating to any protected route redirects back to the login page
+  - The back button after logout does not allow the user back into the app
+
+Test 1.5 — Invalid Credentials
+Enter a wrong password. Confirm:
+  - The app shows a human-readable error ("Incorrect email or password" — not a raw Supabase error object)
+  - The app does not crash
+
+────────────────────────────────────────────────────────────────
+SECTION 2 — PROFILE CURATION (FORM METHOD)
+────────────────────────────────────────────────────────────────
+
+This tests the form-based profile creation path only.
+Do NOT test the AI-assistant / voice profile path here.
+
+Test 2.1 — Family-Level Fields
+Fill in the family-level section of the profile form. Confirm every field renders and saves:
+  - Number of members (number input, minimum 1)
+  - State / region (dropdown or searchable list — must contain all Indian states)
+  - Language preference (Hindi / English toggle)
+  - Household dietary baseline (strictly veg / veg with eggs / non-veg / mixed)
+  - Number of meals per day (2 / 3 / 3+snacks)
+  - Cooking skill level (beginner / intermediate / experienced)
+  - Available appliances (multi-select checkboxes: gas stove, microwave, oven/OTG, mixer-grinder, air fryer, pressure cooker)
+
+Test 2.2 — Per-Member Fields (repeat for each member the user adds)
+For each family member, confirm all fields render, validate, and save:
+  - Name (text, required)
+  - Age (number, required — this drives auto-assignment rules below)
+  - Gender (male / female / other)
+  - Height in cm (optional)
+  - Current weight in kg (optional)
+  - Activity level (sedentary / lightly active / moderately active / very active)
+  - Primary goal — CRITICAL: apply these conditional rules exactly:
+      * Age under 5 → goal is auto-set to "early childhood nutrition", the field is hidden from the user
+      * Age 5–12 → goal is auto-set to "healthy growth and school nutrition", the field is hidden
+      * Age 13–17 → "weight loss" option must NOT appear in the dropdown at all
+      * Age 60+ → goal defaults to "senior nutrition" but the user can override it
+      * All other ages → all goal options available
+  - Goal pace (slow 0.25kg/week or moderate 0.5kg/week) — confirm this field ONLY appears when goal is weight loss or weight gain. It must be completely hidden for any other goal.
+  - Health conditions (multi-select): none, diabetes type 2, hypertension, anaemia, obesity, high cholesterol, hypothyroid, PCOS, kidney issues, plus a free-text field for custom conditions
+  - Dietary type (strictly vegetarian / Jain vegetarian / eggetarian / non-vegetarian / occasional non-veg)
+  - If occasional non-veg is selected: confirm a secondary set of fields appears — day checkboxes (Mon–Sun) and type checkboxes (chicken / mutton / fish / eggs). Confirm these fields disappear if a different dietary type is selected.
+  - Religious or cultural rules (none / no beef / no pork / sattvic no onion no garlic / Jain rules)
+  - Spice tolerance (mild / medium / spicy)
+  - Allergies (multi-select: none / peanuts / dairy / gluten / tree nuts / shellfish / soy / sesame)
+  - Ingredient dislikes (free text, maximum 5 entries — confirm the app blocks a 6th entry)
+  - Fasting baseline (no fasting / weekly fasting days with Mon–Sun checkboxes / Ekadashi yes or no)
+  - Festival fasting alerts (yes / no)
+  - Tiffin or lunchbox needed (no / yes school / yes office)
+
+Test 2.3 — Auto-Calorie Calculation
+For any member where weight is provided AND a goal is set: confirm the app silently calculates and displays a daily calorie target using ICMR-NIN logic. Confirm the number is shown on the profile page or member card. Confirm it does not crash if weight is not provided.
+
+Test 2.4 — Profile Save to Supabase
+After completing the form, submit it. Confirm:
+  - All family-level and per-member data is written to the correct Supabase tables
+  - No field is silently dropped (spot-check by reading the row in Supabase dashboard)
+  - The user is redirected to the main app after save
+  - The new-user gate from Test 1.3 is now cleared (the user can navigate to all sections)
+
+Test 2.5 — Profile Edit
+Navigate to the Profile section from the main nav. Confirm:
+  - All previously saved values are pre-filled correctly (nothing blank that was saved)
+  - The user can change any field and save again
+  - The updated values are reflected in the UI immediately after save without requiring a full page reload
+  - Adding a new family member works (the per-member form appears again)
+  - Removing a family member works and the deletion is reflected in Supabase
+
+────────────────────────────────────────────────────────────────
+SECTION 3 — GROCERY LIST SECTION
+────────────────────────────────────────────────────────────────
+
+Note: The grocery list is populated by the meal generation engine. Since we are not testing meal generation, use whatever data is already present in the database (from a previous run) OR manually insert mock grocery rows directly into Supabase to test the UI. Do not trigger a new meal generation to populate this.
+
+Test 3.1 — Two-Section Layout
+Open the Grocery List section. Confirm the page has exactly two clearly separated sections:
+  Section A — Monthly Staples (fixed bulk items: atta, rice, dal, oil, etc.)
+  Section B — Weekly Perishables (items that vary per meal plan week)
+  If either section is missing or both are merged into one list, that is a FAIL.
+
+Test 3.2 — Staples Section
+Confirm each item in the staples list shows at minimum:
+  - Item name
+  - Quantity
+  - Estimated unit (kg / litre / pieces)
+  A price column is a bonus but not required if location data is not yet set.
+
+Test 3.3 — Perishables Section
+Confirm each item in the perishables list shows:
+  - Item name
+  - Quantity for the week
+  - Estimated price (if pincode is set — see Test 3.4)
+
+Test 3.4 — Pincode / Location Setup
+This is tested here for the first time. On first visit to the grocery section confirm:
+  - The app asks the user for their pincode if it has not been set yet
+  - The pincode is stored in Supabase against the user's profile (not just in local state)
+  - After pincode is saved, an edit option is visible somewhere on the grocery page so the user can update it later
+  - Confirm the pincode field validates for exactly 6 digits (Indian pincode) — a 5-digit or letter entry must be rejected with a clear error
+
+Test 3.5 — Price Estimation
+If pincode is set, confirm the app attempts a location-based approximate price lookup. Confirm:
+  - The app does not crash if the price lookup fails or returns no data
+  - If prices are shown, they are displayed per-item (not a single total only)
+  - If prices cannot be determined, a visible fallback message is shown ("Prices unavailable for your area — please check locally") — no blank cells, no undefined
+
+Test 3.6 — Check / Uncheck Items
+Confirm the user can tap or click an item to mark it as purchased (checkbox or strikethrough). Confirm:
+  - The checked state is persisted (refresh the page — checked items stay checked)
+  - Unchecking works too
+
+────────────────────────────────────────────────────────────────
+SECTION 4 — RECIPES SECTION
+────────────────────────────────────────────────────────────────
+
+Same note as Section 3 — use existing meal plan data in the database. Do not trigger new meal generation.
+
+Test 4.1 — Entry Point
+Confirm that from the meal plan view, clicking on any meal name navigates to that meal's recipe page. If no meal plan exists yet, manually insert a mock meal name row in Supabase and confirm the link works.
+
+Test 4.2 — Recipe Page Content
+On the recipe detail page, confirm the following are all present:
+  - Meal name as a heading
+  - An image (sourced from an internet image search for the dish name). If the image fails to load, a placeholder image must appear — not a broken image icon
+  - Ingredients list with quantities
+  - Step-by-step cooking instructions
+
+Test 4.3 — Member Modifications Inline
+Confirm that inside the recipe steps, any per-member modification is injected inline. Example: "Step 3: Add salt. (⚠️ For Papa: Use half quantity and add lemon instead)." Confirm:
+  - The warning tag is visually distinct (different color, icon, or callout box — not plain text)
+  - If no modifications exist for any member, no empty warning boxes appear
+
+Test 4.4 — Navigation Between Recipes
+If the meal plan has multiple meals, confirm:
+  - There is a Next / Previous navigation between recipe pages (not just a back button)
+  - The page title updates correctly when moving between meals
+  - The back button returns the user to the meal plan view, not to the home screen
+
+Test 4.5 — No Standalone Recipes Page in Nav
+Confirm that the main navigation does NOT have a standalone "Recipes" tab or menu item. Recipes are only accessible by tapping a meal name from within the meal plan. If a Recipes nav item exists, flag it as a FAIL and remove it.
+
+────────────────────────────────────────────────────────────────
+SECTION 5 — CLINICAL INSIGHTS DASHBOARD
+────────────────────────────────────────────────────────────────
+
+Test 5.1 — Three Card Layout
+Open the Clinical Insights / Dashboard section. Confirm exactly three UI cards are present:
+  Card 1 — Nutritional Debt Ledger (bar charts)
+  Card 2 — Nutritional Shadow Warning
+  Card 3 — Medication Guardrail Timeline
+  If any card is missing or collapsed into another, that is a FAIL.
+
+Test 5.2 — Nutritional Debt Ledger (Card 1)
+Confirm this card renders bar charts. Each bar must correspond to a nutrient (e.g., Iron, Calcium, Protein, Vitamin C). Confirm:
+  - The chart renders without crashing even if some nutrient data is zero
+  - Axis labels are visible and human-readable
+  - The chart is responsive — it does not overflow its card on a mobile screen width
+
+Test 5.3 — Nutritional Shadow Warning (Card 2)
+Confirm this card is visible. It should show a warning or flag for nutritional patterns that are risky but not yet deficient (e.g., "Iron intake has been below target for 4 consecutive days"). Confirm:
+  - The card does not crash if there is no warning data (it should show a neutral "All clear" state)
+  - Warning text is human-readable — no raw JSON or database field names visible to the user
+
+Test 5.4 — Medication Guardrail Timeline (Card 3)
+Confirm this card renders a timeline or schedule view showing when medications are taken and which meal slots are affected. Confirm:
+  - If no medications are set in the family profile, this card shows "No medications logged" — not an empty box or a crash
+  - If medications are present, the meal-medication conflicts are clearly indicated (e.g., "Iron supplement at 9 PM — dinner must not contain dairy")
+
+Test 5.5 — Harmony Score
+Confirm the Harmony Score is displayed somewhere on this page (it may be in the header of the dashboard or as a separate card). Confirm:
+  - The score is a number out of 100
+  - A breakdown is shown explaining how the score was calculated (points deducted for unresolvable constraints, points added for correct medication scheduling and pantry use — see the formula in the project spec)
+  - The score is not hardcoded as a static number — it must reflect the actual family profile data
+
+────────────────────────────────────────────────────────────────
+SECTION 6 — NAVIGATION AND GLOBAL SHELL
+────────────────────────────────────────────────────────────────
+
+Test 6.1 — Nav Items
+Confirm the main navigation contains exactly these sections and no others:
+  Profile | Meal (Generation) | Grocery | AI Chat | Clinical Insights (Dashboard)
+  Recipes must NOT be a nav item (it is accessed from within Meal only).
+  Flag any extra nav items as unexpected and confirm they either belong or should be removed.
+
+Test 6.2 — Active State
+Confirm the currently active section is visually highlighted in the nav (bold, underline, different color, or indicator dot). Switching sections must update the active state immediately.
+
+Test 6.3 — Protected Routes
+Confirm that navigating directly to any section URL while logged out redirects to the login page. Test by pasting the URL directly into the browser while in a logged-out state.
+
+Test 6.4 — Profile-Gated Routes
+Confirm that for a logged-in user with no completed profile, navigating directly to Grocery, Recipes, or Clinical Insights via URL shows the profile-incomplete message and redirects to profile setup — not a blank page or a crash.
+
+Test 6.5 — Mobile Viewport
+Resize the browser to 390×844 (iPhone 14 size). Confirm:
+  - The nav is usable (not cut off, not overlapping content)
+  - No horizontal scrollbar appears on any section
+  - Text is not overflowing card boundaries
+  - All buttons are at least 44×44px tap targets
+
+────────────────────────────────────────────────────────────────
+SECTION 7 — PANTRY / INVENTORY MANAGEMENT
+────────────────────────────────────────────────────────────────
+
+Test 7.1 — Pantry Entry (Text / Chat Method)
+The pantry scan is an optional feature. Confirm:
+  - There is a visible entry point to access the pantry input (a button, card, or section within the app)
+  - The text/chat method allows the user to type or describe ingredients and quantities in any language
+  - Submitted pantry items are stored in Supabase (confirm by checking the database)
+  - The user can see their logged pantry items in a list view
+
+Test 7.2 — Pantry Edit and Delete
+Confirm:
+  - The user can edit the quantity of an existing pantry item
+  - The user can delete a pantry item
+  - Both changes are reflected in Supabase immediately
+
+Test 7.3 — Pantry Data Integrity
+Confirm that pantry rows in Supabase are correctly linked to the authenticated user's family ID. A user who logs out and logs back in must see the same pantry data — not an empty pantry.
+
+────────────────────────────────────────────────────────────────
+SECTION 8 — DATA INTEGRITY AND ERROR HANDLING (GLOBAL)
+────────────────────────────────────────────────────────────────
+
+Test 8.1 — No Raw Errors Shown to User
+Across all sections tested above, confirm that at no point is a raw error object, stack trace, Supabase error code, or "[object Object]" text visible in the UI. Every error state must have a human-readable message.
+
+Test 8.2 — No Silent Data Loss
+For each form or input tested above: submit the form, then reload the page, then navigate back to that section. Confirm every saved value is still present. If any field is blank after a reload that was filled before, that is a silent data loss bug — flag and fix it.
+
+Test 8.3 — Supabase Row-Level Security
+Confirm that the Supabase RLS policies are active on all tables. A user should only be able to read and write rows where the family_id matches their own session. If RLS is disabled on any table, flag it as a critical security issue.
+
+Test 8.4 — Loading States
+Confirm that every data fetch in the app shows a loading indicator (spinner, skeleton, or placeholder) while the request is in flight. A section that renders blank for 2 seconds before showing content with no visual feedback is a FAIL.
+
+Test 8.5 — Empty States
+For every list or data-driven section, confirm there is a proper empty state message when no data exists. Examples: "No grocery items yet — generate your meal plan to populate this list." No section should show a blank white card with no content and no explanation.
+
+────────────────────────────────────────────────────────────────
+FINAL OUTPUT REQUIRED
+────────────────────────────────────────────────────────────────
+
+After completing all tests, print a summary table in this exact format:
+
+SECTION 1 — Authentication           [PASS / FAIL] — <one line summary>
+SECTION 2 — Profile Curation         [PASS / FAIL] — <one line summary>
+SECTION 3 — Grocery List             [PASS / FAIL] — <one line summary>
+SECTION 4 — Recipes                  [PASS / FAIL] — <one line summary>
+SECTION 5 — Clinical Dashboard       [PASS / FAIL] — <one line summary>
+SECTION 6 — Navigation / Shell       [PASS / FAIL] — <one line summary>
+SECTION 7 — Pantry Management        [PASS / FAIL] — <one line summary>
+SECTION 8 — Data Integrity / Errors  [PASS / FAIL] — <one line summary>
+
+TOTAL ISSUES FOUND AND FIXED: <number>
+TOTAL ISSUES FOUND BUT REQUIRING MANUAL REVIEW: <number>

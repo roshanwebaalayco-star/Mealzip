@@ -1,6 +1,6 @@
-import { useState, ReactNode } from "react";
+import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, CalendarDays, BookOpen, MessageSquareText, Sprout, ShoppingCart, Heart, LogIn, LogOut, UserCircle, Users, MoreHorizontal, Globe } from "lucide-react";
+import { CalendarDays, MessageSquareText, Sprout, ShoppingCart, LogIn, LogOut, UserCircle, Users, Globe, Stethoscope } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,38 +13,29 @@ export function Layout({ children }: { children: ReactNode }) {
   const { lang } = useLanguage();
   const { user, logout } = useAuth();
   const { currentLanguage, setLanguage } = useLanguageStore();
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = [
-    { icon: Home, label: "Home", labelHi: "होम", href: "/" },
+    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
     { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
-    { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
-    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
-    { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
+    { icon: Stethoscope, label: "Clinical Insights", labelHi: "नैदानिक जानकारी", href: "/health" },
   ];
 
   const mobileMainItems = [
-    { icon: Home, label: "Home", labelHi: "होम", href: "/" },
+    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
     { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
-    { icon: Heart, label: "Health", labelHi: "स्वास्थ्य", href: "/health" },
-    { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
-  ];
-
-  const moreItems = [
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
-    { icon: BookOpen, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
+    { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
+    { icon: Stethoscope, label: "Insights", labelHi: "जानकारी", href: "/health" },
   ];
-
-  const moreIsActive = moreItems.some((i) => i.href === location);
 
   return (
     <div className="gradient-mesh min-h-screen pb-24 md:pb-0 md:pl-64 flex flex-col">
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 glass-sidebar z-50">
         {/* Logo */}
-        <div className="px-6 pt-7 pb-5 flex items-center gap-3">
+        <Link href="/" className="px-6 pt-7 pb-5 flex items-center gap-3 no-underline">
           <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg" style={{ boxShadow: '0 4px 16px rgba(5, 150, 105, 0.30)' }}>
             <Sprout className="w-6 h-6 text-white" />
           </div>
@@ -54,7 +45,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </h1>
             <p className="label-caps mt-0.5">ParivarSehat AI</p>
           </div>
-        </div>
+        </Link>
 
         {/* Family pill */}
         <div className="px-5 pb-4">
@@ -148,12 +139,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* ── Mobile Top Bar ── */}
       <header className="md:hidden glass-elevated sticky top-0 z-40 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 relative z-10 shrink-0">
+        <Link href="/" className="flex items-center gap-2 relative z-10 shrink-0 no-underline">
           <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow shadow-emerald-500/30">
             <Sprout className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
           </div>
           <h1 className="font-semibold text-sm sm:text-base" style={{ color: 'var(--text-primary)' }}>NutriNext</h1>
-        </div>
+        </Link>
         <div className="flex items-center gap-1.5 sm:gap-2 relative z-10 min-w-0">
           {activeFamily && (
             <div className="text-[10px] sm:text-xs font-semibold bg-primary/10 text-primary px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border border-primary/20 truncate max-w-[120px] sm:max-w-[160px]">
@@ -202,47 +193,8 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* ── Mobile Bottom Nav + popup in one container ── */}
+      {/* ── Mobile Bottom Nav ── */}
       <div className="md:hidden fixed bottom-5 left-4 right-4 z-50">
-
-        {/* Popup: absolute above the nav, right-aligned — inside the fixed container so no fixed-within-fixed issues */}
-        <div
-          className="absolute right-0 glass-card rounded-2xl shadow-2xl p-3"
-          style={{
-            bottom: "calc(100% + 10px)",
-            width: "100%",
-            visibility: moreOpen ? "visible" : "hidden",
-            opacity: moreOpen ? 1 : 0,
-            transition: "opacity 0.15s ease, visibility 0.15s ease",
-            pointerEvents: moreOpen ? "auto" : "none",
-          }}
-        >
-          {/* 2×2 nav grid */}
-          <div className="grid grid-cols-2 gap-2">
-            {moreItems.map((item) => {
-              const isActive = location === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl transition-all ${
-                    isActive
-                      ? "nav-active text-white"
-                      : "bg-muted/50 text-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-primary"}`} />
-                  <span className="text-xs font-medium leading-none">
-                    {lang === "hi" ? item.labelHi : item.label}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Nav pill */}
         <nav className="glass-nav-pill rounded-[2rem] px-2 py-2 flex justify-around items-center">
           {mobileMainItems.map((item) => {
             const isActive = location === item.href;
@@ -265,30 +217,8 @@ export function Layout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-
-          {/* More button */}
-          <button
-            onClick={() => setMoreOpen((v) => !v)}
-            className={`relative flex flex-col items-center justify-center min-w-[2.8rem] sm:min-w-[3.2rem] h-12 sm:h-13 rounded-[1.2rem] sm:rounded-[1.5rem] transition-all duration-250 focus-ring ${
-              moreIsActive || moreOpen
-                ? "nav-active text-white px-2.5 sm:px-3 gap-0.5"
-                : "text-muted-foreground hover:text-foreground px-1.5 sm:px-2"
-            }`}
-          >
-            <MoreHorizontal className={`w-[18px] h-[18px] sm:w-5 sm:h-5 shrink-0 ${moreIsActive || moreOpen ? "text-white" : ""}`} />
-            <span className={`text-[9px] sm:text-[11px] font-semibold leading-none ${moreIsActive || moreOpen ? "text-white" : ""} mt-0.5`}>
-              {lang === "hi" ? "अधिक" : "More"}
-            </span>
-          </button>
         </nav>
       </div>
-
-      {/* Backdrop: below the nav (z-49) so nav stays interactive, above page content */}
-      <div
-        className="md:hidden fixed inset-0 z-[49]"
-        style={{ pointerEvents: moreOpen ? "auto" : "none" }}
-        onPointerDown={() => setMoreOpen(false)}
-      />
     </div>
   );
 }

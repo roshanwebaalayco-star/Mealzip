@@ -40,6 +40,15 @@ The application adopts a monorepo structure using `pnpm` workspaces, segregating
 *   **Multi-Lingual Voice Support**: Integration of browser-native Web Speech API for Speech-to-Text and Text-to-Speech in 8 Indian languages.
 *   **Food Scanner**: Planned integration for food image scanning using YOLOv11 and Gemini Vision.
 
+## Validation Pass (April 2026)
+
+An 8-section validation and bug-fix pass was completed covering:
+- **Navigation**: Reduced to 5 spec-compliant items (Profile | Meals | Grocery | AI Chat | Clinical Insights). Removed Home and Recipes nav entries. Logo clickable to Dashboard on both desktop and mobile.
+- **Clinical Insights**: Renamed from "Health", added 3-card summary layout (Nutritional Debt Ledger, Nutritional Shadow Warning, Medication Guardrail) with empty-state fallbacks when no data is available.
+- **Profile-Gated Routes**: Grocery, Recipes, and Clinical Insights routes redirect to `/family-setup` if user has no active family profile.
+- **Date Safety**: `safeFormatDate` wrapper in MealPlan.tsx prevents "Invalid time value" crashes.
+- **Mobile**: Bottom nav pill shows all 5 items directly (no "More" overflow menu).
+
 ## External Dependencies
 
 **AI Services:**
