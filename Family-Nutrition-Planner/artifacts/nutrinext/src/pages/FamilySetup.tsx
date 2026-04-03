@@ -286,7 +286,7 @@ export default function FamilySetup() {
     }));
   };
 
-  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry-scan", minMembers = 2) => {
+  const executeSave = async (fd: typeof familyData, mems: MemberDraft[], redirectTo = "/pantry-scan", minMembers = 1) => {
     if (!fd.name) {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
@@ -306,7 +306,7 @@ export default function FamilySetup() {
     setMemberErrors({});
 
     if (mems.length < minMembers) {
-      toast({ title: "At least 2 members required", description: "Please add at least one more family member before saving.", variant: "destructive" });
+      toast({ title: "At least 1 member required", description: "Please add at least one family member before saving.", variant: "destructive" });
       return;
     }
     if (mems.length > 5) {
