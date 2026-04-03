@@ -446,6 +446,9 @@ router.post("/generate", async (req: Request, res: Response) => {
     }
 
     const numericFamilyId = Number(familyId);
+    if (!Number.isInteger(numericFamilyId) || numericFamilyId <= 0) {
+      return res.status(400).json({ error: "familyId must be a positive integer." });
+    }
     const userId = (req as any).user?.userId;
 
     if (userId != null) {
@@ -510,7 +513,7 @@ router.post("/generate", async (req: Request, res: Response) => {
     res.status(202).json({
       meal_plan_id: mealPlanId,
       status: "pending",
-      message: "Meal generation started. Poll /api/meal-plans/:id/status every 2 seconds.",
+      message: "Meal generation started. Poll /api/meal-gen/:id/status every 2 seconds.",
       poll_interval_ms: 2000,
     });
 
@@ -665,6 +668,15 @@ router.post("/:id/skip-meal", async (req: Request, res: Response) => {
 
     if (!day_date || !meal_slot) {
       return res.status(400).json({ error: "day_date and meal_slot are required." });
+    }
+
+    const validSlots = ["breakfast", "lunch", "dinner", "snack"];
+    if (!validSlots.includes(meal_slot)) {
+      return res.status(400).json({ error: `meal_slot must be one of: ${validSlots.join(", ")}` });
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day_date)) {
+      return res.status(400).json({ error: "day_date must be in YYYY-MM-DD format." });
     }
 
     const [plan] = await db

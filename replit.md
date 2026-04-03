@@ -82,7 +82,7 @@ Key files:
 - `src/engine/meal-generation-service.ts` — Express router (4 routes)
 - `db/index.ts` + `db/schema.ts` — Bridge layer re-exporting @workspace/db with short aliases
 
-Routes mounted at `/api/meal-plans/` (behind auth middleware):
+Routes mounted at `/api/meal-gen/` (behind auth middleware, separate from legacy `/api/meal-plans/`):
 - `POST /generate` — Starts async generation, returns 202 with meal_plan_id
 - `GET /:id/status` — Poll for generation progress + final result
 - `GET /:id/conflicts` — Harmony Score breakdown card
@@ -108,10 +108,10 @@ The app uses **two separate PostgreSQL connections**:
 | `GET /api/demo/instant` | Creates demo Sharma family + returns JWT token. No DEMO_MODE env required |
 | `GET/POST /api/families`, `GET /api/families/:id/members` | Family & member CRUD |
 | `GET /api/meal-plans?familyId=`, `POST /api/meal-plans/generate` | Meal plan CRUD + AI generation |
-| `POST /api/meal-plans/generate` (engine) | ParivarSehat AI pipeline: async 7-day plan generation (returns 202 + poll) |
-| `GET /api/meal-plans/:id/status` (engine) | Poll generation progress (log entries + final result on completion) |
-| `GET /api/meal-plans/:id/conflicts` (engine) | Harmony Score card + conflict transparency panel |
-| `POST /api/meal-plans/:id/skip-meal` (engine) | Mark meal skipped; returns nutritional bandaid + carry-forward |
+| `POST /api/meal-gen/generate` (engine) | ParivarSehat AI pipeline: async 7-day plan generation (returns 202 + poll) |
+| `GET /api/meal-gen/:id/status` (engine) | Poll generation progress (log entries + final result on completion) |
+| `GET /api/meal-gen/:id/conflicts` (engine) | Harmony Score card + conflict transparency panel |
+| `POST /api/meal-gen/:id/skip-meal` (engine) | Mark meal skipped; returns nutritional bandaid + carry-forward |
 | `GET /api/recipes?q=&cuisine=&diet=&limit=&page=` | Full-text recipe search with weighted ts_rank |
 | `GET /api/recipes/:id` | Single recipe detail |
 | `POST /api/chat` | SSE-streaming AI chat (Gemini 2.5 Flash) |

@@ -42,6 +42,6 @@ router.use(healthRouter); // /health-logs, /nutrition-logs, /symptom-check, /fas
 router.use(marketRouter); // /market/prices, /market/trigger-surge, /market/prep-alerts
 router.use(leftoversRouter); // /leftovers — leftover item tracking
 router.use("/chat", chatRouter); // /chat — ParivarSehat AI SSE streaming chat
-router.use("/meal-plans", mealGenEngineRouter); // ParivarSehat AI engine: /generate, /:id/status, /:id/conflicts, /:id/skip-meal
+router.use("/meal-gen", mealGenEngineRouter); // ParivarSehat AI engine: /generate, /:id/status, /:id/conflicts, /:id/skip-meal
 
 export default router;
