@@ -15,9 +15,14 @@ import { recordOnce } from "@/lib/audio-utils";
 import { format, startOfMonth, getDaysInMonth, getDay, addDays, isValid } from "date-fns";
 
 function safeFormatDate(value: unknown, fmt: string, fallback = "This Week"): string {
-  if (!value) return fallback;
-  const d = new Date(value as string | number);
-  return isValid(d) ? format(d, fmt) : fallback;
+  try {
+    if (!value) return fallback;
+    const d = value instanceof Date ? value : new Date(value as string | number);
+    if (!isValid(d) || isNaN(d.getTime())) return fallback;
+    return format(d, fmt);
+  } catch {
+    return fallback;
+  }
 }
 import { HarmonyScore } from "@/components/HarmonyScore";
 import { motion } from "framer-motion";
@@ -828,7 +833,7 @@ export default function MealPlan() {
                     ? (fastingData.generalFastingDays ?? [])
                     : (fastingData.fastingDays ?? []);
                   const fastDay = cell
-                    ? activeDays.find((fd: FastingDay) => fd.date === format(cell, "yyyy-MM-dd"))
+                    ? activeDays.find((fd: FastingDay) => fd.date === safeFormatDate(cell, "yyyy-MM-dd", ""))
                     : null;
                   return (
                     <div
@@ -842,7 +847,7 @@ export default function MealPlan() {
                       {cell && (
                         <>
                           <span className={`text-[11px] font-semibold leading-none ${fastDay ? "text-purple-700" : "text-foreground/70"}`}>
-                            {format(cell, "d")}
+                            {safeFormatDate(cell, "d", "")}
                           </span>
                           {fastDay && <Moon className="w-2 h-2 text-purple-500 mt-0.5" />}
                         </>
