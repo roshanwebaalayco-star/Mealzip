@@ -6,7 +6,7 @@ import type {
   ParsedMedicationTiming,
 } from "../types";
 
-const MEDICATION_RULES: Record<string, MedicationRule & { cross_slot_conflict?: any; day_wide_restrictions?: any; regional_flag?: string }> = {
+export const MEDICATION_RULES: Record<string, MedicationRule & { cross_slot_conflict?: any; day_wide_restrictions?: any; regional_flag?: string }> = {
   metformin: {
     drug_id: "metformin",
     display_name: "Metformin (Diabetes)",

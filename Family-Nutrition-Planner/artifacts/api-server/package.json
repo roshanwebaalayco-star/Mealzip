@@ -8,7 +8,10 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run test/integration.test.ts"
+    "test": "vitest run test/integration.test.ts",
+    "test:engine": "vitest run tests/",
+    "test:engine:unit": "vitest run tests/unit/",
+    "test:engine:integration": "vitest run tests/integration/"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",

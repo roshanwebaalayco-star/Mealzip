@@ -100,7 +100,14 @@ export interface MealPlanFinalResult {
   timings: PromptChainTimings;
 }
 
-function getScoreTier(score: number): {
+export const HARMONY_SCORE_TIERS = [
+  { min: 90, label: "Excellent", emoji: "\u{1F7E2}", color: "#16a34a" },
+  { min: 75, label: "Good",      emoji: "\u{1F7E1}", color: "#65a30d" },
+  { min: 60, label: "Moderate",   emoji: "\u{1F7E0}", color: "#d97706" },
+  { min: 0,  label: "Challenging", emoji: "\u{1F534}", color: "#dc2626" },
+];
+
+export function getScoreTier(score: number): {
   label: string;
   emoji: string;
   color: string;

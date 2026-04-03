@@ -314,6 +314,26 @@ The frontend (`MealPlan.tsx`) handles this with: `const rawPlanField = (currentP
 4. Returns JWT token; frontend stores it and redirects to meal plan page
 5. Demo includes a pre-generated 7-day meal plan with status `completed`
 
+### Engine Test Suite (Vitest)
+
+The ParivarSehat AI meal planning engine has a comprehensive test suite with 114 tests across 6 files:
+
+```bash
+pnpm --filter @workspace/api-server run test:engine           # All 114 tests
+pnpm --filter @workspace/api-server run test:engine:unit       # Unit tests only (5 files)
+pnpm --filter @workspace/api-server run test:engine:integration # Integration tests (1 file)
+```
+
+**Test files**: `artifacts/api-server/tests/`
+- `unit/calorieCalculator.test.ts` — ICMR calorie calculations, age-based goal rules (30 tests)
+- `unit/budgetEngine.test.ts` — Budget splits, meal weights, regional pricing (17 tests)
+- `unit/medicationRules.test.ts` — 9 drug classes, timing parsing, guardrail generation (21 tests)
+- `unit/harmonyScore.test.ts` — 4-tier scoring, score card assembly (19 tests)
+- `unit/conflictEngine.test.ts` — 6-level conflict detection and resolution (20 tests)
+- `integration/fullPipeline.test.ts` — End-to-end constraint packet assembly (7 tests)
+
+**Test report**: `artifacts/api-server/tests/TEST_REPORT.md`
+
 ### Testing via curl
 
 ```bash

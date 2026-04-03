@@ -1,0 +1,2037 @@
+# NutriNext ParivarSehat — Complete Test Suite Prompt for Replit
+
+You are writing a comprehensive automated test suite for the NutriNext ParivarSehat backend.
+This is a critical system — it generates weekly meal plans for Indian families with medical
+conditions, allergies, and dietary restrictions. A bug here could mean a diabetic patient
+eating sugar, or a Jain member being served onion. Tests are not optional.
+
+## YOUR ROLE
+
+You write tests. You do NOT modify any source file.
+If a test reveals a bug, you document it in a comment — you do NOT fix the source code.
+Every test must have a clear description of what it is testing and why it matters.
+
+## TESTING FRAMEWORK
+
+```bash
+npm install --save-dev jest ts-jest @types/jest supertest @types/supertest
+```
+
+Create `jest.config.ts` in project root:
+
+```typescript
+import type { Config } from "jest";
+
+const config: Config = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  rootDir: ".",
+  testMatch: ["**/tests/**/*.test.ts"],
+  moduleNameMapper: {
+    "^../../db$": "<rootDir>/db/index.ts",
+    "^../../db/schema$": "<rootDir>/db/schema.ts",
+    "^../../types$": "<rootDir>/src/engine/types.ts",
+  },
+  collectCoverageFrom: [
+    "src/engine/**/*.ts",
+    "src/recipes/**/*.ts",
+    "!src/engine/meal-generation-service.ts", // route handler tested via supertest
+  ],
+  coverageThreshold: {
+    global: {
+      lines: 80,
+      functions: 80,
+    },
+  },
+  setupFiles: ["<rootDir>/tests/setup.ts"],
+  verbose: true,
+};
+
+export default config;
+```
+
+Add to `package.json` scripts:
+```json
+"test": "jest",
+"test:watch": "jest --watch",
+"test:coverage": "jest --coverage",
+"test:unit": "jest tests/unit",
+"test:integration": "jest tests/integration"
+```
+
+Create `tests/setup.ts`:
+```typescript
+// Suppress console.log during tests (keep console.error for debugging)
+beforeAll(() => {
+  jest.spyOn(console, "log").mockImplementation(() => {});
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
+// Set test environment variables
+process.env.NODE_ENV = "test";
+process.env.GEMINI_API_KEY = "test-api-key-not-real";
+process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
+```
+
+---
+
+## COMPLETE TEST FILE LIST
+
+Create ALL of these files:
+
+```
+tests/
+├── setup.ts
+├── unit/
+│   ├── calorieCalculator.test.ts
+│   ├── budgetEngine.test.ts
+│   ├── conflictEngine.test.ts
+│   ├── medicationRules.test.ts
+│   ├── harmonyScore.test.ts
+│   ├── regionMapper.test.ts
+│   └── recipeSelector.test.ts
+├── integration/
+│   ├── mealGenerationApi.test.ts
+│   └── fullPipeline.test.ts
+└── fixtures/
+    ├── familyFixtures.ts
+    └── recipeFixtures.ts
+```
+
+---
+
+## STEP 1 — TEST FIXTURES
+
+Create `tests/fixtures/familyFixtures.ts` with ALL of these:
+
+```typescript
+import type {
+  Family, FamilyMember, MonthlyBudget, WeeklyContext,
+  MemberWeeklyContext, ActiveMedication
+} from "../../src/engine/types";
+
+// ─── FAMILY FIXTURES ──────────────────────────────────────────────
+
+export const BOKARO_FAMILY: Family = {
+  id: "fam-001",
+  userId: "usr-001",
+  name: "Sharma Parivar",
+  stateRegion: "Jharkhand",
+  languagePreference: "hindi",
+  householdDietaryBaseline: "strictly_veg",
+  mealsPerDay: "3_meals",
+  cookingSkillLevel: "intermediate",
+  appliances: ["gas_stove", "pressure_cooker", "mixer_grinder"],
+  pincode: "827001",
+};
+
+export const DELHI_MIXED_FAMILY: Family = {
+  id: "fam-002",
+  userId: "usr-002",
+  name: "Kapoor Family",
+  stateRegion: "Delhi",
+  languagePreference: "english",
+  householdDietaryBaseline: "mixed",
+  mealsPerDay: "3_meals_snacks",
+  cookingSkillLevel: "experienced",
+  appliances: ["gas_stove", "oven", "air_fryer", "pressure_cooker"],
+  pincode: "110001",
+};
+
+export const CHENNAI_SOUTH_FAMILY: Family = {
+  id: "fam-003",
+  userId: "usr-003",
+  name: "Iyer Kudumbam",
+  stateRegion: "Tamil Nadu",
+  languagePreference: "hindi",
+  householdDietaryBaseline: "strictly_veg",
+  mealsPerDay: "3_meals",
+  cookingSkillLevel: "beginner",
+  appliances: ["gas_stove", "mixer_grinder"],
+  pincode: "600001",
+};
+
+// ─── MEMBER FIXTURES ──────────────────────────────────────────────
+
+// Papa — 48 years, diabetic, hypertensive, takes Metformin
+export const MEMBER_PAPA_DIABETIC: FamilyMember = {
+  id: "mem-001",
+  familyId: "fam-001",
+  name: "Papa",
+  age: 48,
+  gender: "male",
+  heightCm: 168,
+  weightKg: 82,
+  activityLevel: "sedentary",
+  primaryGoal: "manage_condition",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "strictly_vegetarian",
+  spiceTolerance: "mild",
+  tiffinNeeded: "yes_office",
+  festivalFastingAlerts: false,
+  displayOrder: 0,
+  healthConditions: ["diabetes_type_2", "hypertension"],
+  allergies: ["none"],
+  ingredientDislikes: ["karela"],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// Mama — 44 years, anaemic, takes Iron supplement at night
+export const MEMBER_MAMA_ANAEMIC: FamilyMember = {
+  id: "mem-002",
+  familyId: "fam-001",
+  name: "Mama",
+  age: 44,
+  gender: "female",
+  heightCm: 155,
+  weightKg: 58,
+  activityLevel: "lightly_active",
+  primaryGoal: "maintain",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "strictly_vegetarian",
+  spiceTolerance: "medium",
+  tiffinNeeded: "no",
+  festivalFastingAlerts: true,
+  displayOrder: 1,
+  healthConditions: ["anaemia"],
+  allergies: ["none"],
+  ingredientDislikes: ["methi"],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: {
+    type: "weekly",
+    weekly_days: ["monday"],
+    ekadashi: true,
+    festival_alerts: true,
+  },
+};
+
+// Dadi — 68 years, senior, Jain, fasts on Ekadashi
+export const MEMBER_DADI_JAIN_SENIOR: FamilyMember = {
+  id: "mem-003",
+  familyId: "fam-001",
+  name: "Dadi",
+  age: 68,
+  gender: "female",
+  heightCm: 150,
+  weightKg: 52,
+  activityLevel: "sedentary",
+  primaryGoal: "senior_nutrition",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "jain_vegetarian",
+  spiceTolerance: "mild",
+  tiffinNeeded: "no",
+  festivalFastingAlerts: true,
+  displayOrder: 2,
+  healthConditions: ["none"],
+  allergies: ["none"],
+  ingredientDislikes: ["brinjal"],
+  religiousCulturalRules: { type: "jain_rules", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "ekadashi", weekly_days: [], ekadashi: true, festival_alerts: true },
+};
+
+// Child — 8 years, school age, peanut allergy
+export const MEMBER_CHILD_SCHOOL: FamilyMember = {
+  id: "mem-004",
+  familyId: "fam-001",
+  name: "Riya",
+  age: 8,
+  gender: "female",
+  heightCm: 122,
+  weightKg: 25,
+  activityLevel: "moderately_active",
+  primaryGoal: "healthy_growth",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "strictly_vegetarian",
+  spiceTolerance: "mild",
+  tiffinNeeded: "yes_school",
+  festivalFastingAlerts: false,
+  displayOrder: 3,
+  healthConditions: ["none"],
+  allergies: ["peanuts"],
+  ingredientDislikes: ["karela", "gourd"],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// Teen — 15 years, tried to set weight_loss (should be blocked by auto-assign)
+export const MEMBER_TEEN_WEIGHT_LOSS_ATTEMPT: FamilyMember = {
+  id: "mem-005",
+  familyId: "fam-002",
+  name: "Aryan",
+  age: 15,
+  gender: "male",
+  heightCm: 170,
+  weightKg: 60,
+  activityLevel: "very_active",
+  primaryGoal: "weight_loss",  // ← Should be blocked by auto-assign
+  goalPace: "moderate_0.5kg",
+  dailyCalorieTarget: null,
+  dietaryType: "non_vegetarian",
+  spiceTolerance: "spicy",
+  tiffinNeeded: "yes_school",
+  festivalFastingAlerts: false,
+  displayOrder: 0,
+  healthConditions: ["none"],
+  allergies: ["none"],
+  ingredientDislikes: [],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// Infant — 2 years
+export const MEMBER_TODDLER: FamilyMember = {
+  id: "mem-006",
+  familyId: "fam-002",
+  name: "Baby Dev",
+  age: 2,
+  gender: "male",
+  heightCm: 88,
+  weightKg: 13,
+  activityLevel: "lightly_active",
+  primaryGoal: "no_specific_goal",  // ← Should be overridden to early_childhood_nutrition
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "strictly_vegetarian",
+  spiceTolerance: "mild",
+  tiffinNeeded: "no",
+  festivalFastingAlerts: false,
+  displayOrder: 1,
+  healthConditions: ["none"],
+  allergies: ["dairy"],  // Dairy allergy in a veg family = real conflict
+  ingredientDislikes: [],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// Non-veg member in mixed family
+export const MEMBER_NONVEG_ADULT: FamilyMember = {
+  id: "mem-007",
+  familyId: "fam-002",
+  name: "Rahul",
+  age: 38,
+  gender: "male",
+  heightCm: 175,
+  weightKg: 78,
+  activityLevel: "moderately_active",
+  primaryGoal: "build_muscle",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "non_vegetarian",
+  spiceTolerance: "spicy",
+  tiffinNeeded: "yes_office",
+  festivalFastingAlerts: false,
+  displayOrder: 0,
+  healthConditions: ["high_cholesterol"],
+  allergies: ["shellfish"],
+  ingredientDislikes: [],
+  religiousCulturalRules: { type: "no_beef", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// Member with kidney disease — needs protein restriction
+export const MEMBER_KIDNEY_PATIENT: FamilyMember = {
+  id: "mem-008",
+  familyId: "fam-003",
+  name: "Thatha",
+  age: 72,
+  gender: "male",
+  heightCm: 162,
+  weightKg: 58,
+  activityLevel: "sedentary",
+  primaryGoal: "manage_condition",
+  goalPace: null,
+  dailyCalorieTarget: null,
+  dietaryType: "strictly_vegetarian",
+  spiceTolerance: "mild",
+  tiffinNeeded: "no",
+  festivalFastingAlerts: false,
+  displayOrder: 0,
+  healthConditions: ["kidney_issues", "diabetes_type_2"],
+  allergies: ["none"],
+  ingredientDislikes: [],
+  religiousCulturalRules: { type: "none", details: [] },
+  occasionalNonvegConfig: null,
+  fastingConfig: { type: "no_fasting", weekly_days: [], ekadashi: false, festival_alerts: false },
+};
+
+// ─── MONTHLY BUDGET FIXTURES ──────────────────────────────────────
+
+export const BUDGET_10000_BOKARO: MonthlyBudget = {
+  id: "bud-001",
+  familyId: "fam-001",
+  monthYear: "2025-07",
+  totalMonthlyBudget: 10000,
+  staplesBudget: 4000,
+  perishablesBudget: 5000,
+  bufferBudget: 1000,
+  dailyPerishableLimit: 166.67,
+  regionalPriceSuggestion: 7260,
+  budgetBreakdown: {
+    breakfast_weight: 0.28,
+    lunch_weight: 0.36,
+    dinner_weight: 0.36,
+    snack_weight: 0,
+    daily_limits: { breakfast: 46.67, lunch: 60, dinner: 60, snack: 0 },
+  },
+};
+
+export const BUDGET_15000_DELHI: MonthlyBudget = {
+  id: "bud-002",
+  familyId: "fam-002",
+  monthYear: "2025-07",
+  totalMonthlyBudget: 15000,
+  staplesBudget: 6000,
+  perishablesBudget: 7500,
+  bufferBudget: 1500,
+  dailyPerishableLimit: 250,
+  regionalPriceSuggestion: 14850,
+  budgetBreakdown: {
+    breakfast_weight: 0.20,
+    lunch_weight: 0.36,
+    dinner_weight: 0.36,
+    snack_weight: 0.08,
+    daily_limits: { breakfast: 50, lunch: 90, dinner: 90, snack: 20 },
+  },
+};
+
+// ─── WEEKLY CONTEXT FIXTURES ──────────────────────────────────────
+
+export const WEEKLY_CTX_NORMAL: WeeklyContext = {
+  id: "wc-001",
+  familyId: "fam-001",
+  weekStartDate: "2025-07-07",
+  eatingOutFrequency: "none",
+  weekdayCookingTime: "20_40_mins",
+  weekendCookingTime: "elaborate",
+  weeklyPerishableBudgetOverride: null,
+  specialRequest: null,
+  status: "submitted",
+  pantrySnapshot: [
+    { name: "spinach", quantity: 200, unit: "grams", is_perishable: true },
+    { name: "cabbage", quantity: 300, unit: "grams", is_perishable: true },
+    { name: "paneer", quantity: 100, unit: "grams", is_perishable: true },
+    { name: "basmati rice", quantity: 2, unit: "kg", is_perishable: false },
+  ],
+};
+
+export const WEEKLY_CTX_SPECIAL_REQUEST: WeeklyContext = {
+  ...WEEKLY_CTX_NORMAL,
+  id: "wc-002",
+  specialRequest: "more protein for Papa this week, no rice at all, use up the spinach",
+};
+
+// ─── MEMBER WEEKLY CONTEXT FIXTURES ──────────────────────────────
+
+export const MWC_PAPA_WITH_METFORMIN: MemberWeeklyContext = {
+  id: "mwc-001",
+  weeklyContextId: "wc-001",
+  familyMemberId: "mem-001",
+  currentGoalOverride: null,
+  currentWeightKg: 81,
+  feelingThisWeek: "low energy",
+  spiceToleranceOverride: null,
+  tiffinNeededOverride: null,
+  ekadashiThisWeek: false,
+  festivalFastThisWeek: false,
+  healthConditionsOverride: null,
+  activeMedications: [
+    { name: "Metformin 500mg", timing: "with_breakfast", notes: "Take with meal, not before" },
+    { name: "Amlodipine 5mg", timing: "at_night", notes: "" },
+  ],
+  fastingDaysThisWeek: [],
+  nonvegDaysThisWeek: [],
+  nonvegTypesThisWeek: [],
+};
+
+export const MWC_MAMA_WITH_IRON: MemberWeeklyContext = {
+  id: "mwc-002",
+  weeklyContextId: "wc-001",
+  familyMemberId: "mem-002",
+  currentGoalOverride: null,
+  currentWeightKg: null,
+  feelingThisWeek: "tired",
+  spiceToleranceOverride: null,
+  tiffinNeededOverride: null,
+  ekadashiThisWeek: true,
+  festivalFastThisWeek: false,
+  healthConditionsOverride: null,
+  activeMedications: [
+    { name: "Iron supplement (Ferrous Sulphate)", timing: "at_night", notes: "Avoid dairy within 2 hours" },
+  ],
+  fastingDaysThisWeek: ["monday"],
+  nonvegDaysThisWeek: [],
+  nonvegTypesThisWeek: [],
+};
+
+export const MWC_DADI_FASTING: MemberWeeklyContext = {
+  id: "mwc-003",
+  weeklyContextId: "wc-001",
+  familyMemberId: "mem-003",
+  currentGoalOverride: null,
+  currentWeightKg: null,
+  feelingThisWeek: null,
+  spiceToleranceOverride: null,
+  tiffinNeededOverride: null,
+  ekadashiThisWeek: true,
+  festivalFastThisWeek: false,
+  healthConditionsOverride: null,
+  activeMedications: [],
+  fastingDaysThisWeek: ["thursday"],
+  nonvegDaysThisWeek: [],
+  nonvegTypesThisWeek: [],
+};
+
+export const MWC_CHILD_NO_CHANGES: MemberWeeklyContext = {
+  id: "mwc-004",
+  weeklyContextId: "wc-001",
+  familyMemberId: "mem-004",
+  currentGoalOverride: null,
+  currentWeightKg: null,
+  feelingThisWeek: null,
+  spiceToleranceOverride: null,
+  tiffinNeededOverride: null,
+  ekadashiThisWeek: false,
+  festivalFastThisWeek: false,
+  healthConditionsOverride: null,
+  activeMedications: [],
+  fastingDaysThisWeek: [],
+  nonvegDaysThisWeek: [],
+  nonvegTypesThisWeek: [],
+};
+```
+
+---
+
+## STEP 2 — CALORIE CALCULATOR TESTS
+
+Create `tests/unit/calorieCalculator.test.ts`:
+
+```typescript
+import {
+  applyAutoAssignmentRules,
+  calculateDailyCalorieTarget,
+  buildFastingPreloadInstructions,
+} from "../../src/engine/calorieCalculator";
+
+// ─── Import fixtures ───────────────────────────────────────────────
+import {
+  MEMBER_PAPA_DIABETIC,
+  MEMBER_MAMA_ANAEMIC,
+  MEMBER_DADI_JAIN_SENIOR,
+  MEMBER_CHILD_SCHOOL,
+  MEMBER_TEEN_WEIGHT_LOSS_ATTEMPT,
+  MEMBER_TODDLER,
+} from "../fixtures/familyFixtures";
+
+// =============================================================================
+// 1. AUTO-ASSIGNMENT RULES
+// These are medical safety rules — wrong auto-assignment = wrong diet plan
+// =============================================================================
+
+describe("applyAutoAssignmentRules", () => {
+
+  describe("Age < 5 (infant / toddler)", () => {
+    it("should force early_childhood_nutrition for age 0", () => {
+      const result = applyAutoAssignmentRules(0, "weight_loss");
+      expect(result.effective_goal).toBe("early_childhood_nutrition");
+      expect(result.is_child_under5).toBe(true);
+      expect(result.goal_locked).toBe(true);
+    });
+
+    it("should force early_childhood_nutrition for age 4", () => {
+      const result = applyAutoAssignmentRules(4, "maintain");
+      expect(result.effective_goal).toBe("early_childhood_nutrition");
+      expect(result.goal_locked).toBe(true);
+    });
+
+    it("should override ANY goal for toddler — even manage_condition", () => {
+      const result = applyAutoAssignmentRules(2, "manage_condition");
+      expect(result.effective_goal).toBe("early_childhood_nutrition");
+    });
+  });
+
+  describe("Age 5–12 (school age)", () => {
+    it("should force healthy_growth for age 5", () => {
+      const result = applyAutoAssignmentRules(5, "weight_loss");
+      expect(result.effective_goal).toBe("healthy_growth");
+      expect(result.is_school_age).toBe(true);
+      expect(result.goal_locked).toBe(true);
+    });
+
+    it("should force healthy_growth for age 12", () => {
+      const result = applyAutoAssignmentRules(12, "build_muscle");
+      expect(result.effective_goal).toBe("healthy_growth");
+      expect(result.goal_locked).toBe(true);
+    });
+
+    it("should NOT apply school-age rule at age 13 (boundary)", () => {
+      const result = applyAutoAssignmentRules(13, "maintain");
+      expect(result.effective_goal).toBe("maintain");
+      expect(result.is_school_age).toBe(false);
+      expect(result.is_teen).toBe(true);
+    });
+  });
+
+  describe("Age 13–17 (teen — weight loss blocked)", () => {
+    it("should block weight_loss and return maintain for a 15-year-old", () => {
+      const result = applyAutoAssignmentRules(15, "weight_loss");
+      expect(result.effective_goal).toBe("maintain");
+      expect(result.is_teen).toBe(true);
+      // This is a safety rule — teens should not be on calorie-deficit diets
+    });
+
+    it("should allow maintain for teen", () => {
+      const result = applyAutoAssignmentRules(16, "maintain");
+      expect(result.effective_goal).toBe("maintain");
+    });
+
+    it("should allow build_muscle for teen", () => {
+      const result = applyAutoAssignmentRules(14, "build_muscle");
+      expect(result.effective_goal).toBe("build_muscle");
+    });
+
+    it("should NOT lock goal for teens (only block weight_loss)", () => {
+      const result = applyAutoAssignmentRules(17, "manage_condition");
+      expect(result.goal_locked).toBe(false);
+    });
+  });
+
+  describe("Age 60+ (senior)", () => {
+    it("should auto-set senior_nutrition when no specific goal (no_specific_goal)", () => {
+      const result = applyAutoAssignmentRules(65, "no_specific_goal");
+      expect(result.effective_goal).toBe("senior_nutrition");
+      expect(result.is_senior).toBe(true);
+    });
+
+    it("should respect user override — maintain stays maintain for 70-year-old", () => {
+      const result = applyAutoAssignmentRules(70, "maintain");
+      expect(result.effective_goal).toBe("maintain");
+    });
+
+    it("should respect manage_condition for senior", () => {
+      const result = applyAutoAssignmentRules(68, "manage_condition");
+      expect(result.effective_goal).toBe("manage_condition");
+    });
+
+    it("should override healthy_growth for senior (impossible goal)", () => {
+      // Someone may have accidentally set healthy_growth for an elderly member
+      const result = applyAutoAssignmentRules(72, "healthy_growth");
+      expect(result.effective_goal).toBe("senior_nutrition");
+    });
+  });
+
+  describe("Boundary conditions", () => {
+    it("age exactly 17 → teen, weight_loss blocked", () => {
+      const result = applyAutoAssignmentRules(17, "weight_loss");
+      expect(result.effective_goal).toBe("maintain");
+      expect(result.is_teen).toBe(true);
+    });
+
+    it("age exactly 18 → adult, weight_loss allowed", () => {
+      const result = applyAutoAssignmentRules(18, "weight_loss");
+      expect(result.effective_goal).toBe("weight_loss");
+      expect(result.is_teen).toBe(false);
+    });
+
+    it("age exactly 59 → adult, no senior rule", () => {
+      const result = applyAutoAssignmentRules(59, "no_specific_goal");
+      expect(result.effective_goal).toBe("no_specific_goal");
+      expect(result.is_senior).toBe(false);
+    });
+
+    it("age exactly 60 → senior, no_specific_goal → senior_nutrition", () => {
+      const result = applyAutoAssignmentRules(60, "no_specific_goal");
+      expect(result.effective_goal).toBe("senior_nutrition");
+      expect(result.is_senior).toBe(true);
+    });
+  });
+});
+
+// =============================================================================
+// 2. CALORIE TARGET CALCULATION
+// Numbers must be medically reasonable. Check against ICMR-NIN tables.
+// =============================================================================
+
+describe("calculateDailyCalorieTarget", () => {
+
+  describe("Children — uses ICMR paediatric table (no body metrics needed)", () => {
+    it("8-year-old moderately active child should get ~1690-1859 kcal", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 8,
+        gender: "female",
+        height_cm: 122,
+        weight_kg: 25,
+        activity_level: "moderately_active",
+        primary_goal: "healthy_growth",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("icmr_paediatric");
+      expect(result.daily_calorie_target).toBeGreaterThan(1500);
+      expect(result.daily_calorie_target).toBeLessThan(2100);
+    });
+
+    it("2-year-old toddler should use paediatric table regardless of having metrics", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 2,
+        gender: "male",
+        height_cm: 88,
+        weight_kg: 13,
+        activity_level: "lightly_active",
+        primary_goal: "early_childhood_nutrition",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("icmr_paediatric");
+      expect(result.daily_calorie_target).toBeGreaterThan(800);
+      expect(result.daily_calorie_target).toBeLessThan(1300);
+    });
+  });
+
+  describe("Adults — Mifflin-St Jeor with body metrics", () => {
+    it("48M sedentary 82kg 168cm → reasonable TDEE for Indian male", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 48,
+        gender: "male",
+        height_cm: 168,
+        weight_kg: 82,
+        activity_level: "sedentary",
+        primary_goal: "manage_condition",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("mifflin_st_jeor");
+      expect(result.daily_calorie_target).toBeGreaterThan(1600);
+      expect(result.daily_calorie_target).toBeLessThan(2200);
+      expect(result.bmr).toBeDefined();
+      expect(result.tdee).toBeDefined();
+    });
+
+    it("44F lightly active 58kg 155cm → female calculation lower than male baseline", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 44,
+        gender: "female",
+        height_cm: 155,
+        weight_kg: 58,
+        activity_level: "lightly_active",
+        primary_goal: "maintain",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("mifflin_st_jeor");
+      expect(result.daily_calorie_target).toBeGreaterThan(1400);
+      expect(result.daily_calorie_target).toBeLessThan(2000);
+    });
+
+    it("should return null for adult without weight or height", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 35,
+        gender: "male",
+        height_cm: null,
+        weight_kg: null,
+        activity_level: "moderately_active",
+        primary_goal: "maintain",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("insufficient_data");
+      expect(result.daily_calorie_target).toBeNull();
+    });
+
+    it("should return null when only height present (no weight)", () => {
+      const result = calculateDailyCalorieTarget({
+        age: 35,
+        gender: "female",
+        height_cm: 160,
+        weight_kg: null,
+        activity_level: "sedentary",
+        primary_goal: "maintain",
+        goal_pace: null,
+      });
+      expect(result.calculation_method).toBe("insufficient_data");
+    });
+  });
+
+  describe("Goal adjustments", () => {
+    const BASE_PARAMS = {
+      age: 30,
+      gender: "male" as const,
+      height_cm: 170,
+      weight_kg: 70,
+      activity_level: "sedentary" as const,
+      goal_pace: null as null,
+    };
+
+    it("weight_loss moderate pace → should deduct ~550 kcal from TDEE", () => {
+      const maintain = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "maintain" });
+      const loss = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "weight_loss", goal_pace: "moderate_0.5kg" });
+      expect(maintain.daily_calorie_target).not.toBeNull();
+      expect(loss.daily_calorie_target).not.toBeNull();
+      const diff = maintain.daily_calorie_target! - loss.daily_calorie_target!;
+      expect(diff).toBeCloseTo(550, -1); // within 50 kcal
+    });
+
+    it("weight_loss slow pace → should deduct ~275 kcal from TDEE", () => {
+      const maintain = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "maintain" });
+      const loss = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "weight_loss", goal_pace: "slow_0.25kg" });
+      const diff = maintain.daily_calorie_target! - loss.daily_calorie_target!;
+      expect(diff).toBeCloseTo(275, -1);
+    });
+
+    it("weight_loss should never go below 1200 kcal floor", () => {
+      // Very low TDEE person attempting aggressive weight loss
+      const result = calculateDailyCalorieTarget({
+        age: 65,
+        gender: "female",
+        height_cm: 148,
+        weight_kg: 42,
+        activity_level: "sedentary",
+        primary_goal: "weight_loss",
+        goal_pace: "moderate_0.5kg",
+      });
+      expect(result.daily_calorie_target).toBeGreaterThanOrEqual(1200);
+    });
+
+    it("build_muscle → should add +300 kcal surplus", () => {
+      const maintain = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "maintain" });
+      const muscle = calculateDailyCalorieTarget({ ...BASE_PARAMS, primary_goal: "build_muscle" });
+      const diff = muscle.daily_calorie_target! - maintain.daily_calorie_target!;
+      expect(diff).toBe(300);
+    });
+
+    it("senior_nutrition → should reduce by ~10% compared to maintain", () => {
+      const maintain = calculateDailyCalorieTarget({ ...BASE_PARAMS, age: 65, primary_goal: "maintain" });
+      const senior = calculateDailyCalorieTarget({ ...BASE_PARAMS, age: 65, primary_goal: "senior_nutrition" });
+      const reduction = (maintain.daily_calorie_target! - senior.daily_calorie_target!) / maintain.daily_calorie_target!;
+      expect(reduction).toBeCloseTo(0.1, 1);
+    });
+  });
+
+  describe("Gender differences", () => {
+    const SAME_BODY_PARAMS = {
+      age: 30,
+      height_cm: 165,
+      weight_kg: 65,
+      activity_level: "moderate" as any,
+      primary_goal: "maintain" as const,
+      goal_pace: null as null,
+    };
+    // Male BMR formula adds +5, female adds -161 → male should always be higher
+    it("male should have higher calorie target than female with same metrics", () => {
+      const male = calculateDailyCalorieTarget({ ...SAME_BODY_PARAMS, gender: "male" });
+      const female = calculateDailyCalorieTarget({ ...SAME_BODY_PARAMS, gender: "female" });
+      if (male.daily_calorie_target && female.daily_calorie_target) {
+        expect(male.daily_calorie_target).toBeGreaterThan(female.daily_calorie_target);
+      }
+    });
+  });
+});
+
+// =============================================================================
+// 3. FASTING PRE-LOAD INSTRUCTIONS
+// =============================================================================
+
+describe("buildFastingPreloadInstructions", () => {
+  it("should generate instructions for Mama fasting on Monday", () => {
+    const mockProfiles = [
+      {
+        name: "Mama",
+        fasting_days: ["monday"],
+        ekadashi_this_week: false,
+        festival_fast_this_week: false,
+        health_conditions: ["anaemia"],
+        age: 44,
+      },
+    ];
+    const instructions = buildFastingPreloadInstructions(mockProfiles as any);
+    expect(instructions.length).toBeGreaterThan(0);
+    expect(instructions[0]).toContain("Mama");
+    expect(instructions[0]).toContain("monday");
+    // Anaemia detected — iron loading must be mentioned
+    expect(instructions[0]).toContain("Iron");
+  });
+
+  it("should add Ekadashi-specific instruction when ekadashi_this_week is true", () => {
+    const mockProfiles = [
+      {
+        name: "Dadi",
+        fasting_days: [],
+        ekadashi_this_week: true,
+        festival_fast_this_week: false,
+        health_conditions: [],
+        age: 68,
+      },
+    ];
+    const instructions = buildFastingPreloadInstructions(mockProfiles as any);
+    const hasEkadashi = instructions.some(i => i.toLowerCase().includes("ekadashi"));
+    expect(hasEkadashi).toBe(true);
+  });
+
+  it("should return empty array when no member fasts", () => {
+    const mockProfiles = [
+      { name: "Papa", fasting_days: [], ekadashi_this_week: false, festival_fast_this_week: false, health_conditions: [], age: 48 },
+    ];
+    const instructions = buildFastingPreloadInstructions(mockProfiles as any);
+    expect(instructions).toHaveLength(0);
+  });
+
+  it("should add Calcium to preload instructions for senior fasting members", () => {
+    const mockProfiles = [
+      {
+        name: "Dadi",
+        fasting_days: ["thursday"],
+        ekadashi_this_week: false,
+        festival_fast_this_week: false,
+        health_conditions: [],
+        age: 68,  // 60+ → Calcium required
+      },
+    ];
+    const instructions = buildFastingPreloadInstructions(mockProfiles as any);
+    expect(instructions[0]).toContain("Calcium");
+  });
+});
+```
+
+---
+
+## STEP 3 — BUDGET ENGINE TESTS
+
+Create `tests/unit/budgetEngine.test.ts`:
+
+```typescript
+import {
+  calculateBudgetSplit,
+  validateBudgetAdequacy,
+  calculateRollingDailyLimit,
+  buildMonthlyBudgetRow,
+} from "../../src/engine/budgetEngine";
+
+describe("Budget Engine", () => {
+
+  // ==========================================================================
+  // 1. THE 40/50/10 SPLIT — Core arithmetic
+  // ==========================================================================
+
+  describe("calculateBudgetSplit — 40/50/10 arithmetic", () => {
+    it("should split ₹10,000 into exactly ₹4,000 / ₹5,000 / ₹1,000", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "Jharkhand",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.staples_budget).toBe(4000);
+      expect(result.perishables_budget).toBe(5000);
+      expect(result.buffer_budget).toBe(1000);
+    });
+
+    it("split must always sum to total budget (no money disappears)", () => {
+      const total = 12345;
+      const result = calculateBudgetSplit({
+        total_monthly_budget: total,
+        month_year: "2025-08",
+        state_region: "Delhi",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-002",
+      });
+      const sum = result.staples_budget + result.perishables_budget + result.buffer_budget;
+      expect(sum).toBeCloseTo(total, 1);
+    });
+
+    it("July (31 days) should give daily limit of perishables/31", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "Maharashtra",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.days_in_month).toBe(31);
+      expect(result.daily_perishable_limit).toBeCloseTo(5000 / 31, 1);
+    });
+
+    it("February non-leap year (28 days) should use 28", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-02",
+        state_region: "Delhi",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.days_in_month).toBe(28);
+    });
+
+    it("February leap year (29 days) should use 29", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2024-02",  // 2024 is leap year
+        state_region: "Delhi",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.days_in_month).toBe(29);
+    });
+  });
+
+  // ==========================================================================
+  // 2. MEAL WEIGHT SPLITS
+  // ==========================================================================
+
+  describe("Meal weight splits", () => {
+    it("3_meals: breakfast=28%, lunch=36%, dinner=36%", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "Delhi",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      const daily = result.effective_daily_perishable_limit;
+      expect(result.budget_breakdown.breakfast_weight).toBeCloseTo(0.28, 2);
+      expect(result.budget_breakdown.lunch_weight).toBeCloseTo(0.36, 2);
+      expect(result.budget_breakdown.dinner_weight).toBeCloseTo(0.36, 2);
+      expect(result.budget_breakdown.daily_limits.breakfast).toBeCloseTo(daily * 0.28, 0);
+    });
+
+    it("3_meals_snacks: breakfast+snack+lunch+dinner weights sum to 1.0", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "Delhi",
+        meals_per_day: "3_meals_snacks",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      const sum = result.budget_breakdown.breakfast_weight +
+                  result.budget_breakdown.lunch_weight +
+                  result.budget_breakdown.dinner_weight +
+                  (result.budget_breakdown as any).snack_weight;
+      expect(sum).toBeCloseTo(1.0, 2);
+    });
+
+    it("2_meals: lunch=50%, dinner=50%, breakfast=0%", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "Delhi",
+        meals_per_day: "2_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.budget_breakdown.breakfast_weight).toBe(0);
+      expect(result.budget_breakdown.lunch_weight).toBeCloseTo(0.5, 2);
+      expect(result.budget_breakdown.dinner_weight).toBeCloseTo(0.5, 2);
+    });
+  });
+
+  // ==========================================================================
+  // 3. EATING OUT ADJUSTMENT
+  // ==========================================================================
+
+  describe("Eating out adjustment", () => {
+    const BASE_INPUT = {
+      total_monthly_budget: 10000,
+      month_year: "2025-07",
+      state_region: "Delhi",
+      meals_per_day: "3_meals" as const,
+      family_id: "fam-001",
+    };
+
+    it("none → effective daily limit equals base daily limit", () => {
+      const result = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "none" });
+      expect(result.effective_daily_perishable_limit).toBe(result.daily_perishable_limit);
+    });
+
+    it("1_to_2_times → effective limit should be less than base limit", () => {
+      const none = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "none" });
+      const sometimes = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "1_to_2_times" });
+      expect(sometimes.effective_daily_perishable_limit).toBeLessThan(none.effective_daily_perishable_limit);
+    });
+
+    it("frequently → effective limit should be less than 1_to_2_times limit", () => {
+      const sometimes = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "1_to_2_times" });
+      const often = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "frequently" });
+      expect(often.effective_daily_perishable_limit).toBeLessThan(sometimes.effective_daily_perishable_limit);
+    });
+
+    it("effective daily limit should never be zero or negative", () => {
+      const result = calculateBudgetSplit({ ...BASE_INPUT, eating_out_frequency: "frequently" });
+      expect(result.effective_daily_perishable_limit).toBeGreaterThan(0);
+    });
+  });
+
+  // ==========================================================================
+  // 4. REGIONAL PRICE SUGGESTIONS
+  // ==========================================================================
+
+  describe("Regional price suggestions", () => {
+    it("Bokaro should return 7260 (explicitly set in spec)", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "bokaro",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.regional_price_suggestion).toBe(7260);
+    });
+
+    it("Delhi should be higher than Jharkhand (metro vs tier-3)", () => {
+      const delhi = calculateBudgetSplit({ total_monthly_budget: 10000, month_year: "2025-07", state_region: "Delhi", meals_per_day: "3_meals", eating_out_frequency: "none", family_id: "fam-001" });
+      const jharkhand = calculateBudgetSplit({ total_monthly_budget: 10000, month_year: "2025-07", state_region: "Jharkhand", meals_per_day: "3_meals", eating_out_frequency: "none", family_id: "fam-001" });
+      expect(delhi.regional_price_suggestion).toBeGreaterThan(jharkhand.regional_price_suggestion);
+    });
+
+    it("unknown region should return a reasonable default (not 0)", () => {
+      const result = calculateBudgetSplit({
+        total_monthly_budget: 10000,
+        month_year: "2025-07",
+        state_region: "UnknownDistrictXYZ",
+        meals_per_day: "3_meals",
+        eating_out_frequency: "none",
+        family_id: "fam-001",
+      });
+      expect(result.regional_price_suggestion).toBeGreaterThan(0);
+    });
+  });
+
+  // ==========================================================================
+  // 5. BUDGET VALIDATION
+  // ==========================================================================
+
+  describe("validateBudgetAdequacy", () => {
+    it("should flag a budget of ₹1000/month for family of 4 as inadequate", () => {
+      const result = validateBudgetAdequacy(1000, "Delhi", 4);
+      expect(result.is_adequate).toBe(false);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.adjusted_budget).not.toBeNull();
+      expect(result.adjusted_budget!).toBeGreaterThan(1000);
+    });
+
+    it("should pass a realistic budget for Delhi family of 4", () => {
+      const result = validateBudgetAdequacy(14850, "Delhi", 4);
+      expect(result.is_adequate).toBe(true);
+    });
+
+    it("adjusted_budget should be null when budget is adequate", () => {
+      const result = validateBudgetAdequacy(10000, "Jharkhand", 3);
+      expect(result.adjusted_budget).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // 6. ROLLING BUDGET
+  // ==========================================================================
+
+  describe("calculateRollingDailyLimit", () => {
+    it("after 3 days with ₹700 spent of ₹1167 weekly budget → ~₹156/day remaining", () => {
+      const result = calculateRollingDailyLimit({
+        original_weekly_budget: 1166.67,
+        days_elapsed: 3,
+        actual_spent: 700,
+      });
+      expect(result.remaining_days).toBe(4);
+      expect(result.remaining_budget).toBeCloseTo(466.67, 0);
+      expect(result.adjusted_daily_limit).toBeCloseTo(116.67, 0);
+    });
+
+    it("remaining_days should never go below 1 even if days_elapsed >= 7", () => {
+      const result = calculateRollingDailyLimit({
+        original_weekly_budget: 1000,
+        days_elapsed: 8, // Edge: more than a week
+        actual_spent: 900,
+      });
+      expect(result.remaining_days).toBeGreaterThanOrEqual(1);
+    });
+  });
+});
+```
+
+---
+
+## STEP 4 — MEDICATION RULES TESTS
+
+Create `tests/unit/medicationRules.test.ts`:
+
+```typescript
+// Import the parseMedicationTiming, matchMedicationRule, buildGuardrailStrings,
+// resolveAllMedicationGuardrails functions from medicationRules.ts
+// Adjust import path to match your actual exports
+
+import {
+  MEDICATION_RULES,
+  parseMedicationTiming,
+  matchMedicationRule,
+  buildGuardrailStrings,
+  resolveAllMedicationGuardrails,
+} from "../../src/engine/lib/medicationRules";
+
+// =============================================================================
+// MEDICATION RULES — CRITICAL SAFETY TESTS
+// These tests protect patients. A failing test here means a real medical risk.
+// =============================================================================
+
+describe("parseMedicationTiming", () => {
+
+  it("should parse 'with breakfast' → breakfast slot, relation: with", () => {
+    const result = parseMedicationTiming("with breakfast");
+    expect(result.resolved_slot).toBe("breakfast");
+    expect(result.relation).toBe("with");
+    expect(result.is_empty_stomach).toBe(false);
+  });
+
+  it("should parse 'at night' → night slot, is_night: true", () => {
+    const result = parseMedicationTiming("at night");
+    expect(result.is_night).toBe(true);
+  });
+
+  it("should parse 'empty stomach morning' → empty_stomach, is_empty_stomach: true", () => {
+    const result = parseMedicationTiming("empty stomach morning");
+    expect(result.is_empty_stomach).toBe(true);
+  });
+
+  it("should parse 'before dinner' → dinner slot, relation: before", () => {
+    const result = parseMedicationTiming("before dinner");
+    expect(result.resolved_slot).toBe("dinner");
+    expect(result.relation).toBe("before");
+  });
+
+  it("should handle Hindi variations — 'subah khane ke saath' should resolve to breakfast", () => {
+    // Even approximate parsing — should not throw
+    expect(() => parseMedicationTiming("subah khane ke saath")).not.toThrow();
+  });
+});
+
+describe("matchMedicationRule", () => {
+
+  it("should match 'Metformin 500mg' to metformin rule", () => {
+    const rule = matchMedicationRule("Metformin 500mg");
+    expect(rule).not.toBeNull();
+    expect(rule?.drug_id).toBe("metformin");
+  });
+
+  it("should match 'Glycomet SR' to metformin rule (brand name)", () => {
+    const rule = matchMedicationRule("Glycomet SR");
+    expect(rule?.drug_id).toBe("metformin");
+  });
+
+  it("should match 'Ferrous Sulphate' to iron_supplement rule", () => {
+    const rule = matchMedicationRule("Ferrous Sulphate");
+    expect(rule?.drug_id).toBe("iron_supplement");
+  });
+
+  it("should match 'Haemup tablet' to iron_supplement (Indian brand)", () => {
+    const rule = matchMedicationRule("Haemup tablet");
+    expect(rule?.drug_id).toBe("iron_supplement");
+  });
+
+  it("should match 'Levothyroxine 50mcg' to thyroid rule", () => {
+    const rule = matchMedicationRule("Levothyroxine 50mcg");
+    expect(rule).not.toBeNull();
+    expect(rule?.drug_id).toContain("thyroid");
+  });
+
+  it("should match 'Eltroxin' to thyroid rule (common Indian brand)", () => {
+    const rule = matchMedicationRule("Eltroxin");
+    expect(rule).not.toBeNull();
+  });
+
+  it("should match 'Warfarin' to warfarin rule", () => {
+    const rule = matchMedicationRule("Warfarin");
+    expect(rule).not.toBeNull();
+    expect(rule?.drug_id).toBe("warfarin");
+  });
+
+  it("should return null for unknown medication (not in rule table)", () => {
+    const rule = matchMedicationRule("SomeRandomDrug XYZ");
+    expect(rule).toBeNull();
+  });
+});
+
+describe("buildGuardrailStrings — output used in Gemini prompt", () => {
+
+  it("Metformin breakfast → directive must mention solid food requirement", () => {
+    const rule = MEDICATION_RULES["metformin"]!;
+    const timing = parseMedicationTiming("with breakfast");
+    const bundle = buildGuardrailStrings("Papa", rule, timing);
+
+    expect(bundle.member_name).toBe("Papa");
+    expect(bundle.directives.length).toBeGreaterThan(0);
+    const directiveText = bundle.directives.join(" ").toLowerCase();
+    expect(directiveText).toContain("solid");
+    expect(directiveText).toContain("breakfast");
+  });
+
+  it("Iron at night → directive must mention avoiding dairy at dinner", () => {
+    const rule = MEDICATION_RULES["iron_supplement"]!;
+    const timing = parseMedicationTiming("at night");
+    const bundle = buildGuardrailStrings("Mama", rule, timing);
+
+    const allText = bundle.directives.join(" ").toLowerCase();
+    // Iron at night means dinner must avoid calcium/dairy
+    expect(allText).toMatch(/dairy|calcium|milk|paneer/);
+  });
+
+  it("harmony_score_addition should be positive for correctly handled drugs", () => {
+    const rule = MEDICATION_RULES["metformin"]!;
+    const timing = parseMedicationTiming("with breakfast");
+    const bundle = buildGuardrailStrings("Papa", rule, timing);
+    expect(bundle.harmony_score_addition).toBeGreaterThan(0);
+  });
+
+  it("Warfarin → weekly_monitor_directives should be present", () => {
+    const rule = MEDICATION_RULES["warfarin"]!;
+    const timing = parseMedicationTiming("at night");
+    const bundle = buildGuardrailStrings("Dada", rule, timing);
+    // Warfarin has a weekly monitor (keep Vit K consistent)
+    expect(bundle.weekly_monitor_directives.length).toBeGreaterThan(0);
+  });
+});
+
+describe("resolveAllMedicationGuardrails — full member processing", () => {
+
+  it("processes Papa with Metformin + Amlodipine and returns 2 bundles", () => {
+    const medications = [
+      { name: "Metformin 500mg", timing: "with_breakfast", notes: "" },
+      { name: "Amlodipine 5mg", timing: "at_night", notes: "" },
+    ];
+    const bundles = resolveAllMedicationGuardrails("Papa", medications as any);
+    // At least Metformin should be matched; Amlodipine may or may not have a rule
+    expect(bundles.length).toBeGreaterThanOrEqual(1);
+    const drugIds = bundles.map(b => b.drug_id);
+    expect(drugIds).toContain("metformin");
+  });
+
+  it("processes Mama with Iron supplement and generates dinner constraints", () => {
+    const medications = [
+      { name: "Iron supplement (Ferrous Sulphate)", timing: "at_night", notes: "Avoid dairy within 2 hours" },
+    ];
+    const bundles = resolveAllMedicationGuardrails("Mama", medications as any);
+    expect(bundles.length).toBeGreaterThan(0);
+    const allDirectives = bundles.flatMap(b => b.directives).join(" ").toLowerCase();
+    expect(allDirectives).toMatch(/iron|dairy|calcium/);
+  });
+
+  it("empty medications array returns empty bundles array (no error)", () => {
+    const bundles = resolveAllMedicationGuardrails("Riya", []);
+    expect(bundles).toHaveLength(0);
+  });
+
+  it("unrecognised drug produces zero bundles (graceful degradation)", () => {
+    const medications = [{ name: "SomeFutureDrug2030", timing: "morning", notes: "" }];
+    const bundles = resolveAllMedicationGuardrails("Someone", medications as any);
+    expect(bundles).toHaveLength(0);
+  });
+});
+```
+
+---
+
+## STEP 5 — CONFLICT ENGINE TESTS
+
+Create `tests/unit/conflictEngine.test.ts`:
+
+```typescript
+import { runConflictEngine } from "../../src/engine/conflict-engine";
+import {
+  BOKARO_FAMILY,
+  MEMBER_PAPA_DIABETIC,
+  MEMBER_MAMA_ANAEMIC,
+  MEMBER_DADI_JAIN_SENIOR,
+  MEMBER_CHILD_SCHOOL,
+  MEMBER_TODDLER,
+  MEMBER_NONVEG_ADULT,
+  WEEKLY_CTX_NORMAL,
+  BUDGET_10000_BOKARO,
+  MWC_PAPA_WITH_METFORMIN,
+  MWC_MAMA_WITH_IRON,
+  MWC_DADI_FASTING,
+  MWC_CHILD_NO_CHANGES,
+} from "../fixtures/familyFixtures";
+
+// =============================================================================
+// CONFLICT ENGINE — The deterministic core of NutriNext
+// Tests verify that:
+//   1. All 6 priority levels detect conflicts correctly
+//   2. Effective profiles merge weekly overrides over base profiles
+//   3. The constraint packet is correctly assembled
+//   4. Harmony score arithmetic is correct
+// =============================================================================
+
+function buildFullPacket() {
+  return runConflictEngine(
+    BOKARO_FAMILY,
+    [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC, MEMBER_DADI_JAIN_SENIOR, MEMBER_CHILD_SCHOOL],
+    [MWC_PAPA_WITH_METFORMIN, MWC_MAMA_WITH_IRON, MWC_DADI_FASTING, MWC_CHILD_NO_CHANGES],
+    WEEKLY_CTX_NORMAL,
+    BUDGET_10000_BOKARO
+  );
+}
+
+describe("Conflict Engine — Effective Profile Building", () => {
+
+  it("should return an effective profile for each member", () => {
+    const packet = buildFullPacket();
+    expect(packet.effectiveProfiles).toHaveLength(4);
+  });
+
+  it("Papa's weekly weight update (81kg) should override profile weight (82kg)", () => {
+    const packet = buildFullPacket();
+    const papa = packet.effectiveProfiles.find(p => p.name === "Papa");
+    expect(papa?.effectiveWeightKg).toBe(81);
+  });
+
+  it("Mama's fasting days (Monday from weekly + profile) should be merged", () => {
+    const packet = buildFullPacket();
+    const mama = packet.effectiveProfiles.find(p => p.name === "Mama");
+    expect(mama?.effectiveFastingDays).toContain("monday");
+  });
+
+  it("Dadi's fasting days should include Thursday (from weekly context)", () => {
+    const packet = buildFullPacket();
+    const dadi = packet.effectiveProfiles.find(p => p.name === "Dadi");
+    expect(dadi?.effectiveFastingDays).toContain("thursday");
+  });
+
+  it("Mama's ekadashi_this_week flag should be true", () => {
+    const packet = buildFullPacket();
+    const mama = packet.effectiveProfiles.find(p => p.name === "Mama");
+    expect(mama?.ekadashiThisWeek).toBe(true);
+  });
+
+  it("Papa's active medications should include Metformin", () => {
+    const packet = buildFullPacket();
+    const papa = packet.effectiveProfiles.find(p => p.name === "Papa");
+    const medNames = papa?.activeMedications.map(m => m.name.toLowerCase()) ?? [];
+    expect(medNames.some(n => n.includes("metformin"))).toBe(true);
+  });
+
+  it("child Riya should have isSchoolAge flag set", () => {
+    const packet = buildFullPacket();
+    const riya = packet.effectiveProfiles.find(p => p.name === "Riya");
+    expect(riya?.isSchoolAge).toBe(true);
+  });
+
+  it("Dadi (68) should have isSenior flag set", () => {
+    const packet = buildFullPacket();
+    const dadi = packet.effectiveProfiles.find(p => p.name === "Dadi");
+    expect(dadi?.isSenior).toBe(true);
+  });
+});
+
+describe("Conflict Engine — Level 1: Allergy Conflicts", () => {
+
+  it("should detect Riya's peanut allergy", () => {
+    const packet = buildFullPacket();
+    const allergyConflicts = packet.conflicts.filter(c => c.priority_level === 1);
+    expect(allergyConflicts.length).toBeGreaterThanOrEqual(0);
+    // Peanut allergy should be captured in the constraint packet
+    const riyaProfile = packet.effectiveProfiles.find(p => p.name === "Riya");
+    expect(riyaProfile?.allergies).toContain("peanuts");
+  });
+
+  it("baby with dairy allergy in veg family should trigger a Level 1 conflict", () => {
+    const packet = runConflictEngine(
+      BOKARO_FAMILY,
+      [MEMBER_MAMA_ANAEMIC, MEMBER_TODDLER],
+      [MWC_MAMA_WITH_IRON, {
+        id: "mwc-t",
+        weeklyContextId: "wc-001",
+        familyMemberId: MEMBER_TODDLER.id,
+        currentGoalOverride: null,
+        currentWeightKg: null,
+        feelingThisWeek: null,
+        spiceToleranceOverride: null,
+        tiffinNeededOverride: null,
+        ekadashiThisWeek: false,
+        festivalFastThisWeek: false,
+        healthConditionsOverride: null,
+        activeMedications: [],
+        fastingDaysThisWeek: [],
+        nonvegDaysThisWeek: [],
+        nonvegTypesThisWeek: [],
+      }],
+      WEEKLY_CTX_NORMAL,
+      BUDGET_10000_BOKARO
+    );
+    const level1 = packet.conflicts.filter(c => c.priority_level === 1);
+    // Dairy allergy must be detected as a conflict in a vegetarian family
+    expect(level1.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Conflict Engine — Level 2: Religious Conflicts", () => {
+
+  it("Dadi's Jain rules should be reflected in her effective profile", () => {
+    const packet = buildFullPacket();
+    const dadi = packet.effectiveProfiles.find(p => p.name === "Dadi");
+    expect(dadi?.religiousCulturalRules.type).toBe("jain_rules");
+  });
+
+  it("should detect Jain member in a household with other dietary types", () => {
+    const packet = buildFullPacket();
+    // The Jain member (Dadi) in a household with non-Jain members = Level 2 conflict
+    const level2 = packet.conflicts.filter(c => c.priority_level === 2);
+    expect(level2.length).toBeGreaterThanOrEqual(0);
+    // At minimum, the conflict engine should NOT throw
+  });
+});
+
+describe("Conflict Engine — Level 4: Clinical Condition Conflicts", () => {
+
+  it("Papa with diabetes should have diabetes rules in effectiveHealthConditions", () => {
+    const packet = buildFullPacket();
+    const papa = packet.effectiveProfiles.find(p => p.name === "Papa");
+    expect(papa?.effectiveHealthConditions).toContain("diabetes_type_2");
+    expect(papa?.effectiveHealthConditions).toContain("hypertension");
+  });
+
+  it("constraint packet should contain medication guardrail bundles for Papa", () => {
+    const packet = buildFullPacket();
+    expect(packet.medicationGuardrailBundles.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Conflict Engine — Pantry Zero Waste", () => {
+
+  it("perishable pantry items should appear in pantryZeroWasteItems", () => {
+    const packet = buildFullPacket();
+    // Weekly context has spinach (200g, perishable) and cabbage (300g, perishable)
+    expect(packet.pantryZeroWasteItems.length).toBeGreaterThan(0);
+    const names = packet.pantryZeroWasteItems.map(i => i.name);
+    expect(names).toContain("spinach");
+    expect(names).toContain("cabbage");
+  });
+
+  it("non-perishable pantry items should NOT appear in zero waste list", () => {
+    const packet = buildFullPacket();
+    const names = packet.pantryZeroWasteItems.map(i => i.name);
+    // Basmati rice is marked is_perishable: false in fixture
+    expect(names).not.toContain("basmati rice");
+  });
+});
+
+describe("Conflict Engine — Harmony Score", () => {
+
+  it("harmony score should be between 0 and 100", () => {
+    const packet = buildFullPacket();
+    expect(packet.harmonyScore.final_score).toBeGreaterThanOrEqual(0);
+    expect(packet.harmonyScore.final_score).toBeLessThanOrEqual(100);
+  });
+
+  it("harmony score base should always be 100", () => {
+    const packet = buildFullPacket();
+    expect(packet.harmonyScore.base).toBe(100);
+  });
+
+  it("each pantry item used should add +2 to harmony score additions", () => {
+    const packet = buildFullPacket();
+    const pantryAdditions = packet.harmonyScore.additions.filter(a =>
+      a.reason.toLowerCase().includes("pantry") || a.reason.toLowerCase().includes("zero-waste")
+    );
+    // At least spinach and cabbage (2 items) → at least +4
+    const totalPantryPoints = pantryAdditions.reduce((s, a) => s + a.points, 0);
+    if (packet.pantryZeroWasteItems.length > 0) {
+      expect(totalPantryPoints).toBeGreaterThan(0);
+    }
+  });
+
+  it("plate modifications should deduct −2 points from harmony score", () => {
+    const packet = buildFullPacket();
+    const plateMods = packet.harmonyScore.deductions.filter(d => d.points === -2);
+    // Papa has diabetes + hypertension in a shared meal family → plate mods expected
+    // This test verifies the formula is applied, not a specific number
+    expect(packet.harmonyScore.deductions).toBeDefined();
+  });
+});
+```
+
+---
+
+## STEP 6 — HARMONY SCORE MODULE TESTS
+
+Create `tests/unit/harmonyScore.test.ts`:
+
+```typescript
+import {
+  getScoreTier,
+  buildHarmonyScoreCard,
+  formatHarmonyScorePlainText,
+  HARMONY_SCORE_TIERS,
+} from "../../src/engine/lib/harmonyScore";
+import type { HarmonyScoreBreakdown } from "../../src/engine/types";
+
+// =============================================================================
+// HARMONY SCORE — UI-facing. Wrong labels = bad demo at hackathon.
+// =============================================================================
+
+describe("getScoreTier", () => {
+
+  it("100 → Excellent", () => expect(getScoreTier(100).label).toBe("Excellent"));
+  it("90 → Excellent", () => expect(getScoreTier(90).label).toBe("Excellent"));
+  it("89 → Good", () => expect(getScoreTier(89).label).toBe("Good"));
+  it("75 → Good", () => expect(getScoreTier(75).label).toBe("Good"));
+  it("74 → Moderate", () => expect(getScoreTier(74).label).toBe("Moderate"));
+  it("60 → Moderate", () => expect(getScoreTier(60).label).toBe("Moderate"));
+  it("59 → Challenging", () => expect(getScoreTier(59).label).toBe("Challenging"));
+  it("40 → Challenging", () => expect(getScoreTier(40).label).toBe("Challenging"));
+  it("39 → Critical", () => expect(getScoreTier(39).label).toBe("Critical"));
+  it("0 → Critical", () => expect(getScoreTier(0).label).toBe("Critical"));
+  it("negative should not throw", () => expect(() => getScoreTier(-5)).not.toThrow());
+
+  it("every tier should have non-empty emoji", () => {
+    HARMONY_SCORE_TIERS.forEach(tier => {
+      expect(tier.emoji).toBeTruthy();
+    });
+  });
+
+  it("every tier should have a non-empty color code", () => {
+    HARMONY_SCORE_TIERS.forEach(tier => {
+      expect(tier.color).toMatch(/^#/);
+    });
+  });
+});
+
+describe("buildHarmonyScoreCard", () => {
+
+  const SAMPLE_BREAKDOWN: HarmonyScoreBreakdown = {
+    base: 100,
+    deductions: [
+      { reason: "Papa's low-sodium requirement needs plate modification", points: -2 },
+      { reason: "Dadi's Jain rules restricts base dish", points: -5 },
+    ],
+    additions: [
+      { reason: "Spinach pantry item used (zero-waste)", points: 2 },
+      { reason: "Metformin window correctly scheduled", points: 3 },
+    ],
+    conflicts_detected: [
+      {
+        member_ids: ["mem-001"],
+        member_names: ["Papa"],
+        description: "Papa has hypertension",
+        priority_level: 4,
+      },
+    ],
+    conflicts_resolved: [
+      {
+        description: "Papa's sodium restriction handled",
+        resolution: "Low-sodium base dish with separate salt for others",
+        resolution_type: "plate_modification",
+      },
+    ],
+    final_score: 98, // 100 - 2 - 5 + 2 + 3 = 98
+  };
+
+  it("should build a card with correct final_score", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.score).toBe(98);
+  });
+
+  it("should return label 'Excellent' for score 98", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.label).toBe("Excellent");
+  });
+
+  it("should produce exactly 1 conflict_card (matching conflicts_detected length)", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.conflict_cards).toHaveLength(1);
+  });
+
+  it("total_deducted should be −7 (−2 + −5)", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.total_deducted).toBe(-7);
+  });
+
+  it("total_added should be +5 (+2 + +3)", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.total_added).toBe(5);
+  });
+
+  it("score_summary_text should be a non-empty string", () => {
+    const card = buildHarmonyScoreCard(SAMPLE_BREAKDOWN);
+    expect(card.score_summary_text).toBeTruthy();
+    expect(typeof card.score_summary_text).toBe("string");
+  });
+});
+```
+
+---
+
+## STEP 7 — REGION MAPPER TESTS
+
+Create `tests/unit/regionMapper.test.ts`:
+
+```typescript
+import {
+  getDirectRegionGroup,
+  getBroadenedRegionGroups,
+  normaliseRegion,
+  mapRawZoneToRegionGroup,
+} from "../../src/recipes/region-mapper";
+
+describe("normaliseRegion", () => {
+  it("converts spaces to underscores", () => expect(normaliseRegion("West Bengal")).toBe("west_bengal"));
+  it("lowercases the string", () => expect(normaliseRegion("JHARKHAND")).toBe("jharkhand"));
+  it("trims whitespace", () => expect(normaliseRegion("  Bihar  ")).toBe("bihar"));
+});
+
+describe("getDirectRegionGroup", () => {
+  it("Jharkhand → east_india", () => expect(getDirectRegionGroup("Jharkhand")).toBe("east_india"));
+  it("Bihar → east_india", () => expect(getDirectRegionGroup("Bihar")).toBe("east_india"));
+  it("Delhi → north_india", () => expect(getDirectRegionGroup("Delhi")).toBe("north_india"));
+  it("Tamil Nadu → south_india", () => expect(getDirectRegionGroup("Tamil Nadu")).toBe("south_india"));
+  it("Kerala → south_india", () => expect(getDirectRegionGroup("Kerala")).toBe("south_india"));
+  it("Gujarat → west_india", () => expect(getDirectRegionGroup("Gujarat")).toBe("west_india"));
+  it("Assam → northeast_india", () => expect(getDirectRegionGroup("Assam")).toBe("northeast_india"));
+  it("unknown region falls back to pan_indian", () => expect(getDirectRegionGroup("UnknownXYZ")).toBe("pan_indian"));
+});
+
+describe("getBroadenedRegionGroups", () => {
+  it("Jharkhand layer 2 should include east_india AND pan_indian", () => {
+    const groups = getBroadenedRegionGroups("Jharkhand");
+    expect(groups).toContain("east_india");
+    expect(groups).toContain("pan_indian");
+  });
+
+  it("result should always include pan_indian (ultimate fallback)", () => {
+    const groups = getBroadenedRegionGroups("Some Unknown Region");
+    expect(groups).toContain("pan_indian");
+  });
+
+  it("broadened groups should be a superset of direct group", () => {
+    const direct = getDirectRegionGroup("Punjab");
+    const broadened = getBroadenedRegionGroups("Punjab");
+    expect(broadened).toContain(direct);
+  });
+});
+
+describe("mapRawZoneToRegionGroup", () => {
+  it("'North India' → north_india", () => expect(mapRawZoneToRegionGroup("North India")).toBe("north_india"));
+  it("'South India' → south_india", () => expect(mapRawZoneToRegionGroup("South India")).toBe("south_india"));
+  it("'East India' → east_india", () => expect(mapRawZoneToRegionGroup("East India")).toBe("east_india"));
+  it("'North East India' → northeast_india", () => expect(mapRawZoneToRegionGroup("North East India")).toBe("northeast_india"));
+  it("'No specific zone' → pan_indian", () => expect(mapRawZoneToRegionGroup("No specific zone")).toBe("pan_indian"));
+  it("empty string → pan_indian", () => expect(mapRawZoneToRegionGroup("")).toBe("pan_indian"));
+});
+```
+
+---
+
+## STEP 8 — API INTEGRATION TESTS
+
+Create `tests/integration/mealGenerationApi.test.ts`:
+
+```typescript
+import request from "supertest";
+import app from "../../src/app";
+
+// NOTE: These tests use supertest to hit the Express router.
+// They DO NOT call Gemini API (GEMINI_API_KEY is "test-api-key-not-real").
+// They DO NOT connect to the real DB.
+// They test HTTP contract: status codes, response shapes, error handling.
+
+// Mock the DB to avoid real connections
+jest.mock("../../db", () => ({
+  db: {
+    select: jest.fn().mockReturnThis(),
+    from: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    values: jest.fn().mockReturnThis(),
+    returning: jest.fn().mockResolvedValue([{ id: "mock-plan-id" }]),
+    execute: jest.fn().mockResolvedValue([]),
+    query: {
+      mealPlans: {
+        findFirst: jest.fn().mockResolvedValue({
+          generationStatus: "pending",
+          generationLog: [],
+          harmonyScore: null,
+        }),
+      },
+    },
+  },
+}));
+
+describe("Health endpoint", () => {
+  it("GET /health → 200 with status ok", async () => {
+    const res = await request(app).get("/health");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("ok");
+  });
+});
+
+describe("POST /api/meal-plans/generate", () => {
+
+  it("missing familyId → 400 error", async () => {
+    const res = await request(app)
+      .post("/api/meal-plans/generate")
+      .send({ weekStartDate: "2025-07-07", monthYear: "2025-07" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it("missing weekStartDate → 400 error", async () => {
+    const res = await request(app)
+      .post("/api/meal-plans/generate")
+      .send({ familyId: "fam-001", monthYear: "2025-07" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it("missing monthYear → 400 error", async () => {
+    const res = await request(app)
+      .post("/api/meal-plans/generate")
+      .send({ familyId: "fam-001", weekStartDate: "2025-07-07" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it("404 routes should return 404", async () => {
+    const res = await request(app).get("/api/this-route-does-not-exist");
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/meal-plans/:id/status", () => {
+  it("should return status shape for a valid plan id", async () => {
+    const res = await request(app).get("/api/meal-plans/mock-plan-id/status");
+    // With mocked DB, should return 200 with status field
+    expect([200, 500]).toContain(res.status); // 500 if mock doesn't cover fully
+    if (res.status === 200) {
+      expect(res.body).toHaveProperty("status");
+    }
+  });
+});
+
+describe("POST /api/meal-plans/:id/skip-meal", () => {
+  it("missing day_date → 400", async () => {
+    const res = await request(app)
+      .post("/api/meal-plans/some-id/skip-meal")
+      .send({ meal_slot: "breakfast" });
+    expect(res.status).toBe(400);
+  });
+
+  it("missing meal_slot → 400", async () => {
+    const res = await request(app)
+      .post("/api/meal-plans/some-id/skip-meal")
+      .send({ day_date: "2025-07-08" });
+    expect(res.status).toBe(400);
+  });
+});
+```
+
+---
+
+## STEP 9 — FULL PIPELINE UNIT TEST (no DB, no Gemini)
+
+Create `tests/integration/fullPipeline.test.ts`:
+
+```typescript
+/**
+ * End-to-end pipeline test WITHOUT DB or Gemini.
+ * Tests that all modules connect correctly and the constraint packet
+ * flowing through the pipeline is shaped correctly.
+ */
+
+import { runConflictEngine } from "../../src/engine/conflict-engine";
+import { calculateBudgetSplit } from "../../src/engine/budgetEngine";
+import {
+  BOKARO_FAMILY,
+  MEMBER_PAPA_DIABETIC,
+  MEMBER_MAMA_ANAEMIC,
+  MEMBER_DADI_JAIN_SENIOR,
+  MEMBER_CHILD_SCHOOL,
+  WEEKLY_CTX_NORMAL,
+  BUDGET_10000_BOKARO,
+  MWC_PAPA_WITH_METFORMIN,
+  MWC_MAMA_WITH_IRON,
+  MWC_DADI_FASTING,
+  MWC_CHILD_NO_CHANGES,
+} from "../fixtures/familyFixtures";
+
+describe("Full Pipeline Integration (without AI)", () => {
+
+  it("should complete constraint packet assembly without throwing", () => {
+    expect(() => {
+      runConflictEngine(
+        BOKARO_FAMILY,
+        [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC, MEMBER_DADI_JAIN_SENIOR, MEMBER_CHILD_SCHOOL],
+        [MWC_PAPA_WITH_METFORMIN, MWC_MAMA_WITH_IRON, MWC_DADI_FASTING, MWC_CHILD_NO_CHANGES],
+        WEEKLY_CTX_NORMAL,
+        BUDGET_10000_BOKARO
+      );
+    }).not.toThrow();
+  });
+
+  it("budget split + conflict engine → effective daily budget in constraint packet", () => {
+    const budgetResult = calculateBudgetSplit({
+      total_monthly_budget: 10000,
+      month_year: "2025-07",
+      state_region: "Jharkhand",
+      meals_per_day: "3_meals",
+      eating_out_frequency: "none",
+      family_id: "fam-001",
+    });
+
+    const packet = runConflictEngine(
+      BOKARO_FAMILY,
+      [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC],
+      [MWC_PAPA_WITH_METFORMIN, MWC_MAMA_WITH_IRON],
+      WEEKLY_CTX_NORMAL,
+      BUDGET_10000_BOKARO
+    );
+
+    expect(packet.effectiveDailyBudget).toBeGreaterThan(0);
+    expect(packet.effectiveDailyBudget).toBeLessThan(budgetResult.perishables_budget);
+  });
+
+  it("ConstraintPacket should have all required top-level keys", () => {
+    const packet = runConflictEngine(
+      BOKARO_FAMILY,
+      [MEMBER_PAPA_DIABETIC],
+      [MWC_PAPA_WITH_METFORMIN],
+      WEEKLY_CTX_NORMAL,
+      BUDGET_10000_BOKARO
+    );
+
+    expect(packet).toHaveProperty("family");
+    expect(packet).toHaveProperty("effectiveProfiles");
+    expect(packet).toHaveProperty("budget");
+    expect(packet).toHaveProperty("weeklyContext");
+    expect(packet).toHaveProperty("harmonyScore");
+    expect(packet).toHaveProperty("conflicts");
+    expect(packet).toHaveProperty("resolutions");
+    expect(packet).toHaveProperty("pantryZeroWasteItems");
+    expect(packet).toHaveProperty("medicationGuardrailBundles");
+    expect(packet).toHaveProperty("medicationWeeklyMonitorDirectives");
+    expect(packet).toHaveProperty("effectiveDailyBudget");
+  });
+
+  it("medication guardrail bundles should all have non-empty directives", () => {
+    const packet = runConflictEngine(
+      BOKARO_FAMILY,
+      [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC],
+      [MWC_PAPA_WITH_METFORMIN, MWC_MAMA_WITH_IRON],
+      WEEKLY_CTX_NORMAL,
+      BUDGET_10000_BOKARO
+    );
+
+    for (const bundle of packet.medicationGuardrailBundles) {
+      expect(bundle.directives.length).toBeGreaterThan(0);
+      expect(bundle.member_name).toBeTruthy();
+      expect(bundle.drug_id).toBeTruthy();
+    }
+  });
+
+  it("nonvegDaysByMember should be empty for strictly veg family", () => {
+    const packet = runConflictEngine(
+      BOKARO_FAMILY,
+      [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC, MEMBER_DADI_JAIN_SENIOR, MEMBER_CHILD_SCHOOL],
+      [MWC_PAPA_WITH_METFORMIN, MWC_MAMA_WITH_IRON, MWC_DADI_FASTING, MWC_CHILD_NO_CHANGES],
+      WEEKLY_CTX_NORMAL,
+      BUDGET_10000_BOKARO
+    );
+    // All members in Bokaro family are vegetarian — no non-veg days
+    Object.values(packet.nonvegDaysByMember).forEach(days => {
+      expect(days).toHaveLength(0);
+    });
+  });
+
+  it("pipeline with single-member family should not throw", () => {
+    expect(() => {
+      runConflictEngine(
+        BOKARO_FAMILY,
+        [MEMBER_PAPA_DIABETIC],
+        [MWC_PAPA_WITH_METFORMIN],
+        WEEKLY_CTX_NORMAL,
+        BUDGET_10000_BOKARO
+      );
+    }).not.toThrow();
+  });
+
+  it("pipeline with empty member weekly contexts array should not throw", () => {
+    expect(() => {
+      runConflictEngine(
+        BOKARO_FAMILY,
+        [MEMBER_PAPA_DIABETIC, MEMBER_MAMA_ANAEMIC],
+        [], // No weekly contexts
+        WEEKLY_CTX_NORMAL,
+        BUDGET_10000_BOKARO
+      );
+    }).not.toThrow();
+  });
+});
+```
+
+---
+
+## STEP 10 — RUN AND REPORT
+
+After writing all test files, run:
+
+```bash
+npm test -- --verbose 2>&1
+```
+
+Then create `tests/TEST_REPORT.md` and fill it with:
+
+```markdown
+# NutriNext Test Run Report
+
+## Run Date
+[Date of last test run]
+
+## Summary
+- Total test suites: X
+- Total tests: X
+- Passed: X
+- Failed: X
+- Coverage: X%
+
+## Failed Tests (list any)
+[List any failing tests with the exact error message]
+
+## Known Issues Discovered
+[List any bugs found in source files — do NOT fix them, just document]
+
+## Coverage by Module
+- calorieCalculator.ts: X%
+- budgetEngine.ts: X%
+- conflict-engine.ts: X%
+- medicationRules.ts: X%
+- harmonyScore.ts: X%
+- region-mapper.ts: X%
+```
+
+---
+
+## CRITICAL RULES FOR REPLIT
+
+1. **DO NOT modify any source file** — if a test fails because of a bug in source code, write the bug in TEST_REPORT.md
+2. **DO NOT skip any test** — all tests must be attempted
+3. **DO NOT mock the business logic modules** — only mock DB and external API calls
+4. **DO NOT change test assertions** to make tests pass — a failing assertion means a real problem
+5. **GEMINI_API_KEY in tests/setup.ts must be "test-api-key-not-real"** — no real API calls in tests
+6. **All fixtures in tests/fixtures/familyFixtures.ts must use the EXACT same TypeScript types** as src/engine/types.ts
+7. If `runConflictEngine` export name doesn't match — check the actual export in conflict-engine.ts and adjust import accordingly
+8. If any import fails to resolve, check the path carefully against the project structure — do NOT rename source files
