@@ -22,7 +22,7 @@ async function callGemini(prompt: string, maxOutputTokens = 8192): Promise<strin
       maxOutputTokens,
       temperature: 0.3,
       topP: 0.8,
-      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -46,16 +46,67 @@ async function callGemini(prompt: string, maxOutputTokens = 8192): Promise<strin
     .trim();
 }
 
+function repairTruncatedJSON(raw: string): string {
+  let s = raw.trim();
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    if (ch === '}') openBraces--;
+    if (ch === '[') openBrackets++;
+    if (ch === ']') openBrackets--;
+  }
+
+  if (inString) s += '"';
+
+  const lastComplete = Math.max(s.lastIndexOf('},'), s.lastIndexOf('}]'));
+  if (lastComplete > 0 && (openBraces > 0 || openBrackets > 0)) {
+    s = s.slice(0, lastComplete + 1);
+    openBraces = 0; openBrackets = 0;
+    inString = false; escape = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') openBraces++;
+      if (ch === '}') openBraces--;
+      if (ch === '[') openBrackets++;
+      if (ch === ']') openBrackets--;
+    }
+  }
+
+  while (openBrackets > 0) { s += ']'; openBrackets--; }
+  while (openBraces > 0) { s += '}'; openBraces--; }
+
+  return s;
+}
+
 function safeParseJSON<T>(raw: string, label: string): T {
   try {
     return JSON.parse(raw) as T;
-  } catch (err) {
-    throw new Error(
-      `[PromptChain] Failed to parse Gemini JSON for "${label}". ` +
-      `Model: ${GEMINI_MODEL}. ` +
-      `Parse error: ${(err as Error).message}. ` +
-      `First 500 chars of response: ${raw.slice(0, 500)}`
-    );
+  } catch (_firstErr) {
+    const repaired = repairTruncatedJSON(raw);
+    try {
+      console.warn(`[PromptChain] Repaired truncated JSON for "${label}" (original ${raw.length} chars → ${repaired.length} chars)`);
+      return JSON.parse(repaired) as T;
+    } catch (err) {
+      throw new Error(
+        `[PromptChain] Failed to parse Gemini JSON for "${label}". ` +
+        `Model: ${GEMINI_MODEL}. ` +
+        `Parse error: ${(err as Error).message}. ` +
+        `First 500 chars of response: ${raw.slice(0, 500)}`
+      );
+    }
   }
 }
 
@@ -276,7 +327,7 @@ Respond ONLY with valid JSON:
 }
 `.trim();
 
-  const raw = await callGemini(prompt, 4096);
+  const raw = await callGemini(prompt, 8192);
   const parsed = safeParseJSON<{ items: GroceryItem[]; total_estimated_cost: number }>(raw, "staples");
 
   return { items: parsed.items, total_cost: parsed.total_estimated_cost };
@@ -440,7 +491,7 @@ CRITICAL RULES:
 - Use the EXACT member IDs listed above.
 `.trim();
 
-  const raw = await callGemini(prompt, 8192);
+  const raw = await callGemini(prompt, 32768);
   const parsed = safeParseJSON<{
     days: DayPlan[];
     perishables: GroceryItem[];

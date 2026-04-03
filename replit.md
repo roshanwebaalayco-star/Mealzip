@@ -52,7 +52,7 @@ An 8-section validation and bug-fix pass was completed covering:
 ## External Dependencies
 
 **AI Services:**
-*   **Google Gemini 2.5 Flash**: Used for AI chat, meal plan generation, nutrition analysis, and voice parsing. Primarily integrated via Replit's modelfarm.
+*   **Google Gemini 2.5 Flash**: Used for AI chat, meal plan generation, nutrition analysis, and voice parsing. Uses direct Google API key (`GEMINI_API_KEY`) as primary, with Replit integration as fallback. Client configured with `thinkingBudget: 0` for structured JSON output to avoid double-quote corruption and improve speed. JSON truncation repair built into `safeParseJSON`.
 *   **Voyage AI (voyage-3)**: Employed for generating embeddings for recipe vector search.
 *   **Sarvam AI**: Utilized for Speech-to-Text functionality in Indian languages.
 *   **YOLOv11**: An external HTTP endpoint for food detection in the food scanner feature.

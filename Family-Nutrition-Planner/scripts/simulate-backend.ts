@@ -751,7 +751,11 @@ async function main(): Promise<void> {
   console.log("  Running 3 variations through the REAL engine");
   console.log(SEP);
 
-  for (const v of VARIATIONS) {
+  const limit = parseInt(process.env.VARIATION_LIMIT || "0") || VARIATIONS.length;
+  const toRun = VARIATIONS.slice(0, limit);
+  console.log(`  Running ${toRun.length} of ${VARIATIONS.length} variations`);
+
+  for (const v of toRun) {
     try {
       await runVariation(v);
     } catch (err) {
