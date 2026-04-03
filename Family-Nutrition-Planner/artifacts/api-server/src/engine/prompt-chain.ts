@@ -10,27 +10,11 @@ import type {
 } from "./types";
 import { cookingTimeToConstraintString } from "./budget-engine";
 
-import { GoogleGenAI } from "@google/genai";
+import { ai } from "@workspace/integrations-gemini-ai";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-let _geminiClient: GoogleGenAI | null = null;
-
-function getGeminiClient(): GoogleGenAI {
-  if (_geminiClient) return _geminiClient;
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is not set. Add it to Replit Secrets or your .env file."
-    );
-  }
-  _geminiClient = new GoogleGenAI({ apiKey });
-  return _geminiClient;
-}
-
 async function callGemini(prompt: string, maxOutputTokens = 8192): Promise<string> {
-  const ai = getGeminiClient();
-
   const response = await ai.models.generateContent({
     model: GEMINI_MODEL,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
