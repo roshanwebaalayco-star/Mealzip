@@ -934,11 +934,11 @@ export default function FamilySetup() {
                   </div>
                   <div>
                     <Label>{t("Weight (kg)", "वजन (किग्रा)")}</Label>
-                    <Input type="number" value={member.weightKg} onChange={e => handleUpdateMember(idx, "weightKg", parseInt(e.target.value) || 60)} className="mt-1" />
+                    <Input type="number" value={member.weightKg || ""} onChange={e => handleUpdateMember(idx, "weightKg", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 65" />
                   </div>
                   <div>
                     <Label>{t("Height (cm)", "ऊंचाई (सेमी)")}</Label>
-                    <Input type="number" value={member.heightCm} onChange={e => handleUpdateMember(idx, "heightCm", parseInt(e.target.value) || 160)} className="mt-1" />
+                    <Input type="number" value={member.heightCm || ""} onChange={e => handleUpdateMember(idx, "heightCm", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 165" />
                   </div>
                 </div>
 

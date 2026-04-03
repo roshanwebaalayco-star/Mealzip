@@ -166,18 +166,18 @@ export default function MemberEditSheet({ member, onClose }: Props) {
             </div>
             <div>
               <Label className="text-xs font-semibold">{t("Age", "आयु")}</Label>
-              <Input type="number" value={form.age ?? ""} onChange={e => set("age", Number(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" />
+              <Input type="number" value={form.age || ""} onChange={e => set("age", e.target.value === "" ? 0 : parseInt(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" placeholder="e.g. 30" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold">{t("Weight (kg)", "वजन (किग्रा)")}</Label>
-              <Input type="number" value={form.weightKg ?? ""} onChange={e => set("weightKg", Number(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" />
+              <Input type="number" value={form.weightKg || ""} onChange={e => set("weightKg", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" placeholder="e.g. 65" />
             </div>
             <div>
               <Label className="text-xs font-semibold">{t("Height (cm)", "ऊंचाई (सेमी)")}</Label>
-              <Input type="number" value={form.heightCm ?? ""} onChange={e => set("heightCm", Number(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" />
+              <Input type="number" value={form.heightCm || ""} onChange={e => set("heightCm", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1 h-9 rounded-xl text-sm" placeholder="e.g. 165" />
             </div>
           </div>
 

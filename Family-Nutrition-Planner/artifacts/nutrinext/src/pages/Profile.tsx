@@ -271,15 +271,15 @@ export default function Profile() {
                     </div>
                     <div>
                       <Label>{t("Age", "आयु")}</Label>
-                      <Input type="number" value={edit.age} onChange={e => updateEdit(member.id, "age", parseInt(e.target.value) || 0)} className="mt-1" />
+                      <Input type="number" value={edit.age || ""} onChange={e => updateEdit(member.id, "age", e.target.value === "" ? 0 : parseInt(e.target.value))} className="mt-1" placeholder="e.g. 30" />
                     </div>
                     <div>
                       <Label>{t("Weight (kg)", "वजन (किग्रा)")}</Label>
-                      <Input type="number" value={edit.weightKg} onChange={e => updateEdit(member.id, "weightKg", parseFloat(e.target.value) || 0)} className="mt-1" />
+                      <Input type="number" value={edit.weightKg || ""} onChange={e => updateEdit(member.id, "weightKg", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 65" />
                     </div>
                     <div>
                       <Label>{t("Height (cm)", "ऊंचाई (सेमी)")}</Label>
-                      <Input type="number" value={edit.heightCm} onChange={e => updateEdit(member.id, "heightCm", parseFloat(e.target.value) || 0)} className="mt-1" />
+                      <Input type="number" value={edit.heightCm || ""} onChange={e => updateEdit(member.id, "heightCm", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 165" />
                     </div>
                   </div>
 
