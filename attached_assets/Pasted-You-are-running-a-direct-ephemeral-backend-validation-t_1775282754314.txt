@@ -1,0 +1,111 @@
+You are running a direct, ephemeral backend validation test for the "One Base, Many Plates" algorithm in ParivarSehat. 
+
+AGENT CONTROL DIRECTIVES:
+1. STRICTLY NO FILE CREATION: Do NOT write, modify, or save any test files to the disk. Do NOT create a `scripts` folder. 
+2. IN-MEMORY EXECUTION ONLY: Import the `oneManyPlates` function dynamically into your execution sandbox, run the 6 hardcoded tests below in memory, and print the results directly to this chat.
+3. Your entire job is to stress-test the algorithm, verify the output is clinically correct, fix the algorithm in memory if it fails, and report the final results using the exact ASCII format provided.
+
+---
+
+## WHAT "ONE BASE, MANY PLATES" MUST DO
+The core rule: One base dish is generated for the household. The algorithm routes each family member to a personalized version of that dish by injecting step-level modifications. The base dish is cooked once. 
+
+The algorithm must handle these operations in order:
+Step 1 — BASE SELECTION: Select one base dish satisfying the most members without violating Level-1/Level-2 constraints.
+Step 2 — PULL-BEFORE OPERATIONS: Identify members who must receive their portion BEFORE a later ingredient is added. These must appear as numbered steps with ⏱️ markers.
+Step 3 — QUANTITY MODIFIERS: Calculate adjusted quantities for specific ingredients. Inject as inline annotations.
+Step 4 — ADDITIVE OPERATIONS: Add extra components to plates after the base is served.
+Step 5 — FULL PLATE DESCRIPTION: Produce a final plate summary per member (receives, withheld, added, modified, estimated macros).
+Step 6 — CONFLICT ESCALATION: If no single base dish works, return a ConflictEscalation object proposing the minimum parallel dishes needed (max 2).
+
+---
+
+## THE 6 TEST CASES (Run these directly in memory)
+
+TEST 1 — Simple Conflict (Diabetic + Jain)
+Base: Dal Makhani with Basmati Rice and Roti | Slot: Dinner
+Members:
+- Ramesh (54): Type-2 Diabetes, Metformin @ 19:00, Veg
+- Sunita (50): Veg
+- Dadi (76): Hypertension, Jain (no onion/garlic/root veg)
+- Raj (22): Veg, Goal: Build Muscle
+
+TEST 2 — Dairy Allergy + Iron Supplement
+Base: Palak Paneer with Jeera Rice | Slot: Dinner
+Members:
+- Kavita (38): Anaemia, Iron Supplement @ 21:00, Veg, Allergy: Dairy
+- Suresh (42) & Meera (14): Veg
+*(Expected: Kavita pulled before paneer. Lemon squeeze added for Iron absorption. Dinner timing flagged to end by 20:00).*
+
+TEST 3 — Non-Veg Household + Strict Veg Grandmother
+Base: Chicken Curry with Rice and Raita | Slot: Lunch
+Members:
+- Anoop (40): High Cholesterol, Non-veg
+- Divya (36): PCOS, Non-veg
+- Aryan (10): Non-veg, Allergy: Peanuts
+- Ammachi (72): Hypertension, Amlodipine @ 07:00, Strictly Veg (No beef/pork)
+*(Expected: CONFLICT ESCALATION triggered for 2 parallel dishes).*
+
+TEST 4 — Festival Week (Navratri Fasting)
+Base: Sabudana Khichdi | Slot: Dinner | Festival: Navratri
+Members:
+- Vikram (46): Diabetes, Metformin @ 19:30, Jain, Fasting
+- Priya (43): Jain, Fasting
+- Nani (70): Anaemia, Iron @ 20:30, Jain, Fasting
+- Riya (8): Jain, NOT Fasting, Allergy: Gluten
+
+TEST 5 — Maximum Complexity (6 Members)
+Base: Rajma Chawal with Cucumber Raita & Papad | Slot: Lunch
+Members:
+- Harpreet (55): Kidney Issues, Hypertension, Amlodipine @ 08:00
+- Gurpreet (52): Diabetes, Metformin @ 13:00, Gluten allergy
+- Simran (28): PCOS, Anaemia, Iron @ 21:00
+- Jaspreet (25): Weight loss pace 0.5kg
+- Piku (6): Dairy allergy
+- Dadaji (80): High cholesterol
+
+TEST 6 — The Impossible Base
+Base: Mutton Biryani with Onion Raita | Slot: Dinner
+Members:
+- Salim (44) & Fatima (40 - Hypertension): Non-veg
+- Dada (78): Diabetes, Kidney Issues, Metformin @ 19:00, Strictly Veg
+- Zara (12): Non-veg, Shellfish allergy
+- Nana (70): Sattvic (no onion/garlic), Gluten allergy
+*(Expected: CONFLICT ESCALATION for Dada and Nana).*
+
+---
+
+## REQUIRED CHAT OUTPUT FORMAT
+
+Print this EXACT format to the console/chat for ALL 6 tests:
+
+╔══════════════════════════════════════════════════════════════╗
+║  ONE BASE MANY PLATES — TEST [N]: [DISH NAME]                ║
+╚══════════════════════════════════════════════════════════════╝
+BASE DISH: [name] | MEAL SLOT: [slot] | TOTAL MEMBERS: [n]
+
+── PULL-BEFORE EVENTS ────────────────────────────────────────
+[List events: step number, member names, reason, urgency]
+
+── ANNOTATED COOKING STEPS ──────────────────────────────────
+Step 1: [instruction]
+Step 2: [instruction]
+   ⏱️ PULL BEFORE THIS STEP → [members] — [reason]
+   👤 [Member]: [modification]
+
+── MEMBER PLATES ─────────────────────────────────────────────
+👤 [NAME] ([conditions])
+   Receives: [desc] | Withheld: [list] | Added: [list] | Modified: [list]
+   Macros: [cal] kcal | [pro]g pro | [carbs]g carbs | [fat]g fat | [sod]mg sodium
+   ⚠️ Flags: [warnings]
+
+── CONFLICT ESCALATION ───────────────────────────────────────
+[Reason, Affected, Solution, Parallel dishes needed]
+
+── VALIDATION CHECKS ─────────────────────────────────────────
+□ [PASS/FAIL] Hardblocked ingredients avoided
+□ [PASS/FAIL] Medication timing respected
+□ [PASS/FAIL] Conflict escalation triggered where required
+
+---
+At the very end, print a SUMMARY TABLE showing Pass/Fail for all 6 tests. Execute the code in memory now and show me the output.
