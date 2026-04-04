@@ -1,0 +1,488 @@
+Here is the prompt:
+
+---
+
+You are running a dedicated backend validation test for the "One Base, Many Plates" algorithm in ParivarSehat AI. This is an isolated test — do not touch any frontend files, do not modify any schema, do not write to the production database. Your entire job is to find this algorithm, understand it, stress-test it 6 times with increasingly difficult family configurations, verify the output is clinically correct, fix anything that fails, and report results.
+
+---
+
+## WHAT "ONE BASE, MANY PLATES" MUST DO — UNDERSTAND THIS FIRST
+
+Before running any test, read the implementation and confirm it does ALL of the following:
+
+**The core rule:** One base dish is generated for the whole household. The algorithm then routes each family member to a personalised version of that dish by injecting step-level modifications. The base dish is cooked once. The modifications happen as cooking branches, not as separate meals.
+
+**The algorithm must handle these operations in order:**
+
+```
+Step 1 — BASE SELECTION
+Given a meal slot (breakfast / lunch / dinner) and the household dietary baseline,
+select one base dish that satisfies the most members without violating any Level-1
+or Level-2 constraint (allergy or religious rule) for any member.
+
+Step 2 — PULL-BEFORE OPERATIONS
+Identify members who must receive their portion BEFORE a later ingredient is added.
+Example: Dadi follows Jain rules — her portion is pulled before onion/garlic goes in.
+Example: Sunita is allergic to dairy — her portion is pulled before ghee/butter is added.
+These are time-critical kitchen events. They must appear as numbered steps with ⏱️ markers.
+
+Step 3 — QUANTITY MODIFIERS
+For members with clinical conditions, calculate adjusted quantities for specific ingredients.
+Example: Rajesh (hypertensive + diabetic) — salt reduced to 50%, ghee reduced to 25%,
+rice portion reduced to 150g instead of 250g.
+These are injected as inline annotations inside the cooking step, not as a separate section.
+
+Step 4 — ADDITIVE OPERATIONS
+Some members get additional components added to their plate after the base is served.
+Example: Arjun (muscle building) — extra dal protein scoop added on top.
+Example: Anaemic member — sprinkle of sesame seeds or amla chutney on the side.
+These appear as PLATE ASSEMBLY instructions at the end, per member.
+
+Step 5 — FULL PLATE DESCRIPTION
+For each member, the algorithm must produce a final plate summary:
+- What they receive
+- What was modified
+- What was added
+- What was withheld
+- Estimated macros for their specific plate (calories, protein, carbs, fat, sodium, iron if relevant)
+
+Step 6 — CONFLICT ESCALATION
+If no single base dish can satisfy Step 1 (e.g. one member requires non-veg,
+another is strictly Jain with no sharing kitchen), the algorithm must NOT silently fail.
+It must return a ConflictEscalation object explaining why and proposing the minimum
+number of parallel dishes needed (never more than 2 for cost efficiency).
+```
+
+---
+
+## STEP 1 — AUDIT THE IMPLEMENTATION
+
+Find the file implementing this algorithm. It is likely at `server/lib/oneManyPlates.ts` or similar. If it does not exist, create it fully before running any tests.
+
+The function signature must be:
+
+```typescript
+async function oneManyPlates(
+  mealSlot: "breakfast" | "lunch" | "dinner",
+  baseRecipe: Recipe,           // from the filtered recipe shortlist
+  familyMembers: FamilyMember[],
+  medicalLaws: MedicalLaw[],    // output from the Conflict Engine
+  pantryInventory?: PantryItem[]
+): Promise<OneManyPlatesResult>
+```
+
+The return type must be:
+
+```typescript
+interface OneManyPlatesResult {
+  baseDish: string;
+  baseInstructions: CookingStep[];   // numbered steps for the base dish
+  pullBeforeEvents: PullEvent[];     // timed kitchen branch events
+  memberPlates: MemberPlate[];       // one per family member
+  conflictEscalation?: ConflictEscalation;  // only if Step 1 fails
+  harmonyDeductions: HarmonyDeduction[];    // for the Harmony Score
+}
+
+interface CookingStep {
+  stepNumber: number;
+  instruction: string;
+  pullBefore?: string[];    // member names who must get their portion before this step
+  memberAnnotations?: {     // inline per-member modifications at this step
+    memberName: string;
+    modification: string;
+  }[];
+  timerSeconds?: number;
+}
+
+interface MemberPlate {
+  memberName: string;
+  receives: string;         // plain English description of their plate
+  withheld: string[];       // ingredients not in their plate
+  added: string[];          // extras added to their plate
+  modified: string[];       // quantities changed
+  estimatedMacros: {
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    sodiumMg: number;
+    ironMg?: number;
+  };
+  warningFlags: string[];   // any clinical alerts for this plate
+}
+
+interface PullEvent {
+  beforeStep: number;
+  memberNames: string[];
+  reason: string;
+  urgency: "CRITICAL" | "RECOMMENDED";
+}
+
+interface ConflictEscalation {
+  reason: string;
+  affectedMembers: string[];
+  proposedSolution: string;
+  parallelDishesNeeded: number;
+}
+
+interface HarmonyDeduction {
+  reason: string;
+  points: number;
+}
+```
+
+If the implementation exists but does not match this structure, refactor it to match before running tests.
+
+---
+
+## STEP 2 — RUN 6 TEST CASES
+
+Run each test case through the full algorithm and print complete output. All data is in-memory — nothing written to Supabase.
+
+---
+
+### TEST 1 — Simple Conflict (Diabetic Father + Jain Grandmother)
+
+```typescript
+const test1 = {
+  mealSlot: "dinner",
+  baseRecipe: { name: "Dal Makhani with Basmati Rice and Roti", region: "North India" },
+  members: [
+    {
+      name: "Ramesh", age: 54, conditions: ["Type-2 Diabetes"],
+      medications: [{ drug: "Metformin", timing: "19:00" }],
+      dietaryType: "strictly_vegetarian", allergies: []
+    },
+    {
+      name: "Sunita", age: 50, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian", allergies: []
+    },
+    {
+      name: "Dadi", age: 76, conditions: ["Hypertension"],
+      medications: [], dietaryType: "Jain_vegetarian",
+      religiousRules: "Jain_no_onion_no_garlic_no_root_vegetables", allergies: []
+    },
+    {
+      name: "Raj", age: 22, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian",
+      goal: "build_muscle", allergies: []
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- Dal Makhani base uses onion/garlic in tempering — Dadi's portion must be pulled BEFORE tempering (PullEvent at the tempering step, urgency: CRITICAL)
+- Ramesh gets brown rice or smaller portion of basmati (100–150g max), roti stays but reduced to 1 instead of 2 — his memberAnnotations must show this at the rice-serving step
+- Ramesh's plate sodium must be ≤ 800mg given Metformin timing at 19:00 (dinner within 2 hours)
+- Raj gets an extra dal scoop (protein additive) and full rice portion
+- Dadi's plate: no onion/garlic in dal, no root vegetables — verify her estimated macros still hit minimum 1500 kcal for senior nutrition
+- Harmony deductions: expect 2 points deducted for Dadi requiring base dish restriction, 0 points for Ramesh (handled via portion modifier, not base dish change)
+
+---
+
+### TEST 2 — Dairy Allergy + Iron Supplement Timing
+
+```typescript
+const test2 = {
+  mealSlot: "dinner",
+  baseRecipe: { name: "Palak Paneer with Jeera Rice", region: "North India" },
+  members: [
+    {
+      name: "Kavita", age: 38, conditions: ["Anaemia"],
+      medications: [{ drug: "Iron Supplement (Ferrous Sulphate)", timing: "21:00" }],
+      dietaryType: "strictly_vegetarian", allergies: ["dairy"]
+    },
+    {
+      name: "Suresh", age: 42, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian", allergies: []
+    },
+    {
+      name: "Meera", age: 14, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian", allergies: []
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- Palak Paneer base contains paneer (dairy) — Kavita's portion must be pulled BEFORE paneer is added (PullEvent urgency: CRITICAL, reason: dairy allergy + iron absorption conflict)
+- Kavita's plate: palak (spinach) base only, no paneer. Algorithm must suggest a protein replacement — tofu or extra dal on the side — as an ADDITIVE operation
+- CRITICAL clinical check: spinach is high in iron BUT also contains oxalates that reduce iron absorption. The algorithm should flag this and recommend lemon juice squeeze on Kavita's plate (Vitamin C enhances iron absorption). This must appear in her warningFlags
+- Dinner timing: iron supplement at 21:00 — dinner must end by 20:00. This must appear as a mealTimingRule in her MedicalLaw and a warningFlag on her plate
+- Kavita's estimated iron must be calculated and shown in estimatedMacros
+- Meera and Suresh receive full Palak Paneer — no restrictions
+
+---
+
+### TEST 3 — Non-Veg Household + One Strict Vegetarian Grandmother
+
+```typescript
+const test3 = {
+  mealSlot: "lunch",
+  baseRecipe: { name: "Chicken Curry with Rice and Raita", region: "Kerala" },
+  members: [
+    {
+      name: "Anoop", age: 40, conditions: ["High Cholesterol"],
+      medications: [], dietaryType: "non_vegetarian",
+      allergies: [], goal: "weight_loss"
+    },
+    {
+      name: "Divya", age: 36, conditions: ["PCOS"],
+      medications: [], dietaryType: "non_vegetarian", allergies: []
+    },
+    {
+      name: "Aryan", age: 10, conditions: [],
+      medications: [], dietaryType: "non_vegetarian",
+      allergies: ["peanuts"], goal: "healthy_growth"
+    },
+    {
+      name: "Ammachi", age: 72, conditions: ["Hypertension"],
+      medications: [{ drug: "Amlodipine", timing: "07:00" }],
+      dietaryType: "strictly_vegetarian",
+      religiousRules: "no_beef_no_pork", allergies: []
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- This is the ConflictEscalation scenario. Chicken curry cannot be Ammachi's base — the algorithm must escalate, proposing exactly 2 parallel dishes: Chicken Curry (for Anoop, Divya, Aryan) and a Vegetable Curry (for Ammachi using the same gravy base before chicken is added)
+- ConflictEscalation object must appear with parallelDishesNeeded: 2
+- Ammachi: sodium cap enforced (hypertension), grapefruit absent from raita (Amlodipine conflict — verify grapefruit is not in Kerala raita, or flag it if it is)
+- Anoop (high cholesterol): chicken skin must be removed — this is a step-level annotation on the marination/cooking step. Portion of rice reduced. Raita portion full (probiotic benefit)
+- Divya (PCOS): anti-inflammatory spices (turmeric, cumin) must appear in her additive list. No refined ingredients added to her plate
+- Aryan: peanuts hardBlocked — verify raita does not contain peanuts (some Kerala raita recipes do). If the base recipe has peanuts in raita, Aryan gets plain curd instead
+- Harmony deductions: 5 points for ConflictEscalation requiring parallel dish (unresolvable at base level)
+
+---
+
+### TEST 4 — Festival Week (Navratri) Full Household Fasting
+
+```typescript
+const test4 = {
+  mealSlot: "dinner",
+  baseRecipe: { name: "Sabudana Khichdi with Sendha Namak", region: "Gujarat" },
+  activeFestival: "Navratri",
+  members: [
+    {
+      name: "Vikram", age: 46, conditions: ["Type-2 Diabetes"],
+      medications: [{ drug: "Metformin", timing: "19:30" }],
+      dietaryType: "Jain_vegetarian", fastingType: "Navratri_full", allergies: []
+    },
+    {
+      name: "Priya", age: 43, conditions: [],
+      medications: [], dietaryType: "Jain_vegetarian",
+      fastingType: "Navratri_full", allergies: []
+    },
+    {
+      name: "Nani", age: 70, conditions: ["Anaemia"],
+      medications: [{ drug: "Iron Supplement", timing: "20:30" }],
+      dietaryType: "Jain_vegetarian", fastingType: "Navratri_full", allergies: []
+    },
+    {
+      name: "Riya", age: 8, conditions: [],
+      medications: [], dietaryType: "Jain_vegetarian",
+      fastingType: "none", allergies: ["gluten"]
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- Sabudana has a HIGH glycemic index (GI ~70). Vikram is diabetic. The algorithm must flag this with urgency CRITICAL in his warningFlags and reduce his portion to maximum 100g cooked sabudana, adding peanuts (if not Jain restricted) or kuttu roti on the side to slow glucose absorption. If Jain rules prohibit peanuts, algorithm must find the next best option and state it
+- Nani: iron supplement at 20:30 — dinner must end by 19:30 (1-hour buffer). This is a hard timing constraint. Must appear as mealTimingRule AND warningFlag. Additionally, sabudana is not an iron-rich food — her plate must have an iron additive (rajgira/amaranth ladoo suggestion, or singhare ka atta roti on the side)
+- Riya is NOT fasting — she gets a regular child-appropriate dinner. But she is gluten-free and Jain — verify sabudana khichdi is gluten-free (it is) and no onion/garlic is present (Jain rule). Her plate should have larger portion than adults since she is not fasting
+- Priya has no restrictions — she gets the base dish as-is. Verify her macros still meet minimum calorie threshold for an adult woman on a fasting day (minimum 1200 kcal across all meals)
+- Festival metadata must appear in the result: festivalMode: "Navratri", allowedIngredients list, forbiddenIngredients list
+
+---
+
+### TEST 5 — Maximum Complexity (6 Members, 5 Conditions, 3 Medications)
+
+```typescript
+const test5 = {
+  mealSlot: "lunch",
+  baseRecipe: { name: "Rajma Chawal with Cucumber Raita and Papad", region: "Punjab" },
+  members: [
+    {
+      name: "Harpreet", age: 55, conditions: ["Hypertension", "Kidney Issues"],
+      medications: [{ drug: "Amlodipine", timing: "08:00" }],
+      dietaryType: "strictly_vegetarian", allergies: []
+    },
+    {
+      name: "Gurpreet", age: 52, conditions: ["Type-2 Diabetes"],
+      medications: [{ drug: "Metformin", timing: "13:00" }],
+      dietaryType: "strictly_vegetarian", allergies: ["gluten"]
+    },
+    {
+      name: "Simran", age: 28, conditions: ["PCOS", "Anaemia"],
+      medications: [{ drug: "Iron Supplement", timing: "21:00" }],
+      dietaryType: "strictly_vegetarian", allergies: []
+    },
+    {
+      name: "Jaspreet", age: 25, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian",
+      allergies: [], goal: "weight_loss", goalPace: "moderate_0.5kg"
+    },
+    {
+      name: "Piku", age: 6, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian",
+      allergies: ["dairy"], goal: "healthy_growth"
+    },
+    {
+      name: "Dadaji", age: 80, conditions: ["High Cholesterol"],
+      medications: [], dietaryType: "strictly_vegetarian",
+      allergies: [], goal: "senior_nutrition"
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- Harpreet (kidney + hypertension): Rajma (kidney beans) is HIGH in potassium and phosphorus — critical concern for kidney disease. Algorithm must either severely restrict Rajma portion (max 50g) or flag ConflictEscalation for kidney patient with Rajma base. Sodium from papad must be counted — papad typically has 400–600mg sodium per piece, which combined with rajma may breach her daily cap. Algorithm must remove papad from her plate entirely
+- Gurpreet (diabetic + gluten allergy): Rajma chawal is acceptable (gluten-free naturally), but white rice is high GI — her portion must shift to small quantity or be replaced with a lower-GI grain. Metformin at 13:00 means lunch must contain food (not be skipped or delayed past 13:30). Verify the algorithm enforces this
+- Simran (PCOS + anaemia + iron supplement at 21:00): Rajma is actually iron-rich (plant-based) — algorithm should note this as a POSITIVE interaction and flag it in her warningFlags as beneficial. However, raita (dairy) within the same meal may slightly interfere with iron absorption — algorithm must note this
+- Piku (dairy allergy, age 6): raita is dairy — Piku's plate must have raita withheld. Replacement needed: plain tomato chutney or similar. Child-appropriate portion sizing must apply
+- Dadaji (high cholesterol, age 80): papad is fried and high in fat — must be withheld or replaced with roasted version. Rajma is actually beneficial for cholesterol (high fibre) — algorithm must note this positive interaction. Senior portion sizing applies
+- Jaspreet (weight loss): calorie-controlled plate — smaller rice, full rajma (protein), no papad, raita kept (probiotic, low calorie). Calculate and show her calorie deficit contribution from this meal
+- Harmony score: expect significant deductions for Harpreet's kidney-Rajma conflict
+
+---
+
+### TEST 6 — The Impossible Base (Algorithm Must Escalate Gracefully)
+
+```typescript
+const test6 = {
+  mealSlot: "dinner",
+  baseRecipe: { name: "Mutton Biryani with Onion Raita", region: "Hyderabad" },
+  members: [
+    {
+      name: "Salim", age: 44, conditions: [],
+      medications: [], dietaryType: "non_vegetarian", allergies: []
+    },
+    {
+      name: "Fatima", age: 40, conditions: ["Hypertension"],
+      medications: [], dietaryType: "non_vegetarian", allergies: []
+    },
+    {
+      name: "Dada", age: 78, conditions: ["Type-2 Diabetes", "Kidney Issues"],
+      medications: [{ drug: "Metformin", timing: "19:00" }],
+      dietaryType: "strictly_vegetarian",
+      religiousRules: "no_beef_no_pork", allergies: []
+    },
+    {
+      name: "Zara", age: 12, conditions: [],
+      medications: [], dietaryType: "non_vegetarian",
+      allergies: ["shellfish"], goal: "healthy_growth"
+    },
+    {
+      name: "Nana", age: 70, conditions: [],
+      medications: [], dietaryType: "strictly_vegetarian",
+      religiousRules: "sattvic_no_onion_no_garlic", allergies: ["gluten"]
+    }
+  ]
+};
+```
+
+**What to verify in output:**
+- This test has THREE simultaneous base conflicts:
+  1. Dada is strictly vegetarian — cannot receive Mutton Biryani
+  2. Nana is sattvic (no onion/garlic) AND gluten-free — Biryani uses onion extensively in the base. Both conditions conflict with the base
+  3. Dada has kidney disease — even a vegetarian biryani alternative must be potassium/phosphorus controlled
+- Algorithm must produce ConflictEscalation with parallelDishesNeeded: 2 (NOT 3 — the efficient solution is: Biryani track for Salim/Fatima/Zara, and a Jeera Rice + Dal track for Dada/Nana)
+- Nana's track: sattvic dal (no onion/garlic in tempering), gluten-free (verify dal and jeera rice are gluten-free — they are), served with plain curd (not onion raita)
+- Dada's track: same dal base as Nana but kidney-restricted — low potassium vegetables only, phosphorus cap, sodium cap, portion controlled. Metformin at 19:00 means dinner must have food in it
+- Fatima (hypertension): biryani sodium is very high. Algorithm must calculate approximate sodium in standard Mutton Biryani serving (~900–1200mg) and flag if it exceeds her daily cap. If it does, recommend reducing portion and serving with plain raita to balance
+- Zara: shellfish not in biryani — verify this is a non-issue for this dish and state it clearly in her plate (no modifications needed, full plate)
+- ConflictEscalation must clearly explain the three-way conflict and the resolution logic
+
+---
+
+## STEP 3 — REQUIRED OUTPUT FORMAT FOR EACH TEST
+
+Print this exact format for all 6 tests:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  ONE BASE MANY PLATES — TEST [N]: [DISH NAME]               ║
+╚══════════════════════════════════════════════════════════════╝
+
+BASE DISH: [name]
+MEAL SLOT: [breakfast/lunch/dinner]
+TOTAL MEMBERS: [n]
+
+── PULL-BEFORE EVENTS ────────────────────────────────────────
+[List all PullEvents with: before step number, member names, reason, urgency]
+
+── ANNOTATED COOKING STEPS ──────────────────────────────────
+Step 1: [instruction]
+Step 2: [instruction]
+   ⏱️  PULL BEFORE THIS STEP → [member names] — [reason]
+Step 3: [instruction]
+   👤 Ramesh: [modification]
+   👤 Dadi: [modification]
+[... all steps ...]
+
+── MEMBER PLATES ─────────────────────────────────────────────
+[For each member:]
+👤 [MEMBER NAME] ([age], [conditions])
+   Receives:  [description]
+   Withheld:  [list or "nothing"]
+   Added:     [list or "nothing"]
+   Modified:  [list or "nothing"]
+   Macros:    [calories] kcal | [protein]g protein | [carbs]g carbs | [fat]g fat | [sodium]mg sodium [| ironMg if relevant]
+   ⚠️ Flags:  [clinical warnings or "none"]
+
+── CONFLICT ESCALATION (if triggered) ────────────────────────
+Reason: [explanation]
+Affected: [member names]
+Solution: [proposed parallel dishes]
+Parallel dishes needed: [number]
+Harmony deductions: [points]
+
+── HARMONY SCORE IMPACT ──────────────────────────────────────
+[List each deduction/addition with reason and points]
+Net impact this meal: [+/- points]
+
+── VALIDATION CHECKS ─────────────────────────────────────────
+□ [PASS/FAIL] No hardblocked ingredient appears in any member plate
+□ [PASS/FAIL] All pull-before events correctly sequenced
+□ [PASS/FAIL] Medication timing constraints respected
+□ [PASS/FAIL] Member macros calculated and present
+□ [PASS/FAIL] Conflict escalation triggered correctly (if applicable)
+□ [PASS/FAIL] Senior and child portion sizing applied where needed
+□ [PASS/FAIL] Festival/fasting rules applied (Test 4 only)
+
+RESULT: ✅ PASS / ❌ FAIL
+Issues found: [list]
+Issues fixed: [list]
+```
+
+---
+
+## FINAL SUMMARY TABLE
+
+After all 6 tests, print:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║         ONE BASE MANY PLATES — FULL VALIDATION REPORT       ║
+╚══════════════════════════════════════════════════════════════╝
+
+Test 1 (Dal Makhani — Simple):          [✅ PASS / ❌ FAIL]
+Test 2 (Palak Paneer — Dairy Allergy):  [✅ PASS / ❌ FAIL]
+Test 3 (Chicken Curry — Veg Conflict):  [✅ PASS / ❌ FAIL]
+Test 4 (Sabudana — Festival Fasting):   [✅ PASS / ❌ FAIL]
+Test 5 (Rajma Chawal — 6 Members):      [✅ PASS / ❌ FAIL]
+Test 6 (Mutton Biryani — Impossible):   [✅ PASS / ❌ FAIL]
+
+Total pull-before events verified: [n]
+Total member plate modifications verified: [n]
+Total conflict escalations triggered: [n]
+Total clinical warnings generated: [n]
+Total issues found and fixed: [n]
+
+Algorithm status: PRODUCTION READY / NEEDS WORK
+Confidence level: [LOW / MEDIUM / HIGH] — [one line reason]
+```
