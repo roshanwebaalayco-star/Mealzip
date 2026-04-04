@@ -7,6 +7,7 @@ India-centric AI-powered family meal planning app built for a hackathon. Key dif
 - **ICMR-NIN 2024** nutrition science with reference RDA table (22 records covering all age/gender/activity groups)
 - **YOLOv11 food scanner** (CONFIDENCE_THRESHOLD=0.65; DEMO_MODE=true in dev returns mock scan data; production requires `YOLOV11_INFERENCE_URL`)
 - **Sarvam AI multilingual voice** support (Hindi/Bhojpuri/Bengali/Tamil) — mic button in dashboard chat and family voice profile
+- **One Base, Many Plates** (OBMP) deterministic clinical algorithm — zero AI calls, computes per-member plate modifications (hard blocks, pull-before events, quantity modifiers, additives, fasting replacements, conflict escalation, macro targets) before Gemini generates meal plans
 - **Harmony Score** (0-100) for family meal optimization, computed by Gemini
 - **Liquid Glass 2025+** design system
 - **Multi-faith fasting calendar** — Hindu (Ekadashi/Navratri/Shivratri), Islamic (full Ramadan month), Jain (Paryushana), Sikh (Vaisakhi)
@@ -45,6 +46,7 @@ India-centric AI-powered family meal planning app built for a hackathon. Key dif
 │   ├── seed-recipes.ts     # Seeds 12,771 recipes from CSV (--force to re-seed)
 │   ├── seed-icmr-nin.ts    # Seeds ICMR-NIN RDA reference data
 │   ├── pipeline-validation.ts  # Full 3-scenario pipeline validation script (Sharma/Menon/Joshi)
+│   ├── test-one-many-plates.ts # 6 OBMP stress tests (Dal Makhani/Palak Paneer/Chicken Curry/Sabudana/Rajma Chawal/Mutton Biryani)
 │   └── simulate-backend.ts    # E2E pipeline simulation with 3 families
 └── attached_assets/        # CSV data + PDFs (COMBINED_RECIPES_*.csv)
 ```

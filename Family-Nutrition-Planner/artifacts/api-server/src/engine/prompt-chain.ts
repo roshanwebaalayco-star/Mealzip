@@ -9,6 +9,7 @@ import type {
   PantryItem,
 } from "./types";
 import { cookingTimeToConstraintString } from "./budget-engine";
+import { buildMemberModifierMap, buildModifierInjectionSection } from "./one-many-plates";
 
 import { ai } from "@workspace/integrations-gemini-ai";
 
@@ -344,6 +345,14 @@ export async function generateWeeklyMealPlan(
 }> {
   const { budget, effectiveProfiles, weeklyContext, nonvegDaysByMember, family } = packet;
 
+  const slotWeights = {
+    breakfast: budget.budgetBreakdown.breakfast_weight,
+    lunch: budget.budgetBreakdown.lunch_weight,
+    dinner: budget.budgetBreakdown.dinner_weight,
+  };
+  const modifierMap = buildMemberModifierMap(packet, slotWeights);
+  const modifierSection = buildModifierInjectionSection(modifierMap);
+
   const familyContext = buildFamilyContextSection(packet);
   const constraintInstructions = buildConstraintInstructionSection(packet);
 
@@ -421,6 +430,8 @@ ONE BASE, MANY PLATES — MANDATORY RULES:
 7. Spice and conflict resolutions above are MANDATORY — implement exactly.
 8. image_search_query must be an English dish name suitable for Google Image Search.
 9. priority_flags: include applicable tags from: allergy_compliant, medication_window_respected, zero_waste_item_used, diabetic_friendly, low_sodium, low_protein, high_protein_plate, fasting_replacement, tiffin_packed.
+
+${modifierSection}
 
 MEMBER ID REFERENCE (use EXACT IDs in member_plates):
 ${memberIdRef}
