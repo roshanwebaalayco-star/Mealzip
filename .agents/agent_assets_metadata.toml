@@ -12,3 +12,9 @@ id = "TDnjtRQHwkxjL1ImJS7qs"
 uri = "file://Family-Nutrition-Planner/TEST_REPORT.md"
 type = "text"
 title = "Full Test Report — Functional + Clinical"
+
+[[outputs]]
+id = "KA2Yidjx-dvnpcWRfCI8X"
+uri = "file://Family-Nutrition-Planner/reports/OBMP-Algorithm-Validation-Report.md"
+type = "text"
+title = "OBMP Algorithm Validation Report — VC Ready"
