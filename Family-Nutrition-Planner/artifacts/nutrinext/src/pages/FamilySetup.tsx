@@ -91,24 +91,56 @@ export default function FamilySetup() {
   ]);
 
   const DRAFT_KEY = "nutrinext_family_setup_draft";
+  const DRAFT_VERSION = 3;
+
+  const sanitizeMealsPerDay = (m: unknown): string => {
+    if (typeof m === "number") {
+      if (m === 2) return "2_meals";
+      if (m === 4) return "3_meals_plus_snacks";
+      return "3_meals";
+    }
+    if (typeof m === "string") {
+      if (m === "2") return "2_meals";
+      if (m === "4") return "3_meals_plus_snacks";
+      if (m === "3") return "3_meals";
+      if (m.includes("_meals") || m.includes("_snacks")) return m;
+    }
+    return "3_meals";
+  };
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
         const draft = JSON.parse(saved);
-        if (draft.familyData) setFamilyData(prev => ({ ...prev, ...draft.familyData }));
+        if (draft._version !== DRAFT_VERSION) {
+          localStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        if (draft.familyData) {
+          const fd = draft.familyData as Record<string, unknown>;
+          const sanitized = {
+            ...fd,
+            stateRegion: typeof fd.stateRegion === "string" && fd.stateRegion.trim() ? fd.stateRegion : "Jharkhand",
+            mealsPerDay: sanitizeMealsPerDay(fd.mealsPerDay),
+            householdDietaryBaseline: typeof fd.householdDietaryBaseline === "string" && fd.householdDietaryBaseline ? fd.householdDietaryBaseline : "mixed",
+            cookingSkillLevel: typeof fd.cookingSkillLevel === "string" && fd.cookingSkillLevel ? fd.cookingSkillLevel : "intermediate",
+            languagePreference: typeof fd.languagePreference === "string" && fd.languagePreference ? fd.languagePreference : "hindi",
+          };
+          setFamilyData(prev => ({ ...prev, ...sanitized }));
+        }
         if (draft.members && Array.isArray(draft.members) && draft.members.length > 0) {
           setMembers(draft.members.map((m: any) => ({ ...m, _id: ++_memberIdCounter })));
         }
         if (draft.step) setStep(draft.step);
       }
-    } catch { /* ignore corrupt draft */ }
+    } catch { localStorage.removeItem(DRAFT_KEY); }
   }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ familyData, members, step }));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ _version: DRAFT_VERSION, familyData, members, step }));
       } catch { /* quota exceeded — ignore */ }
     }, 1000);
     return () => clearTimeout(timer);
@@ -358,12 +390,12 @@ export default function FamilySetup() {
       const fam = await createFamily.mutateAsync({
         data: {
           name: fd.name,
-          stateRegion: fd.stateRegion,
-          languagePreference: fd.languagePreference,
-          householdDietaryBaseline: fd.householdDietaryBaseline,
-          mealsPerDay: fd.mealsPerDay,
-          cookingSkillLevel: fd.cookingSkillLevel,
-          appliances: fd.appliances,
+          stateRegion: (typeof fd.stateRegion === "string" && fd.stateRegion.trim()) ? fd.stateRegion.trim() : "Jharkhand",
+          languagePreference: fd.languagePreference || "hindi",
+          householdDietaryBaseline: fd.householdDietaryBaseline || "mixed",
+          mealsPerDay: sanitizeMealsPerDay(fd.mealsPerDay),
+          cookingSkillLevel: fd.cookingSkillLevel || "intermediate",
+          appliances: Array.isArray(fd.appliances) ? fd.appliances : ["tawa", "pressure_cooker", "kadai"],
           pincode: fd.pincode || undefined,
         },
       });

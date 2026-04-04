@@ -46,10 +46,26 @@ export const ListFamiliesResponse = zod.array(ListFamiliesResponseItem);
  */
 export const CreateFamilyBody = zod.object({
   name: zod.string().max(100),
-  stateRegion: zod.string(),
+  stateRegion: zod.string().min(1, "State is required"),
   languagePreference: zod.string().optional().default("hindi"),
   householdDietaryBaseline: zod.string().optional().default("mixed"),
-  mealsPerDay: zod.string().optional().default("3_meals"),
+  mealsPerDay: zod.preprocess(
+    (val) => {
+      if (typeof val === "number") {
+        if (val === 2) return "2_meals";
+        if (val === 4) return "3_meals_plus_snacks";
+        return "3_meals";
+      }
+      if (typeof val === "string") {
+        if (val === "2") return "2_meals";
+        if (val === "4") return "3_meals_plus_snacks";
+        if (val === "3") return "3_meals";
+        return val;
+      }
+      return "3_meals";
+    },
+    zod.string().optional().default("3_meals")
+  ),
   cookingSkillLevel: zod.string().optional().default("intermediate"),
   appliances: zod.unknown().optional(),
   pincode: zod.string().optional(),
