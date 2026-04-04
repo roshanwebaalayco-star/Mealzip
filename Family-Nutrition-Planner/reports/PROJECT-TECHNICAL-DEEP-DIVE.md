@@ -249,16 +249,18 @@ family_members (1) ──→ (N) health_logs
 
 ## 6. API ENDPOINTS
 
-### Authentication (4 endpoints)
+All endpoints are organized below by their source route file, matching the Express router structure in `src/routes/`.
+
+### `routes/auth/` — Authentication (4 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | POST | `/auth/register` | Create new user account |
 | POST | `/auth/login` | Authenticate and receive JWT |
-| GET | `/auth/me` | Get current user profile |
-| POST | `/auth/logout` | End session |
+| GET | `/auth/me` | Get current user profile (auth-gated) |
+| POST | `/auth/logout` | End session (auth-gated) |
 
-### Family & Member Management (10 endpoints)
+### `routes/families/` — Family & Member Management (10 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -273,32 +275,41 @@ family_members (1) ──→ (N) health_logs
 | DELETE | `/families/:familyId/members/:memberId` | Remove member |
 | POST | `/families/profile-chat` | Conversational AI profile building |
 
-### Recipes (2 endpoints)
+### `routes/recipes/` — Recipes (2 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | GET | `/recipes` | Search/filter recipes (text search, cuisine, diet, category, calories, cook time) |
 | GET | `/recipes/:id` | Full recipe details |
 
-### Meal Plans & Generation (6 endpoints)
+### `routes/meal-plans/` — Meal Plan CRUD (6 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | GET | `/meal-plans` | List meal plans for a family |
 | POST | `/meal-plans/generate` | Generate new 7-day AI meal plan |
-| POST | `/meal-gen/generate` | Start complex multi-stage meal generation (returns polling URL) |
+| GET | `/meal-plans/:id` | Get specific meal plan details |
+| POST | `/meal-plans/:id/regenerate` | Regenerate a meal plan with new constraints |
+| PUT | `/meal-plans/:id` | Update meal plan data |
+| DELETE | `/meal-plans/:id` | Delete a meal plan |
+
+### `engine/meal-generation-service.ts` — Meal Generation Engine (4 endpoints, mounted at `/meal-gen`)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/meal-gen/generate` | Start multi-stage clinical meal generation (returns polling URL) |
 | GET | `/meal-gen/:id/status` | Poll generation progress |
 | GET | `/meal-gen/:id/conflicts` | Retrieve identified clinical/dietary conflicts |
 | POST | `/meal-gen/:id/skip-meal` | Handle skips and rebalance plan |
 
-### Meal Feedback (2 endpoints)
+### `routes/meal-feedback/` — Meal Feedback (2 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | GET | `/meal-plans/:mealPlanId/feedback` | Get all feedback for a plan |
 | POST | `/meal-plans/:mealPlanId/feedback` | Log meal feedback (like, dislike, skip, ate out) |
 
-### Nutrition & Food Analysis (4 endpoints)
+### `routes/nutrition/` — Nutrition & Food Analysis (8 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -306,8 +317,12 @@ family_members (1) ──→ (N) health_logs
 | GET | `/nutrition/lookup` | Search nutritional data for a food item |
 | POST | `/nutrition/food-scan` | AI image analysis to detect food items and estimate nutrition |
 | GET | `/nutrition/food-gi` | Glycemic Index / Glycemic Load lookup for Indian foods |
+| POST | `/nutrition/food-gi/seed` | Seed the GI/GL database with Indian food entries |
+| POST | `/nutrition/pantry-vision` | AI pantry/fridge image detection and ingredient listing |
+| POST | `/nutrition/meal-vision` | AI meal photo analysis for portion and nutrition estimation |
+| POST | `/nutrition/scan` | Quick food item scan with nutrition lookup |
 
-### Health & Wellness (6 endpoints)
+### `routes/health/` — Health, Wellness & Fasting (7 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -317,14 +332,9 @@ family_members (1) ──→ (N) health_logs
 | POST | `/nutrition-logs` | Log a meal (manual or from scanner) |
 | GET | `/nutrition-summary/:memberId` | Today's nutritional progress vs ICMR-NIN RDA |
 | POST | `/symptom-check` | AI symptom analysis with dietary suggestions |
-
-### Fasting Calendar (1 endpoint)
-
-| Method | Path | Description |
-|---|---|---|
 | GET | `/fasting-calendar` | Monthly Indian festival/fasting calendar |
 
-### AI Chat — Clinical (4 endpoints)
+### `routes/chat/` — AI Chat — Clinical (4 endpoints, mounted at `/chat`)
 
 | Method | Path | Description |
 |---|---|---|
@@ -333,7 +343,7 @@ family_members (1) ──→ (N) health_logs
 | POST | `/chat` | Main streaming chat (SSE) with clinical context injection |
 | GET | `/chat/health` | Chat service health check |
 
-### AI Chat — General / Gemini (6 endpoints)
+### `routes/gemini/` — AI Chat — General / Gemini (9 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -341,18 +351,22 @@ family_members (1) ──→ (N) health_logs
 | POST | `/gemini/conversations` | Start new session |
 | GET | `/gemini/conversations/:id` | Get conversation with history |
 | DELETE | `/gemini/conversations/:id` | Delete session |
+| GET | `/gemini/conversations/:id/messages` | List messages in a conversation |
 | POST | `/gemini/conversations/:id/messages` | Send message, get streaming SSE response |
+| POST | `/gemini/generate-image` | AI-powered food/meal image generation |
 | POST | `/gemini/hfss-classify` | Classify food for HFSS (High Fat, Sugar, Salt) status |
+| POST | `/gemini/symptom-check` | AI symptom analysis via Gemini |
 
-### Voice Services (3 endpoints)
+### `routes/voice/` — Voice Services (4 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | POST | `/voice/transcribe` | Transcribe audio (Base64) to text via Sarvam AI |
 | POST | `/voice/parse-profile` | Extract structured family profile from voice transcript |
 | POST | `/voice/chat-turn` | Conversational voice turn with state management |
+| POST | `/voice/tts` | Text-to-speech synthesis via Sarvam AI |
 
-### Grocery & Pantry (4 endpoints)
+### `routes/grocery/` — Grocery & Pantry (4 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -361,7 +375,7 @@ family_members (1) ──→ (N) health_logs
 | GET | `/grocery/cheaper-alternative` | Find budget-friendly recipe swaps |
 | POST | `/pantry/scan-image` | AI pantry/fridge image detection |
 
-### Market & Mandi (3 endpoints)
+### `routes/market/` — Market & Mandi (3 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -369,7 +383,7 @@ family_members (1) ──→ (N) health_logs
 | POST | `/market/trigger-surge` | Simulate price surges (demo) |
 | POST | `/market/prep-alerts` | Scan upcoming meals for prep warnings |
 
-### Leftover Tracking (4 endpoints)
+### `routes/leftovers/` — Leftover Tracking (4 endpoints)
 
 | Method | Path | Description |
 |---|---|---|
@@ -378,40 +392,33 @@ family_members (1) ──→ (N) health_logs
 | GET | `/leftovers` | List active (non-expired, unused) leftovers |
 | PATCH | `/leftovers/:id` | Mark leftover as used |
 
-### System & Administration (6 endpoints)
+### `routes/admin/` — Administration (6 endpoints, x-admin-secret gated)
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/healthz` | System status (DB connection, knowledge chunks, embedding status) |
 | POST | `/admin/reingest` | Force re-ingest RAG knowledge base |
 | GET | `/admin/embedding-status` | Check background embedding queue progress |
 | POST | `/admin/restart-embedding-queue` | Restart embedding worker |
+| POST | `/admin/reingest-icmr` | Re-ingest ICMR-NIN specific guidelines |
 | POST | `/admin/test-retrieval` | Test RAG vector search directly |
 | POST | `/admin/seed-test-families` | Populate DB with clinical test cases |
 
-### Demo Mode (4 endpoints)
+### `routes/healthz/` — System Health (1 endpoint)
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/demo/login` | Auto-login with seeded demo family |
-| GET | `/demo/families` | Pre-populated demo family data |
-| POST | `/demo/generate` | Demo meal plan generation (skips auth) |
-| GET | `/demo/status` | Demo generation status check |
+| GET | `/healthz` | Quick liveness probe (DB connection, knowledge chunks, embedding status) |
 
-### Health Check Endpoints (8 endpoints)
+### `routes/demo/` — Demo Mode (4 endpoints, public)
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/health/status` | Comprehensive system status |
-| GET | `/health/db` | Database connectivity check |
-| GET | `/health/supabase` | Supabase connection check |
-| GET | `/health/embeddings` | Embedding service status |
-| GET | `/health/gemini` | Gemini API availability |
-| GET | `/health/recipes` | Recipe database stats |
-| GET | `/health/knowledge` | Knowledge chunk stats |
-| GET | `/healthz` | Quick liveness probe |
+| GET | `/demo/instant` | Instant access with pre-seeded demo data |
+| POST | `/demo/quick-login` | Auto-login with demo family credentials |
+| GET | `/demo/sharma-family` | Pre-populated Sharma family demo data |
+| POST | `/demo/seed` | Seed demo family into database |
 
-**Total: 78 API endpoints** (excluding demo: 74)
+**Total: 82 API endpoints** (78 excluding demo)
 
 ---
 
@@ -918,9 +925,10 @@ The Harmony Score card includes:
 │                     BACKEND (Express 5 + Node.js 24)                 │
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                    66 API ENDPOINTS                          │    │
-│  │  Auth │ Families │ Recipes │ Meal Plans │ Nutrition │ Health │    │
-│  │  Chat │ Voice │ Grocery │ Market │ Leftovers │ Admin         │    │
+│  │                    82 API ENDPOINTS                          │    │
+│  │  Auth │ Families │ Recipes │ Meal Plans │ Meal Gen │ Nutri  │    │
+│  │  Health │ Chat │ Gemini │ Voice │ Grocery │ Market           │    │
+│  │  Leftovers │ Admin │ Healthz │ Demo                         │    │
 │  └────────────────────────────┬────────────────────────────────┘    │
 │                               │                                      │
 │  ┌────────────────────────────▼────────────────────────────────┐    │
@@ -1040,7 +1048,7 @@ Return to User (with Harmony Score + per-member plate cards)
 | Clinical modules (T1D + Pregnancy + CKD) | 1,540 lines |
 | Prompt chain + service orchestration | 1,534 lines |
 | Type definitions | 483 lines |
-| API endpoints | 78 (74 excluding demo) |
+| API endpoints | 82 (78 excluding demo) |
 | Frontend pages | 15 |
 
 ### Data Scale
