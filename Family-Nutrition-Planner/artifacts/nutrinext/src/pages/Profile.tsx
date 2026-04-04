@@ -230,7 +230,7 @@ export default function Profile() {
           const isSaving = savingIds.has(member.id);
           const weightChangeGoal = edit.healthGoal === "weight_loss" || edit.healthGoal === "muscle_gain";
           const hasBodyMetrics = !!(member.weightKg && member.heightCm);
-          const kcal = hasBodyMetrics && weightChangeGoal ? (member.dailyCalorieTarget ?? null) : null;
+          const kcal = member.dailyCalorieTarget ?? null;
           const showGoalPaceField = weightChangeGoal && edit.age >= 18;
 
           return (

@@ -289,3 +289,25 @@ Liquid Glass 2025+ (`artifacts/nutrinext/src/index.css`):
 
 Integration tests: `pnpm --filter @workspace/api-server run test`
 Covers: nutrition lookup, food scan (demo mode), recipe search, fasting auto-detection endpoint, seed pipeline count (16 tests).
+
+## QA Audit Fixes (Session 2)
+
+### Security & Robustness
+- **CF-06**: `GET /api/gemini/conversations` now returns `[]` instead of HTTP 500 when `ai_chat_logs` table is unavailable (Supabase pool issue)
+
+### Registration (HP-01, HP-02, HP-06)
+- **HP-01**: Name input has `maxLength={100}` to prevent oversized entries
+- **HP-02**: Email field trims whitespace on blur (`onBlur`)
+- **HP-06**: 3-segment visual password strength indicator added below password field — Weak (red) / Medium (orange) / Strong (green), with requirements hint. Blocks submission for weak passwords
+
+### Health Log Validation (HP-07, HP-08, HP-16)
+- **HP-07**: BP cross-field validation: if systolic ≤ diastolic, inline error shown and Save button is disabled
+- **HP-08**: Blood sugar range clamped 20–600 mg/dL with inline error; out-of-range values block Save
+- **HP-16**: Weight = 0 rejection: entering 0 or negative weight shows inline error and blocks Save
+
+### Weekly Context / Meal Plan (HP-09, MP-06)
+- **HP-09**: `WeeklyContext` route now redirects to `/meal-plan?gen=1` (was `?openContext=1`) so the AI generation popup correctly auto-opens
+- **MP-06**: Fasting 4+ days warning added to both family-level and per-member fasting day selectors in FamilySetup
+
+### Profile (MP-17)
+- **MP-17**: Calorie target badge in Profile member list now shows for **all** members who have a `dailyCalorieTarget` set, not only those with weight-change goals

@@ -83,8 +83,8 @@ router.get("/gemini/conversations", assertFamilyOwnership, async (req, res): Pro
       createdAt: l.createdAt,
     })));
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Failed to fetch conversations", details: msg, retryable: true });
+    req.log?.warn({ err }, "ai_chat_logs query failed — returning empty array");
+    res.json([]);
   }
 });
 

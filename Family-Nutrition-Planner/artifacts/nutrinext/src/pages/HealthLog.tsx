@@ -99,10 +99,23 @@ function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: Health
 
   const bs = parseFloat(logForm.bloodSugar);
   const bsRange = bs > 0 ? getBloodSugarRange(bs) : null;
+  const bsError = logForm.bloodSugar && (bs < 20 || bs > 600)
+    ? t("Blood sugar must be between 20 and 600 mg/dL", "रक्त शर्करा 20-600 mg/dL के बीच होनी चाहिए")
+    : null;
 
   const sys = parseInt(logForm.bpSys);
   const dia = parseInt(logForm.bpDia);
-  const bpRange = sys > 0 && dia > 0 ? getBpRange(sys, dia) : null;
+  const bpRange = sys > 0 && dia > 0 && sys > dia ? getBpRange(sys, dia) : null;
+  const bpError = logForm.bpSys && logForm.bpDia && sys <= dia
+    ? t("Systolic must be greater than diastolic", "सिस्टोलिक डायस्टोलिक से अधिक होना चाहिए")
+    : null;
+
+  const weightVal = parseFloat(logForm.weightKg);
+  const weightError = logForm.weightKg && weightVal <= 0
+    ? t("Weight must be greater than 0", "वजन 0 से अधिक होना चाहिए")
+    : null;
+
+  const hasErrors = !!(bsError || bpError || weightError);
 
   return (
     <div className="glass-card rounded-3xl p-5 space-y-4">
@@ -110,7 +123,15 @@ function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: Health
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">{t("Weight (kg)", "वजन (kg)")}</label>
-          <Input value={logForm.weightKg} onChange={e => setLogForm(f => ({ ...f, weightKg: e.target.value }))} type="number" placeholder="65" />
+          <Input
+            value={logForm.weightKg}
+            onChange={e => setLogForm(f => ({ ...f, weightKg: e.target.value }))}
+            type="number"
+            placeholder="65"
+            min={0.1}
+            className={weightError ? "border-destructive" : ""}
+          />
+          {weightError && <p className="text-[11px] text-destructive mt-1">{weightError}</p>}
         </div>
         <div>
           <label className="text-xs text-muted-foreground">{t("Height (cm)", "ऊंचाई (cm)")}</label>
@@ -130,8 +151,17 @@ function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: Health
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-muted-foreground">{t("Blood Sugar (mg/dL)", "रक्त शर्करा (mg/dL)")}</label>
-          <Input value={logForm.bloodSugar} onChange={e => setLogForm(f => ({ ...f, bloodSugar: e.target.value }))} type="number" placeholder="90" />
-          {bsRange && (
+          <Input
+            value={logForm.bloodSugar}
+            onChange={e => setLogForm(f => ({ ...f, bloodSugar: e.target.value }))}
+            type="number"
+            placeholder="90"
+            min={20}
+            max={600}
+            className={bsError ? "border-destructive" : ""}
+          />
+          {bsError && <p className="text-[11px] text-destructive mt-1">{bsError}</p>}
+          {!bsError && bsRange && (
             <span className={`inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${bsRange.bg} ${bsRange.color}`}>
               {t(bsRange.label, bsRange.labelHi)}
             </span>
@@ -140,10 +170,23 @@ function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: Health
         <div>
           <label className="text-xs text-muted-foreground">{t("BP (sys/dia mmHg)", "बीपी (sys/dia)")}</label>
           <div className="flex gap-1">
-            <Input value={logForm.bpSys} onChange={e => setLogForm(f => ({ ...f, bpSys: e.target.value }))} type="number" placeholder="120" />
-            <Input value={logForm.bpDia} onChange={e => setLogForm(f => ({ ...f, bpDia: e.target.value }))} type="number" placeholder="80" />
+            <Input
+              value={logForm.bpSys}
+              onChange={e => setLogForm(f => ({ ...f, bpSys: e.target.value }))}
+              type="number"
+              placeholder="120"
+              className={bpError ? "border-destructive" : ""}
+            />
+            <Input
+              value={logForm.bpDia}
+              onChange={e => setLogForm(f => ({ ...f, bpDia: e.target.value }))}
+              type="number"
+              placeholder="80"
+              className={bpError ? "border-destructive" : ""}
+            />
           </div>
-          {bpRange && (
+          {bpError && <p className="text-[11px] text-destructive mt-1">{bpError}</p>}
+          {!bpError && bpRange && (
             <span className={`inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${bpRange.bg} ${bpRange.color}`}>
               {t(bpRange.label, bpRange.labelHi)}
             </span>
@@ -156,7 +199,7 @@ function HealthLogForm({ logForm, setLogForm, logMutation, onCancel, t }: Health
         <Input value={logForm.notes} onChange={e => setLogForm(f => ({ ...f, notes: e.target.value }))} placeholder={t("How are you feeling today?", "आज कैसा महसूस हो रहा है?")} />
       </div>
       <div className="flex gap-2">
-        <Button onClick={() => logMutation.mutate()} disabled={logMutation.isPending} className="flex-1">
+        <Button onClick={() => logMutation.mutate()} disabled={logMutation.isPending || hasErrors} className="flex-1">
           {logMutation.isPending ? t("Saving…", "सहेज रहा है…") : t("Save Log", "लॉग सहेजें")}
         </Button>
         <Button variant="outline" onClick={onCancel}>{t("Cancel", "रद्द करें")}</Button>

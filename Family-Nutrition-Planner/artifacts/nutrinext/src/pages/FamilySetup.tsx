@@ -903,6 +903,12 @@ export default function FamilySetup() {
                     </button>
                   ))}
                 </div>
+                {familyData.fastingDays.length >= 4 && (
+                  <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>{t("Fasting 4 or more days per week may impact nutritional adequacy. Our AI will prioritise calorie-dense, nutrient-rich foods on fasting days to compensate.", "सप्ताह में 4 या अधिक दिन उपवास करना पोषण पर असर डाल सकता है। हमारी AI उपवास के दिनों में कैलोरी-घनी, पोषक खाद्य पदार्थों को प्राथमिकता देगी।")}</span>
+                  </div>
+                )}
               </div>
 
               
@@ -1243,6 +1249,12 @@ export default function FamilySetup() {
                         <Label htmlFor={`${member._id}-fasting-${day}`} className="text-xs">{t(en, hi)}</Label>
                       </div>
                     ))}
+                    {member.memberFastingDays.filter(d => d !== "none").length >= 4 && (
+                      <div className="mt-1 flex items-start gap-2 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
+                        <span className="shrink-0">⚠️</span>
+                        <span>{t("4+ fasting days/week. AI will prioritise nutrient-dense foods to prevent deficiency.", "4+ उपवास दिन/सप्ताह। AI पोषक तत्वों की कमी रोकने के लिए घनी खाद्य सामग्री को प्राथमिकता देगी।")}</span>
+                      </div>
+                    )}
 
                     <div className="pt-2">
                       <Label className="text-sm font-semibold">{t("Active Medications", "सक्रिय दवाइयां")} <span className="font-normal text-muted-foreground">({t("optional", "वैकल्पिक")})</span></Label>

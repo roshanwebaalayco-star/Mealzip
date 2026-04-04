@@ -22,6 +22,16 @@ const LANGUAGES = [
   { value: "punjabi", label: "ਪੰਜਾਬੀ (Punjabi)" },
 ];
 
+function getPasswordStrength(pwd: string): { level: "weak" | "medium" | "strong"; label: string } {
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+  const long = pwd.length >= 8;
+  if (!long || (!hasUpper && !hasNumber)) return { level: "weak", label: "Weak" };
+  if (long && (hasUpper || hasNumber) && !(hasUpper && hasNumber)) return { level: "medium", label: "Medium" };
+  if (long && hasUpper && hasNumber) return { level: "strong", label: "Strong" };
+  return { level: "weak", label: "Weak" };
+}
+
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,6 +44,8 @@ export default function Register() {
   const { register } = useAuth();
   const [, navigate] = useLocation();
 
+  const pwdStrength = password ? getPasswordStrength(password) : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !password) {
@@ -44,13 +56,21 @@ export default function Register() {
       toast({ variant: "destructive", title: "Error", description: "Password must be at least 8 characters." });
       return;
     }
+    if (!/[A-Z]/.test(password)) {
+      toast({ variant: "destructive", title: "Error", description: "Password must contain at least one uppercase letter." });
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      toast({ variant: "destructive", title: "Error", description: "Password must contain at least one number." });
+      return;
+    }
     if (password !== confirmPassword) {
       toast({ variant: "destructive", title: "Error", description: "Passwords do not match." });
       return;
     }
     setIsLoading(true);
     try {
-      await register(email, password, name, primaryLanguage);
+      await register(email.trim(), password, name, primaryLanguage);
       navigate("/family-setup");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
@@ -58,6 +78,12 @@ export default function Register() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const strengthColors = {
+    weak: { bars: 1, color: "bg-red-500", text: "text-red-600" },
+    medium: { bars: 2, color: "bg-orange-400", text: "text-orange-600" },
+    strong: { bars: 3, color: "bg-green-500", text: "text-green-600" },
   };
 
   return (
@@ -91,6 +117,7 @@ export default function Register() {
               placeholder="Rajesh Sharma"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              maxLength={100}
               autoComplete="name"
               className="input-glass rounded-xl"
             />
@@ -104,6 +131,7 @@ export default function Register() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={(e) => setEmail(e.target.value.trim())}
               autoComplete="email"
               className="input-glass rounded-xl"
             />
@@ -131,7 +159,7 @@ export default function Register() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Min. 8 characters"
+                placeholder="Min. 8 chars, 1 uppercase, 1 number"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
@@ -146,6 +174,25 @@ export default function Register() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {pwdStrength && (
+              <div className="mt-1.5 space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3].map((n) => (
+                    <div
+                      key={n}
+                      className={`h-1.5 flex-1 rounded-full transition-colors ${
+                        n <= strengthColors[pwdStrength.level].bars
+                          ? strengthColors[pwdStrength.level].color
+                          : "bg-muted"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className={`text-xs font-medium ${strengthColors[pwdStrength.level].text}`}>
+                  {pwdStrength.label} — needs at least 8 characters, 1 uppercase letter, 1 number
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -159,6 +206,9 @@ export default function Register() {
               autoComplete="new-password"
               className="input-glass rounded-xl"
             />
+            {confirmPassword && password !== confirmPassword && (
+              <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+            )}
           </div>
 
           <Button
