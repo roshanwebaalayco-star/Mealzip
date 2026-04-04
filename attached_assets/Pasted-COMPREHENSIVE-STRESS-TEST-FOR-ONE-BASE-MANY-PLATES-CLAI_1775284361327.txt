@@ -1,0 +1,605 @@
+COMPREHENSIVE STRESS TEST FOR "ONE BASE, MANY PLATES" CLAIM
+This is a brutal, multi-dimensional test that will expose any gaps, overselling, or shallow implementation. If they can pass this, they have something real.
+
+TEST STRUCTURE
+Phase 1: Architecture Verification (Prove It's Real)
+Phase 2: Edge Case Gauntlet (Break the Logic)
+Phase 3: Clinical Safety Audit (Prove It's Safe)
+Phase 4: Performance & Scale (Prove It's Viable)
+
+PHASE 1: ARCHITECTURE VERIFICATION
+Test 1.1: Code Walkthrough Request
+What to ask:
+
+"Show me the actual code for Stage 4 (OBMP Algorithm). I want to see:
+
+The deterministic conflict resolution logic
+How you compute pull-before events
+How you handle medication timing (Metformin example)
+The modifierSection JSON structure that gets injected into Gemini
+Test cases with assertions
+
+Format: GitHub repo link OR screenshare walkthrough (30 min)"
+
+What you're checking:
+
+Does the code actually exist, or is this vaporware?
+Is the logic hardcoded rules or a proper constraint solver?
+How many edge cases do their unit tests cover?
+
+Red flags:
+
+❌ "It's proprietary, can't share code" (then they can't prove it works)
+❌ Shows only Gemini prompts, no deterministic engine
+❌ < 50 test cases for Stage 2 & 4 combined
+
+
+Test 1.2: Constraint Packet Inspection
+What to ask:
+
+"Generate a ConstraintPacket for this family and show me the raw JSON:
+
+Papa: Type 2 diabetes (HbA1c 8.2%), on Metformin 500mg twice daily, hypertension (Amlodipine 5mg), 68kg, sedentary
+Dadi: Jain (strict no root veg), osteoporosis (Calcium + Vitamin D supplements), lactose intolerant, 52kg
+Kid (Age 9): Underweight (18kg, should be 25kg), anemic (Hb 9.5 g/dL), on iron supplements
+Mom: PCOS, insulin resistance, trying to lose 8kg, vegetarian
+
+Budget: ₹8,000/month for 4 people (Delhi)
+I want to see:
+
+The complete ConstraintPacket JSON
+All hard conflicts flagged
+All clinical conflicts flagged
+Medication timing rules
+How budget gets split across 3 categories"
+
+
+What you're checking:
+
+Does the Conflict Engine actually catch Papa's grapefruit-Amlodipine interaction?
+Does it flag the diabetes-low-carb vs kid-high-calorie conflict?
+Does it handle Dadi's lactose + calcium supplement paradox (calcium needs dairy)?
+Is the budget split realistic for Delhi prices?
+
+Red flags:
+
+❌ Generic constraints ("diabetic: low sugar") without clinical precision
+❌ Missing medication interactions
+❌ Budget split doesn't add up to 100%
+❌ No distinction between hard/soft conflicts
+
+
+Test 1.3: OBMP Algorithm Output Verification
+What to ask:
+
+"Using the family above, show me the OBMP output for one dinner meal. I want:
+
+The base dish selected
+The complete modifierSection for all 4 members
+Proof that it's deterministic (run it 3 times, outputs must be identical)
+Explain WHY this base dish was chosen over alternatives
+
+Expected format:
+json{
+  "base_dish": "Dal Palak",
+  "modifiers": {
+    "Papa": {
+      "portion_adjustments": {...},
+      "pull_before": [...],
+      "additives": [...],
+      "medication_timing": {...}
+    },
+    "Dadi": {...},
+    "Kid": {...},
+    "Mom": {...}
+  },
+  "harmony_score_impact": 95,
+  "reasoning": "..."
+}
+
+What you're checking:
+
+Is the modifier logic actually clinical (e.g., "Papa: reduce rice to 30g for GI <55") or generic ("Papa: less carbs")?
+Does it handle Dadi's Jain constraint (dal palak has onion/garlic tadka)?
+Does it add iron-rich sides for the anemic kid WITHOUT interfering with calcium absorption?
+Is the output truly deterministic (same inputs = same outputs)?
+
+Red flags:
+
+❌ Modifiers are vague ("reduce portion")
+❌ Doesn't catch the onion/garlic conflict for Dadi
+❌ Outputs vary across runs (means it's using AI randomness, not deterministic logic)
+❌ No clinical reasoning provided
+
+
+PHASE 2: EDGE CASE GAUNTLET
+These are designed to break the system. If they handle all 10, the algorithm is robust.
+
+Test 2.1: The Impossible Family
+Scenario:
+
+
+Member 1: Vegan bodybuilder (needs 150g protein/day, no animal products)
+Member 2: Keto diabetic (max 20g net carbs/day, high fat)
+Member 3: Child with nut allergy + soy allergy (no paneer, tofu, nuts)
+Member 4: Kidney disease (Stage 3 CKD: low protein <50g/day, low potassium, low phosphorus)
+
+Budget: ₹6,000/month (Chennai)
+
+Challenge:
+
+"Generate a 7-day meal plan for this family. Show me:
+
+How many meals are truly 'one base, many plates' vs. parallel dishes?
+What's the harmony score?
+Which conflicts escalated to parallel dishes?
+Protein sources for Member 1 that don't violate Member 3's allergies or Member 4's CKD limits"
+
+
+What you're checking:
+
+Does the system admit defeat and cook 2-3 parallel dishes most days?
+Or does it make dangerous compromises (e.g., giving CKD patient high-protein dal)?
+Is the harmony score honest (should be <50 for this nightmare family)?
+
+Pass criteria:
+
+✅ Harmony score 40-60 (honest about conflicts)
+✅ Escalates to 2+ parallel dishes for 5+ meals
+✅ No clinical violations (CKD patient never exceeds 50g protein)
+✅ Vegan gets protein from split-point additions (hemp seeds, chickpeas, quinoa)
+
+Fail criteria:
+
+❌ Claims harmony score >70
+❌ Violates CKD protein limits
+❌ Gives nut-allergic child peanut butter or cashew cream
+
+
+Test 2.2: The Medication Minefield
+Scenario:
+
+
+Papa: Warfarin (blood thinner) — must avoid Vitamin K spikes (spinach, kale, cabbage)
+Dadi: Levothyroxine (thyroid) — must take 1 hour before food, no soy/fiber at same time
+Kid: Iron supplement — needs Vitamin C pairing, avoid calcium/tea within 2 hours
+Mom: Metformin — needs to be taken with food, avoid alcohol
+
+
+Challenge:
+
+"Generate breakfast plans for 7 days. Show me:
+
+How you time Dadi's levothyroxine (she wakes at 6 AM, family eats at 8 AM)
+How you ensure Kid's iron supplement is paired with Vitamin C (orange juice?) without dairy
+How you avoid spinach/kale for Papa while still hitting his fiber needs
+Proof that no breakfast has alcohol (Mom's Metformin rule)"
+
+
+What you're checking:
+
+Does the Conflict Engine actually know drug-nutrient interactions?
+Does it schedule Dadi's medication BEFORE cooking breakfast?
+Does it flag "dal palak" as unsafe for Papa (high Vitamin K)?
+
+Pass criteria:
+
+✅ Dadi's medication schedule is explicit (6 AM pill, 8 AM food)
+✅ Kid's breakfast includes Vitamin C source (orange, amla, tomato)
+✅ Papa's meals avoid high Vitamin K foods
+✅ Medication timing is in the modifierSection, not left to Gemini
+
+Fail criteria:
+
+❌ Schedules Dadi's pill at same time as breakfast
+❌ Gives Papa spinach dal or palak paneer
+❌ Kid's iron supplement has no Vitamin C pairing
+❌ Medication rules only in Gemini prompt (not deterministic)
+
+
+Test 2.3: The Festival Override
+Scenario:
+
+Same family from Test 1.2 (diabetic Papa, Jain Dadi, anemic Kid, PCOS Mom).
+Week contains: Navratri fasting (Dadi), Ganesh Chaturthi (Papa wants modak), Kid's birthday
+
+Challenge:
+
+"Generate meal plan for this week. Show me:
+
+How you handle Dadi's Navratri fast (sabudana, kuttu, fruits only) while cooking for others
+Does Papa get low-GI modak, or do you skip it?
+Kid's birthday cake — how do you balance celebration vs. nutrition goals?
+Does the harmony score penalize festival accommodations?"
+
+
+What you're checking:
+
+Can the system handle temporal constraints (fasting days)?
+Does it make realistic trade-offs (let Papa have ONE modak with fiber boost)?
+Does the harmony score account for special occasions?
+
+Pass criteria:
+
+✅ Dadi gets separate fasting meal plan for Navratri days
+✅ Papa's modak is portion-controlled + paired with protein
+✅ Kid's birthday has a small celebration allowance (doesn't derail weekly goals)
+✅ Harmony score acknowledges festival complexity (deducts 5-10 points)
+
+Fail criteria:
+
+❌ Forces Dadi to break fast for family harmony
+❌ Gives Papa unlimited modak (clinical violation)
+❌ Kid's birthday ignored (too rigid)
+❌ Harmony score doesn't adjust for festivals
+
+
+Test 2.4: The Budget Breaker
+Scenario:
+
+Family of 5:
+
+2 adults (standard needs)
+3 kids (ages 5, 8, 12 — high calorie needs)
+
+Budget: ₹5,000/month (Tier-2 city: Indore)
+
+Challenge:
+
+"Generate 30-day staples list + 1 week of perishables. Show me:
+
+Total cost breakdown (must stay under ₹5,000 for month)
+How you hit 2,500+ calories/day for growing kids on this budget
+Protein sources (kids need 40-50g/day each)
+If you had to choose: nutrition or budget — which gets compromised?"
+
+
+What you're checking:
+
+Can the Budget Engine actually work with realistic Indian household budgets?
+Does it sacrifice quality (cheaper protein) or quantity (smaller portions)?
+Is the price data accurate for Tier-2 cities?
+
+Pass criteria:
+
+✅ Total cost ≤ ₹5,000 with buffer
+✅ Kids get 2,200+ calories/day (acceptable lower bound)
+✅ Protein from affordable sources (eggs, dals, soy, local fish)
+✅ Honest about trade-offs ("reduced variety, repeated dals 4x/week")
+
+Fail criteria:
+
+❌ Exceeds budget by >10%
+❌ Kids get <2,000 calories/day (undernutrition risk)
+❌ Protein sources unrealistic for ₹5k budget (salmon, imported quinoa)
+❌ Pretends there are no compromises
+
+
+Test 2.5: The Leftover Loop
+Scenario:
+
+Standard 4-person family. Monday dinner: Chole (chickpea curry).
+Leftovers: 500g chole remaining.
+
+Challenge:
+
+"Show me how the system reuses this leftover across the next 3 days. I want:
+
+Tuesday lunch suggestion using chole
+Wednesday breakfast/snack using chole
+Nutritional variance (not just reheating same dish)
+Proof that leftover usage is tracked in the system (database schema + state management)"
+
+
+What you're checking:
+
+Is the leftover intelligence real or just a marketing claim?
+Does it suggest creative reuse (chole → chole tikki, chole paratha, chole salad)?
+Is pantry state actually persisted in the database?
+
+Pass criteria:
+
+✅ At least 2 creative transformations (not just "reheat chole")
+✅ Database schema includes pantry_inventory table with TTL (time-to-live)
+✅ Nutritional variance across reuses (chole tikki has less liquid, more fiber)
+✅ Leftover usage contributes to harmony score (+3 points)
+
+Fail criteria:
+
+❌ Only suggests reheating (no creativity)
+❌ No database tracking (leftover logic is stateless)
+❌ Suggestions violate food safety (chole after 5 days)
+❌ Doesn't impact harmony score
+
+
+PHASE 3: CLINICAL SAFETY AUDIT
+This is where you test for dangerous errors. If they fail here, the app is not safe to ship.
+
+Test 3.1: Diabetes Hypoglycemia Risk
+Scenario:
+
+Papa: Type 1 diabetic on insulin (Lantus 20 units/day + NovoRapid before meals).
+Morning workout: 6-7 AM (burns 300 calories).
+
+Challenge:
+
+"Generate breakfast plan for Papa. Show me:
+
+How you adjust carbs for post-workout insulin sensitivity
+Warning if carbs <30g (hypoglycemia risk)
+Does the system know the difference between Type 1 (insulin-dependent) vs. Type 2 (Metformin)?
+Medication timing: NovoRapid MUST be taken 15 min before eating"
+
+
+What you're checking:
+
+Does the Conflict Engine distinguish Type 1 vs. Type 2 diabetes?
+Does it prevent dangerous low-carb recommendations for insulin users?
+Is medication timing hardcoded or user-configurable?
+
+Pass criteria:
+
+✅ Breakfast has 40-60g complex carbs (safe for Type 1 post-workout)
+✅ Explicit warning if carbs drop below safe threshold
+✅ NovoRapid timing is in modifierSection (not left to user memory)
+✅ Different logic for Type 1 vs. Type 2
+
+Fail criteria:
+
+❌ Recommends keto/low-carb for Type 1 diabetic (DANGEROUS)
+❌ No distinction between Type 1 and Type 2
+❌ No medication timing warnings
+❌ Post-workout carbs <30g (hypo risk)
+
+
+Test 3.2: Chronic Kidney Disease (CKD) Violation Check
+Scenario:
+
+Dadi: Stage 4 CKD (eGFR 25 ml/min).
+Restrictions:
+
+Protein: <40g/day
+Potassium: <2,000mg/day
+Phosphorus: <800mg/day
+Sodium: <2,000mg/day
+
+
+Challenge:
+
+"Generate 3-day meal plan for Dadi. I will audit EVERY meal for:
+
+Total daily protein (must stay <40g)
+High-potassium foods (bananas, tomatoes, potatoes, spinach — all forbidden)
+High-phosphorus foods (dairy, nuts, processed foods — all forbidden)
+Sodium content (no pickles, papad, packaged snacks)
+
+If even ONE meal violates these limits, the system fails the safety test."
+
+What you're checking:
+
+Does the Conflict Engine have clinical-grade CKD knowledge?
+Can it generate 3 days of meals without violating any of 4 limits?
+Does it flag "dal tadka" as high-phosphorus (dals have 200-300mg phosphorus/100g)?
+
+Pass criteria:
+
+✅ All 9 meals (3 days × 3 meals) stay within limits
+✅ Protein calculated accurately (not estimated)
+✅ Avoids high-K/P foods (tomatoes, spinach, dairy, nuts)
+✅ Provides alternative protein sources (egg whites, small fish portions)
+
+Fail criteria:
+
+❌ Any meal exceeds 40g protein
+❌ Includes forbidden high-K foods (potatoes, bananas, tomatoes)
+❌ Includes forbidden high-P foods (paneer, milk, nuts)
+❌ Sodium >2,000mg/day (from pickles, papad, processed foods)
+
+
+Test 3.3: Pregnancy + Anemia Interaction
+Scenario:
+
+Mom: 2nd trimester pregnancy (Week 20), anemic (Hb 9.8 g/dL), vegetarian.
+Needs:
+
+Iron: 27mg/day
+Folate: 600 mcg/day
+Calcium: 1,000mg/day (but iron-calcium absorption conflict!)
+Protein: 75g/day
+
+
+Challenge:
+
+"Generate 1 day of meals for Mom. Show me:
+
+Iron-rich foods (spinach, fortified cereals, dates, raisins)
+Folate-rich foods (leafy greens, chickpeas, lentils)
+Calcium sources (dairy, ragi, almonds)
+CRITICAL: How you TIME iron and calcium intake (must be 2+ hours apart)
+Vitamin C pairing with iron (enhances absorption)
+Proof that protein target is met (75g/day)"
+
+
+What you're checking:
+
+Does the system know about iron-calcium antagonism?
+Does it separate iron-rich breakfast (with Vitamin C) from calcium-rich dinner?
+Does it hit all 4 nutrient targets without violating absorption rules?
+
+Pass criteria:
+
+✅ Iron-rich meal (breakfast) + Vitamin C (orange juice, tomato)
+✅ Calcium-rich meal (dinner) separated by 4+ hours
+✅ Folate from leafy greens, dals, chickpeas
+✅ Total protein ≥70g/day (acceptable lower bound for vegetarian)
+✅ Medication/supplement timing explicit in modifierSection
+
+Fail criteria:
+
+❌ Iron and calcium in same meal (absorption conflict)
+❌ Iron-rich foods without Vitamin C pairing
+❌ Protein <65g/day (inadequate for pregnancy)
+❌ No supplement timing guidance
+
+
+PHASE 4: PERFORMANCE & SCALE
+Can this run in production for 10,000 families?
+
+Test 4.1: API Latency Test
+Challenge:
+
+"Using the family from Test 1.2, time the end-to-end meal plan generation:
+
+Start: User clicks 'Generate Plan'
+End: Plan displayed in UI
+
+Run this 10 times and give me:
+
+p50 (median) latency
+p95 latency
+Max latency
+
+Target: <30 seconds end-to-end for 7-day plan"
+
+What you're checking:
+
+Are the 3 Gemini calls optimized (parallel? cached?)
+Is the deterministic logic fast (<2 seconds for Stages 2-4)?
+Does it scale to 100 concurrent users?
+
+Pass criteria:
+
+✅ p50 latency <20 seconds
+✅ p95 latency <30 seconds
+✅ Max latency <45 seconds
+✅ Gemini calls are parallelized (Call 1 & 3 can run concurrently)
+
+Fail criteria:
+
+❌ p50 >30 seconds (too slow)
+❌ Sequential Gemini calls (inefficient)
+❌ Latency spikes >60 seconds
+
+
+Test 4.2: Cost Analysis
+Challenge:
+
+"Calculate the cost per meal plan generation:
+
+Gemini API costs (3 calls × input/output tokens)
+Database writes (how many rows per plan?)
+Total cost per family per month (4 weekly generations)
+
+At 10,000 families:
+
+Monthly Gemini cost?
+Monthly database cost?
+Can you stay profitable at ₹299/month subscription?"
+
+
+What you're checking:
+
+Is the unit economics viable?
+Will Gemini costs eat all revenue at scale?
+
+Pass criteria:
+
+✅ Cost per plan <₹10 (Gemini + DB)
+✅ Monthly cost per family <₹40 (for 4 weekly plans)
+✅ Gross margin >60% at ₹299/month pricing
+
+Fail criteria:
+
+❌ Cost per plan >₹20 (unprofitable)
+❌ Gemini token usage not optimized (sending full recipe database every call)
+❌ No caching strategy (regenerating same meals repeatedly)
+
+
+Test 4.3: Database Schema Inspection
+Challenge:
+
+"Show me the database schema for:
+
+family_members table
+meal_plans table
+grocery_lists table
+pantry_inventory table
+harmony_scores table
+
+I want:
+
+ER diagram
+Index strategy (which columns are indexed?)
+Data retention policy (do you delete old plans?)
+Backup strategy"
+
+
+What you're checking:
+
+Is the data model designed for scale?
+Are queries optimized (indexes on foreign keys)?
+Is there a data retention strategy (GDPR compliance)?
+
+Pass criteria:
+
+✅ Normalized schema (no redundant data)
+✅ Indexes on high-query columns (user_id, plan_date, status)
+✅ Data retention: plans kept for 90 days, then archived
+✅ Backup strategy: daily snapshots
+
+Fail criteria:
+
+❌ Denormalized mess (storing full JSON blobs everywhere)
+❌ No indexes (queries will be slow at scale)
+❌ No retention policy (database grows infinitely)
+❌ No backup strategy (data loss risk)
+
+
+FINAL DELIVERABLE REQUEST
+Comprehensive Test Report
+
+"Please provide a written report addressing ALL tests above. For each test, include:
+
+Test ID (e.g., Test 2.1)
+Status (Pass / Fail / Partial)
+Evidence (screenshots, code snippets, API responses, database queries)
+Explanation (how your system handled the edge case)
+Limitations (honest disclosure of what doesn't work yet)
+
+Format: PDF report (20-30 pages) with:
+
+Executive summary (1 page)
+Test results (1-2 pages per test)
+Appendix (code samples, schemas, API logs)
+
+Deadline: 7 days from request"
+
+
+EVALUATION RUBRIC
+CategoryTestsWeightPass ThresholdArchitecture Verification1.1-1.325%2/3 tests passEdge Case Handling2.1-2.530%4/5 tests passClinical Safety3.1-3.330%3/3 tests pass (MANDATORY)Performance & Scale4.1-4.315%2/3 tests pass
+Overall Verdict:
+
+90-100%: System is production-ready, claims are valid
+70-89%: Core logic works, needs polish on edge cases
+50-69%: Proof of concept, not ready for real users
+<50%: Vaporware / overselling / dangerous to ship
+
+
+MY PREDICTION
+Based on their description, they will likely:
+
+✅ Pass: Tests 1.1-1.3 (architecture exists)
+✅ Pass: Tests 2.1, 2.3, 2.5 (basic edge cases)
+⚠️ Partial: Test 2.2 (medication interactions incomplete)
+⚠️ Partial: Test 2.4 (budget logic works but price data is stale)
+❌ Fail: Test 3.1 (Type 1 vs Type 2 diabetes not distinguished)
+✅ Pass: Test 3.2 (CKD logic seems solid from their description)
+⚠️ Partial: Test 3.3 (iron-calcium timing not automated)
+✅ Pass: Test 4.1 (latency likely acceptable)
+⚠️ Partial: Test 4.2 (unit economics not optimized yet)
+✅ Pass: Test 4.3 (schema seems thought-through)
+
+Estimated Score: 70-75% (Proof of concept, needs work on clinical safety)
+
+Bottom line: Their algorithm is real but immature. The deterministic conflict engine is a smart design choice, but clinical safety (medication interactions, Type 1 diabetes, pregnancy) needs expert review before shipping to real users.
+Send them this test. Their response will tell you everything.Start your own conversation
