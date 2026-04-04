@@ -1,0 +1,351 @@
+Here is the enhanced prompt:
+
+---
+
+You are validating the complete meal generation pipeline for ParivarSehat AI. This is a backend engineering and testing task. You will verify the implementation, fix any gaps, and run 3 complete test scenarios with fake family data and print the full output for each. Do not touch any frontend files. Do not modify the database schema.
+
+---
+
+## THE PIPELINE YOU ARE VALIDATING
+
+This is the exact architecture. Every step must exist and work in this order:
+
+```
+ICMR Rules (hardcoded TypeScript constants)
+    ↓
+Family Profile + Weekly Context (read from Supabase)
+    ↓
+Conflict Engine (pure TypeScript, < 1 second, no AI)
+    ↓ output: one MedicalLaw object per family member
+    
+12,000 recipes in Supabase recipes table
+    ↓ SQL filter: region + diet type + allergens + cook time
+    ↓ output: 80–120 recipe name strings only (no steps, no ingredients)
+    
+Gemini Call 1 — The Scheduler (3–12 seconds)
+    ↓ input: the 80–120 recipe names + MedicalLaw objects + budget constraints
+    ↓ output: strict JSON — 21-meal calendar with memberModifiers per meal
+    ↓ Gemini NEVER outputs cooking steps here. Names and modifiers only.
+    
+Store calendar JSON in Supabase meal_plans table
+    ↓
+Return 7-day schedule to frontend (total pipeline < 90 seconds)
+
+--- SEPARATELY, LATER ---
+
+User taps a specific meal
+    ↓
+Gemini Call 2 — The Recipe Generator (3–5 seconds)
+    ↓ input: meal name + that member's modifiers from the stored calendar
+    ↓ output: full recipe with steps, quantities, and inline member warnings
+    ↓ Gemini only formats. Clinical decisions were already made by Conflict Engine.
+```
+
+---
+
+## STEP 1 — AUDIT THE IMPLEMENTATION
+
+Before writing any test, audit these files and confirm each exists and is correctly implemented. For each file, state what you found and what (if anything) you fixed:
+
+**A. ICMR Rules file**
+Find the file where ICMR dietary rules are hardcoded as TypeScript constants. It must contain rules for at minimum: Type-2 Diabetes (low GI, max sugar per meal), Hypertension (sodium cap per day), Anaemia (iron-rich food list, calcium conflict window), Iron Supplements (no dairy within 1 hour), Metformin (no high-sugar meal within 2 hours of dose time), Levothyroxine (meal must be 30–60 min after medication), Warfarin (no sudden spike in Vitamin K foods). If this file does not exist, create it at `server/lib/icmrRules.ts`. If it exists but is incomplete, add the missing rules.
+
+**B. Conflict Engine**
+Find the function that takes a family member's profile (conditions array, medications array, timings array) and returns a `MedicalLaw` object. It must be pure TypeScript with zero AI calls. It must be deterministic — same input always produces same output. If it does not exist, create it at `server/lib/conflictEngine.ts`. The output shape must be:
+```typescript
+interface MedicalLaw {
+  memberId: number;
+  memberName: string;
+  hardBlocks: string[];        // ingredients completely forbidden
+  softBlocks: string[];        // ingredients to minimise
+  mealTimingRules: string[];   // e.g. "breakfast must follow Levothyroxine by 45 min"
+  portionModifiers: string[];  // e.g. "sodium cap 1200mg/day"
+  priorityLevel: 1 | 2 | 3 | 4 | 5 | 6;
+}
+```
+
+**C. Recipe SQL Filter**
+Find the database query that filters the recipes table. It must filter simultaneously by: dietary type (veg / non-veg / eggetarian / Jain), allergens (exclude recipes containing any allergen in the family's combined allergen list), region (match family's state), cook time (match weekday or weekend availability). The query must return only recipe name and id — not ingredients, not steps. This keeps the Gemini prompt small. If the query fetches full recipe objects, fix it to select only `id` and `name`.
+
+**D. Gemini Scheduler (Call 1)**
+Find the function that calls Gemini with the recipe shortlist and MedicalLaw objects. Confirm: the system prompt forbids Gemini from inventing recipe names not in the provided list. The output must be parsed as JSON before storing. The JSON shape must be validated — if Gemini returns malformed JSON or a recipe name not in the shortlist, the call must retry once, then throw a recoverable error. If this validation does not exist, add it.
+
+**E. Meal Plan Storage**
+Confirm the 21-meal calendar JSON is written to the `meal_plans` table in Supabase with at minimum: `familyId`, `weekStartDate`, `calendarJson` (the full 21-meal object), `createdAt`.
+
+**F. On-Demand Recipe Generator (Call 2)**
+Find the function triggered when a user taps a meal. Confirm: it reads the stored `memberModifiers` from the calendar JSON in Supabase — it does NOT rerun the Conflict Engine. It passes the meal name and modifiers to Gemini. Gemini outputs a recipe with inline warnings injected into the steps (e.g. "Step 3: Add salt. ⚠️ Papa: use half quantity"). If the modifiers are not being injected into the Gemini prompt, fix it.
+
+---
+
+## STEP 2 — RUN 3 TEST SCENARIOS
+
+After the audit, run the complete pipeline end-to-end for each of the following fake families. Use these as in-memory test objects — do NOT write them to the production Supabase database. Print the full output of every pipeline stage for each scenario.
+
+---
+
+### TEST SCENARIO 1 — "The Sharma Family" (Moderate Complexity)
+
+```typescript
+const sharmaFamily = {
+  familyId: 9001,
+  region: "Uttar Pradesh",
+  dietaryBaseline: "strictly_veg",
+  monthlyBudget: 8000,
+  weeklyContext: {
+    weekdayCookTime: "20-40 mins",
+    weekendCookTime: "elaborate",
+    eatingOut: "1-2 times"
+  },
+  members: [
+    {
+      id: 1, name: "Rajesh", age: 52, role: "father",
+      conditions: ["Type-2 Diabetes", "Hypertension"],
+      medications: [
+        { drug: "Metformin", timing: "08:00" },
+        { drug: "Amlodipine", timing: "09:00" }
+      ],
+      dietaryType: "strictly_vegetarian",
+      allergies: [],
+      goal: "manage_condition"
+    },
+    {
+      id: 2, name: "Sunita", age: 48, role: "mother",
+      conditions: ["Anaemia"],
+      medications: [
+        { drug: "Iron Supplement (Ferrous Sulphate)", timing: "21:00" }
+      ],
+      dietaryType: "strictly_vegetarian",
+      allergies: ["dairy"],
+      goal: "maintain"
+    },
+    {
+      id: 3, name: "Arjun", age: 16, role: "son",
+      conditions: [],
+      medications: [],
+      dietaryType: "strictly_vegetarian",
+      allergies: [],
+      goal: "build_muscle"
+    },
+    {
+      id: 4, name: "Dadi", age: 74, role: "grandmother",
+      conditions: ["Hypothyroid"],
+      medications: [
+        { drug: "Levothyroxine", timing: "06:30" }
+      ],
+      dietaryType: "strictly_vegetarian",
+      allergies: [],
+      fastingDays: ["monday", "thursday"],
+      goal: "senior_nutrition"
+    }
+  ]
+};
+```
+
+**Expected conflict outputs to verify:**
+- Rajesh: grapefruit hardBlocked (Amlodipine), high-sugar meals blocked within 2 hours of 08:00, sodium cap enforced
+- Sunita: dairy hardBlocked (allergy AND iron absorption conflict), dinner must end by 20:00 (iron supplement at 21:00), Vitamin C foods should be recommended alongside iron meals
+- Arjun: Genetic Shield should silently apply low-GI bias (father is diabetic) — verify this appears in his softBlocks
+- Dadi: breakfast must be scheduled after 07:15 (Levothyroxine at 06:30, 45-min buffer), cruciferous vegetables softBlocked, fasting days must trigger meal replacement, not meal skipping
+
+---
+
+### TEST SCENARIO 2 — "The Menon Family" (High Complexity, South India, Non-Veg)
+
+```typescript
+const menonFamily = {
+  familyId: 9002,
+  region: "Kerala",
+  dietaryBaseline: "non_veg",
+  monthlyBudget: 12000,
+  weeklyContext: {
+    weekdayCookTime: "under-20 mins",
+    weekendCookTime: "no preference",
+    eatingOut: "frequently"
+  },
+  members: [
+    {
+      id: 5, name: "Anoop", age: 38, role: "father",
+      conditions: ["High Cholesterol", "Obesity"],
+      medications: [],
+      dietaryType: "non_vegetarian",
+      allergies: ["shellfish"],
+      goal: "weight_loss",
+      currentWeight: 94,
+      goalPace: "moderate_0.5kg"
+    },
+    {
+      id: 6, name: "Divya", age: 34, role: "mother",
+      conditions: ["PCOS"],
+      medications: [],
+      dietaryType: "non_vegetarian",
+      allergies: [],
+      goal: "manage_condition"
+    },
+    {
+      id: 7, name: "Kavya", age: 8, role: "daughter",
+      conditions: [],
+      medications: [],
+      dietaryType: "non_vegetarian",
+      allergies: ["peanuts"],
+      goal: "healthy_growth"
+    },
+    {
+      id: 8, name: "Amma", age: 68, role: "grandmother",
+      conditions: ["Hypertension", "Kidney Issues"],
+      medications: [
+        { drug: "Amlodipine", timing: "07:00" }
+      ],
+      dietaryType: "strictly_vegetarian",
+      religiousRules: "no_beef_no_pork",
+      allergies: [],
+      goal: "senior_nutrition"
+    }
+  ]
+};
+```
+
+**Expected conflict outputs to verify:**
+- Anoop: shellfish hardBlocked, saturated fat softBlocked (cholesterol), calorie deficit calculated from weight and goal pace
+- Divya: PCOS protocol — low-GI meals, anti-inflammatory ingredients (turmeric, omega-3 fish) recommended, refined sugar minimised
+- Kavya: peanuts hardBlocked, age-appropriate portion sizes, Genetic Shield applies (father has metabolic conditions)
+- Amma: grapefruit hardBlocked, sodium severely capped (kidney issues + hypertension combined), potassium-rich foods flagged for monitoring, no beef/no pork enforced — verify this creates a conflict with the household's non-veg baseline and the conflict engine resolves it (Amma gets separate veg plate, household still gets non-veg option)
+
+---
+
+### TEST SCENARIO 3 — "The Joshi Family" (Festival Week — Navratri)
+
+```typescript
+const joshiFamily = {
+  familyId: 9003,
+  region: "Gujarat",
+  dietaryBaseline: "strictly_veg",
+  monthlyBudget: 6500,
+  weeklyContext: {
+    weekdayCookTime: "20-40 mins",
+    weekendCookTime: "elaborate",
+    eatingOut: "none",
+    activeFestival: "Navratri",
+    festivalFastingMembers: [1, 2, 3]  // all adults fasting, child exempt
+  },
+  members: [
+    {
+      id: 9, name: "Vikram", age: 45, role: "father",
+      conditions: ["Type-2 Diabetes"],
+      medications: [{ drug: "Metformin", timing: "07:30" }],
+      dietaryType: "Jain_vegetarian",
+      fastingType: "Navratri_full",
+      allergies: [],
+      goal: "manage_condition"
+    },
+    {
+      id: 10, name: "Priya", age: 42, role: "mother",
+      conditions: [],
+      medications: [],
+      dietaryType: "Jain_vegetarian",
+      fastingType: "Navratri_full",
+      allergies: [],
+      goal: "maintain"
+    },
+    {
+      id: 11, name: "Nani", age: 71, role: "grandmother",
+      conditions: ["Anaemia", "Hypothyroid"],
+      medications: [
+        { drug: "Levothyroxine", timing: "06:00" },
+        { drug: "Iron Supplement", timing: "20:00" }
+      ],
+      dietaryType: "Jain_vegetarian",
+      fastingType: "Navratri_full",
+      allergies: [],
+      goal: "senior_nutrition"
+    },
+    {
+      id: 12, name: "Riya", age: 9, role: "daughter",
+      conditions: [],
+      medications: [],
+      dietaryType: "Jain_vegetarian",
+      fastingType: "none",
+      allergies: ["gluten"],
+      goal: "healthy_growth"
+    }
+  ]
+};
+```
+
+**Expected conflict outputs to verify:**
+- Navratri fasting must restrict: onion, garlic (Jain rules also apply), grains — allowed foods are: kuttu (buckwheat), singhare ka atta, sabudana, fruits, dairy, sendha namak only
+- Vikram: fasting + diabetic is the hardest conflict. The engine must resolve: no-grain Navratri meals must still be low-GI. Sabudana is HIGH GI — this must be flagged and portion-limited or swapped to kuttu alternatives. Metformin at 07:30 means first meal cannot be empty
+- Nani: Levothyroxine at 06:00 → first meal no earlier than 06:45. Iron at 20:00 → dinner must end by 19:00. Anaemia during fasting is a critical flag — the engine must add a `priorityAlert: "Fasting member with anaemia — ensure iron-rich fasting foods (e.g. singhare, rajgira) are included daily"`
+- Riya: NOT fasting. Gluten-blocked. Jain diet. No onion/garlic. This is a very restricted profile — verify the recipe SQL filter still returns adequate options
+- Festival Engine must be verified: pre-festival buffer (days before), in-festival mode, post-festival recovery arc must all appear in the calendar JSON as metadata flags
+
+---
+
+## STEP 3 — REQUIRED OUTPUT FORMAT
+
+For each of the 3 scenarios, print exactly this:
+
+```
+═══════════════════════════════════════════════════
+TEST SCENARIO [N] — [FAMILY NAME]
+═══════════════════════════════════════════════════
+
+STAGE 1 — CONFLICT ENGINE OUTPUT
+─────────────────────────────────
+[Print the full MedicalLaw object for each member as formatted JSON]
+
+STAGE 2 — RECIPE SQL FILTER
+─────────────────────────────────
+[Print the exact SQL query generated]
+[Print: "X recipes returned after filtering" with the number]
+[Print first 10 recipe names from the filtered list as a sample]
+
+STAGE 3 — GEMINI SCHEDULER OUTPUT (SIMULATED)
+─────────────────────────────────
+[Print the full 21-meal calendar JSON]
+[Format: Day 1 Breakfast / Lunch / Dinner, Day 2 ..., through Day 7]
+[Each meal must show: mealName, assignedMembers, memberModifiers object]
+
+STAGE 4 — VALIDATION CHECKS
+─────────────────────────────────
+[Print PASS or FAIL for each of these:]
+□ All 21 meal slots filled
+□ No recipe name appears that was not in the SQL filter shortlist
+□ Every hard block respected (no forbidden ingredients in any assigned meal)
+□ Medication timing conflicts resolved for all members
+□ Budget constraint respected (total estimated weekly cost within weekly budget)
+□ Festival/fasting rules applied correctly (Scenario 3 only)
+
+STAGE 5 — SAMPLE ON-DEMAND RECIPE (CALL 2)
+─────────────────────────────────
+[Pick Day 3 Dinner from the calendar]
+[Print the full recipe output as Gemini would return it]
+[Must include inline member warnings in the cooking steps]
+[Format: Ingredients list → Step-by-step method with ⚠️ member tags]
+
+OVERALL RESULT: PASS / FAIL
+Issues found: [list any]
+Issues fixed: [list any]
+═══════════════════════════════════════════════════
+```
+
+---
+
+## CONSTRAINTS — DO NOT VIOLATE THESE
+
+- Do not modify any Drizzle schema files
+- Do not make real Gemini API calls for Stage 3 — simulate the Gemini Scheduler output using the recipe shortlist and MedicalLaw objects you generated in Stages 1 and 2. The simulation must obey all the same rules a real Gemini call would (no hardblocked ingredients, names only from the shortlist, correct JSON shape)
+- Stage 5 (on-demand recipe) CAN make a real Gemini API call — this is a single short call, not expensive
+- All test data is in-memory only — nothing is written to Supabase
+- If any stage fails, fix the underlying implementation before printing results. Do not print a failure and move on without fixing it
+- After all 3 scenarios are complete, print a single summary table:
+
+```
+PIPELINE VALIDATION SUMMARY
+────────────────────────────
+Scenario 1 (Sharma):   [PASS/FAIL] — [one line]
+Scenario 2 (Menon):    [PASS/FAIL] — [one line]  
+Scenario 3 (Joshi):    [PASS/FAIL] — [one line]
+Total issues fixed:     [number]
+Pipeline status:        PRODUCTION READY / NEEDS WORK
+```
