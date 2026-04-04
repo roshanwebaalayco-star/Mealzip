@@ -1076,7 +1076,7 @@ Return to User (with Harmony Score + per-member plate cards)
 
 ### Test Coverage
 
-*Source: `it()` counts from `tests/unit/`, `tests/integration/`, `test/`, and `tests/unit/` (via `grep -c 'it(' <file>`).*
+*Scope: `api-server` package only (clinical engine + integration tests). Counts are `it()` declarations via `grep -c '^\s*it(' <file>`.*
 
 | Test File | Location | Test Cases |
 |---|---|---|
