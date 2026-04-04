@@ -6,7 +6,19 @@ import { localDb as db } from "@workspace/db";
 import { recipesTable } from "@workspace/db";
 
 const WORKSPACE_ROOT = path.resolve(process.cwd(), "..");
-const CSV_PATH = path.join(WORKSPACE_ROOT, "attached_assets/COMBINED_RECIPES_1774509512493.csv");
+// Try multiple possible CSV filenames
+const CSV_CANDIDATES = [
+  "COMBINED_RECIPES_1774509512493.csv",
+  "COMBINED_RECIPES_1774599111721.csv",
+  "COMBINED_RECIPES_1774609969536.csv",
+];
+const CSV_PATH = (() => {
+  for (const name of CSV_CANDIDATES) {
+    const p = path.join(WORKSPACE_ROOT, "attached_assets", name);
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error(`No recipe CSV found in ${path.join(WORKSPACE_ROOT, "attached_assets")}. Expected one of: ${CSV_CANDIDATES.join(", ")}`);
+})();
 const BATCH_SIZE = 500;
 
 const CUISINE_MAP: Record<string, string> = {
