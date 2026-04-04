@@ -232,6 +232,15 @@ export default function Profile() {
           const hasBodyMetrics = !!(member.weightKg && member.heightCm);
           const kcal = member.dailyCalorieTarget ?? null;
           const showGoalPaceField = weightChangeGoal && edit.age >= 18;
+          const bmi = hasBodyMetrics
+            ? Number(member.weightKg) / ((Number(member.heightCm) / 100) ** 2)
+            : null;
+          const bmiLabel = bmi
+            ? bmi < 18.5 ? { label: "Underweight", color: "text-blue-600 bg-blue-50 border-blue-200" }
+            : bmi < 25   ? { label: "Normal BMI",  color: "text-green-600 bg-green-50 border-green-200" }
+            : bmi < 30   ? { label: "Overweight",  color: "text-amber-600 bg-amber-50 border-amber-200" }
+            :               { label: "Obese",       color: "text-red-600 bg-red-50 border-red-200" }
+            : null;
 
           return (
             <motion.div key={member.id} variants={item} className="bg-white rounded-3xl shadow-sm border border-border">
@@ -249,7 +258,12 @@ export default function Profile() {
                     <p className="text-xs text-muted-foreground capitalize">{member.age}y · {member.gender}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {bmi && bmiLabel && (
+                    <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 ${bmiLabel.color}`}>
+                      BMI {bmi.toFixed(1)} · {bmiLabel.label}
+                    </span>
+                  )}
                   {kcal && (
                     <span className="text-xs font-semibold text-primary bg-primary/5 border border-primary/20 rounded-full px-2.5 py-1">
                       ~{kcal} kcal/day

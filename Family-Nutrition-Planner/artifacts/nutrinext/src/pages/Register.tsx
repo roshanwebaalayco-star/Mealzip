@@ -34,6 +34,7 @@ function getPasswordStrength(pwd: string): { level: "weak" | "medium" | "strong"
 
 export default function Register() {
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,7 +49,11 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password) {
+    if (!name.trim()) {
+      setNameError("Full name is required");
+      return;
+    }
+    if (!email || !password) {
       toast({ variant: "destructive", title: "Error", description: "Please fill in all required fields." });
       return;
     }
@@ -116,11 +121,13 @@ export default function Register() {
               type="text"
               placeholder="Rajesh Sharma"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); if (nameError) setNameError(""); }}
+              onBlur={() => { if (!name.trim()) setNameError("Full name is required"); }}
               maxLength={100}
               autoComplete="name"
-              className="input-glass rounded-xl"
+              className={`input-glass rounded-xl ${nameError ? "border-red-400" : ""}`}
             />
+            {nameError && <p className="text-xs text-red-500 mt-0.5">{nameError}</p>}
           </div>
 
           <div className="space-y-1.5">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,11 @@ export default function Login() {
   const { toast } = useToast();
   const { login } = useAuth();
   const [, navigate] = useLocation();
+
+  useEffect(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) navigate("/profile");
+  }, [navigate]);
 
   const handleInstantDemo = async () => {
     setIsDemoLoading(true);

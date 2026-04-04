@@ -1,0 +1,620 @@
+Good — I have everything I need. Here is the complete Replit agent prompt. Copy and paste the entire block below directly into Replit Agent.
+
+---
+
+```
+You are a senior QA engineer and frontend test specialist. Your job is to conduct a deep, exhaustive frontend test of ParivarSehat AI / NutriNext — an Indian family nutrition app. You are NOT writing unit tests. You are manually exercising every UI surface, every input field, every AI interaction, and every edge case exactly as a real user and a competition judge would. 
+
+You will test all 15 pages systematically. For every test, you will report:
+- PASS / FAIL / WARN
+- Exact input used
+- Exact observed behavior
+- What the correct behavior should be
+- Severity: CRITICAL / HIGH / MEDIUM / LOW
+
+Run the app (frontend + backend) before starting. Confirm both are running and the database is seeded before proceeding.
+
+---
+
+## PHASE 1: AUTHENTICATION PAGES (/login and /register)
+
+### 1.1 Registration Page (/register)
+
+Test every field with boundary and invalid values:
+
+**Name field:**
+- Enter: empty string → should show "Name required" error, not submit
+- Enter: single character "A" → should it accept? Report behavior
+- Enter: 200 characters (paste a long string) → should truncate or reject gracefully
+- Enter: special characters like "Raj@#$%" → should accept (valid Indian names have special chars?)
+- Enter: numbers only "12345" → report behavior
+- Enter: emojis "Priya 🌸" → report behavior
+
+**Email field:**
+- Enter: "notanemail" → should show format error before submission
+- Enter: "test@" → should show format error
+- Enter: "test@domain" → should show format error
+- Enter: "test@domain.com" → should accept
+- Enter: spaces " test@domain.com " → should trim and accept or reject?
+- Enter: already-registered email (register twice with same email) → should show "email already exists" not a generic error
+
+**Password field:**
+- Enter: empty → should block submission
+- Enter: "123" (too short) → what is the minimum? Does it enforce it? Report exact minimum
+- Enter: "12345678" (no special chars) → does it enforce complexity? Report behavior
+- Enter: "Password1!" → should accept
+- Enter: 100-character password → should accept or reject? Report behavior
+- Check: is the password masked by default? Is there a show/hide toggle?
+
+**Language preference (if shown on register):**
+- Test all dropdown options actually save correctly
+- Switch language and verify the UI changes language immediately or on next load
+
+**After successful registration:**
+- Is the user automatically logged in or redirected to login?
+- Is there a welcome message or is the user dumped directly into family setup?
+- What happens if you press the browser back button after registering?
+
+### 1.2 Login Page (/login)
+
+- Enter wrong password → exact error message? Does it say "wrong password" or just "invalid credentials"? The latter is more secure.
+- Enter unregistered email → same error as wrong password? Or different? Security check.
+- Enter correct credentials → where does it redirect? Should go to /family-setup if no family exists, or dashboard if family exists.
+- Leave both fields empty and submit → does inline validation fire immediately or only on submit?
+- Test "remember me" if it exists — does refreshing the page keep the user logged in?
+- What happens if you navigate to /login when already logged in? Should redirect to dashboard.
+
+---
+
+## PHASE 2: FAMILY SETUP (/family-setup)
+
+This is the most complex page. Test every single field exhaustively.
+
+### 2.1 Family-Level Fields
+
+**Number of family members:**
+- Enter: 0 → should reject. What is the minimum? (Should be 1)
+- Enter: 1 → should accept
+- Enter: 8 → should accept (documented max)
+- Enter: 9 → should reject or show warning
+- Enter: 20 → should reject
+- Enter: -1 → should reject
+- Enter: 1.5 → should reject (decimal not valid)
+- Enter: "abc" → should reject with clear error
+
+**State/Region dropdown:**
+- Cycle through all options. Do all 5 regions (North, South, East, West, Central) appear?
+- Select each one and verify it saves. After saving and returning to edit, does the correct value persist?
+
+**Household dietary baseline:**
+- Test all options: Strictly vegetarian / Veg with eggs / Non-vegetarian / Mixed
+- Select "Mixed" — does the UI explain what mixed means? Does it affect per-member fields?
+
+**Meals per day:**
+- Test all three options. Does the meal plan page later show the correct number of meal slots based on this?
+
+**Cooking skill level:**
+- Test all three levels. Does anything in the UI change immediately upon selection?
+
+**Appliances (multi-select):**
+- Select none → is this allowed? What happens in meal generation if no appliances are selected?
+- Select all → report behavior
+- Select only "gas stove" → verify it saves correctly
+- After saving, return to edit — are all previously selected appliances still checked?
+
+### 2.2 Per-Member Fields — Test Each Field With These Exact Values
+
+For the FIRST member (assume adult male, diabetic):
+
+**Name:**
+- Empty → should block save
+- "A" → accept or reject?
+- "Rajendra Prasad Sharma" (long name) → does the UI clip it in displays? Check all places the name appears.
+- Numbers in name "Ram2" → report behavior
+
+**Age:**
+- Enter: 0 → what happens? Should auto-assign early childhood nutrition
+- Enter: -1 → should reject
+- Enter: 4 → should auto-assign early childhood nutrition goal (under 5 rule)
+- Enter: 5 → should auto-assign healthy growth (5-12 rule)
+- Enter: 12 → still in 5-12 range, should be healthy growth
+- Enter: 13 → should be in teenager range, weight loss option should be HIDDEN
+- Enter: 17 → weight loss should still be hidden
+- Enter: 18 → weight loss option should now be available
+- Enter: 59 → normal adult
+- Enter: 60 → should auto-assign senior nutrition
+- Enter: 100 → should accept (valid for India)
+- Enter: 150 → should reject (not a valid age)
+- Enter: "twenty" → should reject
+- Enter: 25.5 → should reject (decimal age)
+- CRITICAL: After entering age 13 and seeing the goal field hide weight loss, manually change age to 20. Does weight loss option reappear dynamically without page refresh?
+
+**Gender:**
+- Test all options. Does the RDA calculation visibly change based on gender? (It should for iron and calories)
+
+**Height (cm):**
+- Enter: 0 → should reject
+- Enter: -10 → should reject  
+- Enter: 50 → should accept (valid for infant)
+- Enter: 100 → should accept (child)
+- Enter: 175 → should accept (adult)
+- Enter: 250 → should this accept? Maximum realistic height is ~272cm. Report behavior.
+- Enter: 400 → should reject
+- Enter: "5 feet 8 inches" → should reject with a message explaining cm is required
+- Enter: 5.8 → should this accept as a decimal cm? Report behavior
+- Leave empty → is this field optional? Document whether it saves without height.
+
+**Weight (kg):**
+- Enter: 0 → should reject
+- Enter: -5 → should reject
+- Enter: 1 → should accept (valid for newborn)
+- Enter: 2.5 → should accept (premature infant)
+- Enter: 50 → should accept
+- Enter: 150 → should accept (valid for obese adult)
+- Enter: 300 → should this accept? Report behavior. 300kg is medically extreme but real.
+- Enter: 600 → should reject
+- Enter: "seventy" → should reject
+- Enter: 70.5 → should accept (decimal weight is valid)
+- CRITICAL: After entering height 170cm and weight 70kg, does the app silently calculate BMI = 24.2 and store it? Check the health log or profile display for a BMI value.
+
+**Activity level:**
+- Test all 4 levels. Does the displayed calorie target change dynamically when activity level changes? It should.
+- If both height + weight + age + gender + activity level are filled, verify the calorie target appears somewhere on the profile summary or member card.
+
+**Primary goal:**
+- Test all options: Weight loss / Weight gain / Maintain / Build muscle / Manage condition / No specific goal
+- When "Weight loss" is selected: does a "Goal pace" dropdown appear? Test both pace options.
+- When "Weight gain" is selected: does goal pace appear?
+- When "Maintain" is selected: does goal pace disappear?
+- When member age is 13: enter age 13 first, THEN try to select weight loss — it should be blocked or hidden.
+- When "Manage condition" is selected: does a condition selector appear immediately?
+
+**Health conditions (multi-select) — test each condition individually:**
+- Select "Diabetes Type 2" → is there any visual indicator or warning that appears?
+- Select "Diabetes Type 1" → CRITICAL: is T1D treated differently from T2D anywhere in the UI? They require completely different clinical logic.
+- Select "Hypertension" → any UI change?
+- Select "Anaemia" → any UI change? Does it ask which type (iron vs B12)?
+- Select "PCOS" → any UI change? PCOS affects female members only — if member is male, does selecting PCOS show a warning?
+- Select "CKD" → CRITICAL: does it ask for CKD stage (1-6)? Stage 5 dialysis has REVERSED protein rules (needs more protein, not less). Verify the stage selector appears.
+- Select "Kidney issues" (if this is different from CKD) → what is the difference? Does the UI explain it?
+- Select "Pregnancy" → CRITICAL: does it ask which trimester? Does it offer lactating stages? Test all 5 pregnancy/lactation stages (T1, T2, T3, lactating 0-6m, lactating 7-12m).
+- Select multiple conflicting conditions: Diabetes Type 1 + Pregnancy → does the UI flag this as a high-risk combination requiring special handling?
+- Select all conditions simultaneously → does the UI handle this gracefully or break?
+- Free text field for custom conditions → enter "Gout" → does it save? Enter gibberish "xyz123disease" → does it save? It should not silently accept nonsense.
+
+**Active medications:**
+- Enter: "Metformin 500mg with breakfast" → does it save?
+- Enter: "Glycomet" (Indian brand name of Metformin) → does the system recognize this as Metformin? CRITICAL test — document says Indian brand name matching is a feature.
+- Enter: "Eltroxin 50mcg" → does it recognize as Levothyroxine?
+- Enter: "Ecosprin 75mg" → does it recognize as Aspirin/Warfarin-class?
+- Enter: "NovoRapid 10 units before breakfast" → CRITICAL: does this trigger T1D insulin handling? Does the UI ask if the member has T1D?
+- Enter: "Lantus 20 units at bedtime" → same as above
+- Enter: random text "I take some pills sometimes" → does it save as-is? It should, since medication input is free text, but the AI should treat it as low-confidence.
+- Enter: medications for 5 different drugs simultaneously → does it save the full text?
+- Leave empty → does meal generation still work? It should — medications are optional.
+
+**Dietary type:**
+- Test all options: Strictly vegetarian / Jain vegetarian / Eggetarian / Non-vegetarian / Occasional non-veg
+- Select "Jain vegetarian" → CRITICAL: does a warning or info box appear explaining no root vegetables (potato, carrot, onion, garlic, beetroot)? This is a major Jain rule.
+- Select "Occasional non-veg" → do day checkboxes appear for Mon-Sun? Do they? Test selecting Mon, Wed, Fri.
+- Select "Occasional non-veg" → do non-veg type checkboxes appear? (Chicken / Mutton / Fish / Prawns / Eggs)
+
+**Religious food rules:**
+- Select "Sattvic — no onion, no garlic" → does a warning appear about overlap with Jain rules if Jain dietary type is also selected?
+- Select all religious rules simultaneously → does the UI handle this gracefully?
+
+**Spice tolerance:**
+- Test Mild / Medium / Spicy. Does anything in the recipe suggestions change later?
+
+**Allergies (multi-select):**
+- Select "Dairy" → does a warning appear? Dairy allergy affects paneer, milk, ghee, curd — very common in Indian cooking.
+- Select "Gluten" → same
+- Select "Peanuts" → same  
+- Select all allergies simultaneously → is the user warned that very few Indian recipes will match?
+- Select "Dairy" for one member and "No dairy in household" is not selected for others → the system should handle per-member allergy, not household-wide. Verify this in meal plan output later.
+
+**Ingredient dislikes:**
+- Enter: "karela, brinjal, methi" → saves all three?
+- Enter: 5 items (the stated maximum) → does a 6th item get rejected?
+- Enter: an ingredient that is also in the member's allergy list → does the UI flag this as redundant?
+- Enter: blank dislikes → saves fine
+
+**Fasting fields:**
+- Select weekly fasting days → check all 7 days simultaneously → is this allowed? A person fasting all 7 days is unusual but possible (monks).
+- Enable Ekadashi → verify the app auto-calculates Ekadashi dates from the Hindu calendar for the current month.
+- Enable Festival fasting alerts → verify at least one upcoming fast is shown to the user.
+
+**Tiffin field:**
+- Select "Yes — school tiffin" → does a child-specific tiffin note appear?
+- Select "Yes — office tiffin" → does an adult tiffin note appear?
+
+### 2.3 Voice-Based Profile Setup
+
+- Click the microphone button → does it request microphone permission in the browser?
+- If permission denied → is there a clear fallback message?
+- Speak in Hindi: "Mere ghar mein 4 log hain. Main 35 saal ka hoon, mujhe diabetes hai aur main vegetarian hoon." → Does Sarvam transcribe correctly? Does Gemini extract: 4 members, member 1 age 35, diabetes, vegetarian? Report the extracted JSON shown to the user.
+- Speak in English with an Indian accent → does Sarvam handle it?
+- Speak gibberish → does the system degrade gracefully without crashing?
+- After voice input, are the extracted values shown as editable form fields? CRITICAL: the user must be able to review and correct before saving.
+
+### 2.4 AI Chat-Based Profile Building
+
+This is separate from the voice mode. Test the conversational onboarding:
+
+- Type: "We are a family of 5 in Mumbai" → does it ask follow-up questions or extract immediately?
+- Type: "My mother-in-law has kidney disease stage 3 and my husband is T1D on NovoRapid" → CRITICAL responses to check:
+  - Does the response mention that T1D on NovoRapid has very specific carb-timing requirements?
+  - Does it flag CKD Stage 3 as requiring protein monitoring?
+  - Is the response written in plain conversational language, NOT in bullet points with asterisks like "**Important:**" or "* NovoRapid requires..."?
+  - Does the response feel like a knowledgeable person is talking to you, or like an AI chatbot pasting formatted output?
+
+**AI CHAT PERSONALIZATION AUDIT (Critical):**
+After the profile is set up, go to /chat and test the following scenarios. For EACH response, rate it on two axes:
+1. Personalization score: Does it use the member's name? Does it reference their specific condition? Does it feel like it knows this family?
+2. Format score: Is it free of markdown asterisks (* * **), numbered lists used where plain prose would be better, generic openers like "Certainly!" or "Of course!" or "Great question!"?
+
+Test prompts for AI chat:
+- "What should Papa eat today?" → GOOD response mentions Papa by name, references his specific health conditions from profile, suggests actual Indian foods. BAD response: "Here are some healthy eating tips: * Eat balanced meals * Include proteins..."
+- "Mama is feeling tired and has low energy this week" → GOOD response: connects low energy to Mama's specific condition (PCOS/anaemia if set), suggests specific Indian foods addressing that. BAD: "Fatigue can have many causes. Consider eating: * Iron-rich foods * Vitamin B12..."  
+- "Is idli good for a diabetic?" → GOOD: Mentions the GI of idli (~80), contrasts with adding sambar (lowers GI), says whether Papa specifically should eat it and in what quantity. BAD: "Idli has a moderate glycemic index. Diabetics should: * Monitor portion size * Pair with fiber..."
+- Ask the same question 3 times in different words → do the responses vary or are they copy-pasted with different surface words?
+- Switch the conversation to Hindi: "Papa ke liye aaj ka khana kya hona chahiye?" → Does the response come in Hindi? Is the Hindi natural or Google-Translate-sounding?
+- Ask something outside nutrition: "What is the capital of France?" → Does the chat respond or politely redirect to nutrition topics?
+- Send an empty message → does it submit? Should not.
+- Send only spaces → same as empty
+- Send 5000 characters of text → does the UI handle long input? Does it have a character limit?
+- Does the chat window scroll properly to the latest message? Test by sending 20 messages in a row.
+- Are chat messages persisted? Refresh the page and return to /chat — is the conversation history there?
+
+---
+
+## PHASE 3: DASHBOARD (/)
+
+- Does the Harmony Score / Family Trajectory Score display correctly? What number appears for a newly created family?
+- Is the "Kal Kya Banayein?" (What to make tomorrow?) widget present?
+- Does the voice input on the dashboard widget work? Test: say "something light for dinner tonight"
+- Are all family member health badges displayed? Do they show each member's primary condition?
+- Does the AI insights section show anything? Is it generic or family-specific?
+- What happens when the dashboard is loaded with NO family set up? Should redirect to /family-setup.
+- What happens when family is set up but NO meal plan has been generated? The dashboard should not crash — it should show a prompt to generate the first plan.
+
+---
+
+## PHASE 4: WEEKLY CONTEXT PAGE (/meal-plan/context)
+
+This page captures weekly modifiers before generation. Test every field:
+
+**Eating out this week:**
+- Select "None" → budget should not adjust
+- Select "1-2 times" → does the weekly budget visibly decrease by 15%? Show the before/after numbers.
+- Select "3+ times" → does it decrease by 30%? Show numbers.
+
+**Weekly budget override:**
+- Enter: 0 → should reject or warn
+- Enter: a number higher than the monthly budget → should warn
+- Enter: -500 → should reject
+- Enter: a valid number like 1500 → should accept and display the updated meal limits
+
+**Cooking time (weekday):**
+- Select "Under 20 minutes" → does the generated meal plan later contain only quick recipes? (Verify after generation)
+- Select "No time limit" → does the plan include more elaborate meals?
+
+**Special request field:**
+- Enter: "No rice this week" → does the generated meal plan contain zero rice-based meals? CRITICAL test — verify the generated plan.
+- Enter: "Use up the spinach in the fridge" → does the plan use spinach in at least one meal?
+- Enter: "Light meals Thursday, family function" → does Thursday's plan look lighter than other days?
+- Enter: a 500-character request → does it accept?
+- Enter: a 2000-character request → is there a limit? Report it.
+
+**Per-member "How are you feeling this week" field:**
+- Enter: "very tired and bloated" for Mama → does the generated plan for Mama's meals reflect anti-bloating, lighter foods?
+- Leave empty for all members → does generation proceed without issues?
+
+**Per-member medication update:**
+- Add a NEW medication that was not in the profile (e.g., "Started iron supplement this week, take at night") → does the plan adjust to avoid calcium-rich foods at Mama's dinner?
+
+**Fasting this week:**
+- Check that Ekadashi dates are auto-detected if Ekadashi is enabled in profile
+- Add a festival fast → does a fast-specific recipe filter activate?
+- For T1D member: enable fasting → CRITICAL: does a red warning appear saying T1D fasting is dangerous and requires endocrinologist approval?
+
+---
+
+## PHASE 5: MEAL GENERATION
+
+After filling in the weekly context, trigger meal generation. Observe every step:
+
+**During generation:**
+- Does a loading/waiting screen appear?
+- Do status messages cycle through meaningful steps ("Checking family conflicts...", "Calculating budget splits...", etc.) or is it just a spinner?
+- How long does it take? Record the exact time. Document says 16-27 seconds — is this accurate in the Replit environment?
+- Does the page crash or timeout if left for 60 seconds?
+
+**After generation — Meal Plan Display:**
+- Do all 7 days appear?
+- Do the correct number of meal slots appear (breakfast/lunch/dinner/snacks based on profile setting)?
+- Does each meal show a name?
+- Is the Harmony Score displayed and does it show a reasonable number given the family's complexity?
+
+**One Base Many Plates (CRITICAL TEST):**
+- Find a meal where clinical modifications exist (e.g., for diabetic + CKD member in the same family)
+- Tap/click on the meal to expand it
+- Does the Plate Split View appear showing per-member plates side by side?
+- Does Papa's plate show different modifications from the base?
+- Does Dadi's plate show different modifications?
+- Is there a "Base: [dish name]" label that spans all plates?
+- Are the cooking intervention callouts shown? (e.g., "Remove Dadi's portion BEFORE adding salt")
+- Test with a Jain member: does their plate correctly show no onion, no garlic, no root vegetables?
+- Test with a T1D member on NovoRapid: does their plate show the minimum carb floor? Is there a timing note like "Must eat within 10-15 minutes of insulin injection"?
+
+**Harmony Score display:**
+- Is the score breakdown visible (what caused deductions)?
+- For a simple family (no conditions), does the score approach 100?
+- For a complex family (T1D + CKD + pregnant), does the score drop below 70 with an honest explanation?
+- Is the score labeled with a tier (e.g., "Harmonious", "Manageable", "Challenging")? Check the actual tier labels.
+
+**Meal feedback:**
+- Click Like on a meal → does it record the feedback?
+- Click Dislike on a meal → does it ask for a reason? What options appear for skip reason?
+- After liking/disliking several meals, regenerate the plan — does the new plan avoid disliked meals and prefer liked meals?
+
+**Leftover logging:**
+- After a meal, is there an option to log leftovers? 
+- Log "half a cup of dal" as leftover → does this appear in the pantry section?
+- Does the next day's meal plan attempt to use this leftover?
+
+---
+
+## PHASE 6: RECIPE EXPLORER (/recipes)
+
+**Search functionality:**
+- Search: "dal" → how many results? Are they sorted by relevance?
+- Search: "palak" → same
+- Search: "biryani" → same
+- Search: empty string → does it show all recipes or an error?
+- Search: "fried rice Chinese" → does it find Indian-Chinese fusion recipes?
+- Search: "IDLI" (uppercase) → same results as "idli"?
+- Search: "xyz123nonsense" → should return 0 results with a clear "No recipes found" message, not a crash
+
+**Filter combinations:**
+- Filter by cuisine "South Indian" → count results. All shown should be South Indian.
+- Filter by diet "Vegan" → count results. No dairy/meat should appear in these recipes.
+- Filter by category "Breakfast" → all shown should be breakfast items
+- Combine: South Indian + Vegan + Breakfast → results should satisfy all three filters
+- Combine impossible filters (if any) → should show "No results" not a crash
+- Filter by calories: set max to 100 → should show very few low-calorie items. Set max to 50 → should show almost nothing.
+- Filter by cook time: "under 15 minutes" → verify the displayed recipes all have prep time under 15 mins
+
+**Pagination:**
+- How many results per page?
+- Does the next page load correctly?
+- Does the URL update with the page number?
+- Go to page 5, then use browser back → does it return to page 5 or reset to page 1?
+
+### Recipe Detail Page (/recipes/:id)
+
+- Does the full ingredient list appear?
+- Are instructions numbered and clear?
+- Is the nutrition breakdown (calories, protein, carbs, fat) displayed?
+- Does a "Member Modifications" section appear based on the current family profile? (e.g., "For Papa: reduce portion to 150g for T2D")
+- Is the cooking retention panel shown? (True Nutrition Engine — what you planned vs what was absorbed)
+- What happens if you navigate to a recipe ID that doesn't exist? Should show a 404 or "Recipe not found" message.
+
+---
+
+## PHASE 7: GROCERY LIST (/grocery)
+
+**Monthly Fixed Items tab:**
+- Is the staples list generated?
+- Does the total estimated cost appear?
+- Is it within 40% of the stated monthly budget?
+- Are items categorized (grains, oils, spices, lentils)?
+- Can you check off items as purchased? Does the checkmark persist after refresh?
+- Does the budget consumed indicator update as items are checked?
+
+**Weekly Perishables tab:**
+- Are items grouped by category (vegetables, fruits, dairy, protein)?
+- For items in the pantry, are they shown with strikethrough and "In pantry — skip this"?
+- Does the total estimate fall within the weekly perishable budget?
+- Can you manually add an item? Does it save?
+- Can you delete an item?
+
+**Price display:**
+- Are prices shown? Are they labeled as regional estimates?
+- Does the region shown match the state entered in the family profile?
+
+**PIN code prompt:**
+- If PIN code hasn't been entered, does a prompt appear?
+- Enter a valid PIN: "400001" (Mumbai) → does the region auto-populate?
+- Enter an invalid PIN: "000000" → does it handle gracefully?
+- Enter a 4-digit PIN: "1234" → should reject (Indian PINs are 6 digits)
+
+---
+
+## PHASE 8: PANTRY (/pantry)
+
+- Is the pantry inventory list displayed?
+- Can you add an item? Enter: "Spinach, 500g, expires in 2 days"
+- Can you edit an item's quantity?
+- Can you mark an item as "used up"?
+- Can you delete an item?
+- Does the expiry date field show a date picker?
+- Enter a past expiry date → does the item show as expired/red?
+- Does the pantry update automatically after leftover logging from the meal plan page?
+
+---
+
+## PHASE 9: PANTRY SCAN (/pantry-scan)
+
+- Does the page request camera permission?
+- If denied: clear fallback message?
+- Upload a test photo of some food items → what does the AI detect? Is the response reasonable?
+- Upload a blank white image → does it gracefully report "No food items detected"?
+- Upload a non-food image (e.g., a car) → does it gracefully report "No food items detected"?
+- After scan, are detected ingredients shown as a reviewable list before saving?
+- Can the user correct AI detection errors (add/remove detected items)?
+- Does saving the scan update the pantry inventory page?
+- Test voice input mode on this page: say "I have half kilo spinach and some paneer" → does it parse correctly?
+
+---
+
+## PHASE 10: FOOD SCANNER (/scanner)
+
+- Does it request camera permission?
+- Point at food (or upload a food photo) → what nutrition estimate is returned?
+- Is the estimate broken down by calories, protein, carbs, fat?
+- Is a confidence level shown? (The AI cannot always be certain)
+- Does the scan result offer to log this meal to the nutrition log?
+- After logging, does it appear in /health?
+- Test HFSS classification: scan or describe "Samosa" → does it classify as high fat/sugar/salt?
+
+---
+
+## PHASE 11: HEALTH LOG (/health)
+
+**Nutrition intake display:**
+- Does the actual vs ICMR target chart appear?
+- Are all tracked nutrients shown (Iron, Calcium, Protein, Vitamin C, Folate, B12, Vitamin D, Zinc)?
+- For a member with Anaemia, is the Iron bar visually distinct (highlighted or flagged)?
+
+**Nutritional Debt Ledger:**
+- Is chronic deficit tracking shown?
+- After simulating 3 weeks of low iron intake (by manually logging low-iron meals), does an Early Warning appear?
+- Is the Deficit Velocity trend visible (week-over-week change)?
+
+**Weight/BMI graphing:**
+- Log a weight for a member: 70kg → does the chart update?
+- Log a second weight 1 week later: 68kg → does the trend line appear?
+- Enter a weight of 0 → should reject
+- Enter a weight of -5 → should reject
+- Enter a weight of 500 → should reject or warn
+
+**Blood sugar logging:**
+- Enter fasting glucose: 95 mg/dL → normal range, no alert
+- Enter fasting glucose: 140 mg/dL → should flag as pre-diabetic range
+- Enter fasting glucose: 200 mg/dL → should flag as diabetic range and possibly suggest action
+- Enter fasting glucose: 0 → should reject
+- Enter fasting glucose: 1000 → should reject (physiologically impossible)
+
+**Blood pressure logging:**
+- Enter systolic 120, diastolic 80 → normal, no alert
+- Enter systolic 140, diastolic 90 → should flag as Stage 1 hypertension
+- Enter systolic 180, diastolic 110 → CRITICAL: should show urgent warning
+- Enter systolic 0 → should reject
+- Enter systolic lower than diastolic (e.g., systolic 70, diastolic 120) → should reject as physiologically impossible
+
+**Symptom checker:**
+- Select "Fatigue" → does the system suggest nutritional causes based on the member's profile?
+- Select "Bloating" → same
+- Select multiple symptoms → does the combined analysis make sense?
+
+---
+
+## PHASE 12: PROFILE PAGE (/profile)
+
+- Are all family-level settings editable?
+- Are all per-member settings editable?
+- Change Papa's age from 55 to 13 → do the goal field options immediately update to hide weight loss?
+- Change Papa's health condition from T2D to T1D → does a warning appear about the clinical significance of this change?
+- Change the family region from North to South → does the grocery price list update?
+- Delete a family member → are all associated logs also removed, or do orphan records remain?
+- Add a new family member mid-week (after a meal plan exists) → does the system offer to regenerate the plan?
+- Edit the language preference → does the UI language change?
+- Is the Shadow Profile (behavioral deficiency inference) section shown? What does it display after 3 weeks of simulated use?
+
+---
+
+## PHASE 13: FESTIVAL AND FASTING SYSTEM AUDIT
+
+This is a critical India-specific feature. Test explicitly:
+
+- In the family setup, enable "Festival fasting alerts" for a Hindu member
+- Navigate to the meal plan context for a week containing Ekadashi
+- Does the app auto-detect the Ekadashi date?
+- Is a fasting-compliant meal plan generated for that day? (No grains, sendha namak only, sabudana/kuttu atta recipes)
+- Enable Ramzan fasting for a Muslim member
+- Does the sehri (pre-dawn) meal appear in the plan on Ramzan days?
+- Does the iftar (post-sunset) meal appear?
+- Does the regular Ramzan daytime meal structure (no breakfast, light sehri) appear correctly?
+- For a Jain member: does the app NEVER suggest root vegetables (potato, carrot, onion, garlic, beetroot) in any meal?
+- Test: add a recipe with potato for a Jain member's plate → does the OBMP modifier correctly swap or remove the potato?
+
+---
+
+## PHASE 14: BUDGET ENGINE VALIDATION
+
+- Set monthly budget to ₹5,000 → does the app generate a plan that stays within budget?
+- Set monthly budget to ₹50,000 → does the plan increase in variety and quality?
+- Set monthly budget to ₹100 → should the app warn this is insufficient for Indian family nutrition? What is the minimum viable budget?
+- Set monthly budget to 0 → should reject
+- Set monthly budget to -1000 → should reject
+- Set monthly budget to a non-number "five thousand" → should reject
+- After setting budget, verify the 40-50-10 split is displayed to the user (staples ₹X, perishables ₹Y, buffer ₹Z)
+- Select "Eating out 3+ times this week" in the weekly context → does the perishable budget visibly decrease by 30% before generation?
+- Set the city to Bokaro (Tier-3) vs Delhi (Tier-1) → does the regional price baseline suggestion change?
+
+---
+
+## PHASE 15: CROSS-CUTTING UI/UX TESTS
+
+### Responsive Layout
+- Resize the browser window to 375px wide (iPhone SE) → does the layout collapse correctly to mobile nav?
+- Resize to 768px (tablet) → does the sidebar vs bottom nav switch correctly?
+- Resize to 1440px (desktop) → does the sidebar appear?
+
+### Navigation
+- Test all bottom nav items (mobile) → do all routes load without error?
+- Use browser back button throughout the app → does it behave predictably?
+- Navigate to a route that doesn't exist (e.g., /randompage) → is there a 404 page?
+- What happens if you deep-link directly to /meal-plan without being logged in? Should redirect to /login.
+
+### Animation and Performance
+- Does the Framer Motion loading overlay appear during meal generation?
+- Do Radix UI dialogs (modals) open and close without layout shift?
+- Does the Harmony Score circular progress animate on first load?
+- Load the recipe explorer with all 12,771 recipes available — is search still fast (<1 second)?
+
+### Error States
+- Disconnect the internet and try to generate a meal plan → clear error message? No crash?
+- Disconnect internet and open the chat → what happens when you send a message?
+- Simulate API key expiry (if possible) → does the app show a meaningful error vs a blank screen?
+
+### Toast Notifications
+- Trigger a success action (save profile) → does a success toast appear?
+- Trigger an error (try to generate without completing required fields) → does an error toast appear?
+- Do toasts auto-dismiss after a reasonable time (3-5 seconds)?
+- Do multiple toasts stack correctly or overlap?
+
+### Form Persistence
+- Partially fill the family setup form, close the browser, reopen → is progress saved?
+- Partially fill the weekly context form, navigate to another page, come back → is progress saved?
+
+---
+
+## FINAL REPORTING INSTRUCTIONS
+
+After running ALL of the above tests, produce a structured report in this exact format:
+
+### CRITICAL FAILURES (must fix before demo)
+List every CRITICAL finding with: Screen, Test Case, Input Used, Observed Behavior, Expected Behavior
+
+### HIGH PRIORITY ISSUES (fix before submission)
+Same format
+
+### MEDIUM PRIORITY ISSUES (fix if time permits)
+Same format
+
+### PASSES (working correctly)
+List all passing tests as a summary table: Screen | Test | Status
+
+### AI CHAT QUALITY REPORT
+For each AI chat test: Rate personalization 1-5, Rate format quality 1-5 (5 = no asterisks, no generic openers, reads like a knowledgeable human), Exact response excerpt, Verdict
+
+### NUMERIC INPUT BOUNDARY REPORT
+For every numeric field tested: Field Name, Min Accepted, Max Accepted, Decimal Accepted Y/N, Negative Accepted Y/N, Text Accepted Y/N, Behavior on Invalid Input
+
+### CLINICAL SAFETY AUDIT
+Report specifically: Does T1D fasting trigger red warning? Does CKD show stage selector? Does Jain profile block root vegetables? Does pregnancy show trimester selector? Does T1D on NovoRapid show carb floor in meal plan?
+
+Run this complete test suite now. Report every finding without omitting any test case.
+```

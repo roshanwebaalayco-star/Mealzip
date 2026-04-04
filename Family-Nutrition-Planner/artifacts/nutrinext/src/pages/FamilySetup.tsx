@@ -294,6 +294,10 @@ export default function FamilySetup() {
         updated[index].healthGoal = "healthy_growth";
       } else if (age >= 5 && age <= 12) {
         updated[index].healthGoal = "healthy_growth";
+      } else if (age >= 13 && age < 18) {
+        if (updated[index].healthGoal === "weight_loss") {
+          updated[index].healthGoal = "general_wellness";
+        }
       } else if (age >= 60) {
         if (updated[index].healthGoal === "general_wellness") {
           updated[index].healthGoal = "senior_nutrition";
@@ -327,6 +331,7 @@ export default function FamilySetup() {
       const e: MemberErrors = {};
       if (!m.name.trim()) e.name = "Name is required";
       if (m.age === "" || m.age <= 0 || !Number.isFinite(Number(m.age))) e.age = "Enter a valid age";
+      if (typeof m.age === "number" && m.age > 120) e.age = "Age cannot exceed 120 years";
       if (Object.keys(e).length > 0) errors[m._id] = e;
     });
     if (Object.keys(errors).length > 0) {
@@ -1125,6 +1130,12 @@ export default function FamilySetup() {
                         <SelectItem value="occasional_nonveg">{t("Occasional Non-Veg", "कभी-कभी मांसाहार")}</SelectItem>
                       </SelectContent>
                     </Select>
+                    {member.dietaryType === "jain_vegetarian" && (
+                      <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-[11px]">
+                        <span className="shrink-0 mt-0.5">🙏</span>
+                        <span>{t("Jain diet excludes all root vegetables — potato, carrot, onion, garlic, beetroot, radish. Our AI strictly follows this. Night-time eating restrictions also applied.", "जैन आहार में सभी जड़ वाली सब्जियां — आलू, गाजर, प्याज, लहसुन, चुकंदर, मूली शामिल नहीं होतीं। हमारी AI इसका पूरी तरह पालन करती है।")}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1253,6 +1264,12 @@ export default function FamilySetup() {
                       <div className="mt-1 flex items-start gap-2 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]">
                         <span className="shrink-0">⚠️</span>
                         <span>{t("4+ fasting days/week. AI will prioritise nutrient-dense foods to prevent deficiency.", "4+ उपवास दिन/सप्ताह। AI पोषक तत्वों की कमी रोकने के लिए घनी खाद्य सामग्री को प्राथमिकता देगी।")}</span>
+                      </div>
+                    )}
+                    {member.healthConditions.includes("diabetes_type_1") && member.memberFastingDays.filter(d => d !== "none").length > 0 && (
+                      <div className="mt-1 flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-300 text-red-800 text-[11px]">
+                        <span className="shrink-0">🚨</span>
+                        <span className="font-medium">{t("CLINICAL ALERT: T1D + fasting is high-risk. Fasting with insulin-dependent diabetes can cause hypoglycaemia. Please consult your endocrinologist before fasting. Our AI will add carb-floor safety warnings to this member's fasting-day meals.", "नैदानिक चेतावनी: T1D + उपवास उच्च जोखिम है। इंसुलिन-निर्भर मधुमेह में उपवास हाइपोग्लाइसीमिया का कारण बन सकता है। कृपया उपवास से पहले अपने एंडोक्रिनोलॉजिस्ट से परामर्श लें।")}</span>
                       </div>
                     )}
 
