@@ -1,9 +1,16 @@
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 export default function WeeklyContextPage() {
-  useEffect(() => {
-    window.location.replace("/meal-plan?gen=1");
-  }, []);
+  const [, setLocation] = useLocation();
 
-  return null;
+  useEffect(() => {
+    setLocation("/meal-plan?openContext=1");
+  }, [setLocation]);
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <p className="text-muted-foreground">Redirecting to meal plan...</p>
+    </div>
+  );
 }

@@ -48,12 +48,14 @@ router.get("/recipes", async (req, res): Promise<void> => {
     : sql`${recipesTable.name} ASC`;
 
   const [recipes, countResult] = await Promise.all([
-    localDb.select().from(recipesTable)
-      .where(whereClause)
-      .limit(limit)
-      .offset(offset)
-      .orderBy(orderClause),
-    localDb.select({ count: sql<number>`count(*)` }).from(recipesTable).where(whereClause)
+    localDb.execute(sql`
+      SELECT DISTINCT ON (LOWER(${recipesTable.name})) *
+      FROM ${recipesTable}
+      ${whereClause ? sql`WHERE ${whereClause}` : sql``}
+      ORDER BY LOWER(${recipesTable.name}), ${recipesTable.id}
+      LIMIT ${limit} OFFSET ${offset}
+    `),
+    localDb.select({ count: sql<number>`count(DISTINCT LOWER(${recipesTable.name}))` }).from(recipesTable).where(whereClause)
   ]);
 
   const total = Number(countResult[0]?.count ?? 0);

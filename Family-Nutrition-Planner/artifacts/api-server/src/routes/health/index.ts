@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { db, localDb } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
 import { healthLogsTable, nutritionLogsTable, familyMembersTable, icmrNinRdaTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { FASTING_CALENDAR, type FastingEntry } from "../../lib/festival-fasting.js";
@@ -12,14 +13,17 @@ const HealthLogSchema = z.object({
   familyId: z.number({ required_error: "familyId is required" }).int().positive(),
   memberId: z.number().int().positive().optional(),
   logDate: z.string({ required_error: "logDate is required" }).min(1),
-  weightKg: z.number().positive().optional(),
-  heightCm: z.number().positive().optional(),
-  bloodSugar: z.number().optional(),
-  bloodPressureSystolic: z.number().int().optional(),
-  bloodPressureDiastolic: z.number().int().optional(),
+  weightKg: z.number().min(0.5).max(300).optional(),
+  heightCm: z.number().min(30).max(275).optional(),
+  bloodSugar: z.number().min(20).max(600).optional(),
+  bloodPressureSystolic: z.number().int().min(60).max(300).optional(),
+  bloodPressureDiastolic: z.number().int().min(40).max(200).optional(),
   symptoms: z.array(z.string()).optional(),
   notes: z.string().optional(),
-});
+}).refine(
+  data => !data.bloodPressureSystolic || !data.bloodPressureDiastolic || data.bloodPressureSystolic > data.bloodPressureDiastolic,
+  { message: "Systolic must be greater than diastolic", path: ["bloodPressureDiastolic"] }
+);
 
 const NutritionLogSchema = z.object({
   familyId: z.number({ required_error: "familyId is required" }).int().positive(),
@@ -47,7 +51,7 @@ const SymptomCheckSchema = z.object({
   language: z.enum(["english", "hindi"]).optional(),
 });
 
-router.get("/health-logs", async (req, res): Promise<void> => {
+router.get("/health-logs", assertFamilyOwnership, async (req, res): Promise<void> => {
   const familyId = parseInt(req.query.familyId as string);
   const memberId = req.query.memberId ? parseInt(req.query.memberId as string) : undefined;
   if (isNaN(familyId)) {
@@ -64,7 +68,7 @@ router.get("/health-logs", async (req, res): Promise<void> => {
   res.json(logs);
 });
 
-router.post("/health-logs", async (req, res): Promise<void> => {
+router.post("/health-logs", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = HealthLogSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
@@ -95,7 +99,7 @@ router.post("/health-logs", async (req, res): Promise<void> => {
   res.status(201).json(log);
 });
 
-router.get("/nutrition-logs", async (req, res): Promise<void> => {
+router.get("/nutrition-logs", assertFamilyOwnership, async (req, res): Promise<void> => {
   const familyId = parseInt(req.query.familyId as string);
   const memberId = req.query.memberId ? parseInt(req.query.memberId as string) : undefined;
   const logDate = req.query.logDate as string | undefined;
@@ -114,7 +118,7 @@ router.get("/nutrition-logs", async (req, res): Promise<void> => {
   res.json(logs);
 });
 
-router.post("/nutrition-logs", async (req, res): Promise<void> => {
+router.post("/nutrition-logs", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = NutritionLogSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });

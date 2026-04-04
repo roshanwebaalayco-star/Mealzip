@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { familiesTable, familyMembersTable, mealPlansTable, usersTable } from "@workspace/db";
+import { familiesTable, familyMembersTable, mealPlansTable, usersTable, healthLogsTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 import { getJwtSecret, type AuthPayload } from "../../middlewares/auth.js";
 
@@ -23,6 +23,7 @@ function requireDemoMode(res: import("express").Response): boolean {
 }
 
 router.get("/demo/instant", async (_req, res): Promise<void> => {
+  if (!requireDemoMode(res)) return;
   try {
     let [user] = await db.select().from(usersTable).where(eq(usersTable.email, DEMO_EMAIL));
     if (!user) {
@@ -40,7 +41,7 @@ router.get("/demo/instant", async (_req, res): Promise<void> => {
     const token = jwt.sign(
       { userId: user.id, email: user.email } satisfies AuthPayload,
       getJwtSecret(),
-      { expiresIn: "2h" },
+      { expiresIn: "8h" },
     );
 
     res.json({
@@ -200,11 +201,55 @@ async function seedSharmaFamily(userId?: number) {
     nutritionalSummary: { members: members.map(m => ({ name: m.name, dietaryType: m.dietaryType })) },
   }).returning();
 
+  await seedDemoHealthLogs(family.id, members);
+
   return {
     family: { ...family, members },
     mealPlan: { ...mealPlan, harmonyScore: Number(mealPlan.harmonyScore) },
     harmonyScore: 78,
   };
+}
+
+async function seedDemoHealthLogs(familyId: number, members: { id: number; name: string }[]) {
+  try {
+    const existing = await db.select({ id: healthLogsTable.id }).from(healthLogsTable).where(eq(healthLogsTable.familyId, familyId));
+    if (existing.length > 0) return;
+
+    const rajesh = members.find(m => m.name.includes("Rajesh"));
+    const sunita = members.find(m => m.name.includes("Sunita"));
+    if (!rajesh || !sunita) return;
+
+    const logs: Array<{
+      familyId: number; memberId: number; logDate: string;
+      weightKg: string | null; bloodSugar: string | null;
+      bloodPressureSystolic: number | null; bloodPressureDiastolic: number | null;
+    }> = [];
+
+    const today = new Date();
+    for (let week = 7; week >= 0; week--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - week * 7);
+      const dateStr = d.toISOString().slice(0, 10);
+
+      logs.push({
+        familyId, memberId: rajesh.id, logDate: dateStr,
+        weightKg: String(82 - week * 0.3),
+        bloodSugar: String(145 - week * 2 + Math.round(Math.random() * 10 - 5)),
+        bloodPressureSystolic: 142 - week * 1,
+        bloodPressureDiastolic: 88 - week * 0.5 | 0,
+      });
+
+      logs.push({
+        familyId, memberId: sunita.id, logDate: dateStr,
+        weightKg: String(68 - week * 0.4),
+        bloodSugar: String(105 + Math.round(Math.random() * 6 - 3)),
+        bloodPressureSystolic: 128 - week * 0.5 | 0,
+        bloodPressureDiastolic: 82,
+      });
+    }
+
+    await db.insert(healthLogsTable).values(logs);
+  } catch { /* non-critical */ }
 }
 
 function getDemoMealPlan(familyId: number) {

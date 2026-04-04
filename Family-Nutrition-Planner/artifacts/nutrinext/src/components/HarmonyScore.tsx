@@ -28,6 +28,13 @@ export function HarmonyScore({ score, size = "md" }: HarmonyScoreProps) {
     return "text-rose-600";
   };
 
+  const getTierLabel = (s: number) => {
+    if (s >= 85) return "Harmonious";
+    if (s >= 65) return "Manageable";
+    if (s >= 40) return "Challenging";
+    return "Complex";
+  };
+
   const sizeMap = {
     sm:  { wrap: "w-14 h-14",   text: "text-base",  sub: false },
     md:  { wrap: "w-24 h-24",   text: "text-2xl",   sub: true  },
@@ -115,8 +122,8 @@ export function HarmonyScore({ score, size = "md" }: HarmonyScoreProps) {
             <span className="text-[0.22em] font-semibold opacity-55 uppercase tracking-[0.18em] mt-1">
               Score
             </span>
-            <span className="text-[0.18em] font-medium opacity-40 tracking-[0.10em] mt-0.5 whitespace-nowrap">
-              Per ICMR-NIN 2024
+            <span className="text-[0.18em] font-semibold opacity-60 tracking-[0.10em] mt-0.5 whitespace-nowrap">
+              {getTierLabel(score)}
             </span>
           </>
         )}

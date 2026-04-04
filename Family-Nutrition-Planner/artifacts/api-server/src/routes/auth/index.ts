@@ -24,18 +24,34 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  if (typeof name === "string" && name.length > 100) {
+    res.status(400).json({ error: "Name must be 100 characters or less" });
+    return;
+  }
+
   if (password.length < 8) {
     res.status(400).json({ error: "Password must be at least 8 characters" });
     return;
   }
 
+  if (!/[A-Z]/.test(password)) {
+    res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+    return;
+  }
+
+  if (!/[0-9]/.test(password)) {
+    res.status(400).json({ error: "Password must contain at least one number" });
+    return;
+  }
+
+  const trimmedEmail = email.trim().toLowerCase();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(trimmedEmail)) {
     res.status(400).json({ error: "Invalid email address" });
     return;
   }
 
-  const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, trimmedEmail));
   if (existing) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
@@ -44,7 +60,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
   const [user] = await db.insert(usersTable).values({
-    email: email.toLowerCase(),
+    email: trimmedEmail,
     passwordHash,
     name,
     primaryLanguage: primaryLanguage || "hindi",
@@ -73,7 +89,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
   if (!user) {
     res.status(401).json({ error: "Invalid email or password" });
     return;

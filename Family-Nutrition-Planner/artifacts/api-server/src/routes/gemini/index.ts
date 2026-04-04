@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
 import { aiChatLogsTable, recipesTable, nutritionLogsTable, mealPlansTable, familiesTable, familyMembersTable } from "@workspace/db";
 import { ai, isModelfarm } from "@workspace/integrations-gemini-ai";
 import {
@@ -19,6 +20,16 @@ const router: IRouter = Router();
 const SYSTEM_PROMPT = `You are the NutriNext Clinical Intelligence AI — an elite Indian nutrition expert and the central Knowledge Base for this family's health. You operate strictly under ICMR-NIN 2024 Dietary Reference Values.
 
 You respond in the language the user writes in (Hindi, English, or Hinglish). You know all regional Indian cuisines: North Indian, South Indian, East Indian (Jharkhand, Bihar, Bengal), Maharashtrian, Gujarati, Rajasthani, and more. You understand Indian health contexts: diabetes, hypertension, anaemia, obesity, malnutrition, PCOS, thyroid.
+
+RESPONSE STYLE RULES — NON-NEGOTIABLE:
+1. NEVER start a response with "Certainly!", "Of course!", "Great question!", "Sure!", "Absolutely!", or any generic opener. Start directly with the answer.
+2. NEVER use markdown asterisks for bold (**text**) or bullet points (* item). Use plain prose. If you need a list, write it as "First, ... Second, ... Third, ..." in natural sentences.
+3. NEVER use numbered lists unless the user explicitly asks for a step-by-step guide.
+4. ALWAYS address family members by their actual names from the profile. Never say "the diabetic member" — use their name.
+5. ALWAYS reference the specific health condition by name. Never say "for someone with your condition" — say the member's name and their condition.
+6. Keep responses under 150 words unless detailed instructions are explicitly requested.
+7. Write as a knowledgeable family friend who happens to be a nutritionist — warm, direct, specific, never clinical-jargon-heavy.
+8. If a question is outside nutrition/health/cooking, respond: "I'm focused on your family's nutrition. For that question, a general search would serve you better. Is there anything about your family's meals I can help with?"
 
 CRITICAL BEHAVIORAL RULES (MUST OBEY):
 1. ZERO SYCOPHANCY: You are forbidden from apologizing. NEVER say "I am sorry," "My apologies," "My apologies if," "You are absolutely right," "I apologise," "I apologise if," "I apologise for," "Sorry if," "I may have been unclear," or "Let me clarify my earlier response." If you made a previous error or gave an incomplete answer, immediately provide the correct/complete answer with zero commentary about the previous response and zero filler.
@@ -57,7 +68,7 @@ Savings tip: [one practical tip]
 
 Follow this format strictly. List essential items first, then optional. Include ICMR-NIN 2024 health rationale for at least the top 5 items.`;
 
-router.get("/gemini/conversations", async (req, res): Promise<void> => {
+router.get("/gemini/conversations", assertFamilyOwnership, async (req, res): Promise<void> => {
   try {
     const familyId = req.query.familyId ? parseInt(req.query.familyId as string) : undefined;
     const conditions = familyId ? eq(aiChatLogsTable.familyId, familyId) : undefined;
@@ -77,7 +88,7 @@ router.get("/gemini/conversations", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/gemini/conversations", async (req, res): Promise<void> => {
+router.post("/gemini/conversations", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = CreateAiChatLogBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message, retryable: false });
@@ -97,6 +108,17 @@ router.post("/gemini/conversations", async (req, res): Promise<void> => {
   }
 });
 
+async function assertConversationOwnership(req: import("express").Request, res: import("express").Response, log: { familyId: number }): Promise<boolean> {
+  try {
+    const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, log.familyId));
+    if (family && req.user && family.userId !== req.user.userId) {
+      res.status(403).json({ error: "Access denied" });
+      return false;
+    }
+  } catch { /* allow if check fails */ }
+  return true;
+}
+
 router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
   const params = GetAiChatLogParams.safeParse(req.params);
   if (!params.success) {
@@ -109,6 +131,7 @@ router.get("/gemini/conversations/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
+    if (!(await assertConversationOwnership(req, res, log))) return;
     const msgs = (log.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
     res.json({
       ...log,
@@ -128,11 +151,13 @@ router.delete("/gemini/conversations/:id", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const [log] = await db.delete(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id)).returning();
+    const [log] = await db.select().from(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id));
     if (!log) {
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
+    if (!(await assertConversationOwnership(req, res, log))) return;
+    await db.delete(aiChatLogsTable).where(eq(aiChatLogsTable.id, params.data.id));
     res.sendStatus(204);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -152,6 +177,7 @@ router.get("/gemini/conversations/:id/messages", async (req, res): Promise<void>
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
+    if (!(await assertConversationOwnership(req, res, log))) return;
     const msgs = (log.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
     res.json(msgs.map((m, i) => ({ id: i + 1, role: m.role, content: m.content, createdAt: m.createdAt ?? log.createdAt })));
   } catch (err) {
@@ -182,6 +208,7 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
       res.status(404).json({ error: "Conversation not found", retryable: false });
       return;
     }
+    if (!(await assertConversationOwnership(req, res, chatLog))) return;
     existingMessages = (chatLog.messages as Array<{ role: string; content: string; createdAt?: string }>) ?? [];
     existingMessages.push({ role: "user", content: parsed.data.content, createdAt: new Date().toISOString() });
     await db.update(aiChatLogsTable)
@@ -277,7 +304,20 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
 
   let languageInstruction = "";
   if (requestedLanguage && requestedLanguage !== "english") {
-    languageInstruction = `\n\nCRITICAL LANGUAGE RULE: The user has selected "${requestedLanguage}" as their language. You MUST respond entirely in ${requestedLanguage} using its native script. Do NOT use English unless the selected language is English. Keep technical nutrition terms in English only when no native equivalent exists.`;
+    const scriptMap: Record<string, string> = {
+      hindi: "Devanagari (हिंदी)",
+      tamil: "Tamil (தமிழ்)",
+      telugu: "Telugu (తెలుగు)",
+      kannada: "Kannada (ಕನ್ನಡ)",
+      malayalam: "Malayalam (മലയാളം)",
+      bengali: "Bengali (বাংলা)",
+      gujarati: "Gujarati (ગુજરાતી)",
+      marathi: "Devanagari (मराठी)",
+      punjabi: "Gurmukhi (ਪੰਜਾਬੀ)",
+      odia: "Odia (ଓଡ଼ିଆ)",
+    };
+    const script = scriptMap[requestedLanguage.toLowerCase()] || requestedLanguage;
+    languageInstruction = `\n\nCRITICAL LANGUAGE RULE: The user has selected "${requestedLanguage}" as their language. You MUST respond entirely in ${requestedLanguage} using its native script (${script}). Do NOT transliterate into Roman/Latin script. Do NOT use English unless the selected language is English. Keep technical nutrition terms (like kcal, mg, BMI) in English only when no native equivalent exists. Every sentence must be in ${script} script.`;
   }
   const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + knowledgeContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
 

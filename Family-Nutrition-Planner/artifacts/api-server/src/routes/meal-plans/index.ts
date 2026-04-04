@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { eq, and, or, gt, inArray, lte, sql, desc, ilike } from "drizzle-orm";
 import { db, localDb } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
 import {
   familiesTable, familyMembersTable, mealPlansTable, recipesTable, mealFeedbackTable,
   leftoverItemsTable,
@@ -508,7 +509,7 @@ async function enrichPlanWithDbLeftoverChains(planData: Record<string, unknown>)
   return { ...planData, days: enrichedDays };
 }
 
-router.get("/meal-plans", async (req, res): Promise<void> => {
+router.get("/meal-plans", assertFamilyOwnership, async (req, res): Promise<void> => {
   const query = ListMealPlansQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message, retryable: false });
@@ -525,7 +526,7 @@ router.get("/meal-plans", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/meal-plans/generate", async (req, res): Promise<void> => {
+router.post("/meal-plans/generate", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = GenerateMealPlanBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message, retryable: false });
@@ -1206,6 +1207,11 @@ router.get("/meal-plans/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Meal plan not found", retryable: false });
       return;
     }
+    const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, plan.familyId));
+    if (family && req.user && family.userId !== req.user.userId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     res.json({ ...plan, harmonyScore: Number(plan.harmonyScore) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1375,6 +1381,16 @@ router.put("/meal-plans/:id", async (req, res): Promise<void> => {
     return;
   }
   try {
+    const [existing] = await db.select({ familyId: mealPlansTable.familyId }).from(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
+    if (!existing) {
+      res.status(404).json({ error: "Meal plan not found", retryable: false });
+      return;
+    }
+    const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, existing.familyId));
+    if (family && req.user && family.userId !== req.user.userId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     const updateData: Record<string, unknown> = {};
     if ((parsed.data as Record<string, unknown>).days) updateData.days = (parsed.data as Record<string, unknown>).days;
     if (parsed.data.harmonyScore !== undefined) updateData.harmonyScore = String(parsed.data.harmonyScore);
@@ -1397,6 +1413,14 @@ router.delete("/meal-plans/:id", async (req, res): Promise<void> => {
     return;
   }
   try {
+    const [existing] = await db.select({ familyId: mealPlansTable.familyId }).from(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
+    if (existing) {
+      const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, existing.familyId));
+      if (family && req.user && family.userId !== req.user.userId) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
     await db.delete(mealPlansTable).where(eq(mealPlansTable.id, params.data.id));
     res.sendStatus(204);
   } catch (err) {

@@ -59,6 +59,16 @@ An 8-section validation and bug-fix pass was completed covering:
 - **Date Safety**: `safeFormatDate` wrapper in MealPlan.tsx prevents "Invalid time value" crashes.
 - **Mobile**: Bottom nav pill shows all 5 items directly (no "More" overflow menu).
 
+## QA Fix Pass (April 2026)
+
+Comprehensive 6-block QA fix pass covering security, functional, high-priority, medium-priority, and AI chat quality fixes:
+
+- **Security (BLOCK 1)**: `assertFamilyOwnership` middleware for IDOR protection on all family-scoped routes (meal-plans, grocery, health, gemini, leftovers, meal-feedback).
+- **Critical Functional (BLOCK 2)**: T1D/T2D split, CKD stages, pregnancy stages in FamilySetup, max conditions 2→4, medications field (500 char with food-drug interaction note), password complexity (uppercase+number), email trim, `ai_chat_logs` table pushed to Replit PostgreSQL.
+- **High Priority (BLOCK 3)**: Member limit 5→8, numeric bounds on age/height/weight (UI+backend), gender field with ICMR iron RDA notes, real-time calorie estimate, BP/blood sugar validation with bounds, allergy/dislike cross-check warning, feedbackCount≥3 regen gate removed (replaced with confirmation dialog), recipe search dedup (DISTINCT ON name), budget validation (positive, max 500000), demo health log seeding (8 weeks weight/BP/blood sugar for Rajesh & Sunita).
+- **Medium Priority (BLOCK 4)**: Demo token 2h→8h, calorie target display, market region dynamic label (5 regions mapped), localStorage form draft auto-save in FamilySetup, harmony score tier labels (Harmonious/Manageable/Challenging/Complex).
+- **AI Chat Quality (BLOCK 5)**: Anti-asterisk + no-generic-opener rules in Gemini SYSTEM_PROMPT, enhanced Hindi/regional language script enforcement (Devanagari for Hindi, Tamil script for Tamil, etc.), 150-word response limit default, family member name usage requirement, out-of-scope deflection rule.
+
 ## External Dependencies
 
 **AI Services:**

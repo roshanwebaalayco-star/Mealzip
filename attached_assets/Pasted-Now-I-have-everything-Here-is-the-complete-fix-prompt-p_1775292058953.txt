@@ -1,0 +1,659 @@
+Now I have everything. Here is the complete fix prompt — paste the entire block into Replit Agent.
+
+---
+
+```
+You are a senior full-stack engineer doing a complete bug-fix and feature-completion pass on ParivarSehat AI / NutriNext. A QA audit found 5 critical security issues, 7 critical functional failures, 19 high-priority bugs, and several medium issues. Your job is to fix ALL of them in order. 
+
+IMPORTANT RULES FOR THIS SESSION:
+1. Fix issues one at a time. After each fix, confirm what you changed and what file you changed it in.
+2. Never assume a file path — always search for the file first using the file tree.
+3. When editing React components, always check for existing imports before adding new ones.
+4. When editing backend routes, always check for the existing middleware chain before inserting new middleware.
+5. After all fixes are done, do a final full run of the app and confirm it starts without errors.
+
+Do NOT skip any issue. Work through every single one in the order listed below.
+
+---
+
+## BLOCK 1: CRITICAL SECURITY FIXES (Do these first — they affect the demo's credibility)
+
+### FIX SEC-01 through SEC-04: Add Ownership Validation Middleware
+
+The problem: Any authenticated user can read or modify another user's meal plans, grocery lists, health logs, and chat conversations by guessing familyId or mealPlanId. There is NO check that the family being accessed belongs to the requesting user.
+
+Find the backend routes directory. It is likely at `artifacts/api-server/src/routes/`. Look for these files: `meal-plans.ts`, `grocery-lists.ts`, `health-logs.ts`, `nutrition-logs.ts`, `gemini.ts` or similar chat route file.
+
+The fix: Create a reusable middleware function called `assertFamilyOwnership`. Place it in a new file at `artifacts/api-server/src/middleware/assertFamilyOwnership.ts`.
+
+The middleware should:
+1. Accept `familyId` from either `req.params.familyId` or `req.query.familyId` or `req.body.familyId`
+2. Query the database: `SELECT user_id FROM families WHERE id = $familyId`
+3. Compare the result's `user_id` with `req.user.userId` (from the JWT middleware)
+4. If they do not match: return `403 { error: "Access denied" }` — do not reveal whether the family exists
+5. If the family does not exist: return `404 { error: "Family not found" }`
+6. If they match: call `next()`
+
+Then apply this middleware to EVERY route that accepts a `familyId` parameter or queries data scoped to a family. Specifically:
+- All routes in `meal-plans.ts` — add before handler
+- All routes in `grocery-lists.ts` — add before handler
+- All routes in `health-logs.ts` — add before handler
+- All routes in `nutrition-logs.ts` — add before handler
+- All routes in the chat/gemini route file — add before handler
+- All member-level routes in `families.ts` — the PUT and DELETE for members
+
+After applying, test: log in as User A, get User A's familyId from the response. Log in as User B. Try to GET User A's meal plan using User B's token and User A's familyId. It must return 403.
+
+### FIX SEC-05: Verify Member Operations Re-Check Family Ownership
+
+In the families route file, find the `PUT /families/:familyId/members/:memberId` and `DELETE /families/:familyId/members/:memberId` handlers. After the ownership check on `familyId`, add a secondary check: query `SELECT family_id FROM family_members WHERE id = :memberId`. Verify that the returned `family_id` equals the `:familyId` in the URL. If not, return 403. This prevents a user from modifying members of a family they own by using a memberId from a different family.
+
+---
+
+## BLOCK 2: CRITICAL FUNCTIONAL FIXES
+
+### FIX CF-01: Add Medications Input Field to Family Setup
+
+The problem: The 693-line medication rules engine (Indian brand name matching, drug-food interaction rules for 10 drugs including Metformin, Warfarin, Levothyroxine, Insulin types) is completely unreachable because there is no medications text field in the UI.
+
+Find the family setup component. It is likely at `artifacts/nutrinext/src/pages/FamilySetup.tsx` or similar. Also find the member edit component, likely `MemberEditSheet.tsx` or similar.
+
+In the per-member section of the family setup form, add a new field after the "health conditions" field:
+
+Field label: `Active Medications`
+Field type: textarea or text input
+Placeholder: `e.g. Metformin 500mg with breakfast, Eltroxin 50mcg before food, NovoRapid 10 units before meals`
+Helper text (shown below the field, small gray text): `Include brand names, dosage, and timing if known. Used to avoid food-drug interactions.`
+Required: NO (optional field)
+Max length: 500 characters
+Field key in state: `activeMedications` (string)
+
+Make sure this field value is:
+1. Stored in the member's state object during form filling
+2. Submitted as part of the member object when the family is saved
+3. Sent to the backend in the POST/PUT family member API call
+
+Find the backend schema validation for member creation (likely using Zod). Add `activeMedications: z.string().max(500).optional()` to the member schema.
+
+Find where `family_members` are inserted into the database. Add `activeMedications` to the INSERT statement.
+
+Find the `member_weekly_contexts` table insert (used in weekly context). Also add `activeMedications` as an overrideable field there so users can update medications weekly.
+
+### FIX CF-02: Split "Diabetes" into T1D and T2D
+
+The problem: Only a generic "Diabetes" checkbox exists. The backend has a separate 435-line `type1Diabetes.ts` module that handles T1D completely differently (carb floors instead of ceilings, 8 insulin types, hypo rescue protocols).
+
+Find the health conditions options array in the family setup component. It likely looks like an array of strings or objects such as `["diabetes", "hypertension", ...]`.
+
+Change "Diabetes" to two separate options:
+- Value: `diabetes_type_2` — Label: `Type 2 Diabetes (T2D)`
+- Value: `diabetes_type_1` — Label: `Type 1 Diabetes (T1D) — Insulin-dependent`
+
+When `diabetes_type_1` is selected, immediately show a conditional sub-section below the health conditions picker:
+
+Sub-section label: `Insulin Type`
+Field type: select dropdown
+Options:
+- `novorapid` — NovoRapid (rapid-acting)
+- `humalog` — Humalog (rapid-acting)
+- `apidra` — Apidra (rapid-acting)
+- `actrapid` — Actrapid (short-acting)
+- `lantus` — Lantus (long-acting)
+- `tresiba` — Tresiba (long-acting)
+- `levemir` — Levemir (long-acting)
+- `mixtard` — Mixtard (mixed)
+- `other` — Other / Not sure
+
+Store the selected insulin type as `insulinType` in the member object. Send it to the backend.
+
+In the backend Zod schema for family_members, add:
+`insulinType: z.enum(["novorapid","humalog","apidra","actrapid","lantus","tresiba","levemir","mixtard","other"]).optional()`
+
+Make sure the conflict engine in `type1Diabetes.ts` can receive this insulin type from the member object and apply per-insulin timing rules.
+
+### FIX CF-03: Add CKD with Stage Selector
+
+The problem: CKD is not even listed as a health condition option in the UI, despite a 549-line `ckdStaging.ts` engine module.
+
+In the health conditions options array, add:
+- Value: `ckd` — Label: `Chronic Kidney Disease (CKD)`
+
+When `ckd` is selected, show a conditional sub-section:
+
+Sub-section label: `CKD Stage`
+Field type: select dropdown with helper text
+Options:
+- `stage_1` — Stage 1 (Kidney damage, normal GFR ≥90)
+- `stage_2` — Stage 2 (Mild reduction, GFR 60-89)
+- `stage_3a` — Stage 3a (Mild-moderate, GFR 45-59)
+- `stage_3b` — Stage 3b (Moderate-severe, GFR 30-44)
+- `stage_4` — Stage 4 (Severe, GFR 15-29)
+- `stage_5` — Stage 5 (Kidney failure, GFR <15)
+- `dialysis` — Stage 5 + Dialysis
+
+Important: When `dialysis` is selected, show an amber warning box below the selector with this text:
+"Stage 5 dialysis requires INCREASED protein (1.2–1.4g/kg/day). Our meal plan will apply this reversal automatically."
+
+Store the selected CKD stage as `ckdStage` in the member object. Send it to the backend.
+
+In the backend Zod schema, add:
+`ckdStage: z.enum(["stage_1","stage_2","stage_3a","stage_3b","stage_4","stage_5","dialysis"]).optional()`
+
+### FIX CF-04: Add Pregnancy/Lactation with Stage Selector
+
+The problem: Pregnancy is not listed in health conditions despite a 556-line `pregnancy.ts` engine module covering 5 stages with different calorie additions.
+
+In the health conditions options array, add:
+- Value: `pregnancy` — Label: `Pregnant / Lactating`
+
+When `pregnancy` is selected, show a conditional sub-section:
+
+Sub-section label: `Pregnancy / Lactation Stage`
+Field type: select dropdown
+Options:
+- `pregnancy_t1` — Trimester 1 (0–13 weeks)
+- `pregnancy_t2` — Trimester 2 (14–27 weeks) — +350 kcal/day
+- `pregnancy_t3` — Trimester 3 (28–40 weeks) — +350 kcal/day
+- `lactating_0_6m` — Breastfeeding (0–6 months) — +600 kcal/day
+- `lactating_7_12m` — Breastfeeding (7–12 months) — +520 kcal/day
+
+When any pregnancy stage is selected, show a green info box:
+"Calorie and nutrient targets will be automatically adjusted for this stage per ICMR-NIN 2020 guidelines."
+
+Store as `pregnancyStage` in member object. Send to backend.
+
+In the backend Zod schema, add:
+`pregnancyStage: z.enum(["pregnancy_t1","pregnancy_t2","pregnancy_t3","lactating_0_6m","lactating_7_12m"]).optional()`
+
+### FIX CF-05: Increase Health Conditions Limit from 2 to 4
+
+The problem: Maximum 2 health conditions enforced. Real Indian patients commonly have T2D + Hypertension + CKD simultaneously (a very common triad in elderly Indians).
+
+Find where the health conditions maximum is defined. It is likely in the family setup component as a constant like `MAX_CONDITIONS = 2` or in the Zod schema as `.max(2)`.
+
+Change this to `4`. Update any UI helper text that says "Select up to 2" to say "Select up to 4 conditions". Update the Zod schema to `.max(4)`.
+
+### FIX CF-06: Fix ai_chat_logs Table Missing in Replit PostgreSQL
+
+The problem: The `ai_chat_logs` table exists in the Supabase schema but not in the Replit local PostgreSQL. The GET /api/gemini/conversations endpoint fails with a SQL error.
+
+Find the database schema files. They are likely in `lib/db/src/schema/`. Find the schema file that defines `ai_chat_logs` and `chat_messages`.
+
+Determine which database pool each table uses. `ai_chat_logs` is likely on Supabase (remote pool). `chat_messages` may be on either.
+
+In the conversations route handler (likely GET /api/gemini/conversations), find the database query. Add a try-catch around it. If the query fails, return an empty array `[]` instead of throwing an error. Add a log message: `"ai_chat_logs query failed — returning empty array"`.
+
+Additionally: find the seeding script or migration files. Add a CREATE TABLE IF NOT EXISTS statement for `ai_chat_logs` to the local PostgreSQL setup so it exists in both pools. The schema should be:
+```sql
+CREATE TABLE IF NOT EXISTS ai_chat_logs (
+  id SERIAL PRIMARY KEY,
+  family_id INTEGER,
+  user_id INTEGER,
+  model VARCHAR(100),
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  latency_ms INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Also create `chat_messages` if it doesn't exist locally:
+```sql
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id SERIAL PRIMARY KEY,
+  session_id VARCHAR(100),
+  family_id INTEGER,
+  role VARCHAR(20),
+  text TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Run these CREATE TABLE statements against the local Replit PostgreSQL now.
+
+### FIX CF-07: Fix 404 Page Developer Message
+
+Find the 404/NotFound component. It is likely at `artifacts/nutrinext/src/pages/NotFound.tsx` or referenced in the router.
+
+Change the subtitle from "Did you forget to add the page to the router?" to: "This page doesn't exist."
+
+Add a button below: "Go to Dashboard" that navigates to `/`.
+
+The page should look clean and friendly, not like a developer error page.
+
+---
+
+## BLOCK 3: HIGH PRIORITY FIXES
+
+### FIX HP-01: Add Max Length to Name Fields
+
+In the registration form (`/register` component), add `maxLength={100}` to the Name input.
+In the family setup component, add `maxLength={100}` to the Family Name input and `maxLength={60}` to each Member Name input.
+
+In the backend Zod schemas, add `.max(100)` to the name field for users and families, and `.max(60)` for member names.
+
+### FIX HP-02: Trim Email Before Validation
+
+In the backend auth routes (registration and login handlers), find where the email is processed. Currently it does `.toLowerCase()`. Change it to `.trim().toLowerCase()` in both registration and login.
+
+In the frontend registration form, add an `onBlur` handler to the email field that trims the value: `e.target.value = e.target.value.trim()`.
+
+### FIX HP-03 + HP-04 + HP-05 + HP-13: Add Numeric Bounds to Age, Height, Weight
+
+In the family setup component, find the Age input field. Change it to:
+- `type="number"`
+- `min={0}`
+- `max={120}`
+- `step={1}` (integer only)
+
+Add inline validation: if the entered value is not an integer (contains a decimal), round it to the nearest integer and show a toast: "Age rounded to nearest whole number."
+
+If age > 120: show inline error "Please enter a valid age (max 120)."
+If age < 0: show inline error "Age cannot be negative."
+If age = 0: show inline error "Please enter a valid age greater than 0."
+
+For the Height field:
+- `type="number"`
+- `min={30}` (smallest realistic human)
+- `max={275}`
+- `step={0.1}`
+
+If height < 0: show inline error "Height cannot be negative."
+If height > 275: show inline error "Please enter a valid height in cm (max 275 cm)."
+
+For the Weight field:
+- `type="number"`
+- `min={0.5}` (newborn minimum)
+- `max={300}`
+- `step={0.1}`
+
+If weight < 0: show inline error "Weight cannot be negative."
+If weight = 0: show inline error "Weight cannot be zero."
+If weight > 300: show inline error "Please enter a valid weight in kg (max 300 kg)."
+
+In the backend Zod schemas, add matching bounds:
+- age: `z.number().int().min(1).max(120)`
+- heightCm: `z.number().min(30).max(275).optional()`
+- weightKg: `z.number().min(0.5).max(300).optional()`
+
+### FIX HP-06: Add Password Complexity Requirement
+
+In the backend auth registration handler, find the password validation. Currently it only checks length >= 8.
+
+Add this Zod refinement:
+```
+z.string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number")
+```
+
+In the frontend registration form, add a real-time password strength indicator below the password field. Implement it as three colored segments:
+- Weak (red): length < 8 OR no uppercase OR no number
+- Medium (orange): length >= 8 AND (uppercase OR number, but not both)
+- Strong (green): length >= 8 AND has uppercase AND has number
+
+Show a small text label alongside: "Weak / Medium / Strong". No need for a third-party library — implement with a simple computed value from the input's onChange handler.
+
+### FIX HP-07: Blood Pressure Cross-Field Validation
+
+In the health log form (likely in `/health` page component), find where systolic and diastolic BP are entered.
+
+Add cross-field validation: after both fields have a value, check if systolic <= diastolic. If so, show an inline error on the diastolic field: "Diastolic pressure cannot be higher than systolic pressure."
+
+Also add range checks:
+- Systolic: min 60, max 300. Show error if outside this range.
+- Diastolic: min 40, max 200. Show error if outside this range.
+- Systolic > 180: Show an amber warning (not error): "Very high BP reading. Consider seeking medical attention."
+
+In the backend Zod schema for health logs, add:
+`.refine(data => !data.bloodPressureSystolic || !data.bloodPressureDiastolic || data.bloodPressureSystolic > data.bloodPressureDiastolic, { message: "Systolic must be greater than diastolic", path: ["bloodPressureDiastolic"] })`
+
+### FIX HP-08: Blood Sugar Range Validation
+
+In the health log form, find the blood sugar input field.
+
+Add range validation:
+- Min: 20 mg/dL (below this is physiologically incompatible with consciousness)
+- Max: 600 mg/dL (above this is extreme crisis, likely input error)
+
+If value < 20: inline error "Value too low to be valid (min 20 mg/dL)."
+If value > 600: inline error "Value too high to be valid (max 600 mg/dL)."
+
+Add contextual alerts when a valid value is entered:
+- 70–99 mg/dL (fasting): show subtle green "Normal fasting range"
+- 100–125 mg/dL (fasting): show amber "Pre-diabetic range — consult a doctor"
+- >= 126 mg/dL (fasting): show red "Diabetic range — consult a doctor"
+
+These are informational only, not blocking.
+
+In the backend Zod schema, add: `bloodSugar: z.number().min(20).max(600).optional()`
+
+### FIX HP-09: Fix WeeklyContext Page Redirect
+
+The problem: `/meal-plan/context` immediately redirects to `/meal-plan?gen=1` without showing any form fields. All weekly context features are unreachable.
+
+Find the WeeklyContext component file. Find the logic that causes the immediate redirect. This is likely an `useEffect` with a `navigate` call that fires before the user can interact with the form.
+
+Remove or fix this redirect. The page should:
+1. Show all weekly context fields as a form
+2. Pre-fill from the active family's profile data
+3. Have a "Generate Meal Plan" submit button at the bottom
+4. Only navigate to meal generation AFTER the user submits the form
+
+The form must include these visible fields (create them if they don't exist in the component):
+- Eating out this week: radio buttons (None / 1-2 times / Frequently 3+ times)
+- Weekday cooking time: select (Under 20 mins / 20-40 mins / No limit)
+- Weekend cooking time: select (Quick / Elaborate / No preference)
+- Special request: textarea with placeholder "e.g. 'No rice this week', 'Use up the spinach in fridge', 'Light meals on Thursday'"
+- Per-member section (loop over family members):
+  - Member name as section header
+  - "How are you feeling this week?" — free text input
+  - "Any medication changes this week?" — free text input (pre-filled from profile)
+  - Fasting days this week — checkboxes Mon-Sun (pre-filled from profile)
+  - Ekadashi this week — toggle (auto-detected, user can override)
+
+### FIX HP-10: Add Gender Field to Family Setup
+
+The problem: Gender is in the database schema and used for RDA calculations, but the UI has no gender field.
+
+In the per-member section of the family setup form, add a Gender field after the Age field:
+- Field type: button group or radio buttons
+- Options: Male / Female / Other (prefer not to say)
+- Required: Yes
+- Default: no selection (force explicit choice)
+
+When gender is "Male", add a note: "Iron RDA: 17mg/day (adult)"
+When gender is "Female", add a note: "Iron RDA: 21mg/day (adult)"
+(These should update dynamically — they help users understand why gender matters.)
+
+If the user selects "Male" and then also selects PCOS as a health condition (after FIX CF-02-CF-04 adds the full conditions list), show a warning: "PCOS is typically diagnosed in females. Please verify."
+
+Send gender to the backend. Add `gender: z.enum(["male","female","other"]).optional()` to the Zod schema (optional to avoid breaking existing records, but show required in UI).
+
+### FIX HP-11: Fix Empty Grocery List
+
+The problem: `GET /api/grocery-lists?familyId=X` returns empty array even when a meal plan exists.
+
+Find the grocery lists route handler. Look at why it returns empty. The issue is likely that grocery lists are generated as a side effect of meal plan generation (stored at that time) but the demo family's grocery lists table has no data.
+
+Fix 1: In the grocery list page component, if the returned grocery list array is empty AND a meal plan exists for the family, automatically call the `POST /api/grocery-lists/generate` endpoint to generate one. Show a loading state while this happens. Don't require the user to manually trigger generation.
+
+Fix 2: Add a "Generate Grocery List" button on the grocery page that is always visible and triggers generation from the current meal plan.
+
+Fix 3: Seed the demo family's grocery list. Find the seeding script and add at least a basic grocery list entry for the Sharma family's meal plan.
+
+### FIX HP-12: Increase Family Member Limit from 5 to 8
+
+Find where the maximum family member limit is defined. It is likely in the family setup component as `MAX_MEMBERS = 5` or in a Zod schema as `.max(5)`.
+
+Change to `8`. Update all UI messages that reference the limit.
+
+Indian joint families of 7 (grandparents + parents + 3 children) must be supportable.
+
+### FIX HP-14: Allergy/Dislike Redundancy Check
+
+In the family setup component, find where both allergies and ingredient dislikes are managed.
+
+Add this check: when a user adds an item to ingredient dislikes, check if the same item (case-insensitive) exists in the allergies field. If it does, show a toast warning: "[Item] is already in your allergy list. Dislikes are for preferences only — allergies are stricter restrictions."
+
+The item should still be saveable in dislikes if the user wants, but the warning should appear.
+
+### FIX HP-15: Remove feedbackCount >= 3 Requirement for Regeneration
+
+Find the meal plan component. Find the condition that gates regeneration behind `feedbackCount >= 3`.
+
+Change this: regeneration should be available at any time. Remove the feedbackCount gate entirely. Replace it with a simple confirmation dialog: "Generate a new meal plan? This will replace your current plan." with Cancel and Confirm buttons.
+
+### FIX HP-16: Fix Weight = 0 Frontend Rejection on Health Log
+
+In the health log form, find the weight input field. Add explicit frontend validation:
+
+```javascript
+if (weight !== undefined && weight !== null && weight <= 0) {
+  setError("weightKg", { message: "Weight must be greater than 0" });
+  return; // prevent form submission
+}
+```
+
+Show the error inline beneath the weight field. Do not submit the form. Do not rely on the backend to catch this.
+
+### FIX HP-17: Recipe Search Deduplication
+
+Find the recipe search endpoint in the backend. It is likely at `GET /api/recipes` with full-text search.
+
+Add a DISTINCT ON (name) clause to the SQL query, or add a deduplication step that removes recipes with identical names. Use the lower-similarity one (older id) as the duplicate to remove.
+
+Alternatively, add a `DISTINCT ON (r.name)` in the SELECT statement:
+```sql
+SELECT DISTINCT ON (name) * FROM recipes WHERE ... ORDER BY name, ts_rank(search_vector, query) DESC
+```
+
+This ensures no two results have the exact same recipe name.
+
+### FIX HP-18: Budget Negative Value Rejection
+
+In the budget input (weekly context and monthly budget setup), find the input field. Add:
+- `min={0}` to the HTML input
+- Frontend validation: if value <= 0, show error "Budget must be a positive number"
+- If value is not a number (NaN after parsing), show error "Please enter a valid number"
+
+In the backend budget engine Zod schema, add: `z.number().positive("Budget must be positive")`
+
+### FIX HP-19: Seed Demo Health Data for Sharma Family
+
+Find the seeding scripts directory. It is likely at `scripts/` in the root or `artifacts/api-server/scripts/`.
+
+Find where the Sharma family demo data is seeded. Add health log seed data for the Sharma family:
+
+For member Rajesh (diabetic, hypertensive):
+- Seed 8 weeks of weight logs: starting 82kg, gradually decreasing to 79.5kg (showing progress)
+- Seed 8 weeks of blood sugar readings: fasting values ranging 118-145 mg/dL (controlled diabetic range)
+- Seed 8 weeks of BP readings: systolic 138-148, diastolic 88-94 (controlled hypertension)
+
+For member Sunita (obesity goal):
+- Seed 8 weeks of weight logs: starting 74kg, fluctuating but trending to 72kg
+
+Use the actual INSERT format that matches the `health_logs` table schema. Run these inserts against the Supabase database (the remote pool, since health data goes there).
+
+After seeding, verify that `GET /api/health-logs?familyId=3` returns data.
+
+---
+
+## BLOCK 4: MEDIUM PRIORITY FIXES (Do all of these)
+
+### FIX MP-04: Extend Demo Token Expiry to 8 Hours
+
+Find where the demo JWT is created. It is likely in the auth routes file with an `expiresIn: '2h'` or similar.
+
+Change the demo token expiry from `'2h'` to `'8h'`. Regular user tokens should remain at `'7d'`.
+
+### FIX MP-05: Show Real-Time Calorie Target in Family Setup
+
+In the per-member section of the family setup component, add a calculated display field below the Activity Level dropdown.
+
+When age + gender + height + weight + activity level are ALL filled in, compute the estimated calorie target using this formula:
+- Calculate BMR using Mifflin-St Jeor equation:
+  - Male: BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) + 5
+  - Female: BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) - 161
+  - Other: use female formula
+- Apply activity multiplier: Sedentary × 1.2, Light × 1.375, Moderate × 1.55, Very Active × 1.725
+- Round to nearest 50
+
+Display as: "Estimated daily calorie target: ~1,950 kcal (based on ICMR-NIN guidelines)"
+
+This should update in real-time as any of the five inputs change. No API call needed — compute entirely in the frontend.
+
+### FIX MP-06: Warn When All 7 Fasting Days Are Selected
+
+In the fasting section of the family setup, add this check: when the user has checked 4 or more fasting days out of 7, show a non-blocking amber info message below the fasting checkboxes: "Fasting on 4+ days per week may limit nutritional variety. Our meal plan will include maximum nutrition within your fasting constraints."
+
+This is informational only — do not block selection.
+
+### FIX MP-07: PCOS Gender Check
+
+After FIX HP-10 adds the gender field, add this conditional logic:
+
+When the user selects PCOS/PCOD as a health condition AND the member's gender is "Male" or "Other", show a warning toast: "PCOS is typically associated with female hormonal conditions. Please verify this selection." 
+
+Allow the user to keep the selection — the warning is not blocking.
+
+### FIX MP-11: Fix Market Prices to Reflect Family Region
+
+Find the grocery/market prices component or API handler. The source label currently hardcodes "Bokaro Chas Mandi — Live Demo Feed" regardless of the family's region.
+
+Find the active family data in the component. Use the family's `stateRegion` field to select the appropriate price source label.
+
+Map the 5 regions to market names:
+- `north` → "Delhi NCR Azadpur Mandi — Regional Prices"
+- `south` → "Chennai Koyambedu Market — Regional Prices"
+- `east` → "Kolkata Koley Market — Regional Prices"
+- `west` → "Mumbai APMC Vashi Mandi — Regional Prices"
+- `central` → "Bhopal Karond Mandi — Regional Prices"
+- Default/Jharkhand family → "Ranchi Sukhdeonagar Market — Regional Prices"
+
+Update the label in both the API response and the UI display. The prices themselves can remain the same for the demo — only the source attribution changes.
+
+### FIX MP-15: Auto-Save Family Setup Form to localStorage
+
+In the family setup component, add auto-save logic:
+
+1. On every form state change (use a `useEffect` watching the form state), save the current form data to `localStorage` with key `"parivar_family_setup_draft"`. Debounce this with a 1-second delay to avoid excessive writes.
+
+2. On component mount (`useEffect` with empty dependency array), check if `"parivar_family_setup_draft"` exists in localStorage. If it does, show a small banner at the top: "You have an unsaved draft. Restore it?" with "Restore" and "Start Fresh" buttons.
+
+3. After successful family save, clear `localStorage.removeItem("parivar_family_setup_draft")`.
+
+### FIX MP-17: Show Calorie Target After Family Save
+
+After the family is successfully saved and the user is on the profile page or a post-setup summary screen, show each member's computed daily calorie target.
+
+In the profile page component, after loading the family members, display per member: "Daily calorie target: ~[dailyCalorieTarget] kcal"
+
+If `dailyCalorieTarget` is null (because height/weight were not provided), show: "Calorie target: Complete height and weight to calculate"
+
+### FIX MP-19: Add Sign Out Button to Sidebar
+
+Find the sidebar navigation component. It likely has a list of navigation links.
+
+Find where it shows "Log In / Sign Up" link. Add a conditional: if the user IS authenticated (check the auth state from Zustand or context), show:
+1. The user's name or email (truncated to 20 chars) at the bottom
+2. A "Sign Out" button that calls the logout function (which clears the JWT from localStorage and redirects to /login)
+
+If the user is NOT authenticated, show the "Log In / Sign Up" link as before.
+
+### FIX MP-28: Show Harmony Score Tier Labels
+
+Find the Harmony Score component (likely `HarmonyScore.tsx` or similar circular progress component).
+
+The backend already computes tier labels. Find where the score is displayed. Currently it shows only the number (e.g., 78).
+
+Add the tier label directly below the number. The tiers are (find these in `harmonyScore.ts` in the backend and use the same values):
+- 85–100: "Harmonious" (green)
+- 70–84: "Manageable" (blue)
+- 50–69: "Challenging" (amber)
+- below 50: "Complex" (red)
+
+Show as small colored text badge below the score number.
+
+---
+
+## BLOCK 5: AI CHAT QUALITY FIXES
+
+### FIX CHAT-01: Add Anti-Asterisk and Anti-Generic-Opener Instructions to Gemini Prompt
+
+Find the prompt construction file. It is likely at `artifacts/api-server/src/engine/prompt-chain.ts` or a dedicated chat prompt file.
+
+Find the system prompt or instruction block that is sent to Gemini for chat responses.
+
+Add these explicit instructions to the system prompt (add them as a clearly labeled section titled "RESPONSE STYLE RULES — NON-NEGOTIABLE"):
+
+```
+RESPONSE STYLE RULES — NON-NEGOTIABLE:
+1. NEVER start a response with "Certainly!", "Of course!", "Great question!", "Sure!", "Absolutely!", or any generic opener. Start directly with the answer.
+2. NEVER use markdown asterisks for bold (**text**) or bullet points (* item). Use plain prose. If you need a list, write it as "First, ... Second, ... Third, ..." in natural sentences.
+3. NEVER use numbered lists unless the user explicitly asks for a step-by-step guide.
+4. ALWAYS address family members by their actual names from the profile. Never say "the diabetic member" — say "Rajesh" or whatever their name is.
+5. ALWAYS reference the specific health condition by name. Never say "for someone with your condition" — say "for Rajesh's Type 2 Diabetes."
+6. Keep responses under 150 words unless detailed instructions are explicitly requested.
+7. Write as a knowledgeable family friend who happens to be a nutritionist — warm, direct, specific, never clinical-jargon-heavy.
+8. If a question is outside nutrition/health/cooking, respond: "I'm focused on your family's nutrition. For that question, a general search would serve you better. Is there anything about your family's meals I can help with?"
+```
+
+### FIX CHAT-02: Add Family Context to Every Chat Message
+
+Verify that the family profile (member names, health conditions, medications) is injected into EVERY chat prompt — not just the first one in a session.
+
+Find where the chat message is assembled before sending to Gemini. Confirm that the message includes:
+- Names of all family members
+- Each member's health conditions
+- Each member's dietary type
+- Each member's active medications (after FIX CF-01 adds this field)
+
+If context is only injected on session start and lost on subsequent messages, add it as a persistent system prompt that is prepended to every message sent to Gemini, not just the first.
+
+### FIX CHAT-03: Verify Hindi Response Works
+
+In the chat route handler, find where the language preference is used. Verify this logic:
+1. If `req.body.language === "hindi"` OR the family's `primaryLanguage === "hindi"` → append to the system prompt: "Respond entirely in Hindi (Devanagari script). Do not mix English unless using specific medical/nutritional terms that have no Hindi equivalent."
+2. Test this by sending a Hindi message. The response must come back in Devanagari Hindi, not transliterated Hindi.
+
+---
+
+## BLOCK 6: FINAL VALIDATION — Run ALL of these after fixes are complete
+
+After all fixes are applied, run the following verification sequence:
+
+1. Start the full app (frontend + backend + both database pools). Confirm no startup errors.
+
+2. Navigate to /register. Attempt to register with:
+   - Password "12345678" → should now FAIL with "must contain uppercase letter"
+   - Password "Password1" → should PASS
+   - Email " user@test.com " (spaces) → spaces should be trimmed, registration should succeed
+
+3. Navigate to /family-setup. Add a member. Test:
+   - Age field: enter 150 → should show error
+   - Age field: enter 25.5 → should round to 25
+   - Height: enter -10 → should show error
+   - Weight: enter 0 → should show error
+   - Gender field: must be visible and required
+   - Health conditions: must be able to select 4 conditions simultaneously
+   - Selecting "Type 1 Diabetes": Insulin type dropdown must appear
+   - Selecting "CKD": Stage selector must appear
+   - Selecting "Pregnancy": Stage selector must appear
+   - Medications field: must be visible and accept text
+   - Calorie estimate: must show and update when age/gender/height/weight/activity all filled
+
+4. Navigate to /meal-plan/context. Verify:
+   - The form is fully visible (NOT immediately redirected)
+   - Eating out selector, cooking time, special request, per-member fields all present
+   - Submitting navigates to meal generation
+
+5. Navigate to /health. Test:
+   - Blood sugar: enter 5 → should show error (too low)
+   - Blood sugar: enter 10000 → should show error (too high)
+   - BP: systolic 70, diastolic 120 → should show error (impossible)
+   - Weight: enter 0 → should show error before API call
+
+6. Navigate to /chat. Test:
+   - Send "What should Papa eat today?" → response should use "Papa" by name, reference his condition, NOT start with "Certainly!"
+   - Confirm no asterisks appear in the response
+   - Send a message in Hindi → confirm Hindi response
+
+7. Navigate to /grocery. Verify:
+   - Grocery list IS populated (or auto-generates)
+   - Source label reflects family's region
+
+8. Navigate to /profile. Verify:
+   - Sign Out button is visible and functional
+   - Calorie target is shown per member
+
+9. Attempt IDOR attack:
+   - Note the familyId of the logged-in user
+   - Try to GET /api/meal-plans?familyId=1 (or any other ID)
+   - Should return 403 if that family doesn't belong to the user
+
+10. Navigate to /randompage → verify user-friendly 404, not developer message
+
+Report the result of each verification step after completing all fixes. List any fixes that could NOT be completed and explain why.
+```

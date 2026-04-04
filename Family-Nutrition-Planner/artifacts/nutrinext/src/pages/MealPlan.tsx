@@ -285,7 +285,7 @@ export default function MealPlan() {
   });
 
   const feedbackCount = feedbackList?.length ?? 0;
-  const canRegenerateWeek2 = feedbackCount >= 3;
+  const canRegenerateWeek2 = true;
 
   const generate = useGenerateMealPlan();
 
@@ -765,17 +765,18 @@ export default function MealPlan() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => currentPlan && regenerateMutation.mutate(currentPlan.id)}
-            disabled={regenerateMutation.isPending || !canRegenerateWeek2}
-            title={!canRegenerateWeek2 ? t(`Rate ${3 - feedbackCount} more meals to unlock`, `${3 - feedbackCount} और भोजन रेट करें`) : ""}
+            disabled={regenerateMutation.isPending}
             className="text-xs gap-1.5"
+            onClick={() => {
+              if (window.confirm(t("Generate an improved meal plan using your feedback? This will replace the current plan.", "फीडबैक से बेहतर मील प्लान बनाएं? यह वर्तमान योजना को बदल देगी।"))) {
+                currentPlan && regenerateMutation.mutate(currentPlan.id);
+              }
+            }}
           >
             <Sparkles className="w-3.5 h-3.5" />
             {regenerateMutation.isPending
               ? t("Improving…", "सुधार हो रहा है…")
-              : canRegenerateWeek2
-                ? t("Week 2 (with feedback)", "सप्ताह 2 (फीडबैक के साथ)")
-                : t(`Week 2 (rate ${3 - feedbackCount} more)`, `सप्ताह 2 (${3 - feedbackCount} और रेट करें)`)}
+              : t("Week 2 (with feedback)", "सप्ताह 2 (फीडबैक के साथ)")}
           </Button>
 
           <button

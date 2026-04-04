@@ -251,6 +251,18 @@ export default function Grocery() {
     enabled: !!activeFamily?.id,
   });
 
+  const { data: mealPlans } = useQuery({
+    queryKey: ["meal-plans-for-grocery", activeFamily?.id],
+    queryFn: async () => {
+      if (!activeFamily?.id) return [];
+      const res = await apiFetch(`/api/meal-plans?familyId=${activeFamily.id}`);
+      return res.json() as Promise<Array<{ id: number }>>;
+    },
+    enabled: !!activeFamily?.id,
+  });
+
+  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       const body: Record<string, unknown> = { familyId: activeFamily?.id };
@@ -276,6 +288,22 @@ export default function Grocery() {
       toast({ title: t("Error", "त्रुटि"), description: t("Failed to generate grocery list.", "खरीदारी सूची बनाने में विफल।"), variant: "destructive" });
     },
   });
+
+  useEffect(() => {
+    if (
+      !autoGenTriggered &&
+      !isLoading &&
+      lists !== undefined &&
+      lists.length === 0 &&
+      mealPlans &&
+      mealPlans.length > 0 &&
+      !generateMutation.isPending &&
+      activeFamily?.id
+    ) {
+      setAutoGenTriggered(true);
+      generateMutation.mutate();
+    }
+  }, [lists, mealPlans, isLoading, autoGenTriggered, activeFamily?.id]);
 
   const latest = lists?.[lists.length - 1];
   const items: GroceryItem[] = latest?.items?.items || [];

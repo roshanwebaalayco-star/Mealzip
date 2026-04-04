@@ -5,10 +5,33 @@ import { scanPlanForPrepAlerts } from "../../lib/biochem-scanner.js";
 
 const router: IRouter = Router();
 
-router.get("/market/prices", (_req, res): void => {
+const REGION_MARKET_MAP: Record<string, string> = {
+  north: "Delhi NCR Azadpur Mandi — Regional Prices",
+  south: "Chennai Koyambedu Market — Regional Prices",
+  east: "Kolkata Koley Market — Regional Prices",
+  west: "Mumbai APMC Vashi Mandi — Regional Prices",
+  central: "Bhopal Karond Mandi — Regional Prices",
+};
+
+router.get("/market/prices", async (req, res): Promise<void> => {
   const prices = getMandiPrices();
   const arbitrage = applyIngredientArbitrage(prices.map(p => p.name));
   const surging = prices.filter(p => p.trend === "surging").map(p => p.name);
+
+  let source = "Ranchi Sukhdeonagar Market — Regional Prices";
+  const familyId = req.query.familyId ? parseInt(req.query.familyId as string) : undefined;
+  if (familyId) {
+    try {
+      const { db: dbImport } = await import("@workspace/db");
+      const { familiesTable: ft } = await import("@workspace/db");
+      const [fam] = await dbImport.select({ stateRegion: ft.stateRegion }).from(ft).where((await import("drizzle-orm")).eq(ft.id, familyId));
+      if (fam?.stateRegion) {
+        const region = fam.stateRegion.toLowerCase();
+        source = REGION_MARKET_MAP[region] || `${fam.stateRegion} — Regional Prices`;
+      }
+    } catch { /* use default */ }
+  }
+
   res.json({
     prices,
     arbitrage: {
@@ -18,7 +41,7 @@ router.get("/market/prices", (_req, res): void => {
       alertMessage: arbitrage.alertMessage,
     },
     surging,
-    source: "Bokaro Chas Mandi — Live Demo Feed",
+    source,
     lastUpdated: new Date().toISOString(),
   });
 });

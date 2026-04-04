@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { eq, and, gt, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { leftoverItemsTable } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
+import { leftoverItemsTable, familiesTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -20,7 +21,7 @@ const LogLeftoverBatchBody = z.object({
   })).min(1),
 });
 
-router.post("/leftovers", async (req, res): Promise<void> => {
+router.post("/leftovers", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = LogLeftoverBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
@@ -46,7 +47,7 @@ router.post("/leftovers", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/leftovers/batch", async (req, res): Promise<void> => {
+router.post("/leftovers/batch", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = LogLeftoverBatchBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
@@ -74,7 +75,7 @@ router.post("/leftovers/batch", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/leftovers", async (req, res): Promise<void> => {
+router.get("/leftovers", assertFamilyOwnership, async (req, res): Promise<void> => {
   const familyId = parseInt(req.query.familyId as string);
   if (isNaN(familyId)) {
     res.status(400).json({ error: "familyId query parameter required" });
@@ -110,6 +111,17 @@ router.patch("/leftovers/:id", async (req, res): Promise<void> => {
   }
 
   try {
+    const [existing] = await db.select({ familyId: leftoverItemsTable.familyId }).from(leftoverItemsTable).where(eq(leftoverItemsTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Leftover item not found" });
+      return;
+    }
+    const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, existing.familyId));
+    if (family && req.user && family.userId !== req.user.userId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
     const [updated] = await db.update(leftoverItemsTable)
       .set({ usedUp: true })
       .where(eq(leftoverItemsTable.id, id))

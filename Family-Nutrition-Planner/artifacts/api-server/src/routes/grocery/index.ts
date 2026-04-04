@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, lte, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { db, localDb } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
 import { groceryListsTable, mealPlansTable, familiesTable, recipesTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 
@@ -14,7 +15,7 @@ const GenerateGrocerySchema = z.object({
   updateMode: z.enum(["add", "subtract"]).optional().default("add"),
 });
 
-router.get("/grocery-lists", async (req, res): Promise<void> => {
+router.get("/grocery-lists", assertFamilyOwnership, async (req, res): Promise<void> => {
   const familyId = parseInt(req.query.familyId as string);
   if (isNaN(familyId)) {
     res.status(400).json({ error: "familyId is required", retryable: false });
@@ -31,7 +32,7 @@ router.get("/grocery-lists", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/grocery-lists/generate", async (req, res): Promise<void> => {
+router.post("/grocery-lists/generate", assertFamilyOwnership, async (req, res): Promise<void> => {
   const parsed = GenerateGrocerySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten(), retryable: false });

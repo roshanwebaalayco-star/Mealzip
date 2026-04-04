@@ -41,9 +41,13 @@ type MemberDraft = {
   spiceTolerance: string;
   ekadashi: boolean;
   festivalFastingAlerts: boolean;
+  activeMedications?: string;
+  insulinType?: string;
+  ckdStage?: string;
+  pregnancyStage?: string;
 };
 
-type MemberErrors = { name?: string; age?: string };
+type MemberErrors = { name?: string; age?: string; weightKg?: string; heightCm?: string; gender?: string };
 
 let _memberIdCounter = 0;
 
@@ -85,6 +89,32 @@ export default function FamilySetup() {
       spiceTolerance: "medium", ekadashi: false, festivalFastingAlerts: false,
     }
   ]);
+
+  const DRAFT_KEY = "nutrinext_family_setup_draft";
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        if (draft.familyData) setFamilyData(prev => ({ ...prev, ...draft.familyData }));
+        if (draft.members && Array.isArray(draft.members) && draft.members.length > 0) {
+          setMembers(draft.members.map((m: any) => ({ ...m, _id: ++_memberIdCounter })));
+        }
+        if (draft.step) setStep(draft.step);
+      }
+    } catch { /* ignore corrupt draft */ }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ familyData, members, step }));
+      } catch { /* quota exceeded — ignore */ }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [familyData, members, step]);
+
+  const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
 
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
@@ -234,7 +264,7 @@ export default function FamilySetup() {
       const without = current.filter(c => c !== "none");
       if (without.includes(cond)) {
         next = without.filter(c => c !== cond);
-      } else if (without.length >= 2) {
+      } else if (without.length >= 4) {
         return;
       } else {
         next = [...without, cond];
@@ -309,8 +339,8 @@ export default function FamilySetup() {
       toast({ title: "At least 1 member required", description: "Please add at least one family member before saving.", variant: "destructive" });
       return;
     }
-    if (mems.length > 5) {
-      toast({ title: "Maximum 5 members", description: "Please remove some members to continue (family limit: 5).", variant: "destructive" });
+    if (mems.length > 8) {
+      toast({ title: "Maximum 8 members", description: "Please remove some members to continue (family limit: 8).", variant: "destructive" });
       return;
     }
 
@@ -365,12 +395,17 @@ export default function FamilySetup() {
               occasionalNonvegConfig,
               fastingConfig,
               religiousCulturalRules,
+              activeMedications: member.activeMedications || undefined,
+              insulinType: member.insulinType || undefined,
+              ckdStage: member.ckdStage || undefined,
+              pregnancyStage: member.pregnancyStage || undefined,
             }
           });
         }
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/families"] });
+      clearDraft();
       toast({ title: "Success!", description: "Family profile created!" });
       setLocation(redirectTo);
     } catch (err) {
@@ -908,7 +943,8 @@ export default function FamilySetup() {
                   <div className="md:col-span-2">
                     <Label>{t("Name", "नाम")} <span className="text-destructive">*</span></Label>
                     <Input 
-                      value={member.name} 
+                      value={member.name}
+                      maxLength={60}
                       onChange={e => {
                         handleUpdateMember(idx, "name", e.target.value);
                         if (memberErrors[member._id]?.name) setMemberErrors(prev => ({ ...prev, [member._id]: { ...prev[member._id], name: undefined } }));
@@ -922,25 +958,91 @@ export default function FamilySetup() {
                     <Label>{t("Age", "आयु")} <span className="text-destructive">*</span></Label>
                     <Input
                       type="number"
+                      min={1}
+                      max={120}
+                      step={1}
                       value={member.age}
                       onChange={e => {
-                        const val = e.target.value === "" ? "" : parseInt(e.target.value);
+                        let val: number | "" = e.target.value === "" ? "" : parseInt(e.target.value);
+                        if (typeof val === "number" && val > 120) val = 120;
+                        if (typeof val === "number" && val < 0) val = 0;
                         handleUpdateMember(idx, "age", val as number | "");
                         if (memberErrors[member._id]?.age) setMemberErrors(prev => ({ ...prev, [member._id]: { ...prev[member._id], age: undefined } }));
                       }}
                       className={`mt-1 ${memberErrors[member._id]?.age ? "border-destructive" : ""}`}
                     />
                     {memberErrors[member._id]?.age && <p className="text-xs text-destructive mt-1">{memberErrors[member._id].age}</p>}
+                    {typeof member.age === "number" && member.age > 120 && <p className="text-xs text-destructive mt-1">{t("Please enter a valid age (max 120)", "कृपया वैध आयु दर्ज करें (अधिकतम 120)")}</p>}
                   </div>
+
+                  <div>
+                    <Label>{t("Gender", "लिंग")} <span className="text-destructive">*</span></Label>
+                    <div className="mt-1.5 flex gap-2">
+                      {([
+                        { id: "male", en: "Male", hi: "पुरुष" },
+                        { id: "female", en: "Female", hi: "महिला" },
+                        { id: "other", en: "Other", hi: "अन्य" },
+                      ] as const).map(({ id, en, hi }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => handleUpdateMember(idx, "gender", id)}
+                          className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                            member.gender === id
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background border-border hover:border-primary"
+                          }`}
+                        >
+                          {t(en, hi)}
+                        </button>
+                      ))}
+                    </div>
+                    {member.gender === "male" && Number(member.age) >= 18 && (
+                      <p className="text-xs text-muted-foreground mt-1">{t("Iron RDA: 17mg/day (adult)", "आयरन RDA: 17mg/दिन (वयस्क)")}</p>
+                    )}
+                    {member.gender === "female" && Number(member.age) >= 18 && (
+                      <p className="text-xs text-muted-foreground mt-1">{t("Iron RDA: 21mg/day (adult)", "आयरन RDA: 21mg/दिन (वयस्क)")}</p>
+                    )}
+                  </div>
+
                   <div>
                     <Label>{t("Weight (kg)", "वजन (किग्रा)")}</Label>
-                    <Input type="number" value={member.weightKg || ""} onChange={e => handleUpdateMember(idx, "weightKg", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 65" />
+                    <Input type="number" min={0.5} max={300} step={0.1} value={member.weightKg || ""} onChange={e => {
+                      const v = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                      handleUpdateMember(idx, "weightKg", v);
+                    }} className="mt-1" placeholder="e.g. 65" />
+                    {member.weightKg !== undefined && member.weightKg > 0 && member.weightKg > 300 && <p className="text-xs text-destructive mt-1">{t("Max 300 kg", "अधिकतम 300 किग्रा")}</p>}
                   </div>
                   <div>
                     <Label>{t("Height (cm)", "ऊंचाई (सेमी)")}</Label>
-                    <Input type="number" value={member.heightCm || ""} onChange={e => handleUpdateMember(idx, "heightCm", e.target.value === "" ? 0 : parseFloat(e.target.value))} className="mt-1" placeholder="e.g. 165" />
+                    <Input type="number" min={30} max={275} step={0.1} value={member.heightCm || ""} onChange={e => {
+                      const v = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                      handleUpdateMember(idx, "heightCm", v);
+                    }} className="mt-1" placeholder="e.g. 165" />
+                    {member.heightCm !== undefined && member.heightCm > 275 && <p className="text-xs text-destructive mt-1">{t("Max 275 cm", "अधिकतम 275 सेमी")}</p>}
                   </div>
                 </div>
+
+                {(() => {
+                  const age = Number(member.age);
+                  const w = member.weightKg;
+                  const h = member.heightCm;
+                  const g = member.gender;
+                  const al = member.activityLevel;
+                  if (age > 0 && w && w > 0 && h && h > 0 && g && al) {
+                    let bmr = g === "female" || g === "other"
+                      ? (10 * w) + (6.25 * h) - (5 * age) - 161
+                      : (10 * w) + (6.25 * h) - (5 * age) + 5;
+                    const mult = al === "sedentary" ? 1.2 : al === "lightly_active" ? 1.375 : al === "very_active" ? 1.725 : 1.55;
+                    const target = Math.round((bmr * mult) / 50) * 50;
+                    return (
+                      <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm text-emerald-800">
+                        {t(`Estimated daily calorie target: ~${target.toLocaleString()} kcal (based on ICMR-NIN guidelines)`, `अनुमानित दैनिक कैलोरी लक्ष्य: ~${target.toLocaleString()} kcal (ICMR-NIN दिशानिर्देशों पर आधारित)`)}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Auto-assignment notice for children */}
@@ -1022,20 +1124,23 @@ export default function FamilySetup() {
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")} <span className="text-muted-foreground font-normal text-xs">({t("max 2", "अधिकतम 2")})</span></Label>
+                    <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")} <span className="text-muted-foreground font-normal text-xs">({t("max 4", "अधिकतम 4")})</span></Label>
                     {[
-                      { id: 'diabetes', en: 'Diabetes', hi: 'मधुमेह' },
+                      { id: 'diabetes_type_2', en: 'Type 2 Diabetes (T2D)', hi: 'टाइप 2 मधुमेह' },
+                      { id: 'diabetes_type_1', en: 'Type 1 Diabetes (T1D) — Insulin-dependent', hi: 'टाइप 1 मधुमेह — इंसुलिन-निर्भर' },
                       { id: 'hypertension', en: 'Hypertension', hi: 'उच्च रक्तचाप' },
                       { id: 'obesity', en: 'Obesity', hi: 'मोटापा' },
                       { id: 'anemia', en: 'Anemia', hi: 'रक्ताल्पता' },
                       { id: 'thyroid', en: 'Thyroid', hi: 'थायरॉइड' },
                       { id: 'high_cholesterol', en: 'High Cholesterol', hi: 'उच्च कोलेस्ट्रॉल' },
-                      { id: 'pcod', en: 'PCOD', hi: 'पीसीओडी' },
+                      { id: 'pcod', en: 'PCOD/PCOS', hi: 'पीसीओडी/पीसीओएस' },
+                      { id: 'ckd', en: 'Chronic Kidney Disease (CKD)', hi: 'क्रोनिक किडनी रोग' },
+                      { id: 'pregnancy', en: 'Pregnant / Lactating', hi: 'गर्भवती / स्तनपान' },
                       { id: 'growing_child', en: 'Growing Child', hi: 'बढ़ता बच्चा' },
                       { id: 'elderly', en: 'Elderly (60+)', hi: 'बुजुर्ग (60+)' },
                       { id: 'none', en: 'None', hi: 'कोई नहीं' },
                     ].map(({ id: cond, en, hi }) => {
-                      const isDisabled = cond !== "none" && !member.healthConditions.includes(cond) && member.healthConditions.filter(c => c !== "none").length >= 2;
+                      const isDisabled = cond !== "none" && !member.healthConditions.includes(cond) && member.healthConditions.filter(c => c !== "none").length >= 4;
                       return (
                       <div key={cond} className="flex items-center space-x-2">
                         <Checkbox 
@@ -1048,6 +1153,74 @@ export default function FamilySetup() {
                       </div>
                       );
                     })}
+
+                    {member.healthConditions.includes('diabetes_type_1') && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <Label className="text-sm font-semibold">{t("Insulin Type", "इंसुलिन प्रकार")}</Label>
+                        <Select value={member.insulinType || ""} onValueChange={v => handleUpdateMember(idx, "insulinType", v)}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder={t("Select insulin type", "इंसुलिन चुनें")} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="novorapid">NovoRapid (rapid-acting)</SelectItem>
+                            <SelectItem value="humalog">Humalog (rapid-acting)</SelectItem>
+                            <SelectItem value="apidra">Apidra (rapid-acting)</SelectItem>
+                            <SelectItem value="actrapid">Actrapid (short-acting)</SelectItem>
+                            <SelectItem value="lantus">Lantus (long-acting)</SelectItem>
+                            <SelectItem value="tresiba">Tresiba (long-acting)</SelectItem>
+                            <SelectItem value="levemir">Levemir (long-acting)</SelectItem>
+                            <SelectItem value="mixtard">Mixtard (mixed)</SelectItem>
+                            <SelectItem value="other">{t("Other / Not sure", "अन्य / पता नहीं")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {member.healthConditions.includes('ckd') && (
+                      <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <Label className="text-sm font-semibold">{t("CKD Stage", "CKD चरण")}</Label>
+                        <Select value={member.ckdStage || ""} onValueChange={v => handleUpdateMember(idx, "ckdStage", v)}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder={t("Select CKD stage", "CKD चरण चुनें")} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="stage_1">Stage 1 (GFR ≥90)</SelectItem>
+                            <SelectItem value="stage_2">Stage 2 (GFR 60-89)</SelectItem>
+                            <SelectItem value="stage_3a">Stage 3a (GFR 45-59)</SelectItem>
+                            <SelectItem value="stage_3b">Stage 3b (GFR 30-44)</SelectItem>
+                            <SelectItem value="stage_4">Stage 4 (GFR 15-29)</SelectItem>
+                            <SelectItem value="stage_5">Stage 5 (GFR &lt;15)</SelectItem>
+                            <SelectItem value="dialysis">Stage 5 + Dialysis</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {member.ckdStage === "dialysis" && (
+                          <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-xs text-amber-800">
+                            {t("Stage 5 dialysis requires INCREASED protein (1.2–1.4g/kg/day). Our meal plan will apply this reversal automatically.", "स्टेज 5 डायलिसिस में बढ़ा हुआ प्रोटीन (1.2–1.4g/kg/day) चाहिए। हमारी मील प्लान यह स्वचालित रूप से लागू करेगी।")}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {member.healthConditions.includes('pregnancy') && (
+                      <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <Label className="text-sm font-semibold">{t("Pregnancy / Lactation Stage", "गर्भावस्था / स्तनपान चरण")}</Label>
+                        <Select value={member.pregnancyStage || ""} onValueChange={v => handleUpdateMember(idx, "pregnancyStage", v)}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder={t("Select stage", "चरण चुनें")} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pregnancy_t1">{t("Trimester 1 (0–13 weeks)", "तिमाही 1 (0–13 सप्ताह)")}</SelectItem>
+                            <SelectItem value="pregnancy_t2">{t("Trimester 2 (14–27 weeks) — +350 kcal/day", "तिमाही 2 — +350 kcal/दिन")}</SelectItem>
+                            <SelectItem value="pregnancy_t3">{t("Trimester 3 (28–40 weeks) — +350 kcal/day", "तिमाही 3 — +350 kcal/दिन")}</SelectItem>
+                            <SelectItem value="lactating_0_6m">{t("Breastfeeding (0–6 months) — +600 kcal/day", "स्तनपान (0–6 माह) — +600 kcal/दिन")}</SelectItem>
+                            <SelectItem value="lactating_7_12m">{t("Breastfeeding (7–12 months) — +520 kcal/day", "स्तनपान (7–12 माह) — +520 kcal/दिन")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded text-xs text-green-800">
+                          {t("Calorie and nutrient targets will be automatically adjusted for this stage per ICMR-NIN 2020 guidelines.", "कैलोरी और पोषक तत्व लक्ष्य ICMR-NIN 2020 दिशानिर्देशों के अनुसार स्वचालित रूप से समायोजित होंगे।")}
+                        </div>
+                      </div>
+                    )}
+
+                    {member.healthConditions.includes('pcod') && member.gender === 'male' && (
+                      <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                        {t("PCOS is typically associated with female hormonal conditions. Please verify this selection.", "PCOS आमतौर पर महिला हार्मोनल स्थिति से जुड़ा है। कृपया इस चयन की पुष्टि करें।")}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold">{t("Fasting Days", "उपवास के दिन")}</Label>
@@ -1070,6 +1243,18 @@ export default function FamilySetup() {
                         <Label htmlFor={`${member._id}-fasting-${day}`} className="text-xs">{t(en, hi)}</Label>
                       </div>
                     ))}
+
+                    <div className="pt-2">
+                      <Label className="text-sm font-semibold">{t("Active Medications", "सक्रिय दवाइयां")} <span className="font-normal text-muted-foreground">({t("optional", "वैकल्पिक")})</span></Label>
+                      <Textarea
+                        value={member.activeMedications || ""}
+                        onChange={e => handleUpdateMember(idx, "activeMedications", e.target.value.slice(0, 500))}
+                        placeholder={t("e.g. Metformin 500mg with breakfast, Eltroxin 50mcg before food, NovoRapid 10 units before meals", "जैसे मेटफॉर्मिन 500mg नाश्ते के साथ, एल्ट्रॉक्सिन 50mcg खाने से पहले")}
+                        className="mt-1 text-sm"
+                        rows={2}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">{t("Include brand names, dosage, and timing if known. Used to avoid food-drug interactions.", "ब्रांड नाम, खुराक और समय शामिल करें। खाद्य-दवा इंटरैक्शन से बचने के लिए उपयोग किया जाता है।")} ({(member.activeMedications || "").length}/500)</p>
+                    </div>
 
                     <div className="pt-2">
                       <Label className="text-sm font-semibold">{t("Food Allergies", "खाद्य एलर्जी")} <span className="font-normal text-muted-foreground">({t("optional", "वैकल्पिक")})</span></Label>
@@ -1191,6 +1376,10 @@ export default function FamilySetup() {
                                 e.preventDefault();
                                 const val = (dislikeInputs[idx] ?? "").trim().replace(/,$/, "");
                                 if (val && !member.ingredientDislikes.includes(val)) {
+                                  const allergyList = member.foodAllergies.split(",").map(a => a.trim().toLowerCase()).filter(Boolean);
+                                  if (allergyList.includes(val.toLowerCase())) {
+                                    toast({ title: t("Already in allergies", "पहले से एलर्जी में है"), description: t(`"${val}" is already listed as a food allergy. No need to add as dislike.`, `"${val}" पहले से खाद्य एलर्जी में है। नापसंद के रूप में जोड़ने की आवश्यकता नहीं।`), variant: "default" });
+                                  }
                                   handleUpdateMember(idx, "ingredientDislikes", [...member.ingredientDislikes, val]);
                                 }
                                 setDislikeInputs(prev => ({ ...prev, [idx]: "" }));
@@ -1266,11 +1455,11 @@ export default function FamilySetup() {
               type="button" 
               variant="outline" 
               onClick={handleAddMember}
-              disabled={members.length >= 5}
+              disabled={members.length >= 8}
               className="w-full h-14 rounded-2xl border-dashed border-2 text-muted-foreground hover:text-primary hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5 mr-2" />
-              {members.length >= 5 ? t("Maximum 5 members reached", "अधिकतम 5 सदस्य") : t("Add Another Member", "एक और सदस्य जोड़ें")}
+              {members.length >= 8 ? t("Maximum 8 members reached", "अधिकतम 8 सदस्य") : t("Add Another Member", "एक और सदस्य जोड़ें")}
             </Button>
 
             <div className="flex justify-between pt-6">

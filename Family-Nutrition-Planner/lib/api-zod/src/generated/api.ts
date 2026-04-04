@@ -22,7 +22,7 @@ export const ListFamiliesResponseItem = zod.object({
   name: zod.string(),
   state: zod.string().describe('Indian state (e.g. \"Jharkhand\")'),
   city: zod.string().optional(),
-  monthlyBudget: zod.number().describe("Monthly food budget in INR"),
+  monthlyBudget: zod.number().positive().max(500000).describe("Monthly food budget in INR"),
   primaryLanguage: zod
     .string()
     .describe('Primary language (e.g. \"hindi\", \"english\", \"bengali\")'),
@@ -45,7 +45,7 @@ export const ListFamiliesResponse = zod.array(ListFamiliesResponseItem);
  * @summary Create a new family profile
  */
 export const CreateFamilyBody = zod.object({
-  name: zod.string(),
+  name: zod.string().max(100),
   stateRegion: zod.string(),
   languagePreference: zod.string().optional().default("hindi"),
   householdDietaryBaseline: zod.string().optional().default("mixed"),
@@ -68,7 +68,7 @@ export const GetFamilyResponse = zod
     name: zod.string(),
     state: zod.string().describe('Indian state (e.g. \"Jharkhand\")'),
     city: zod.string().optional(),
-    monthlyBudget: zod.number().describe("Monthly food budget in INR"),
+    monthlyBudget: zod.number().positive().max(500000).describe("Monthly food budget in INR"),
     primaryLanguage: zod
       .string()
       .describe('Primary language (e.g. \"hindi\", \"english\", \"bengali\")'),
@@ -148,7 +148,7 @@ export const UpdateFamilyResponse = zod.object({
   name: zod.string(),
   state: zod.string().describe('Indian state (e.g. \"Jharkhand\")'),
   city: zod.string().optional(),
-  monthlyBudget: zod.number().describe("Monthly food budget in INR"),
+  monthlyBudget: zod.number().positive().max(500000).describe("Monthly food budget in INR"),
   primaryLanguage: zod
     .string()
     .describe('Primary language (e.g. \"hindi\", \"english\", \"bengali\")'),
@@ -225,11 +225,11 @@ export const AddFamilyMemberParams = zod.object({
 });
 
 export const AddFamilyMemberBody = zod.object({
-  name: zod.string(),
-  age: zod.number(),
+  name: zod.string().max(60),
+  age: zod.number().int().min(1).max(120),
   gender: zod.string(),
-  weightKg: zod.number().optional(),
-  heightCm: zod.number().optional(),
+  weightKg: zod.number().min(0.5).max(300).optional(),
+  heightCm: zod.number().min(30).max(275).optional(),
   activityLevel: zod.string(),
   primaryGoal: zod.string().optional(),
   goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
@@ -245,6 +245,10 @@ export const AddFamilyMemberBody = zod.object({
   religiousCulturalRules: zod.unknown().optional(),
   occasionalNonvegConfig: zod.unknown().optional(),
   fastingConfig: zod.unknown().optional(),
+  activeMedications: zod.string().max(500).optional(),
+  insulinType: zod.enum(["novorapid","humalog","apidra","actrapid","lantus","tresiba","levemir","mixtard","other"]).optional(),
+  ckdStage: zod.enum(["stage_1","stage_2","stage_3a","stage_3b","stage_4","stage_5","dialysis"]).optional(),
+  pregnancyStage: zod.enum(["pregnancy_t1","pregnancy_t2","pregnancy_t3","lactating_0_6m","lactating_7_12m"]).optional(),
 });
 
 /**
@@ -256,11 +260,11 @@ export const UpdateFamilyMemberParams = zod.object({
 });
 
 export const UpdateFamilyMemberBody = zod.object({
-  name: zod.string().optional(),
-  age: zod.number().optional(),
+  name: zod.string().max(60).optional(),
+  age: zod.number().int().min(1).max(120).optional(),
   gender: zod.string().optional(),
-  weightKg: zod.number().optional(),
-  heightCm: zod.number().optional(),
+  weightKg: zod.number().min(0.5).max(300).optional(),
+  heightCm: zod.number().min(30).max(275).optional(),
   activityLevel: zod.string().optional(),
   primaryGoal: zod.string().optional(),
   goalPace: zod.enum(["none", "0.25", "0.5"]).optional(),
@@ -276,6 +280,10 @@ export const UpdateFamilyMemberBody = zod.object({
   religiousCulturalRules: zod.unknown().optional(),
   occasionalNonvegConfig: zod.unknown().optional(),
   fastingConfig: zod.unknown().optional(),
+  activeMedications: zod.string().max(500).optional(),
+  insulinType: zod.enum(["novorapid","humalog","apidra","actrapid","lantus","tresiba","levemir","mixtard","other"]).optional(),
+  ckdStage: zod.enum(["stage_1","stage_2","stage_3a","stage_3b","stage_4","stage_5","dialysis"]).optional(),
+  pregnancyStage: zod.enum(["pregnancy_t1","pregnancy_t2","pregnancy_t3","lactating_0_6m","lactating_7_12m"]).optional(),
 });
 
 export const UpdateFamilyMemberResponse = zod.object({
@@ -997,7 +1005,7 @@ export const GetSharmaFamilyDemoResponse = zod.object({
       name: zod.string(),
       state: zod.string().describe('Indian state (e.g. \"Jharkhand\")'),
       city: zod.string().optional(),
-      monthlyBudget: zod.number().describe("Monthly food budget in INR"),
+      monthlyBudget: zod.number().positive().max(500000).describe("Monthly food budget in INR"),
       primaryLanguage: zod
         .string()
         .describe(

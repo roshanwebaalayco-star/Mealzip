@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@workspace/db";
-import { mealFeedbackTable } from "@workspace/db";
+import { mealFeedbackTable, mealPlansTable, familiesTable } from "@workspace/db";
+import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
 
 const router: IRouter = Router();
 
@@ -23,12 +24,25 @@ router.get("/meal-plans/:mealPlanId/feedback", async (req, res): Promise<void> =
     res.status(400).json({ error: "Invalid meal plan id" });
     return;
   }
-  const feedback = await db.select().from(mealFeedbackTable)
-    .where(eq(mealFeedbackTable.mealPlanId, mealPlanId));
-  res.json(feedback);
+  try {
+    const [plan] = await db.select({ familyId: mealPlansTable.familyId }).from(mealPlansTable).where(eq(mealPlansTable.id, mealPlanId));
+    if (plan) {
+      const [family] = await db.select({ userId: familiesTable.userId }).from(familiesTable).where(eq(familiesTable.id, plan.familyId));
+      if (family && req.user && family.userId !== req.user.userId) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
+    const feedback = await db.select().from(mealFeedbackTable)
+      .where(eq(mealFeedbackTable.mealPlanId, mealPlanId));
+    res.json(feedback);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to fetch feedback", details: msg });
+  }
 });
 
-router.post("/meal-plans/:mealPlanId/feedback", async (req, res): Promise<void> => {
+router.post("/meal-plans/:mealPlanId/feedback", assertFamilyOwnership, async (req, res): Promise<void> => {
   const mealPlanId = parseInt(req.params.mealPlanId);
   if (isNaN(mealPlanId)) {
     res.status(400).json({ error: "Invalid meal plan id" });
