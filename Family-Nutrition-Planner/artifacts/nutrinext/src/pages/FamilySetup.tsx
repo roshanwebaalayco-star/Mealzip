@@ -68,7 +68,7 @@ export default function FamilySetup() {
     name: "",
     stateRegion: "Jharkhand",
     languagePreference: "hindi",
-    householdDietaryBaseline: "mixed" as "strictly_vegetarian" | "ovo_vegetarian" | "mixed" | "non_vegetarian",
+    householdDietaryBaseline: "mixed" as string,
     cookingTimePreference: "moderate" as "quick" | "moderate" | "elaborate",
     dietaryType: "non_veg" as "strictly_veg" | "veg_with_eggs" | "non_veg" | "mixed",
     healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
@@ -325,6 +325,10 @@ export default function FamilySetup() {
       toast({ title: "Error", description: "Family name is required", variant: "destructive" });
       return;
     }
+    if (!fd.stateRegion || !fd.stateRegion.trim()) {
+      toast({ title: "Error", description: "Please select your state", variant: "destructive" });
+      return;
+    }
 
     const errors: Record<number, MemberErrors> = {};
     mems.forEach((m) => {
@@ -425,16 +429,23 @@ export default function FamilySetup() {
 
   const handleVoiceComplete = async (voiceData: VoiceFormData) => {
     const vd = voiceData as Record<string, unknown>;
+    const normalizeMeals = (m: unknown): string => {
+      if (m === 2 || m === "2") return "2_meals";
+      if (m === 3 || m === "3") return "3_meals";
+      if (m === 4 || m === "4") return "3_meals_plus_snacks";
+      if (typeof m === "string" && m.includes("meals")) return m;
+      return "3_meals";
+    };
     const mergedFamilyData = {
       ...familyData,
       ...(voiceData.familyName ? { name: voiceData.familyName } : {}),
       ...(voiceData.state ? { stateRegion: voiceData.state } : {}),
       ...(voiceData.dietaryType
-        ? { dietaryType: voiceData.dietaryType as typeof familyData.dietaryType }
+        ? { householdDietaryBaseline: voiceData.dietaryType as typeof familyData.householdDietaryBaseline }
         : {}),
       ...(vd.appliances ? { appliances: vd.appliances as string[] } : {}),
-      ...(vd.cookingSkillLevel ? { cookingSkillLevel: vd.cookingSkillLevel as typeof familyData.cookingSkillLevel } : {}),
-      ...(vd.mealsPerDay ? { mealsPerDay: String(vd.mealsPerDay) } : {}),
+      ...(voiceData.cookingSkill ? { cookingSkillLevel: voiceData.cookingSkill as typeof familyData.cookingSkillLevel } : {}),
+      ...(vd.mealsPerDay ? { mealsPerDay: normalizeMeals(vd.mealsPerDay) } : {}),
     };
 
     const voiceMembers: MemberDraft[] = (voiceData.members ?? [])
@@ -472,16 +483,22 @@ export default function FamilySetup() {
   const handleVoiceClose = (partialData?: VoiceFormData) => {
     setVoiceModalOpen(false);
     if (!partialData) return;
-    const pd = partialData as Record<string, unknown>;
+    const normalizeMeals = (m: unknown): string => {
+      if (m === 2 || m === "2") return "2_meals";
+      if (m === 3 || m === "3") return "3_meals";
+      if (m === 4 || m === "4") return "3_meals_plus_snacks";
+      if (typeof m === "string" && m.includes("meals")) return m;
+      return "3_meals";
+    };
     setFamilyData(prev => ({
       ...prev,
       ...(partialData.familyName ? { name: partialData.familyName } : {}),
       ...(partialData.state ? { stateRegion: partialData.state } : {}),
       ...(partialData.dietaryType
-        ? { dietaryType: partialData.dietaryType as typeof familyData.dietaryType }
+        ? { householdDietaryBaseline: partialData.dietaryType as typeof familyData.householdDietaryBaseline }
         : {}),
-      ...(pd.cookingSkillLevel ? { cookingSkillLevel: pd.cookingSkillLevel as typeof familyData.cookingSkillLevel } : {}),
-      ...(pd.mealsPerDay ? { mealsPerDay: String(pd.mealsPerDay) } : {}),
+      ...(partialData.cookingSkill ? { cookingSkillLevel: partialData.cookingSkill as typeof familyData.cookingSkillLevel } : {}),
+      ...(partialData.mealsPerDay ? { mealsPerDay: normalizeMeals(partialData.mealsPerDay) } : {}),
     }));
     if (partialData.members && partialData.members.length > 0) {
       setMembers(partialData.members
@@ -747,7 +764,7 @@ export default function FamilySetup() {
                       <SelectItem value="Tamil Nadu">Tamil Nadu</SelectItem>
                       <SelectItem value="Telangana">Telangana</SelectItem>
                       <SelectItem value="Tripura">Tripura</SelectItem>
-                      <SelectItem value="UP">Uttar Pradesh</SelectItem>
+                      <SelectItem value="Uttar Pradesh">Uttar Pradesh</SelectItem>
                       <SelectItem value="Uttarakhand">Uttarakhand</SelectItem>
                       <SelectItem value="West Bengal">West Bengal</SelectItem>
                     </SelectContent>
@@ -776,7 +793,7 @@ export default function FamilySetup() {
                 </div>
                 <div>
                   <Label>{t("Household Dietary Baseline", "घरेलू आहार प्रकार")}</Label>
-                  <Select value={familyData.dietaryType} onValueChange={v => setFamilyData({...familyData, dietaryType: v as typeof familyData.dietaryType})}>
+                  <Select value={familyData.householdDietaryBaseline} onValueChange={v => setFamilyData({...familyData, householdDietaryBaseline: v as typeof familyData.householdDietaryBaseline})}>
                     <SelectTrigger className="mt-2 h-12 rounded-xl">
                       <SelectValue placeholder="Dietary preference" />
                     </SelectTrigger>
@@ -821,25 +838,9 @@ export default function FamilySetup() {
                       <SelectValue placeholder="Meals" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2">{t("2 meals", "2 भोजन")}</SelectItem>
-                      <SelectItem value="3">{t("3 meals", "3 भोजन")}</SelectItem>
-                      <SelectItem value="4">{t("3 + snacks", "3 + नाश्ता")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
-                  <Select value={familyData.healthGoal} onValueChange={v => setFamilyData({...familyData, healthGoal: v as typeof familyData.healthGoal})}>
-                    <SelectTrigger className="mt-2 h-12 rounded-xl">
-                      <SelectValue placeholder="Health goal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general_wellness">General Wellness / सामान्य स्वास्थ्य</SelectItem>
-                      <SelectItem value="weight_loss">Weight Loss / वजन घटाना</SelectItem>
-                      <SelectItem value="muscle_gain">Muscle Gain / मांसपेशी बनाना</SelectItem>
-                      <SelectItem value="manage_diabetes">Manage Diabetes / मधुमेह नियंत्रण</SelectItem>
-                      <SelectItem value="heart_health">Heart Health / हृदय स्वास्थ्य</SelectItem>
-                      <SelectItem value="manage_thyroid">Manage Thyroid / थायरॉइड नियंत्रण</SelectItem>
+                      <SelectItem value="2_meals">{t("2 meals", "2 भोजन")}</SelectItem>
+                      <SelectItem value="3_meals">{t("3 meals", "3 भोजन")}</SelectItem>
+                      <SelectItem value="3_meals_plus_snacks">{t("3 + snacks", "3 + नाश्ता")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -879,44 +880,6 @@ export default function FamilySetup() {
                   ))}
                 </div>
               </div>
-
-              <div>
-                <Label className="text-base">{t("Fasting Days", "व्रत के दिन")} <span className="text-muted-foreground text-sm font-normal">({t("optional", "वैकल्पिक")})</span></Label>
-                <p className="text-sm text-muted-foreground mb-3">{t("Select days your family regularly fasts", "परिवार किन दिनों उपवास रखता है")}</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "monday", en: "Monday", hi: "सोमवार" },
-                    { key: "tuesday", en: "Tuesday", hi: "मंगलवार" },
-                    { key: "thursday", en: "Thursday", hi: "गुरुवार" },
-                    { key: "saturday", en: "Saturday", hi: "शनिवार" },
-                    { key: "ekadashi", en: "Ekadashi", hi: "एकादशी" },
-                    { key: "navratri", en: "Navratri", hi: "नवरात्रि" },
-                    { key: "shravan", en: "Shravan Mondays", hi: "सावन सोमवार" },
-                    { key: "karva_chauth", en: "Karva Chauth", hi: "करवा चौथ" },
-                  ].map(({ key, en, hi }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => toggleFastingDay(key)}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                        familyData.fastingDays.includes(key)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-border hover:border-primary"
-                      }`}
-                    >
-                      {t(en, hi)}
-                    </button>
-                  ))}
-                </div>
-                {familyData.fastingDays.length >= 4 && (
-                  <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                    <span className="shrink-0 mt-0.5">⚠️</span>
-                    <span>{t("Fasting 4 or more days per week may impact nutritional adequacy. Our AI will prioritise calorie-dense, nutrient-rich foods on fasting days to compensate.", "सप्ताह में 4 या अधिक दिन उपवास करना पोषण पर असर डाल सकता है। हमारी AI उपवास के दिनों में कैलोरी-घनी, पोषक खाद्य पदार्थों को प्राथमिकता देगी।")}</span>
-                  </div>
-                )}
-              </div>
-
-              
 
               <div className="pt-4 flex justify-end">
                 <Button 

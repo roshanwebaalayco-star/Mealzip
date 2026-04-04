@@ -8,6 +8,8 @@ export type ConvState =
   | "ask_state"
   | "ask_budget"
   | "ask_dietary_type"
+  | "ask_cooking_skill"
+  | "ask_meals_per_day"
   | "ask_member_start"
   | "ask_member_conditions"
   | "ask_more_members"
