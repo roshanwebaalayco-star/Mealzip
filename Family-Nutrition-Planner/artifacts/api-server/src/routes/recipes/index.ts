@@ -38,23 +38,31 @@ router.get("/recipes", async (req, res): Promise<void> => {
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const orderClause = hasTextSearch
-    ? sql`(
-        ts_rank(setweight(to_tsvector('simple', coalesce(${recipesTable.name}, '')), 'A') ||
-               setweight(to_tsvector('simple', coalesce(${recipesTable.nameHindi}, '')), 'B') ||
-               setweight(to_tsvector('simple', coalesce(${recipesTable.ingredients}, '')), 'C'),
-               to_tsquery('simple', ${tsQueryParam}))
-      ) DESC, ${recipesTable.name} ASC`
-    : sql`${recipesTable.name} ASC`;
-
   const [queryResult, countResult] = await Promise.all([
-    localDb.execute(sql`
-      SELECT DISTINCT ON (LOWER(${recipesTable.name})) *
-      FROM ${recipesTable}
-      ${whereClause ? sql`WHERE ${whereClause}` : sql``}
-      ORDER BY LOWER(${recipesTable.name}), ${recipesTable.id}
-      LIMIT ${limit} OFFSET ${offset}
-    `),
+    hasTextSearch
+      ? localDb.execute(sql`
+          SELECT * FROM (
+            SELECT DISTINCT ON (LOWER(${recipesTable.name})) *,
+              ts_rank(
+                setweight(to_tsvector('simple', coalesce(${recipesTable.name}, '')), 'A') ||
+                setweight(to_tsvector('simple', coalesce(${recipesTable.nameHindi}, '')), 'B') ||
+                setweight(to_tsvector('simple', coalesce(${recipesTable.ingredients}, '')), 'C'),
+                to_tsquery('simple', ${tsQueryParam})
+              ) AS _rank
+            FROM ${recipesTable}
+            ${whereClause ? sql`WHERE ${whereClause}` : sql``}
+            ORDER BY LOWER(${recipesTable.name}), ${recipesTable.id}
+          ) sub
+          ORDER BY sub._rank DESC, sub.name ASC
+          LIMIT ${limit} OFFSET ${offset}
+        `)
+      : localDb.execute(sql`
+          SELECT DISTINCT ON (LOWER(${recipesTable.name})) *
+          FROM ${recipesTable}
+          ${whereClause ? sql`WHERE ${whereClause}` : sql``}
+          ORDER BY LOWER(${recipesTable.name}), ${recipesTable.id}
+          LIMIT ${limit} OFFSET ${offset}
+        `),
     localDb.select({ count: sql<number>`count(DISTINCT LOWER(${recipesTable.name}))` }).from(recipesTable).where(whereClause)
   ]);
 

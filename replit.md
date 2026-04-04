@@ -69,6 +69,18 @@ Comprehensive 6-block QA fix pass covering security, functional, high-priority, 
 - **Medium Priority (BLOCK 4)**: Demo token 2h→8h, calorie target display, market region dynamic label (5 regions mapped), localStorage form draft auto-save in FamilySetup, harmony score tier labels (Harmonious/Manageable/Challenging/Complex).
 - **AI Chat Quality (BLOCK 5)**: Anti-asterisk + no-generic-opener rules in Gemini SYSTEM_PROMPT, enhanced Hindi/regional language script enforcement (Devanagari for Hindi, Tamil script for Tamil, etc.), 150-word response limit default, family member name usage requirement, out-of-scope deflection rule.
 
+## Bug Fix Pass (April 2026 - Latest)
+
+Comprehensive bug-fix and quality pass:
+
+- **Dashboard Chat Fix**: "Kal Kya Banayein" quick chat widget was completely broken — sent wrong payload (`{ title }`) to `POST /api/gemini/conversations` (expects `{ familyId, sessionType }`) → always 400. Refactored to use working `/api/chat` SSE endpoint with proper delta event parsing.
+- **Recipe Search `.rows` Fix**: `localDb.execute(sql...)` returns `QueryResult` with `.rows` property, not a plain array. Added safe extraction handling.
+- **Recipe Search Ranking**: Text-search results now properly use `ts_rank` ordering via subquery approach (was computed but never applied to the actual SQL query).
+- **Demo Health Logs Seed**: Re-running demo now correctly seeds health logs for existing families (was only seeding on first creation).
+- **Voyage AI 429 Backoff**: Embedding queue now backs off 2 minutes on rate-limit (429) responses instead of failing immediately.
+- **FamilySetup TypeScript**: Fixed `healthGoal` property access using `Record<string,unknown>` cast to match API client types.
+- **UI QA Fixes**: Jain dietary warning, T1D alert, BMI badge display, Register inline error, age>120 validation block.
+
 ## External Dependencies
 
 **AI Services:**

@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api-fetch";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useAppState } from "@/hooks/use-app-state";
@@ -153,49 +153,45 @@ function KalKyaBanayeinWidget({ familyId }: { familyId: number }) {
     { label: t("Quick 20-min dinner?", "20 मिनट का खाना?"), q: "Suggest a quick 20-minute Indian dinner that's nutritious." },
   ];
 
-  const convIdRef = useRef<number | null>(null);
-
-  const getOrCreateConversation = useCallback(async (): Promise<number> => {
-    if (convIdRef.current !== null) return convIdRef.current;
-    const res = await apiFetch("/api/gemini/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Kal Kya Banayein — Home Chat" }),
-    });
-    const conv = await res.json() as { id: number };
-    convIdRef.current = conv.id;
-    return conv.id;
-  }, []);
+  const sessionIdRef = useRef<string>(`home_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
 
   const sendMessage = async (message: string) => {
     if (!message.trim()) return;
     setLoading(true);
     setReply(null);
     try {
-      const convId = await getOrCreateConversation();
-      const res = await apiFetch(`/api/gemini/conversations/${convId}/messages`, {
+      const res = await apiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: message }),
+        body: JSON.stringify({
+          message: message.trim(),
+          language: "en-IN",
+          sessionId: sessionIdRef.current,
+          familyId,
+        }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (!res.body) throw new Error("No response body");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
+      let streamBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("data: ")) {
-            try {
-              const parsed = JSON.parse(line.slice(6)) as { content?: string; done?: boolean };
-              if (parsed.content) {
-                accumulated += parsed.content;
-                setReply(accumulated);
-              }
-            } catch { /* skip malformed chunk */ }
-          }
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split("\n\n");
+        streamBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const dataLine = line.startsWith("data: ") ? line.slice(6) : line;
+          try {
+            const parsed = JSON.parse(dataLine) as { type?: string; text?: string };
+            if (parsed.type === "delta" && parsed.text) {
+              accumulated += parsed.text;
+              setReply(accumulated);
+            }
+          } catch { /* skip malformed chunk */ }
         }
       }
       if (!accumulated) setReply("Sorry, I couldn't get a response. Please try again.");
