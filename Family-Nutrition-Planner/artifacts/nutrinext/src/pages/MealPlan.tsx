@@ -34,6 +34,7 @@ import ThaliScoreBadge from "@/components/ThaliScoreBadge";
 import { getPrepsForMeals, type PrepReminder } from "@/lib/prep-reminders";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import MealGenPopup from "@/components/MealGenPopup";
+import RecipeViewer from "@/components/RecipeViewer";
 
 interface RecipeDetail {
   id: number;
@@ -219,6 +220,8 @@ export default function MealPlan() {
       return hasGen;
     } catch { return false; }
   });
+
+  const [recipeViewerState, setRecipeViewerState] = useState<{ mealPlanId: string; date: string } | null>(null);
 
   // Determine today's day name (e.g., "Monday")
   const todayDayName = useMemo(() => {
@@ -1438,6 +1441,33 @@ export default function MealPlan() {
                       </div>
                     );
                   })}
+
+                  {/* View Recipes button — only for completed plans with date info */}
+                  {(() => {
+                    const rawDate = (dayObj as any)?.date as string | undefined;
+                    const planDate = rawDate ?? (() => {
+                      try {
+                        const ws = (currentPlan as any).weekStartDate;
+                        if (!ws) return undefined;
+                        const d = new Date(ws);
+                        d.setDate(d.getDate() + di);
+                        return d.toISOString().split("T")[0];
+                      } catch { return undefined; }
+                    })();
+                    if (!planDate) return null;
+                    return (
+                      <div className="px-3 py-2.5 border-t border-white/40 bg-primary/5">
+                        <button
+                          type="button"
+                          onClick={() => setRecipeViewerState({ mealPlanId: String(currentPlan.id), date: planDate })}
+                          className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-1 min-h-[36px]"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          {t("View Recipes →", "रेसिपी देखें →")}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </motion.div>
@@ -1691,6 +1721,14 @@ export default function MealPlan() {
         onClose={() => setGenPopupOpen(false)}
         onGenerated={() => { setGenPopupOpen(false); refetch(); }}
       />
+
+      {recipeViewerState && (
+        <RecipeViewer
+          mealPlanId={recipeViewerState.mealPlanId}
+          date={recipeViewerState.date}
+          onClose={() => setRecipeViewerState(null)}
+        />
+      )}
     </motion.div>
   );
 }

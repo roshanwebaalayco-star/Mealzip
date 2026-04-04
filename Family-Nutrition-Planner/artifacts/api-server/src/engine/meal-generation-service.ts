@@ -9,7 +9,9 @@ import {
   mealPlans,
   groceryLists,
 } from "../../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
+import { localDb, recipesTable } from "@workspace/db";
+import { ai } from "@workspace/integrations-gemini-ai";
 
 import type {
   Family,
@@ -860,5 +862,301 @@ function castMemberWeeklyContext(row: any): MemberWeeklyContext {
     nonvegTypesThisWeek: row.nonvegTypesThisWeek ?? [],
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECIPE VIEWER HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STEP_KEYWORDS: Record<string, string[]> = {
+  tempering:    ["temper", "tadka", "heat oil", "mustard seed", "jeera", "splutter", "onion", "garlic", "add onion", "fry onion"],
+  salt:         ["add salt", "season", "salt to taste", "namak"],
+  dairy:        ["add ghee", "add butter", "add paneer", "add curd", "add cream", "add milk", "finish with ghee"],
+  sugar:        ["add sugar", "jaggery", "sweetener"],
+  serve:        ["serve", "garnish", "plate", "transfer to serving"],
+  cook_protein: ["add chicken", "add mutton", "add fish", "add egg", "add prawns"],
+};
+
+function matchModificationToStep(modification: string, steps: string[]): number {
+  const explicitMatch = modification.match(/step\s+(\d+)/i);
+  if (explicitMatch) {
+    const stepNum = parseInt(explicitMatch[1], 10);
+    if (stepNum >= 1 && stepNum <= steps.length) return stepNum - 1;
+  }
+  const modLower = modification.toLowerCase();
+  for (const [, keywords] of Object.entries(STEP_KEYWORDS)) {
+    const modHasKeyword = keywords.some((kw) => modLower.includes(kw));
+    if (modHasKeyword) {
+      const matchedStepIndex = steps.findIndex((step) =>
+        keywords.some((kw) => step.toLowerCase().includes(kw))
+      );
+      if (matchedStepIndex !== -1) return matchedStepIndex;
+    }
+  }
+  return steps.length - 1;
+}
+
+function detectUrgency(modification: string): "CRITICAL" | "RECOMMENDED" | "INFO" {
+  const upper = modification.toUpperCase();
+  if (upper.includes("ALLERGY CRITICAL") || upper.includes("PULL BEFORE") || upper.includes("JAIN RULE") || upper.includes("RELIGIOUS")) return "CRITICAL";
+  if (upper.includes("DIABETES") || upper.includes("KIDNEY") || upper.includes("HYPERTENSION") || upper.includes("SODIUM CAP") || upper.includes("FASTING")) return "RECOMMENDED";
+  return "INFO";
+}
+
+interface EnrichedStep {
+  step_number: number;
+  instruction: string;
+  member_modifications: {
+    member_name: string;
+    modification_text: string;
+    urgency: "CRITICAL" | "RECOMMENDED" | "INFO";
+  }[];
+}
+
+function buildEnrichedSteps(steps: string[], memberPlates: any[]): EnrichedStep[] {
+  const stepModMap: Map<number, { member_name: string; modification_text: string; urgency: "CRITICAL" | "RECOMMENDED" | "INFO" }[]> = new Map();
+  for (const plate of memberPlates) {
+    const mods: string[] = plate.modifications ?? [];
+    for (const mod of mods) {
+      const idx = matchModificationToStep(mod, steps);
+      if (!stepModMap.has(idx)) stepModMap.set(idx, []);
+      stepModMap.get(idx)!.push({
+        member_name: plate.member_name,
+        modification_text: mod,
+        urgency: detectUrgency(mod),
+      });
+    }
+  }
+  return steps.map((instruction, idx) => ({
+    step_number: idx + 1,
+    instruction,
+    member_modifications: stepModMap.get(idx) ?? [],
+  }));
+}
+
+async function fetchImageUrl(imageQuery: string): Promise<string | null> {
+  try {
+    const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (unsplashKey) {
+      const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(imageQuery + " Indian food")}&per_page=1&orientation=landscape`;
+      const res = await fetch(url, { headers: { Authorization: `Client-ID ${unsplashKey}` } });
+      if (res.ok) {
+        const data = await res.json() as any;
+        const imgUrl = data?.results?.[0]?.urls?.regular;
+        if (imgUrl) return imgUrl;
+      }
+    }
+    const googleKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+    const googleCx = process.env.GOOGLE_SEARCH_ENGINE_ID;
+    if (googleKey && googleCx) {
+      const url = `https://www.googleapis.com/customsearch/v1?key=${googleKey}&cx=${googleCx}&q=${encodeURIComponent(imageQuery + " Indian food")}&searchType=image&num=1&imgSize=large`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json() as any;
+        const imgUrl = data?.items?.[0]?.link;
+        if (imgUrl) return imgUrl;
+      }
+    }
+  } catch (e) {
+    console.error("[RecipeViewer] Image fetch error:", e);
+  }
+  return null;
+}
+
+async function enrichSlot(slot: string, meal: any, stateRegion: string): Promise<any> {
+  if (!meal) return null;
+
+  if (meal.skipped) {
+    return {
+      slot,
+      name: meal.name ?? slot,
+      skipped: true,
+      skip_reason: meal.skip_reason ?? "",
+      nutritional_bandaid: meal.nutritional_bandaid ?? "",
+    };
+  }
+
+  const baseRecipe = meal.base_recipe ?? {};
+  let ingredients: { name: string; quantity: string }[] = baseRecipe.ingredients ?? [];
+  let steps: string[] = baseRecipe.steps ?? [];
+  let prepTime: number = baseRecipe.prep_time_mins ?? 0;
+  let cookTime: number = baseRecipe.cook_time_mins ?? 0;
+  let recipeSource: "stored" | "database" | "gemini_generated" = "stored";
+
+  const hasStoredRecipe = steps.length > 0 && ingredients.length > 0;
+
+  if (!hasStoredRecipe) {
+    try {
+      const [dbRow] = await localDb
+        .select({
+          ingredients: recipesTable.ingredients,
+          instructions: recipesTable.instructions,
+          prepTimeMin: recipesTable.prepTimeMin,
+          cookTimeMin: recipesTable.cookTimeMin,
+        })
+        .from(recipesTable)
+        .where(ilike(recipesTable.name, meal.name ?? ""))
+        .limit(1);
+
+      if (dbRow && dbRow.instructions) {
+        const rawSteps = dbRow.instructions
+          .split(/\r?\n|(?=Step \d+:)/i)
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        const rawIngredients = typeof dbRow.ingredients === "string"
+          ? dbRow.ingredients.split(/[|,\n]/).map((s: string) => ({ name: s.trim(), quantity: "" })).filter((i: any) => i.name.length > 0)
+          : [];
+        if (rawSteps.length > 0) {
+          steps = rawSteps;
+          ingredients = rawIngredients.length > 0 ? rawIngredients : ingredients;
+          prepTime = dbRow.prepTimeMin ?? prepTime;
+          cookTime = dbRow.cookTimeMin ?? cookTime;
+          recipeSource = "database";
+        }
+      }
+    } catch (e) {
+      console.error("[RecipeViewer] DB recipe lookup error:", e);
+    }
+  }
+
+  if (steps.length === 0) {
+    try {
+      const prompt = `You are a clinical Indian cooking assistant. Generate a standard recipe for "${meal.name ?? "the dish"}" as served in ${stateRegion}.
+
+Return ONLY valid JSON in exactly this shape:
+{
+  "ingredients": [{ "name": "string", "quantity": "string" }],
+  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+  "prep_time_mins": number,
+  "cook_time_mins": number
+}
+
+Rules:
+- Do NOT include any health modifications in the steps. Steps are the base recipe only.
+- Steps must be numbered: "Step 1:", "Step 2:", etc.
+- Use Indian cooking terminology and measurements (katori, tbsp, tsp, grams).
+- Maximum 10 steps. Minimum 4 steps.
+- Do not add any text outside the JSON object.`;
+
+      const geminiModel = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await geminiModel.generateContent(prompt);
+      const text = result.response.text().trim();
+      const jsonText = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      const parsed = JSON.parse(jsonText);
+      steps = parsed.steps ?? [];
+      if (parsed.ingredients?.length > 0) ingredients = parsed.ingredients;
+      prepTime = parsed.prep_time_mins ?? prepTime;
+      cookTime = parsed.cook_time_mins ?? cookTime;
+      recipeSource = "gemini_generated";
+    } catch (e) {
+      console.error("[RecipeViewer] Gemini recipe generation error:", e);
+    }
+  }
+
+  const memberPlates: any[] = meal.member_plates ?? [];
+  const enrichedSteps = buildEnrichedSteps(steps, memberPlates);
+  const imageQuery = baseRecipe.image_search_query ?? meal.name ?? "Indian food";
+  const imageUrl = meal.image_url ?? await fetchImageUrl(imageQuery);
+
+  return {
+    slot,
+    name: meal.name ?? slot,
+    image_url: imageUrl,
+    image_query: imageQuery,
+    estimated_cost_inr: meal.estimated_cost ?? 0,
+    prep_time_mins: prepTime,
+    cook_time_mins: cookTime,
+    priority_flags: meal.priority_flags ?? [],
+    pantry_items_used: meal.pantry_items_used ?? [],
+    ingredients,
+    enriched_steps: enrichedSteps,
+    member_plates: memberPlates.map((p: any) => ({
+      member_name: p.member_name,
+      modifications: p.modifications ?? [],
+      fasting_replacement: p.fasting_replacement ?? null,
+      tiffin_instructions: p.tiffin_instructions ?? null,
+    })),
+    recipe_source: recipeSource,
+    skipped: false as const,
+  };
+}
+
+// GET /api/meal-gen/:id/day/:date/recipe
+router.get("/:id/day/:date/recipe", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const dateParam = req.params.date;
+
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid meal plan ID" });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return res.status(400).json({ error: "Invalid date format. Use YYYY-MM-DD." });
+
+    const userId = (req as any).user?.userId;
+    if (userId != null) {
+      const ownerFamilyId = await getMealPlanFamilyId(id);
+      if (ownerFamilyId == null) return res.status(404).json({ error: "Meal plan not found" });
+      const isOwner = await verifyFamilyOwnership(ownerFamilyId, userId);
+      if (!isOwner) return res.status(403).json({ error: "Forbidden: you do not own this meal plan." });
+    }
+
+    const [plan] = await db
+      .select({ generationStatus: mealPlans.generationStatus, days: mealPlans.days, familyId: mealPlans.familyId })
+      .from(mealPlans)
+      .where(eq(mealPlans.id, id));
+
+    if (!plan) return res.status(404).json({ error: "Meal plan not found" });
+
+    if (plan.generationStatus !== "completed") {
+      return res.status(403).json({
+        error: "Recipe viewer is only available after meal generation is complete.",
+        status: plan.generationStatus,
+      });
+    }
+
+    const rawDays = plan.days as any;
+    const daysArr: any[] = Array.isArray(rawDays) ? rawDays : (rawDays?.days ?? []);
+    const dayPlan = daysArr.find((d: any) => d.date === dateParam || d.day === dateParam);
+
+    if (!dayPlan) {
+      return res.status(404).json({ error: "No meal plan found for this date." });
+    }
+
+    const [familyRow] = await db
+      .select({ stateRegion: families.stateRegion })
+      .from(families)
+      .where(eq(families.id, plan.familyId));
+    const stateRegion = familyRow?.stateRegion ?? "Delhi";
+
+    const mealSlots = dayPlan.meals ?? {};
+    const [breakfastResult, lunchResult, dinnerResult] = await Promise.all([
+      (async () => {
+        try { return await enrichSlot("breakfast", mealSlots.breakfast, stateRegion); }
+        catch (e) { console.error("[RecipeViewer] breakfast error:", e); return { slot: "breakfast", name: "Breakfast", error: "Recipe details unavailable", skipped: false }; }
+      })(),
+      (async () => {
+        try { return await enrichSlot("lunch", mealSlots.lunch, stateRegion); }
+        catch (e) { console.error("[RecipeViewer] lunch error:", e); return { slot: "lunch", name: "Lunch", error: "Recipe details unavailable", skipped: false }; }
+      })(),
+      (async () => {
+        try { return await enrichSlot("dinner", mealSlots.dinner, stateRegion); }
+        catch (e) { console.error("[RecipeViewer] dinner error:", e); return { slot: "dinner", name: "Dinner", error: "Recipe details unavailable", skipped: false }; }
+      })(),
+    ]);
+
+    const dayName = dayPlan.day_name ?? dayPlan.day ?? new Date(dateParam).toLocaleDateString("en-US", { weekday: "long" });
+
+    return res.json({
+      meal_plan_id: id,
+      date: dateParam,
+      day_name: dayName,
+      meals: {
+        breakfast: breakfastResult,
+        lunch: lunchResult,
+        dinner: dinnerResult,
+      },
+    });
+  } catch (error: any) {
+    console.error("[RecipeViewer]", error);
+    res.status(500).json({ error: error?.message ?? "Internal server error" });
+  }
+});
 
 export default router;
