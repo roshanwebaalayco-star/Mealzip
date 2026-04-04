@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { cookingTimeToConstraintString } from "./budget-engine";
 import { buildMemberModifierMap, buildModifierInjectionSection } from "./one-many-plates";
+import { T1D_MANDATORY_GROCERY_ITEMS } from "./clinical/type1Diabetes";
 
 import { ai } from "@workspace/integrations-gemini-ai";
 
@@ -202,10 +203,11 @@ function buildConstraintInstructionSection(packet: ConstraintPacket): string {
 
   if (medicationGuardrailBundles && medicationGuardrailBundles.length > 0) {
     const allDirectives = medicationGuardrailBundles.flatMap((b) => b.directives);
+    const combinedDirectives = [...allDirectives, ...medicationWarnings];
     medicationSection =
       `MEDICATION INTERACTION GUARDRAILS (ABSOLUTE — Gemini MUST NEVER violate these):\n` +
       `These are deterministic pharmacology rules, not suggestions. Implement each one exactly.\n` +
-      allDirectives.map((w) => `  ${w}`).join("\n");
+      combinedDirectives.map((w) => `  ${w}`).join("\n");
   } else if (medicationWarnings.length > 0) {
     medicationSection =
       `MEDICATION INTERACTION GUARDRAILS (ABSOLUTE — never violate):\n` +
@@ -629,12 +631,24 @@ export async function runPromptChain(
   const buffer = await generateBufferList(packet);
   const buffer_ms = Date.now() - t3;
 
+  const weeklyPerishables = [...meals.perishables];
+  let weeklyPerishablesTotalCost = meals.perishables_total;
+  const hasT1DMember = packet.effectiveProfiles.some(p =>
+    p.effectiveHealthConditions.includes("diabetes_type_1")
+  );
+  if (hasT1DMember) {
+    weeklyPerishables.push(...T1D_MANDATORY_GROCERY_ITEMS);
+    weeklyPerishablesTotalCost += T1D_MANDATORY_GROCERY_ITEMS.reduce(
+      (sum, item) => sum + item.estimated_price, 0
+    );
+  }
+
   const result: PromptChainResult = {
     staples: staples.items,
     staples_total_cost: staples.total_cost,
     weeklyMealPlan: meals.days,
-    weeklyPerishables: meals.perishables,
-    weeklyPerishables_total_cost: meals.perishables_total,
+    weeklyPerishables,
+    weeklyPerishables_total_cost: weeklyPerishablesTotalCost,
     bufferItems: buffer.items,
     buffer_total_cost: buffer.total_cost,
     nutritional_summary: meals.nutritional_summary,

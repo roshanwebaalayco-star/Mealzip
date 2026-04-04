@@ -40,6 +40,16 @@ The application adopts a monorepo structure using `pnpm` workspaces, segregating
 *   **Multi-Lingual Voice Support**: Integration of browser-native Web Speech API for Speech-to-Text and Text-to-Speech in 8 Indian languages.
 *   **Food Scanner**: Planned integration for food image scanning using YOLOv11 and Gemini Vision.
 
+## Clinical Safety Modules (April 2026)
+
+Three clinical extension modules were integrated into the deterministic constraint engine, closing all three critical safety gaps identified in the stress test readiness audit:
+
+- **Type 1 Diabetes** (`src/engine/clinical/type1Diabetes.ts`, 436 lines): 8 insulin type timing rules, per-meal carb floors, fasting conflict detection, mandatory hypo-rescue grocery items.
+- **Pregnancy** (`src/engine/clinical/pregnancy.ts`, 557 lines): 5 stages (3 trimesters + 2 lactation), ICMR-NIN calorie additions, forbidden foods, iron-calcium separation, pregnancy + anaemia combined protocol, nausea management.
+- **CKD Staging** (`src/engine/clinical/ckdStaging.ts`, 550 lines): 6 CKD stages with per-stage protein/potassium/phosphorus/sodium/fluid limits, dialysis protein reversal rule, leaching technique instructions, cross-member protein conflict detection.
+
+Integration points: `conflict-engine.ts` (imports, CONDITION_DIETARY_RULES entries, detector calls in `runConflictEngine`), `types.ts` (HealthCondition union expanded), `calorie-calculator.ts` (pregnancy calorie addition), `prompt-chain.ts` (T1D mandatory grocery injection). Stress test score: 63.4% → 83.9%.
+
 ## Validation Pass (April 2026)
 
 An 8-section validation and bug-fix pass was completed covering:

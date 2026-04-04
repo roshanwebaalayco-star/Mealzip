@@ -38,6 +38,7 @@ export type GoalPace = "slow_0.25kg" | "moderate_0.5kg" | null;
 export type HealthCondition =
   | "none"
   | "diabetes_type_2"
+  | "diabetes_type_1"
   | "hypertension"
   | "anaemia"
   | "obesity"
@@ -45,6 +46,17 @@ export type HealthCondition =
   | "hypothyroid"
   | "pcos"
   | "kidney_issues"
+  | "ckd_stage_1_2"
+  | "ckd_stage_3a"
+  | "ckd_stage_3b"
+  | "ckd_stage_4"
+  | "ckd_stage_5"
+  | "ckd_stage_5_dialysis"
+  | "pregnancy_t1"
+  | "pregnancy_t2"
+  | "pregnancy_t3"
+  | "lactating_0_6m"
+  | "lactating_7_12m"
   | string;
 
 export type AllergyType =

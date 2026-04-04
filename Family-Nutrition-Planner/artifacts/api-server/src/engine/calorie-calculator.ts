@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { ActivityLevel, PrimaryGoal, GoalPace, EffectiveMemberProfile, ActiveMedication } from "./types";
+import { PREGNANCY_CALORIE_ADDITIONS, PREGNANCY_CONDITION_IDS, type PregnancyConditionId } from "./clinical/pregnancy";
 
 const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
   sedentary: 1.2,
@@ -153,6 +154,7 @@ export function calculateDailyCalorieTarget(params: {
   activityLevel: ActivityLevel;
   primaryGoal: PrimaryGoal;
   goalPace: GoalPace;
+  health_conditions?: string[];
 }): CalorieTargetResult {
   const { age, gender, heightCm, weightKg, activityLevel, primaryGoal, goalPace } = params;
 
@@ -173,7 +175,16 @@ export function calculateDailyCalorieTarget(params: {
 
   const bmr = calculateBMR(weightKg, heightCm, age, gender);
   const tdee = calculateTDEE(bmr, activityLevel);
-  const adjusted = applyGoalAdjustment(tdee, primaryGoal, goalPace);
+  let adjusted = applyGoalAdjustment(tdee, primaryGoal, goalPace);
+
+  const pregnancyCondition = params.health_conditions?.find(
+    (c): c is PregnancyConditionId => PREGNANCY_CONDITION_IDS.includes(c as PregnancyConditionId)
+  );
+  if (pregnancyCondition) {
+    const pregnancyAddition = PREGNANCY_CALORIE_ADDITIONS[pregnancyCondition];
+    adjusted = adjusted + pregnancyAddition;
+  }
+
   const goal_adjustment = adjusted - tdee;
 
   return {

@@ -1,0 +1,150 @@
+COMPREHENSIVE STRESS TEST FOR "ONE BASE, MANY PLATES" CLAIM
+This is a brutal, multi-dimensional test that will expose any gaps, overselling, or shallow implementation. If they can pass this, they have something real.
+
+TEST STRUCTURE
+Phase 1: Architecture Verification (Prove It's Real)
+Phase 2: Edge Case Gauntlet (Break the Logic)
+Phase 3: Clinical Safety Audit (Prove It's Safe)
+Phase 4: Performance & Scale (Prove It's Viable)
+
+PHASE 1: ARCHITECTURE VERIFICATION
+Test 1.1: Code Walkthrough Request
+What to ask:
+
+"Show me the actual code for Stage 4 (OBMP Algorithm). I want to see:
+
+The deterministic conflict resolution logic
+How you compute pull-before events
+How you handle medication timing (Metformin example)
+The modifierSection JSON structure that gets injected into Gemini
+Test cases with assertions
+
+Format: GitHub repo link OR screenshare walkthrough (30 min)"
+
+What you're checking:
+
+Does the code actually exist, or is this vaporware?
+Is the logic hardcoded rules or a proper constraint solver?
+How many edge cases do their unit tests cover?
+
+Red flags:
+
+❌ "It's proprietary, can't share code" (then they can't prove it works)
+❌ Shows only Gemini prompts, no deterministic engine
+❌ < 50 test cases for Stage 2 & 4 combined
+
+
+Test 1.2: Constraint Packet Inspection
+What to ask:
+
+"Generate a ConstraintPacket for this family and show me the raw JSON:
+
+Papa: Type 2 diabetes (HbA1c 8.2%), on Metformin 500mg twice daily, hypertension (Amlodipine 5mg), 68kg, sedentary
+Dadi: Jain (strict no root veg), osteoporosis (Calcium + Vitamin D supplements), lactose intolerant, 52kg
+Kid (Age 9): Underweight (18kg, should be 25kg), anemic (Hb 9.5 g/dL), on iron supplements
+Mom: PCOS, insulin resistance, trying to lose 8kg, vegetarian
+
+Budget: ₹8,000/month for 4 people (Delhi)
+I want to see:
+
+The complete ConstraintPacket JSON
+All hard conflicts flagged
+All clinical conflicts flagged
+Medication timing rules
+How budget gets split across 3 categories"
+
+
+What you're checking:
+
+Does the Conflict Engine actually catch Papa's grapefruit-Amlodipine interaction?
+Does it flag the diabetes-low-carb vs kid-high-calorie conflict?
+Does it handle Dadi's lactose + calcium supplement paradox (calcium needs dairy)?
+Is the budget split realistic for Delhi prices?
+
+Red flags:
+
+❌ Generic constraints ("diabetic: low sugar") without clinical precision
+❌ Missing medication interactions
+❌ Budget split doesn't add up to 100%
+❌ No distinction between hard/soft conflicts
+
+
+Test 1.3: OBMP Algorithm Output Verification
+What to ask:
+
+"Using the family above, show me the OBMP output for one dinner meal. I want:
+
+The base dish selected
+The complete modifierSection for all 4 members
+Proof that it's deterministic (run it 3 times, outputs must be identical)
+Explain WHY this base dish was chosen over alternatives
+
+Expected format:
+json{
+  "base_dish": "Dal Palak",
+  "modifiers": {
+    "Papa": {
+      "portion_adjustments": {...},
+      "pull_before": [...],
+      "additives": [...],
+      "medication_timing": {...}
+    },
+    "Dadi": {...},
+    "Kid": {...},
+    "Mom": {...}
+  },
+  "harmony_score_impact": 95,
+  "reasoning": "..."
+}
+
+What you're checking:
+
+Is the modifier logic actually clinical (e.g., "Papa: reduce rice to 30g for GI <55") or generic ("Papa: less carbs")?
+Does it handle Dadi's Jain constraint (dal palak has onion/garlic tadka)?
+Does it add iron-rich sides for the anemic kid WITHOUT interfering with calcium absorption?
+Is the output truly deterministic (same inputs = same outputs)?
+
+Red flags:
+
+❌ Modifiers are vague ("reduce portion")
+❌ Doesn't catch the onion/garlic conflict for Dadi
+❌ Outputs vary across runs (means it's using AI randomness, not deterministic logic)
+❌ No clinical reasoning provided
+
+
+PHASE 2: EDGE CASE GAUNTLET
+These are designed to break the system. If they handle all 10, the algorithm is robust.
+
+Test 2.1: The Impossible Family
+Scenario:
+
+
+Member 1: Vegan bodybuilder (needs 150g protein/day, no animal products)
+Member 2: Keto diabetic (max 20g net carbs/day, high fat)
+Member 3: Child with nut allergy + soy allergy (no paneer, tofu, nuts)
+Member 4: Kidney disease (Stage 3 CKD: low protein <50g/day, low potassium, low phosphorus)
+
+Budget: ₹6,000/month (Chennai)
+
+Challenge:
+
+"Generate a 7-day meal plan for this family. Show me:
+
+How many meals are truly 'one base, many plates' vs. parallel dishes?
+What's the harmony score?
+Which conflicts escalated to parallel dishes?
+Protein sources for Member 1 that don't violate Member 3's allergies or Member 4's CKD limits"
+
+
+What you're checking:
+
+Does the system admit defeat and cook 2-3 parallel dishes most days?
+Or does it make dangerous compromises (e.g., giving CKD patient high-protein dal)?
+Is the harmony score honest (should be <50 for this nightmare family)?
+
+Pass criteria:
+
+✅ Harmony score 40-60 (honest about conflicts)
+✅ Escalates to 2+ parallel dishes for 5+ meals
+✅ No clinical violations (CKD patient never exceeds 50g protein)
+✅ Vegan gets protein from split-point additions (hemp seed...

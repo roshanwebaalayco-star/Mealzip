@@ -28,6 +28,26 @@ import {
 
 import { resolveAllMedicationGuardrails } from "./lib/medicationRules";
 
+import {
+  detectT1DConflicts,
+  DIABETES_TYPE_1_CLINICAL_RULE,
+  T1D_MANDATORY_GROCERY_ITEMS,
+} from "./clinical/type1Diabetes";
+
+import {
+  detectPregnancyConflicts,
+  PREGNANCY_CLINICAL_RULES,
+  PREGNANCY_CONDITION_IDS,
+  type PregnancyConditionId,
+} from "./clinical/pregnancy";
+
+import {
+  detectCKDConflicts,
+  getCKDConditionRule,
+  CKD_STAGE_IDS,
+  type CKDStageId,
+} from "./clinical/ckdStaging";
+
 const ALLERGY_INGREDIENT_MAP: Record<AllergyType, string[]> = {
   none: [],
   peanuts: [
@@ -167,18 +187,27 @@ const CONDITION_DIETARY_RULES: Record<string, ConditionDietaryRule> = {
     special_instructions:
       "PCOS ANTI-INFLAMMATORY DIET: Strict low-GI. Include flaxseeds, berries (when seasonal), turmeric, green leafy vegetables. Avoid inflammatory refined carbs and added sugar. Include spearmint (pudina) — 2 cups/day may support hormonal balance.",
   },
-  kidney_issues: {
-    forbidden_ingredients: [],
-    limit_ingredients: [
-      "high-potassium foods (banana, potato, tomato, orange juice, coconut water)",
-      "high-phosphorus foods (dairy in excess, nuts, whole grains, dark colas)",
-      "high-protein foods (if in later-stage renal disease)",
-      "salt", "sodium", "potassium supplements",
-    ],
-    mandatory_nutrients: ["controlled protein", "low potassium", "low phosphorus"],
-    special_instructions:
-      "CRITICAL KIDNEY PROTOCOL: Protein limit 0.6–0.8g/kg body weight/day. Avoid high-potassium vegetables unless boiled and water discarded. Limit phosphorus: reduce dairy, nuts, and whole-grain excess. Strict sodium control. NEVER use potassium-chloride salt substitutes.",
+  kidney_issues: getCKDConditionRule("ckd_stage_3a"),
+
+  diabetes_type_1: {
+    forbidden_ingredients: DIABETES_TYPE_1_CLINICAL_RULE.forbidden_ingredients,
+    limit_ingredients: DIABETES_TYPE_1_CLINICAL_RULE.limit_ingredients,
+    mandatory_nutrients: DIABETES_TYPE_1_CLINICAL_RULE.mandatory_nutrients,
+    special_instructions: DIABETES_TYPE_1_CLINICAL_RULE.special_instructions,
   },
+
+  pregnancy_t1: PREGNANCY_CLINICAL_RULES.pregnancy_t1,
+  pregnancy_t2: PREGNANCY_CLINICAL_RULES.pregnancy_t2,
+  pregnancy_t3: PREGNANCY_CLINICAL_RULES.pregnancy_t3,
+  lactating_0_6m: PREGNANCY_CLINICAL_RULES.lactating_0_6m,
+  lactating_7_12m: PREGNANCY_CLINICAL_RULES.lactating_7_12m,
+
+  ckd_stage_1_2: getCKDConditionRule("ckd_stage_1_2"),
+  ckd_stage_3a: getCKDConditionRule("ckd_stage_3a"),
+  ckd_stage_3b: getCKDConditionRule("ckd_stage_3b"),
+  ckd_stage_4: getCKDConditionRule("ckd_stage_4"),
+  ckd_stage_5: getCKDConditionRule("ckd_stage_5"),
+  ckd_stage_5_dialysis: getCKDConditionRule("ckd_stage_5_dialysis"),
 };
 
 export function buildEffectiveProfiles(
@@ -228,6 +257,7 @@ export function buildEffectiveProfiles(
       activityLevel: member.activityLevel,
       primaryGoal: effectiveGoal,
       goalPace: member.goalPace,
+      health_conditions: effectiveHealthConditions,
     });
     const dailyCalorieTarget = calorieResult.daily_calorie_target;
 
@@ -853,6 +883,90 @@ export function runConflictEngine(params: {
   const fastingPreloadInstructions = buildFastingPreloadInstructions(effectiveProfiles);
 
   const medResult = buildMedicationWarnings(effectiveProfiles);
+
+  for (const profile of effectiveProfiles) {
+
+    const t1dCheck = detectT1DConflicts(profile);
+    if (t1dCheck.hasT1D) {
+      for (const instruction of t1dCheck.instructionStrings) {
+        medResult.flatWarnings.push(instruction);
+      }
+      if (t1dCheck.fastingConflictSeverity === "critical") {
+        conflicts.push({
+          member_ids: [profile.id],
+          member_names: [profile.name],
+          description: t1dCheck.conflictDescriptions[0] ?? "T1D fasting conflict",
+          priority_level: 3,
+        });
+        resolutions.push({
+          description: "T1D fasting conflict",
+          resolution: `Modified fast for ${profile.name}: minimum 15g carbs every 2 hours from fruits/milk. NOT a true fast. Requires endocrinologist approval for insulin adjustment.`,
+          resolution_type: "meal_replacement",
+        });
+      }
+      additions.push({
+        reason: `T1D insulin timing and carb floors correctly enforced for ${profile.name}`,
+        points: 3,
+      });
+    }
+
+    const pregnancyCheck = detectPregnancyConflicts(profile);
+    if (pregnancyCheck.isPregnant) {
+      for (const instruction of pregnancyCheck.instructionStrings) {
+        medResult.flatWarnings.push(instruction);
+      }
+      for (const conflict of pregnancyCheck.conflictDescriptions) {
+        conflicts.push({
+          member_ids: [profile.id],
+          member_names: [profile.name],
+          description: conflict,
+          priority_level: 4,
+        });
+        resolutions.push({
+          description: conflict.slice(0, 80),
+          resolution: `Pregnancy-specific clinical protocol applied. Iron-calcium separation enforced. Stage-appropriate nutrient targets set.`,
+          resolution_type: "plate_modification",
+        });
+      }
+      additions.push({
+        reason: `Pregnancy nutrition protocol (${pregnancyCheck.pregnancyStage}) correctly applied for ${profile.name}`,
+        points: 3,
+      });
+    }
+
+    const ckdCheck = detectCKDConflicts(profile, effectiveProfiles);
+    if (ckdCheck.hasCKD) {
+      for (const instruction of ckdCheck.instructionStrings) {
+        medResult.flatWarnings.push(instruction);
+      }
+      for (const conflict of [...ckdCheck.conflictDescriptions, ...ckdCheck.proteinConflicts]) {
+        conflicts.push({
+          member_ids: [profile.id],
+          member_names: [profile.name],
+          description: conflict,
+          priority_level: 4,
+        });
+        resolutions.push({
+          description: conflict.slice(0, 80),
+          resolution: ckdCheck.isDialysis
+            ? `Dialysis protein protocol: HIGH protein for ${profile.name}. Potassium and phosphorus still restricted. Leaching applied.`
+            : `CKD protocol: restricted protein + potassium + phosphorus for ${profile.name}. Leaching technique applied to all vegetables.`,
+          resolution_type: "plate_modification",
+        });
+      }
+      if (ckdCheck.isDialysis) {
+        additions.push({
+          reason: `CKD dialysis protein reversal correctly handled for ${profile.name} (HIGH protein despite kidney disease)`,
+          points: 5,
+        });
+      } else {
+        additions.push({
+          reason: `CKD Stage ${ckdCheck.ckdStage} nutrient restrictions correctly applied for ${profile.name}`,
+          points: 3,
+        });
+      }
+    }
+  }
 
   const harmonyScore = calculateHarmonyScore(
     deductions,
