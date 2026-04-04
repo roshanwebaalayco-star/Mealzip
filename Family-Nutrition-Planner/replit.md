@@ -43,7 +43,9 @@ India-centric AI-powered family meal planning app built for a hackathon. Key dif
 │   └── integrations-gemini-ai/  # Gemini AI client + batch utilities
 ├── scripts/
 │   ├── seed-recipes.ts     # Seeds 12,771 recipes from CSV (--force to re-seed)
-│   └── seed-icmr-nin.ts    # Seeds ICMR-NIN RDA reference data
+│   ├── seed-icmr-nin.ts    # Seeds ICMR-NIN RDA reference data
+│   ├── pipeline-validation.ts  # Full 3-scenario pipeline validation script (Sharma/Menon/Joshi)
+│   └── simulate-backend.ts    # E2E pipeline simulation with 3 families
 └── attached_assets/        # CSV data + PDFs (COMBINED_RECIPES_*.csv)
 ```
 
@@ -107,6 +109,18 @@ India-centric AI-powered family meal planning app built for a hackathon. Key dif
 7. **Grocery** (`/grocery`) — weekly grocery list with cheaper swap alternatives
 8. **Health** (`/health`) — daily health + nutrition logging with ICMR-NIN targets
 9. **Nutrition** (`/nutrition`) — ICMR-NIN RDA reference view + Harmony Score breakdown
+
+## Meal Generation Pipeline (Engine)
+
+The pipeline follows this exact architecture:
+1. **ICMR Rules** → hardcoded TypeScript constants in `conflict-engine.ts` (CONDITION_DIETARY_RULES) + `calorie-calculator.ts` (ICMR child calorie tables) + `lib/medicationRules.ts` (drug-food interactions for Metformin, Iron, Levothyroxine, Warfarin, Amlodipine, Statins, Calcium)
+2. **Conflict Engine** → `runConflictEngine()` in `conflict-engine.ts` — pure TypeScript, <1s, no AI. Priority levels 1-6 (allergies→religious→medication→clinical→goals→preferences). Includes Genetic Shield (low-GI bias for children of diabetic/metabolic parents).
+3. **Recipe SQL Filter** → `getFilteredRecipes()` in `routes/meal-plans/index.ts` — filters by diet type, cost, cook time, zone/cuisine, fasting course. Allergen exclusion by ingredient text match.
+4. **Gemini Scheduler (Call 1)** → `runPromptChain()` in `prompt-chain.ts` — Gemini 2.5 Flash with `thinkingBudget: 0`. Outputs 21-meal calendar JSON with memberModifiers. Recipe names MUST come from the SQL filter shortlist.
+5. **Meal Plan Storage** → `mealPlansTable` in Supabase with familyId, weekStartDate, calendarJson, createdAt.
+6. **On-Demand Recipe (Call 2)** → Regenerate endpoint reads stored calendar + modifiers, passes to Gemini with inline ⚠️ warnings. `planValidator.ts` for clinical validation.
+
+Pipeline validation script: `pnpm exec tsx scripts/pipeline-validation.ts` (3 scenarios: Sharma/Menon/Joshi families, all PASS). Validation checks are data-backed: hard-block ingredient matching (word-boundary + fasting-safe compound exceptions), medication timing modifier injection, budget pre-filtering, and Navratri grain ban enforcement.
 
 ## TypeScript Project References
 

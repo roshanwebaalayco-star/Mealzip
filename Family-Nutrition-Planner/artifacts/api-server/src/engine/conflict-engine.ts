@@ -570,6 +570,64 @@ function detectConflicts(profiles: EffectiveMemberProfile[]): ConflictDetectorRe
     deductions.push({ reason: "Spice tolerance conflict — mild base dish required", points: -2 });
   }
 
+  const diabeticParents = profiles.filter(
+    (p) => p.age >= 30 && p.effectiveHealthConditions.includes("diabetes_type_2")
+  );
+  if (diabeticParents.length > 0) {
+    const youngMembers = profiles.filter(
+      (p) => p.age < 25 && !p.effectiveHealthConditions.includes("diabetes_type_2")
+    );
+    for (const child of youngMembers) {
+      conflicts.push({
+        member_ids: [child.id, ...diabeticParents.map((dp) => dp.id)],
+        member_names: [child.name, ...diabeticParents.map((dp) => dp.name)],
+        description:
+          `GENETIC SHIELD: ${child.name} has a parent/elder (${diabeticParents.map((dp) => dp.name).join(", ")}) with Type-2 Diabetes. ` +
+          `Silently applying low-GI bias — prefer complex carbs (brown rice, jowar, bajra, whole wheat) ` +
+          `over refined carbs (maida, white rice, sugar). This is a preventive measure, not a restriction.`,
+        priority_level: 5,
+      });
+      deductions.push({
+        reason: `${child.name}: Genetic Shield (low-GI bias) — parent has diabetes`,
+        points: -1,
+      });
+    }
+  }
+
+  const metabolicParents = profiles.filter(
+    (p) =>
+      p.age >= 30 &&
+      (p.effectiveHealthConditions.includes("obesity") ||
+        p.effectiveHealthConditions.includes("high_cholesterol"))
+  );
+  if (metabolicParents.length > 0) {
+    const youngMembers = profiles.filter(
+      (p) =>
+        p.age < 25 &&
+        !p.effectiveHealthConditions.includes("obesity") &&
+        !p.effectiveHealthConditions.includes("high_cholesterol")
+    );
+    for (const child of youngMembers) {
+      const alreadyHasGeneticShield = conflicts.some(
+        (c) => c.member_ids.includes(child.id) && c.description.includes("GENETIC SHIELD")
+      );
+      if (!alreadyHasGeneticShield) {
+        conflicts.push({
+          member_ids: [child.id, ...metabolicParents.map((mp) => mp.id)],
+          member_names: [child.name, ...metabolicParents.map((mp) => mp.name)],
+          description:
+            `GENETIC SHIELD: ${child.name} has a parent/elder (${metabolicParents.map((mp) => mp.name).join(", ")}) with metabolic conditions. ` +
+            `Silently applying anti-inflammatory, low-processed-food bias as a preventive measure.`,
+          priority_level: 5,
+        });
+        deductions.push({
+          reason: `${child.name}: Genetic Shield (metabolic) — parent has obesity/cholesterol`,
+          points: -1,
+        });
+      }
+    }
+  }
+
   const allDislikes = profiles.flatMap((p) =>
     (p.ingredientDislikes ?? []).map((d) => d.toLowerCase())
   );
