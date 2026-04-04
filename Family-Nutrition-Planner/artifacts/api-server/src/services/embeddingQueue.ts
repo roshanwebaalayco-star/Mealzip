@@ -98,15 +98,22 @@ async function embedRecipesGradually(): Promise<void> {
         );
       }
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const is429 = errMsg.includes("429") || errMsg.toLowerCase().includes("rate limit");
+
+      if (is429) {
+        // Free-tier rate limit — back off for 2 minutes and retry without counting as permanent failure
+        console.warn(`[Embedding] Voyage AI rate limit hit. Backing off 2 min. (${totalToProcess - processedCount} recipes remaining)`);
+        await new Promise((r) => setTimeout(r, 120000));
+        continue;
+      }
+
       failedCount++;
       failedRecipeIds.add(recipe.id);
-      console.error(
-        `Failed to embed recipe ${recipe.id} (${recipe.name}):`,
-        err,
-      );
+      console.error(`[Embedding] Failed recipe ${recipe.id} (${recipe.name}): ${errMsg.slice(0, 120)}`);
 
       if (failedCount > 50) {
-        console.error("Too many embedding failures (>50). Pausing queue.");
+        console.error("[Embedding] Too many failures (>50). Pausing queue. Restart server to resume.");
         isRunning = false;
         break;
       }

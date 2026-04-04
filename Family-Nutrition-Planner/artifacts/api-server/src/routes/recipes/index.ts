@@ -47,7 +47,7 @@ router.get("/recipes", async (req, res): Promise<void> => {
       ) DESC, ${recipesTable.name} ASC`
     : sql`${recipesTable.name} ASC`;
 
-  const [recipes, countResult] = await Promise.all([
+  const [queryResult, countResult] = await Promise.all([
     localDb.execute(sql`
       SELECT DISTINCT ON (LOWER(${recipesTable.name})) *
       FROM ${recipesTable}
@@ -58,11 +58,16 @@ router.get("/recipes", async (req, res): Promise<void> => {
     localDb.select({ count: sql<number>`count(DISTINCT LOWER(${recipesTable.name}))` }).from(recipesTable).where(whereClause)
   ]);
 
+  // drizzle-orm/node-postgres execute() returns a QueryResult with a .rows property
+  const recipeRows: Record<string, unknown>[] = Array.isArray(queryResult)
+    ? queryResult as Record<string, unknown>[]
+    : (queryResult as { rows?: Record<string, unknown>[] }).rows ?? [];
+
   const total = Number(countResult[0]?.count ?? 0);
   const totalPages = Math.ceil(total / limit);
 
   res.json({
-    recipes: recipes.map(r => ({
+    recipes: recipeRows.map(r => ({
       ...r,
       calories: Number(r.calories ?? 0),
       protein: Number(r.protein ?? 0),

@@ -148,6 +148,8 @@ async function seedSharmaFamily(userId?: number) {
     }
     const members = await db.select().from(familyMembersTable).where(eq(familyMembersTable.familyId, family.id));
     const [mealPlan] = await db.select().from(mealPlansTable).where(eq(mealPlansTable.familyId, family.id));
+    // Seed health logs if they haven't been seeded yet (also handles re-runs after family already exists)
+    await seedDemoHealthLogs(family.id, members);
     return {
       family: { ...family, members },
       mealPlan: mealPlan || getDemoMealPlan(family.id),
