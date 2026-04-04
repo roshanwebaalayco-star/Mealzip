@@ -232,7 +232,7 @@ router.post("/", async (req: Request, res: Response) => {
       .filter(Boolean)
       .join("\n");
 
-    const streamResult = ai.models.generateContentStream({
+    const streamResult = await ai.models.generateContentStream({
       model: GEMINI_MODEL,
       contents: [{ role: "user", parts: [{ text: contextualizedMessage }] }],
       config: {
