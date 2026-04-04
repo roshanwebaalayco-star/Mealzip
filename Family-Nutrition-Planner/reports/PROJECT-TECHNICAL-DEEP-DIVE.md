@@ -79,8 +79,8 @@ Family-Nutrition-Planner/
 
 ### How Frontend ↔ Backend ↔ Database Connect
 
-1. **Frontend (React on port 5000)** makes REST API calls to the backend. In development, Vite proxies `/api/*` requests to the Express server on port 8080.
-2. **Backend (Express on port 8080)** handles all business logic. It runs the deterministic clinical engine in-memory, then calls Gemini 2.5 Flash for recipe creativity.
+1. **Frontend (React via Vite)** defaults to port 5173 (configurable via `PORT` env var). In development, Vite proxies `/api/*` requests to the Express server (target defaults to `http://localhost:${API_PORT ?? "5000"}`). In production workflow, `PORT=5000` and `API_PORT=8080` are set explicitly.
+2. **Backend (Express)** defaults to port 3000 (configurable via `PORT` env var). In production workflow, `PORT=8080` is set. It runs the deterministic clinical engine in-memory, then calls Gemini 2.5 Flash for recipe creativity.
 3. **Database (Dual-Pool PostgreSQL):**
    - **Local PostgreSQL (Replit DB):** Stores 12,771 cleaned Indian recipes, 22 ICMR-NIN RDA rows, and 168 RAG knowledge chunks. Optimized for fast full-text search with GIN indexes and `ts_rank`.
    - **Supabase (Remote):** Stores all user data — families, members, meal plans, health logs, grocery lists, leftover tracking. Handles authentication and persistent state.
@@ -1076,17 +1076,22 @@ Return to User (with Harmony Score + per-member plate cards)
 
 ### Test Coverage
 
-| Test File | Test Cases |
-|---|---|
-| `calorieCalculator.test.ts` | 22 |
-| `budgetEngine.test.ts` | 17 |
-| `conflictEngine.test.ts` | 15 |
-| `harmonyScore.test.ts` | 15 |
-| `medicationRules.test.ts` | 17 |
-| `test-one-many-plates.ts` | 6 scenarios |
-| `icmrNin.test.ts` | 11 |
-| `integration.test.ts` | 16 |
-| **Total** | **119** |
+*Source: `it()` counts from `tests/unit/`, `tests/integration/`, `test/`, and `tests/unit/` (via `grep -c 'it(' <file>`).*
+
+| Test File | Location | Test Cases |
+|---|---|---|
+| `calorieCalculator.test.ts` | `tests/unit/` | 30 |
+| `conflictEngine.test.ts` | `tests/unit/` | 20 |
+| `medicationRules.test.ts` | `tests/unit/` | 21 |
+| `harmonyScore.test.ts` | `tests/unit/` | 19 |
+| `budgetEngine.test.ts` | `tests/unit/` | 17 |
+| `integration.test.ts` | `test/` | 16 |
+| `icmrNin.test.ts` | `tests/unit/` (root) | 11 |
+| `fullPipeline.test.ts` | `tests/integration/` | 7 |
+| `regression.test.ts` | `test/` | 7 |
+| `rag-functional.test.ts` | `test/` | 6 |
+| `test-one-many-plates.ts` | `scripts/` | scenario-based (not `it()`) |
+| **Total `it()` cases** | | **154** |
 
 ### Performance Estimates
 
