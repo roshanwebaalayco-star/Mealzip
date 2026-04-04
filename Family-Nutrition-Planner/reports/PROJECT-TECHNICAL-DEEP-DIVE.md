@@ -151,6 +151,8 @@ The system uses two separate PostgreSQL databases accessed through a unified Dri
 
 ### Complete Schema (19 Tables)
 
+*Source: 18 schema files in `lib/db/src/schema/*.ts` define 19 `pgTable()` declarations (grocery_lists.ts contains both `grocery_lists` and `pantry_items`).*
+
 #### Core Identity & Family Structure
 
 | Table | Key Columns | Purpose |
@@ -172,7 +174,7 @@ The system uses two separate PostgreSQL databases accessed through a unified Dri
 | Table | Key Columns | Purpose |
 |---|---|---|
 | `grocery_lists` | id, familyId (FK), mealPlanId (FK), listType, weekStartDate, totalEstimatedCost, status, items (JSONB) | Auto-generated grocery lists (3 types: staples, perishables, buffer) |
-| `pantry_items` | id, familyId (FK), name, quantity, unit, expiryDate, isAvailable, costPerUnit | Current kitchen/fridge inventory |
+| `pantry_items` | id, familyId (FK), name, quantity, unit, expiryDate, isAvailable, costPerUnit | Current kitchen/fridge inventory (defined in `grocery_lists.ts`) |
 | `monthly_budgets` | id, familyId (FK), monthYear, totalMonthlyBudget, staplesBudget, perishablesBudget, bufferBudget, dailyPerishableLimit | Financial tracking per family |
 | `leftover_items` | id, familyId (FK), ingredientName, quantityEstimate, loggedAt, expiresAt, usedUp | Cooked-food reuse tracking with 48-hour TTL |
 
@@ -954,7 +956,7 @@ The Harmony Score card includes:
 │  └─────────────────────────────┬───────────────────────────────┘    │
 │                                │                                     │
 │  ┌─────────────────────────────▼───────────────────────────────┐    │
-│  │              PROMPT CHAIN (671 lines)                        │    │
+│  │              PROMPT CHAIN (670 lines)                        │    │
 │  │  Context Assembly → Constraint Injection → Gemini Call       │    │
 │  │  → JSON Repair → Schema Validation → DB Persist              │    │
 │  └─────────────────────────────┬───────────────────────────────┘    │
