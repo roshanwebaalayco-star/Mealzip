@@ -1,9 +1,12 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { findOrCreateLocalUserFromSupabase, verifySupabaseAccessToken } from "../lib/supabase-auth.js";
 
 export interface AuthPayload {
   userId: number;
   email: string;
+  authUserId?: string;
+  source: "supabase" | "legacy_jwt";
 }
 
 declare global {
@@ -22,34 +25,88 @@ export function getJwtSecret(): string {
   return secret;
 }
 
-export function authenticateToken(req: Request, res: Response, next: NextFunction): void {
+function getBearerToken(req: Request): string | null {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+}
 
+function shouldAllowLegacyJwt(): boolean {
+  return process.env.AUTH_LEGACY_JWT_COMPAT === "true";
+}
+
+async function decodeSupabaseUser(token: string): Promise<AuthPayload | null> {
+  const supabaseUser = await verifySupabaseAccessToken(token);
+  if (!supabaseUser) {
+    return null;
+  }
+
+  const localUser = await findOrCreateLocalUserFromSupabase(supabaseUser);
+  return {
+    userId: localUser.id,
+    email: localUser.email,
+    authUserId: supabaseUser.id,
+    source: "supabase",
+  };
+}
+
+function decodeLegacyJwt(token: string): AuthPayload | null {
+  if (!shouldAllowLegacyJwt()) {
+    return null;
+  }
+
+  try {
+    const payload = jwt.verify(token, getJwtSecret()) as { userId?: number; email?: string };
+    if (typeof payload.userId !== "number" || typeof payload.email !== "string") {
+      return null;
+    }
+    return {
+      userId: payload.userId,
+      email: payload.email,
+      source: "legacy_jwt",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function authenticateToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const token = getBearerToken(req);
   if (!token) {
     res.status(401).json({ error: "Authentication token required" });
     return;
   }
 
-  try {
-    const payload = jwt.verify(token, getJwtSecret()) as AuthPayload;
-    req.user = payload;
+  const supabasePayload = await decodeSupabaseUser(token);
+  if (supabasePayload) {
+    req.user = supabasePayload;
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
+
+  const legacyPayload = decodeLegacyJwt(token);
+  if (legacyPayload) {
+    req.user = legacyPayload;
+    next();
+    return;
+  }
+
+  res.status(401).json({ error: "Invalid or expired token" });
 }
 
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const token = getBearerToken(req);
 
   if (token) {
-    try {
-      const payload = jwt.verify(token, getJwtSecret()) as AuthPayload;
-      req.user = payload;
-    } catch {
-      // Token is invalid, continue without user
+    const supabasePayload = await decodeSupabaseUser(token);
+    if (supabasePayload) {
+      req.user = supabasePayload;
+      next();
+      return;
+    }
+
+    const legacyPayload = decodeLegacyJwt(token);
+    if (legacyPayload) {
+      req.user = legacyPayload;
     }
   }
 

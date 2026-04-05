@@ -8,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Eye, EyeOff, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-const TOKEN_KEY = "auth_token";
-const USER_KEY = "auth_user";
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
@@ -21,41 +19,17 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const { toast } = useToast();
-  const { login, register } = useAuth();
+  const { login, register, demoLogin, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) navigate("/profile");
-  }, [navigate]);
+    if (isAuthenticated) navigate("/profile");
+  }, [isAuthenticated, navigate]);
 
   const handleInstantDemo = async () => {
     setIsDemoLoading(true);
     try {
-      const res = await fetch("/api/demo/instant");
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? `Demo failed (${res.status})`);
-      }
-      const data = await res.json() as {
-        token: string;
-        user: { id: number; email: string; name: string; primaryLanguage: string; createdAt: string };
-        family: unknown;
-        mealPlan: unknown;
-        message?: string;
-      };
-      localStorage.setItem(TOKEN_KEY, data.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      if (data.family) {
-        try { localStorage.setItem("demo_family_cache", JSON.stringify(data.family)); } catch { /* ignore */ }
-      }
-      if (data.mealPlan && data.family && typeof data.family === "object" && data.family !== null) {
-        const fam = data.family as { id?: number };
-        if (fam.id) {
-          try { localStorage.setItem(`meal_plan_cache_${fam.id}`, JSON.stringify(data.mealPlan)); } catch { /* ignore */ }
-        }
-      }
-      window.dispatchEvent(new Event("auth:login"));
+      await demoLogin();
       navigate("/meal-plan");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Demo login failed.";
