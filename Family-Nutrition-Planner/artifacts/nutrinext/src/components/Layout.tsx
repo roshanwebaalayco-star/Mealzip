@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, MessageSquareText, Sprout, ShoppingCart, LogIn, LogOut, UserCircle, Users, Globe, Stethoscope } from "lucide-react";
+import { CalendarDays, MessageSquareText, Sprout, ShoppingCart, LogIn, LogOut, UserCircle, Users, Globe, Stethoscope, ChefHat } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,14 +17,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const navItems = [
     { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
     { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
+    { icon: ChefHat, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
     { icon: Stethoscope, label: "Clinical Insights", labelHi: "नैदानिक जानकारी", href: "/health" },
   ];
 
   const mobileMainItems = [
-    { icon: Users, label: "Profile", labelHi: "प्रोफाइल", href: "/profile" },
     { icon: CalendarDays, label: "Meals", labelHi: "भोजन", href: "/meal-plan" },
+    { icon: ChefHat, label: "Recipes", labelHi: "रेसिपी", href: "/recipes" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
     { icon: Stethoscope, label: "Insights", labelHi: "जानकारी", href: "/health" },
