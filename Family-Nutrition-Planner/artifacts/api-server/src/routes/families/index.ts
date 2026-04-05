@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { familiesTable, familyMembersTable } from "@workspace/db";
+import { familiesTable, familyMembersTable, monthlyBudgetsTable, weeklyContextsTable } from "@workspace/db";
 import {
   CreateFamilyBody,
   UpdateFamilyBody,
@@ -18,6 +18,62 @@ import { ai } from "@workspace/integrations-gemini-ai";
 import { applyResponsibleAIRules, normalizeGoal } from "../../lib/profile-rules.js";
 
 const router: IRouter = Router();
+
+
+router.get("/families/bootstrap", async (req, res): Promise<void> => {
+  const userId = req.user!.userId;
+
+  const [latestFamily] = await db
+    .select({ id: familiesTable.id, createdAt: familiesTable.createdAt })
+    .from(familiesTable)
+    .where(eq(familiesTable.userId, userId))
+    .orderBy(desc(familiesTable.createdAt))
+    .limit(1);
+
+  if (!latestFamily) {
+    res.json({
+      profileComplete: false,
+      hasFamilyProfile: false,
+      hasBudget: false,
+      hasWeeklyContext: false,
+      familyId: null,
+      lastActiveContext: "/family-setup",
+    });
+    return;
+  }
+
+  const [budget] = await db
+    .select({ id: monthlyBudgetsTable.id })
+    .from(monthlyBudgetsTable)
+    .where(eq(monthlyBudgetsTable.familyId, latestFamily.id))
+    .orderBy(desc(monthlyBudgetsTable.createdAt))
+    .limit(1);
+
+  const [weeklyContext] = await db
+    .select({ id: weeklyContextsTable.id })
+    .from(weeklyContextsTable)
+    .where(eq(weeklyContextsTable.familyId, latestFamily.id))
+    .orderBy(desc(weeklyContextsTable.updatedAt))
+    .limit(1);
+
+  const hasBudget = !!budget;
+  const hasWeeklyContext = !!weeklyContext;
+
+  const lastActiveContext = !hasBudget
+    ? "/profile"
+    : !hasWeeklyContext
+      ? "/meal-plan/context"
+      : "/meal-plan";
+
+  res.json({
+    profileComplete: hasBudget,
+    hasFamilyProfile: true,
+    hasBudget,
+    hasWeeklyContext,
+    familyId: latestFamily.id,
+    lastActiveContext,
+  });
+});
 
 router.get("/families", async (req, res): Promise<void> => {
   const userId = req.user!.userId;
