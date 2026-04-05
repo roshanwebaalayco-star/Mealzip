@@ -724,8 +724,8 @@ export default function Grocery() {
             </div>
             <div className="glass-card rounded-2xl p-4">
               <p className="text-xs text-muted-foreground mb-1">{t("Budget Status", "बजट स्थिति")}</p>
-              <Badge className={latest.budgetStatus === "over" ? "bg-red-500/20 text-red-700" : "bg-green-500/20 text-green-700"}>
-                {latest.budgetStatus === "within" ? t("Within Budget ✓", "बजट में ✓") : latest.budgetStatus === "under" ? t("Under Budget!", "बजट से कम!") : t("Over Budget", "बजट से अधिक")}
+              <Badge className={(latest.budgetStatus ?? "within") === "over" ? "bg-red-500/20 text-red-700" : "bg-green-500/20 text-green-700"}>
+                {(latest.budgetStatus ?? "within") === "under" ? t("Under Budget!", "बजट से कम!") : (latest.budgetStatus ?? "within") === "over" ? t("Over Budget", "बजट से अधिक") : t("Within Budget ✓", "बजट में ✓")}
               </Badge>
             </div>
             <div className="glass-card rounded-2xl p-4">
@@ -824,7 +824,7 @@ export default function Grocery() {
                         ₹{items.reduce((s, it) => s + (it.estimatedCost || 0), 0)}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {latest.budgetStatus === "over"
+                        {(latest.budgetStatus ?? "within") === "over"
                           ? <span className="text-red-600">{t("Over budget!", "बजट से अधिक!")}</span>
                           : <span className="text-green-600">{t("Within budget ✓", "बजट में ✓")}</span>}
                       </td>
@@ -1073,8 +1073,8 @@ export default function Grocery() {
           {/* Kirana Bill Summary */}
           {(() => {
             const totalCost = latest.totalEstimatedCost || latest.items?.totalEstimatedCost || 0;
-            const isOver = latest.budgetStatus === "over";
-            const isUnder = latest.budgetStatus === "under";
+            const isOver = (latest.budgetStatus ?? "within") === "over";
+            const isUnder = (latest.budgetStatus ?? "within") === "under";
             return (
               <div className={`rounded-2xl border-2 p-5 flex flex-col gap-2 print:break-inside-avoid ${isOver ? "border-red-400/50 bg-red-50/60" : "border-green-400/50 bg-green-50/60"}`}>
                 <div className="flex items-center gap-2 mb-1">

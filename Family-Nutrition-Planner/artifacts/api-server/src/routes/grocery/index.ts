@@ -3,7 +3,7 @@ import { eq, and, lte, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { db, localDb } from "@workspace/db";
 import { assertFamilyOwnership } from "../../middlewares/assertFamilyOwnership.js";
-import { groceryListsTable, mealPlansTable, familiesTable, recipesTable } from "@workspace/db";
+import { groceryListsTable, mealPlansTable, familiesTable, recipesTable, monthlyBudgetsTable } from "@workspace/db";
 import { ai } from "@workspace/integrations-gemini-ai";
 
 const router: IRouter = Router();
@@ -25,7 +25,30 @@ router.get("/grocery-lists", assertFamilyOwnership, async (req, res): Promise<vo
     const lists = await db.select().from(groceryListsTable)
       .where(eq(groceryListsTable.familyId, familyId))
       .orderBy(groceryListsTable.createdAt);
-    res.json(lists);
+
+    // Fetch the latest monthly budget for this family to compute budget status
+    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const budgets = await db.select().from(monthlyBudgetsTable)
+      .where(eq(monthlyBudgetsTable.familyId, familyId))
+      .orderBy(monthlyBudgetsTable.createdAt);
+
+    // Use latest budget, prefer current month
+    const budget = budgets.find(b => b.monthYear === currentMonth) ?? budgets[budgets.length - 1];
+    // Weekly perishables budget = monthly perishables budget / 4
+    const weeklyBudget = budget ? parseFloat(budget.perishablesBudget) / 4 : null;
+
+    const listsWithStatus = lists.map(list => {
+      const cost = parseFloat(list.totalEstimatedCost ?? "0");
+      let budgetStatus = "within";
+      if (weeklyBudget !== null) {
+        if (cost > weeklyBudget * 1.05) budgetStatus = "over";
+        else if (cost < weeklyBudget * 0.9) budgetStatus = "under";
+        else budgetStatus = "within";
+      }
+      return { ...list, budgetStatus };
+    });
+
+    res.json(listsWithStatus);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to fetch grocery lists", details: msg, retryable: true });
