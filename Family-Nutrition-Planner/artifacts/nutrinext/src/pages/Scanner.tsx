@@ -5,6 +5,7 @@ import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Camera, Image as ImageIcon, Loader2, Info, RefreshCw, Flame, AlertTriangle, CheckCircle2, PenLine, Utensils, ShoppingBag, Package, WifiOff, FlaskConical } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -71,9 +72,22 @@ interface ScanGroup {
   items: PantryItem[];
 }
 
+const lsKey = (familyId: number) => `nutrinext_weekly_context_${familyId}`;
+
+function formatPantryItemLabel(item: PantryItem): string {
+  if (item.quantity != null && item.unit) {
+    return `${item.name} (${item.quantity} ${item.unit})`;
+  }
+  if (item.quantity != null) {
+    return `${item.name} (${item.quantity})`;
+  }
+  return item.name;
+}
+
 function PantryScanner({ familyId }: { familyId: number }) {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [scanGroups, setScanGroups] = useState<ScanGroup[]>([]);
   const [currentPreview, setCurrentPreview] = useState<string | null>(null);
@@ -161,6 +175,16 @@ function PantryScanner({ familyId }: { familyId: number }) {
     setScanGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
+  const savePantryToLocalStorage = (items: string[]) => {
+    try {
+      const key = lsKey(familyId);
+      const stored = localStorage.getItem(key);
+      const ctx = stored ? JSON.parse(stored) : {};
+      ctx.pantry_items = items;
+      localStorage.setItem(key, JSON.stringify(ctx));
+    } catch { }
+  };
+
   const savePantryMutation = useMutation({
     mutationFn: async (items: string[]) => {
       const res = await apiFetch("/api/grocery-lists/generate", {
@@ -174,23 +198,27 @@ function PantryScanner({ familyId }: { familyId: number }) {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       setSavedToPantry(true);
+      savePantryToLocalStorage(variables);
       toast({
         title: t("Pantry saved!", "पेंट्री सहेजी गई!"),
-        description: t("Grocery list updated with your pantry items.", "आपकी पेंट्री के अनुसार किराने की सूची अपडेट हुई।"),
+        description: t("Redirecting to meal planner…", "भोजन योजना पर जा रहे हैं…"),
       });
+      setTimeout(() => setLocation("/meal-plan/generate"), 600);
     },
-    onError: () => {
+    onError: (_error, variables) => {
       setSavedToPantry(true);
+      savePantryToLocalStorage(variables);
       toast({
         title: t("Pantry noted!", "पेंट्री नोट हो गई!"),
-        description: t("Items saved locally for meal planning.", "भोजन योजना के लिए आइटम सहेजे गए।"),
+        description: t("Redirecting to meal planner…", "भोजन योजना पर जा रहे हैं…"),
       });
+      setTimeout(() => setLocation("/meal-plan/generate"), 600);
     },
   });
 
-  const checkedItems = pantryItems.filter(i => i.checked).map(i => i.name);
+  const checkedItems = pantryItems.filter(i => i.checked).map(i => formatPantryItemLabel(i));
   const commonCheckedItems = Object.entries(commonChecked).filter(([, v]) => v).map(([k]) => k);
 
   const handleSavePantry = () => {
