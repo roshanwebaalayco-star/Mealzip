@@ -218,6 +218,24 @@ router.post("/", async (req: Request, res: Response) => {
       contextString = ctx.contextString;
     }
 
+    const conversationHistory: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+
+    if (familyIdRaw && Number.isInteger(familyIdRaw) && familyIdRaw > 0) {
+      const history = await loadChatHistory({
+        familyId: familyIdRaw,
+        sessionId: safeSessionId,
+        limit: 20,
+      });
+      const priorMessages = history.slice(0, -1);
+      for (const msg of priorMessages) {
+        if (!msg.text?.trim()) continue;
+        conversationHistory.push({
+          role: msg.role === "assistant" ? "model" : "user",
+          parts: [{ text: msg.text }],
+        });
+      }
+    }
+
     const contextualizedMessage = [
       contextString ? "[SYSTEM CONTEXT — DO NOT QUOTE OR REFERENCE THIS BLOCK IN YOUR RESPONSE]" : "",
       contextString,
@@ -232,12 +250,17 @@ router.post("/", async (req: Request, res: Response) => {
       .filter(Boolean)
       .join("\n");
 
+    const allContents = [
+      ...conversationHistory,
+      { role: "user" as const, parts: [{ text: contextualizedMessage }] },
+    ];
+
     const streamResult = await ai.models.generateContentStream({
       model: GEMINI_MODEL,
-      contents: [{ role: "user", parts: [{ text: contextualizedMessage }] }],
+      contents: allContents,
       config: {
-        temperature:     0.4,
-        maxOutputTokens: 1024,
+        temperature:     0.55,
+        maxOutputTokens: 4096,
       },
       systemInstruction: { parts: [{ text: MEGA_PROMPT }] },
     });
