@@ -380,10 +380,6 @@ ask_family_name:
 
 ask_state:
   → parsedFields: { "state": "Jharkhand" }  (exact Indian state name)
-  → nextState: "ask_budget"
-
-ask_budget:
-  → parsedFields: { "monthlyBudget": 5000 }  (number in INR, convert spoken numbers)
   → nextState: "ask_dietary_type"
 
 ask_dietary_type:
@@ -402,9 +398,10 @@ ask_meals_per_day:
   → nextState: "ask_member_start"
 
 ask_member_start:
-  → parsedFields: { "currentMember": { "name": "...", "role": "father|mother|child|grandparent|other", "age": 42, "gender": "male|female|other", "healthConditions": [], "healthGoal": "general_wellness" } }
-  → nextState: "ask_more_members"  if conditions were mentioned
-  → nextState: "ask_member_conditions"  if conditions NOT mentioned
+  → parsedFields: { "currentMember": { "name": "...", "role": "father|mother|child|grandparent|other", "age": 42, "gender": "male|female|other", "activityLevel": "sedentary|lightly_active|moderately_active|very_active", "dietaryType": "strictly_vegetarian|jain_vegetarian|eggetarian|non_vegetarian|occasional_nonveg", "spiceTolerance": "mild|medium|spicy", "healthConditions": [], "healthGoal": "general_wellness" } }
+  IMPORTANT: Ask the user for name, age, gender. If they don't mention activity level, dietary type, or spice tolerance — that is fine, collect defaults: activityLevel="moderately_active", dietaryType="non_vegetarian", spiceTolerance="medium".
+  → nextState: "ask_more_members"  if user already mentioned health conditions (e.g. "has diabetes")
+  → nextState: "ask_member_conditions"  if health conditions were NOT mentioned
 
 ask_member_conditions:
   → parsedFields: { "currentMemberConditions": ["diabetes","hypertension"] }  OR  { "currentMemberConditions": [] }

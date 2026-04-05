@@ -81,7 +81,7 @@ export default function FamilySetup() {
 
   const [members, setMembers] = useState<MemberDraft[]>([
     {
-      _id: ++_memberIdCounter, name: "", age: 35, gender: "male", weightKg: 70, heightCm: 170,
+      _id: ++_memberIdCounter, name: "", age: 35, gender: "male", weightKg: undefined, heightCm: undefined,
       activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
@@ -190,6 +190,10 @@ export default function FamilySetup() {
       const data = await res.json() as { reply: string; extractedData?: Record<string, unknown>; isComplete: boolean };
       const updatedMsgs: ChatMsg[] = [...newMsgs, { role: "model", content: data.reply }];
       setChatMessages(updatedMsgs);
+      if (data.isComplete && !data.extractedData) {
+        setChatMessages(prev => [...prev, { role: "model", content: "Almost done! I need to collect a bit more info. Could you tell me your family name and at least one member's name and age to complete the profile?" }]);
+        return;
+      }
       if (data.isComplete && data.extractedData) {
         const p = data.extractedData as {
           familyName?: string;
@@ -216,8 +220,8 @@ export default function FamilySetup() {
           name: m.name ?? "",
           age: m.age ?? 25,
           gender: m.gender ?? "male",
-          weightKg: 65,
-          heightCm: 165,
+          weightKg: undefined,
+          heightCm: undefined,
           activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
           ingredientDislikes: [],
@@ -234,10 +238,18 @@ export default function FamilySetup() {
           ekadashi: false,
           festivalFastingAlerts: false,
         }));
+        if (!newFamilyData.name) {
+          setChatMessages(prev => [...prev, { role: "model", content: "Sorry, I couldn't extract the family name. Please type your family name and try again." }]);
+          return;
+        }
+        if (newMembers.length === 0) {
+          setChatMessages(prev => [...prev, { role: "model", content: "I need at least one family member's name to complete the profile. Please tell me one member's name and age." }]);
+          return;
+        }
         setFamilyData(newFamilyData);
-        if (newMembers.length > 0) setMembers(newMembers);
+        setMembers(newMembers);
         setChatComplete(true);
-        await executeSave(newFamilyData, newMembers.length > 0 ? newMembers : members, "/pantry-scan", 1);
+        await executeSave(newFamilyData, newMembers, "/pantry-scan", 1);
       }
     } catch {
       setChatMessages(prev => [...prev, { role: "model", content: "Sorry, I had trouble responding. Please try again." }]);
@@ -278,7 +290,7 @@ export default function FamilySetup() {
 
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
-      _id: ++_memberIdCounter, name: "", age: 25, gender: "female", weightKg: 60, heightCm: 160,
+      _id: ++_memberIdCounter, name: "", age: 25, gender: "female", weightKg: undefined, heightCm: undefined,
       activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
@@ -487,8 +499,8 @@ export default function FamilySetup() {
         name: m.name ?? "",
         age: m.age ?? 25,
         gender: m.gender ?? "male",
-        weightKg: 65,
-        heightCm: 165,
+        weightKg: undefined,
+        heightCm: undefined,
         activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
         healthConditions: m.healthConditions ?? [],
         healthGoal: m.healthGoal ?? "general_wellness",
@@ -540,8 +552,8 @@ export default function FamilySetup() {
           name: m.name ?? "",
           age: m.age ?? 25,
           gender: m.gender ?? "male",
-          weightKg: 65,
-          heightCm: 165,
+          weightKg: undefined,
+          heightCm: undefined,
           activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
           healthConditions: m.healthConditions ?? [],
           ingredientDislikes: [],

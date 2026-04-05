@@ -6,7 +6,6 @@ export type ConvState =
   | "idle"
   | "ask_family_name"
   | "ask_state"
-  | "ask_budget"
   | "ask_dietary_type"
   | "ask_cooking_skill"
   | "ask_meals_per_day"

@@ -308,32 +308,40 @@ router.delete("/families/:familyId/members/:memberId", async (req, res): Promise
   res.sendStatus(204);
 });
 
-const PROFILE_CHAT_SYSTEM = `You are ParivarSehat AI — a warm, conversational assistant helping collect family information for personalised Indian nutrition meal planning.
+const PROFILE_CHAT_SYSTEM = `You are ParivarSehat AI — a warm, conversational Indian nutrition assistant helping set up a family profile for personalised meal planning.
 
-GOAL: Collect a complete family profile by asking ONE question at a time in a friendly, conversational way. The language to use will be specified in the first user message.
+GOAL: Collect ALL required information below by asking ONE question at a time. Be warm, brief, and conversational. Use the language specified by the user.
 
-Required info to collect:
-1. Family name
-2. Indian state/region they live in
-3. Household dietary baseline: strictly_veg / veg_with_eggs / non_veg / mixed
-4. Cooking skill level: beginner / intermediate / experienced
-5. Meals per day: 2_meals / 3_meals / 3_meals_plus_snacks
-6. Number of family members (min 2, max 5)
-7. For each member: first name, age, gender (male/female), activity level (sedentary/lightly_active/moderately_active/very_active), dietary type (strictly_vegetarian/jain_vegetarian/eggetarian/non_vegetarian/occasional_nonveg), any health conditions (diabetes/hypertension/anaemia/none), spice tolerance (mild/medium/spicy)
-8. Kitchen appliances they own (from: tawa, pressure_cooker, kadai, microwave, blender_mixie, oven, idli_stand, air_fryer). Ask which appliances they have.
+=== COLLECTION SEQUENCE (follow this order strictly) ===
+STEP 1 → Family name (e.g. "Sharma Family")
+STEP 2 → Indian state/region they live in
+STEP 3 → Household dietary baseline — present as options:
+  A) Strictly vegetarian  B) Vegetarian with eggs  C) Non-vegetarian  D) Mixed household
+  → store as: strictly_veg / veg_with_eggs / non_veg / mixed
+STEP 4 → Cooking skill — present as options:
+  A) Beginner (basic cooking)  B) Intermediate  C) Experienced
+  → store as: beginner / intermediate / experienced
+STEP 5 → Meals per day — present as options:
+  A) 2 meals  B) 3 meals  C) 3 meals + snacks
+  → store as: 2_meals / 3_meals / 3_meals_plus_snacks
+STEP 6 → For EACH family member, ask for their name and age (in one question).
+  After getting name and age:
+  - Ask: "Does [Name] have any health conditions like diabetes, hypertension, or anaemia? Say 'none' if healthy."
+  - Then ask: "Are there more family members to add?" (yes/no)
+  Default values if not mentioned: gender inferred from name/role, activityLevel=moderately_active, dietaryType=non_vegetarian, spiceTolerance=medium.
 
-Age-based goal rules (auto-assign, do not ask):
-- Under 5 → childhood_nutrition
-- 5–12 → healthy_growth
-- 13–17 → no weight_loss goal allowed
-- 60+ → default senior_nutrition (can be changed)
+=== RULES ===
+- Ask EXACTLY ONE question per response. Never combine multiple questions.
+- Do NOT re-ask something already answered. Track what was collected.
+- Accept option letters (A/B/C) or number references (1/2/3) for multiple-choice questions.
+- Accept partial info and ask only for what is still missing.
+- Keep each reply SHORT — 1–2 lines max (excluding the final JSON block).
+- NEVER ask about kitchen appliances or monthly budget — these are not needed.
 
-Rules:
-- Ask EXACTLY ONE question per response
-- Be warm and natural — use the appropriate language/script
-- Accept partial answers gracefully and ask for missing info
-- When you have collected ALL the above information, output this EXACT marker on its own line: PROFILE_COMPLETE
-  Then immediately output a JSON block with this exact structure:
+=== COMPLETION ===
+When you have: familyName, stateRegion, householdDietaryBaseline, cookingSkillLevel, mealsPerDay, AND at least one member with name and age — you may complete.
+Output on its own line: PROFILE_COMPLETE
+Then output the JSON block (no other text after):
 \`\`\`json
 {
   "familyName": "Sharma",
@@ -341,15 +349,13 @@ Rules:
   "householdDietaryBaseline": "non_veg",
   "cookingSkillLevel": "intermediate",
   "mealsPerDay": "3_meals",
-  "appliances": ["tawa", "pressure_cooker", "kadai"],
   "members": [
     { "name": "Rajesh", "age": 42, "gender": "male", "activityLevel": "moderately_active", "dietaryType": "non_vegetarian", "healthConditions": ["diabetes"], "spiceTolerance": "medium" },
     { "name": "Priya", "age": 38, "gender": "female", "activityLevel": "lightly_active", "dietaryType": "strictly_vegetarian", "healthConditions": [], "spiceTolerance": "mild" }
   ]
 }
 \`\`\`
-- Do NOT output PROFILE_COMPLETE until you have all required info for all members
-- Keep responses short (2-3 lines max) unless outputting the final JSON`;
+Do NOT include PROFILE_COMPLETE until you have collected familyName, stateRegion, householdDietaryBaseline, cookingSkillLevel, mealsPerDay, and at least one member.`;
 
 router.post("/families/profile-chat", async (req, res): Promise<void> => {
   const { messages, language } = req.body as {
@@ -386,16 +392,24 @@ router.post("/families/profile-chat", async (req, res): Promise<void> => {
     let extractedData: Record<string, unknown> | null = null;
     if (isComplete) {
       try {
+        // Try fenced code block first
         const fenceMatch = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (fenceMatch) {
-          extractedData = JSON.parse(fenceMatch[1]) as Record<string, unknown>;
+          extractedData = JSON.parse(fenceMatch[1].trim()) as Record<string, unknown>;
+        } else {
+          // Try to find raw JSON object in the reply
+          const jsonMatch = reply.match(/\{[\s\S]*"familyName"[\s\S]*\}/);
+          if (jsonMatch) {
+            extractedData = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+          }
         }
       } catch { extractedData = null; }
     }
 
     const displayReply = reply
-      .replace("PROFILE_COMPLETE", "")
+      .replace(/PROFILE_COMPLETE/g, "")
       .replace(/```json[\s\S]*?```/g, "")
+      .replace(/```[\s\S]*?```/g, "")
       .trim();
 
     res.json({ reply: displayReply, extractedData, isComplete });
