@@ -29,7 +29,7 @@ const APPLIANCE_OPTIONS = [
   { id: "pressure_cooker", en: "Pressure Cooker", hi: "प्रेशर कुकर" },
   { id: "mixer_grinder", en: "Mixer Grinder", hi: "मिक्सर ग्राइंडर" },
   { id: "microwave", en: "Microwave", hi: "माइक्रोवेव" },
-  { id: "oven", en: "Oven/OTG", hi: "ओवन/OTG" },
+  { id: "oven_otg", en: "Oven/OTG", hi: "ओवन/OTG" },
   { id: "air_fryer", en: "Air Fryer", hi: "एयर फ्रायर" },
   { id: "tawa", en: "Tawa", hi: "तवा" },
   { id: "idli_maker", en: "Idli/Dosa Maker", hi: "इडली/डोसा मेकर" },
@@ -70,25 +70,41 @@ function memberToEdit(m: FamilyMember): MemberEdit {
   if (religiousValue === "jain") religiousValue = "jain_rules";
   if (religiousValue === "sattvic") religiousValue = "sattvic_no_onion_garlic";
 
+  const activityMap: Record<string, string> = { light: "lightly_active", moderate: "moderately_active", active: "very_active" };
+  const normalizedActivity = activityMap[m.activityLevel] ?? m.activityLevel;
+
+  const goalMap: Record<string, string> = { general_wellness: "maintain", muscle_gain: "build_muscle", manage_diabetes: "manage_condition", anemia_recovery: "manage_condition", heart_health: "manage_condition" };
+  const rawGoal = m.primaryGoal ?? "no_specific_goal";
+  const normalizedGoal = goalMap[rawGoal] ?? rawGoal;
+
+  const paceMap: Record<string, string> = { "0.25": "slow_0.25kg", "0.5": "moderate_0.5kg" };
+  const normalizedPace = paceMap[m.goalPace ?? ""] ?? (m.goalPace ?? "none");
+
+  const tiffinMap: Record<string, string> = { school_tiffin: "yes_school", office_tiffin: "yes_office" };
+  const normalizedTiffin = tiffinMap[m.tiffinNeeded ?? ""] ?? (m.tiffinNeeded ?? "no");
+
+  const spiceMap: Record<string, string> = { low: "mild", high: "spicy" };
+  const normalizedSpice = spiceMap[m.spiceTolerance ?? ""] ?? (m.spiceTolerance ?? "medium");
+
   return {
     name: m.name,
     age: m.age,
     gender: m.gender,
     weightKg: Number(m.weightKg) || 60,
     heightCm: Number(m.heightCm) || 160,
-    activityLevel: m.activityLevel,
+    activityLevel: normalizedActivity,
     healthConditions,
     allergies,
-    primaryGoal: m.primaryGoal ?? "no_specific_goal",
-    goalPace: m.goalPace ?? "none",
-    tiffinNeeded: m.tiffinNeeded ?? "no",
+    primaryGoal: normalizedGoal,
+    goalPace: normalizedPace,
+    tiffinNeeded: normalizedTiffin,
     ingredientDislikes,
     nonVegDays: nonvegConfig.days ?? [],
     nonVegTypes: nonvegConfig.types ?? [],
     memberFastingDays: fastingConfig.baselineDays ?? [],
     dietaryType: m.dietaryType ?? "strictly_vegetarian",
-    healthGoal: m.primaryGoal ?? "no_specific_goal",
-    spiceTolerance: m.spiceTolerance ?? "medium",
+    healthGoal: normalizedGoal,
+    spiceTolerance: normalizedSpice,
     festivalFastingAlerts: m.festivalFastingAlerts ?? false,
     religiousCulturalRules: religiousValue,
   };
@@ -428,7 +444,7 @@ export default function Profile() {
           const edit = getEdit(member);
           const isExpanded = expandedIds.has(member.id);
           const isSaving = savingIds.has(member.id);
-          const weightChangeGoal = edit.healthGoal === "weight_loss" || edit.healthGoal === "muscle_gain";
+          const weightChangeGoal = edit.healthGoal === "weight_loss" || edit.healthGoal === "weight_gain" || edit.healthGoal === "build_muscle";
           const hasBodyMetrics = !!(member.weightKg && member.heightCm);
           const kcal = member.dailyCalorieTarget ?? null;
           const showGoalPaceField = weightChangeGoal && edit.age >= 18;
@@ -515,9 +531,8 @@ export default function Profile() {
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="sedentary">{t("Sedentary", "निष्क्रिय")}</SelectItem>
-                          <SelectItem value="light">{t("Light", "हल्का")}</SelectItem>
-                          <SelectItem value="moderate">{t("Moderate", "मध्यम")}</SelectItem>
-                          <SelectItem value="active">{t("Active", "सक्रिय")}</SelectItem>
+                          <SelectItem value="lightly_active">{t("Lightly Active", "हल्का सक्रिय")}</SelectItem>
+                          <SelectItem value="moderately_active">{t("Moderately Active", "मध्यम सक्रिय")}</SelectItem>
                           <SelectItem value="very_active">{t("Very Active", "बहुत सक्रिय")}</SelectItem>
                         </SelectContent>
                       </Select>
@@ -536,19 +551,19 @@ export default function Profile() {
                       </Select>
                     </div>
 
-                    {/* Health goal — hidden for under 13 */}
+                    {/* Health goal — hidden for under 13 per doc: HIDE for age<5 and 5-12 */}
                     {edit.age >= 13 ? (
                       <div>
                         <Label>{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
                         <Select value={edit.healthGoal} onValueChange={v => updateEdit(member.id, "healthGoal", v)}>
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="general_wellness">{t("General Wellness", "सामान्य स्वास्थ्य")}</SelectItem>
+                            <SelectItem value="maintain">{t("Maintain Health", "स्वास्थ्य बनाए रखें")}</SelectItem>
                             {edit.age >= 18 && <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>}
-                            <SelectItem value="manage_diabetes">{t("Manage Diabetes", "मधुमेह नियंत्रण")}</SelectItem>
-                            <SelectItem value="anemia_recovery">{t("Anemia Recovery", "रक्ताल्पता")}</SelectItem>
-                            <SelectItem value="heart_health">{t("Heart Health", "हृदय स्वास्थ्य")}</SelectItem>
-                            {edit.age >= 18 && <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>}
+                            {edit.age >= 18 && <SelectItem value="weight_gain">{t("Weight Gain", "वजन बढ़ाना")}</SelectItem>}
+                            {edit.age >= 18 && <SelectItem value="build_muscle">{t("Build Muscle", "मांसपेशी वृद्धि")}</SelectItem>}
+                            <SelectItem value="manage_condition">{t("Manage Condition", "स्थिति प्रबंधन")}</SelectItem>
+                            {edit.age >= 60 && <SelectItem value="senior_nutrition">{t("Senior Nutrition", "वरिष्ठ पोषण")}</SelectItem>}
                           </SelectContent>
                         </Select>
                       </div>
@@ -584,8 +599,8 @@ export default function Profile() {
                             <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">{t("No specific pace", "कोई लक्ष्य नहीं")}</SelectItem>
-                              <SelectItem value="0.25">{t("Gentle (0.25 kg/week)", "धीमा (0.25 किग्रा/हफ्ता)")}</SelectItem>
-                              <SelectItem value="0.5">{t("Moderate (0.5 kg/week)", "मध्यम (0.5 किग्रा/हफ्ता)")}</SelectItem>
+                              <SelectItem value="slow_0.25kg">{t("Slow (0.25 kg/week)", "धीमा (0.25 किग्रा/हफ्ता)")}</SelectItem>
+                              <SelectItem value="moderate_0.5kg">{t("Moderate (0.5 kg/week)", "मध्यम (0.5 किग्रा/हफ्ता)")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -596,8 +611,8 @@ export default function Profile() {
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="no">{t("Not required", "नहीं")}</SelectItem>
-                            <SelectItem value="school_tiffin">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
-                            <SelectItem value="office_tiffin">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
+                            <SelectItem value="yes_school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
+                            <SelectItem value="yes_office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -619,9 +634,9 @@ export default function Profile() {
                         <Select value={edit.spiceTolerance} onValueChange={v => updateEdit(member.id, "spiceTolerance", v)}>
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="low">{t("Low (mild)", "कम (हल्का)")}</SelectItem>
+                            <SelectItem value="mild">{t("Mild", "हल्का")}</SelectItem>
                             <SelectItem value="medium">{t("Medium", "मध्यम")}</SelectItem>
-                            <SelectItem value="high">{t("High (spicy)", "तेज (मसालेदार)")}</SelectItem>
+                            <SelectItem value="spicy">{t("Spicy", "तीखा")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

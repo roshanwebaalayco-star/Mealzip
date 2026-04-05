@@ -162,7 +162,7 @@ function mergeFields(fd: VoiceFormData, parsed: Record<string, unknown>): VoiceF
       healthConditions: Array.isArray(m.healthConditions)
         ? (m.healthConditions as string[])
         : [],
-      healthGoal: m.healthGoal ? String(m.healthGoal) : "general_wellness",
+      healthGoal: m.healthGoal ? String(m.healthGoal) : "maintain",
       activityLevel: m.activityLevel ? String(m.activityLevel) : undefined,
       dietaryType: m.dietaryType ? String(m.dietaryType) : undefined,
       spiceTolerance: m.spiceTolerance ? String(m.spiceTolerance) : undefined,

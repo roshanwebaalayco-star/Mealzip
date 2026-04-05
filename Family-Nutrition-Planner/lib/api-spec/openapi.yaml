@@ -1402,13 +1402,13 @@ components:
           type: integer
         goalPace:
           type: string
-          enum: ["none", "0.25", "0.5"]
+          enum: ["none", "slow_0.25kg", "moderate_0.5kg", "0.25", "0.5"]
         tiffinType:
           type: string
-          enum: ["none", "school", "office"]
+          enum: ["no", "yes_school", "yes_office"]
         religiousRules:
           type: string
-          enum: ["none", "no_beef", "no_pork", "sattvic", "jain"]
+          enum: ["none", "no_beef", "no_pork", "sattvic_no_onion_garlic", "jain_rules"]
         ingredientDislikes:
           type: array
           items:
@@ -1469,13 +1469,13 @@ components:
           type: integer
         goalPace:
           type: string
-          enum: ["none", "0.25", "0.5"]
+          enum: ["none", "slow_0.25kg", "moderate_0.5kg", "0.25", "0.5"]
         tiffinType:
           type: string
-          enum: ["none", "school", "office"]
+          enum: ["no", "yes_school", "yes_office"]
         religiousRules:
           type: string
-          enum: ["none", "no_beef", "no_pork", "sattvic", "jain"]
+          enum: ["none", "no_beef", "no_pork", "sattvic_no_onion_garlic", "jain_rules"]
         ingredientDislikes:
           type: array
           items:

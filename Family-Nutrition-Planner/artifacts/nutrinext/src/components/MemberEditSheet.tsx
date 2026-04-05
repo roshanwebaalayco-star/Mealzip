@@ -22,8 +22,8 @@ export interface IMemberProfileFields {
   dietaryType?: string;
   healthConditions?: string[];
   primaryGoal?: string;
-  goalPace?: "none" | "0.25" | "0.5";
-  tiffinNeeded?: "no" | "school_tiffin" | "office_tiffin";
+  goalPace?: "none" | "slow_0.25kg" | "moderate_0.5kg";
+  tiffinNeeded?: "no" | "yes_school" | "yes_office";
   religiousCulturalRules?: Record<string, unknown>;
   ingredientDislikes?: string[];
   occasionalNonvegConfig?: { days?: string[]; types?: string[] };
@@ -41,13 +41,11 @@ export interface IMemberProfile extends IMemberProfileFields {
 }
 
 const GOALS = [
-  { value: "general_wellness", label: "General Wellness" },
+  { value: "maintain", label: "Maintain Health" },
   { value: "weight_loss", label: "Weight Loss" },
+  { value: "weight_gain", label: "Weight Gain" },
   { value: "build_muscle", label: "Build Muscle" },
-  { value: "manage_diabetes", label: "Manage Diabetes" },
-  { value: "heart_health", label: "Heart Health" },
-  { value: "anemia_recovery", label: "Anemia Recovery" },
-  { value: "healthy_growth", label: "Healthy Growth (Child)" },
+  { value: "manage_condition", label: "Manage Condition" },
   { value: "senior_nutrition", label: "Senior Nutrition" },
 ];
 
@@ -128,7 +126,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           dietaryType: form.dietaryType,
           healthConditions: form.healthConditions,
           primaryGoal: form.primaryGoal,
-          goalPace: (form.goalPace as "none" | "0.25" | "0.5") ?? "none",
+          goalPace: (form.goalPace as "none" | "slow_0.25kg" | "moderate_0.5kg") ?? "none",
           tiffinNeeded: form.tiffinNeeded ?? "no",
           religiousCulturalRules: form.religiousCulturalRules,
           ingredientDislikes: form.ingredientDislikes,
@@ -146,7 +144,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
     }
   };
 
-  const showGoalPace = form.primaryGoal === "weight_loss" || form.primaryGoal === "build_muscle";
+  const showGoalPace = form.primaryGoal === "weight_loss" || form.primaryGoal === "weight_gain" || form.primaryGoal === "build_muscle";
   const isNonVeg = form.dietaryType === "non_vegetarian" || form.dietaryType === "occasional_nonveg";
 
   return (
@@ -193,7 +191,7 @@ export default function MemberEditSheet({ member, onClose }: Props) {
 
           <div>
             <Label className="text-xs font-semibold">{t("Health Goal", "स्वास्थ्य लक्ष्य")}</Label>
-            <Select value={form.primaryGoal ?? "general_wellness"} onValueChange={v => set("primaryGoal", v as IMemberProfile["primaryGoal"])}>
+            <Select value={form.primaryGoal ?? "maintain"} onValueChange={v => set("primaryGoal", v as IMemberProfile["primaryGoal"])}>
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {GOALS.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
@@ -208,8 +206,8 @@ export default function MemberEditSheet({ member, onClose }: Props) {
                 <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{t("Gradual", "धीरे-धीरे")}</SelectItem>
-                  <SelectItem value="0.25">0.25 kg/week</SelectItem>
-                  <SelectItem value="0.5">0.5 kg/week</SelectItem>
+                  <SelectItem value="slow_0.25kg">0.25 kg/week</SelectItem>
+                  <SelectItem value="moderate_0.5kg">0.5 kg/week</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -221,8 +219,8 @@ export default function MemberEditSheet({ member, onClose }: Props) {
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="no">{t("None", "नहीं")}</SelectItem>
-                <SelectItem value="school_tiffin">{t("School", "स्कूल")}</SelectItem>
-                <SelectItem value="office_tiffin">{t("Office", "ऑफिस")}</SelectItem>
+                <SelectItem value="yes_school">{t("School", "स्कूल")}</SelectItem>
+                <SelectItem value="yes_office">{t("Office", "ऑफिस")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

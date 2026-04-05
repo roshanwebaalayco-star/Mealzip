@@ -60,7 +60,7 @@ function isWeightGoalMember(member: FamilyMember): boolean {
     conditions.some(c => ["obesity", "weight_loss", "weight_gain", "growing_child"].includes(c)) ||
     goal === "weight_loss" ||
     goal === "weight_gain" ||
-    goal === "muscle_gain"
+    goal === "build_muscle"
   );
 }
 

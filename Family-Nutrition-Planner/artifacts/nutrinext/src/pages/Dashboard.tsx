@@ -440,7 +440,7 @@ function ActiveDashboard({ familyId }: { familyId: number }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  {(member as unknown as Record<string, unknown>).dailyCalorieTarget && member.weightKg && member.heightCm && (member.primaryGoal === "weight_loss" || member.primaryGoal === "muscle_gain") ? (
+                  {(member as unknown as Record<string, unknown>).dailyCalorieTarget && member.weightKg && member.heightCm && (member.primaryGoal === "weight_loss" || member.primaryGoal === "build_muscle") ? (
                     <div className="flex items-center justify-end gap-1 mb-0.5">
                       <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full leading-none">ICMR</span>
                       <span className="text-xs font-semibold text-foreground/80">{String((member as unknown as Record<string, unknown>).dailyCalorieTarget ?? "—")} kcal</span>

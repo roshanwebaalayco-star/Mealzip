@@ -106,8 +106,9 @@ function Router() {
         <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
         <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
-        <Route path="/nutrition">{() => <Redirect to="/health" />}</Route>
-        <Route path="/health" component={() => <ProfileGatedRoute component={HealthLog} />} />
+        <Route path="/nutrition">{() => <Redirect to="/insights" />}</Route>
+        <Route path="/health">{() => <Redirect to="/insights" />}</Route>
+        <Route path="/insights" component={() => <ProfileGatedRoute component={HealthLog} />} />
         <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
         <Route component={NotFound} />
       </Switch>

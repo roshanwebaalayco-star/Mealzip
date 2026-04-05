@@ -71,10 +71,12 @@ export function applyResponsibleAIRules(member: MemberProfileInput): MemberProfi
     let tdee = bmr * multiplier;
 
     const pace = result.goalPace;
-    if (result.primary_goal === "weight_loss" && (pace === "0.25" || pace === "0.5")) {
-      tdee -= pace === "0.5" ? 500 : 250;
-    } else if ((result.primary_goal === "weight_gain" || result.primary_goal === "build_muscle") && (pace === "0.25" || pace === "0.5")) {
-      tdee += pace === "0.5" ? 500 : 250;
+    const isSlow = pace === "slow_0.25kg" || pace === "0.25";
+    const isModerate = pace === "moderate_0.5kg" || pace === "0.5";
+    if (result.primary_goal === "weight_loss" && (isSlow || isModerate)) {
+      tdee -= isModerate ? 500 : 250;
+    } else if ((result.primary_goal === "weight_gain" || result.primary_goal === "build_muscle") && (isSlow || isModerate)) {
+      tdee += isModerate ? 500 : 250;
     }
 
     result.dailyCalorieTarget = Math.max(1000, Math.round(tdee));

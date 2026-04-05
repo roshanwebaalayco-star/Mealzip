@@ -19,14 +19,14 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: CalendarDays, label: "Meal Plan", labelHi: "भोजन योजना", href: "/meal-plan" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
-    { icon: Stethoscope, label: "Clinical Insights", labelHi: "नैदानिक जानकारी", href: "/health" },
+    { icon: Stethoscope, label: "Clinical Insights", labelHi: "नैदानिक जानकारी", href: "/insights" },
   ];
 
   const mobileMainItems = [
     { icon: CalendarDays, label: "Meal Plan", labelHi: "भोजन योजना", href: "/meal-plan" },
     { icon: ShoppingCart, label: "Grocery", labelHi: "किराना", href: "/grocery" },
     { icon: MessageSquareText, label: "AI Chat", labelHi: "AI चैट", href: "/chat" },
-    { icon: Stethoscope, label: "Insights", labelHi: "जानकारी", href: "/health" },
+    { icon: Stethoscope, label: "Insights", labelHi: "जानकारी", href: "/insights" },
   ];
 
   return (

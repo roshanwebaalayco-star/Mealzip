@@ -71,7 +71,7 @@ export default function FamilySetup() {
     householdDietaryBaseline: "mixed" as string,
     cookingTimePreference: "moderate" as "quick" | "moderate" | "elaborate",
     dietaryType: "non_veg" as "strictly_veg" | "veg_with_eggs" | "non_veg" | "mixed",
-    healthGoal: "general_wellness" as "general_wellness" | "weight_loss" | "muscle_gain" | "manage_diabetes" | "heart_health" | "manage_thyroid",
+    healthGoal: "maintain" as "maintain" | "weight_loss" | "weight_gain" | "build_muscle" | "manage_condition" | "senior_nutrition",
     fastingDays: [] as string[],
     appliances: ["tawa", "pressure_cooker", "kadai"] as string[],
     cookingSkillLevel: "intermediate" as "beginner" | "intermediate" | "experienced",
@@ -82,7 +82,7 @@ export default function FamilySetup() {
   const [members, setMembers] = useState<MemberDraft[]>([
     {
       _id: ++_memberIdCounter, name: "", age: 35, gender: "male", weightKg: undefined, heightCm: undefined,
-      activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
+      activityLevel: "moderately_active", healthConditions: [], healthGoal: "maintain",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
@@ -230,7 +230,7 @@ export default function FamilySetup() {
           goalPace: "none",
           tiffinNeeded: "no",
           religiousCulturalRules: "none",
-          healthGoal: ((m as Record<string,unknown>).healthGoal as string) ?? "general_wellness",
+          healthGoal: ((m as Record<string,unknown>).healthGoal as string) ?? "maintain",
           dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
@@ -291,7 +291,7 @@ export default function FamilySetup() {
   const handleAddMember = () => {
     setMembers(prev => [...prev, {
       _id: ++_memberIdCounter, name: "", age: 25, gender: "female", weightKg: undefined, heightCm: undefined,
-      activityLevel: "moderately_active", healthConditions: [], healthGoal: "general_wellness",
+      activityLevel: "moderately_active", healthConditions: [], healthGoal: "maintain",
       dietaryType: "non_vegetarian", memberFastingDays: [], foodAllergies: "",
       goalPace: "none", tiffinNeeded: "no", religiousCulturalRules: "none",
       ingredientDislikes: [], nonVegDays: [], nonVegTypes: [],
@@ -340,10 +340,10 @@ export default function FamilySetup() {
         updated[index].healthGoal = "healthy_growth";
       } else if (age >= 13 && age < 18) {
         if (updated[index].healthGoal === "weight_loss") {
-          updated[index].healthGoal = "general_wellness";
+          updated[index].healthGoal = "maintain";
         }
       } else if (age >= 60) {
-        if (updated[index].healthGoal === "general_wellness") {
+        if (updated[index].healthGoal === "maintain") {
           updated[index].healthGoal = "senior_nutrition";
         }
       }
@@ -439,7 +439,7 @@ export default function FamilySetup() {
               healthConditions: member.healthConditions.filter(c => c !== "none"),
               allergies: allergyList,
               ingredientDislikes: member.ingredientDislikes.length > 0 ? member.ingredientDislikes : undefined,
-              primaryGoal: member.healthGoal !== "general_wellness" ? member.healthGoal : undefined,
+              primaryGoal: member.healthGoal !== "maintain" ? member.healthGoal : undefined,
               goalPace: member.goalPace !== "none" ? member.goalPace : undefined,
               dietaryType: member.dietaryType ?? "strictly_vegetarian",
               tiffinNeeded: member.tiffinNeeded !== "no" ? member.tiffinNeeded : "no",
@@ -503,7 +503,7 @@ export default function FamilySetup() {
         heightCm: undefined,
         activityLevel: (m as Record<string,unknown>).activityLevel as string ?? "moderately_active",
         healthConditions: m.healthConditions ?? [],
-        healthGoal: m.healthGoal ?? "general_wellness",
+        healthGoal: m.healthGoal ?? "maintain",
         dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
         memberFastingDays: [],
         foodAllergies: "",
@@ -562,7 +562,7 @@ export default function FamilySetup() {
           goalPace: "none",
           tiffinNeeded: "no",
           religiousCulturalRules: "none",
-          healthGoal: ((m as Record<string,unknown>).healthGoal as string) ?? "general_wellness",
+          healthGoal: ((m as Record<string,unknown>).healthGoal as string) ?? "maintain",
           dietaryType: ((m as Record<string,unknown>).dietaryType as string) ?? "non_vegetarian",
           memberFastingDays: [],
           foodAllergies: "",
@@ -1108,16 +1108,17 @@ export default function FamilySetup() {
                     <Select value={member.healthGoal} onValueChange={v => handleUpdateMember(idx, "healthGoal", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="general_wellness">{t("General Wellness", "सामान्य स्वास्थ्य")}</SelectItem>
+                        <SelectItem value="maintain">{t("Maintain Health", "स्वास्थ्य बनाए रखें")}</SelectItem>
                         {Number(member.age) >= 18 && (
                           <SelectItem value="weight_loss">{t("Weight Loss", "वजन घटाना")}</SelectItem>
                         )}
-                        <SelectItem value="manage_diabetes">{t("Manage Diabetes", "मधुमेह नियंत्रण")}</SelectItem>
-                        <SelectItem value="anemia_recovery">{t("Anemia Recovery", "रक्ताल्पता")}</SelectItem>
-                        <SelectItem value="heart_health">{t("Heart Health", "हृदय स्वास्थ्य")}</SelectItem>
                         {Number(member.age) >= 18 && (
-                          <SelectItem value="muscle_gain">{t("Muscle Gain", "मांसपेशी वृद्धि")}</SelectItem>
+                          <SelectItem value="weight_gain">{t("Weight Gain", "वजन बढ़ाना")}</SelectItem>
                         )}
+                        {Number(member.age) >= 18 && (
+                          <SelectItem value="build_muscle">{t("Build Muscle", "मांसपेशी वृद्धि")}</SelectItem>
+                        )}
+                        <SelectItem value="manage_condition">{t("Manage Condition", "स्थिति प्रबंधन")}</SelectItem>
                         {Number(member.age) >= 60 && (
                           <SelectItem value="senior_nutrition">{t("Senior Nutrition", "वरिष्ठ पोषण")}</SelectItem>
                         )}
@@ -1353,15 +1354,15 @@ export default function FamilySetup() {
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("Advanced Profile", "विस्तृत प्रोफाइल")}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Goal Pace — shown only for weight loss/gain goals, hidden for minors */}
-                    {(member.healthGoal === "weight_loss" || member.healthGoal === "muscle_gain") && Number(member.age) >= 18 && (
+                    {(member.healthGoal === "weight_loss" || member.healthGoal === "weight_gain" || member.healthGoal === "build_muscle") && Number(member.age) >= 18 && (
                     <div>
                       <Label className="text-sm font-semibold">{t("Goal Pace", "लक्ष्य गति")}</Label>
                       <Select value={member.goalPace} onValueChange={v => handleUpdateMember(idx, "goalPace", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t("No specific pace", "कोई लक्ष्य नहीं")}</SelectItem>
-                          <SelectItem value="0.25">{t("Gentle (0.25 kg/week)", "धीमा (0.25 किग्रा/हफ्ता)")}</SelectItem>
-                          <SelectItem value="0.5">{t("Moderate (0.5 kg/week)", "मध्यम (0.5 किग्रा/हफ्ता)")}</SelectItem>
+                          <SelectItem value="slow_0.25kg">{t("Slow (0.25 kg/week)", "धीमा (0.25 किग्रा/हफ्ता)")}</SelectItem>
+                          <SelectItem value="moderate_0.5kg">{t("Moderate (0.5 kg/week)", "मध्यम (0.5 किग्रा/हफ्ता)")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1371,9 +1372,9 @@ export default function FamilySetup() {
                       <Select value={member.tiffinNeeded} onValueChange={v => handleUpdateMember(idx, "tiffinNeeded", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">{t("Not required", "नहीं")}</SelectItem>
-                          <SelectItem value="school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
-                          <SelectItem value="office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
+                          <SelectItem value="no">{t("Not required", "नहीं")}</SelectItem>
+                          <SelectItem value="yes_school">{t("School Tiffin", "स्कूल टिफिन")}</SelectItem>
+                          <SelectItem value="yes_office">{t("Office Tiffin", "ऑफिस टिफिन")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1383,10 +1384,10 @@ export default function FamilySetup() {
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
-                          <SelectItem value="jain">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
+                          <SelectItem value="jain_rules">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
                           <SelectItem value="no_beef">{t("Hindu (no beef)", "हिंदू (गोमांस नहीं)")}</SelectItem>
                           <SelectItem value="no_pork">{t("Halal / No Pork", "हलाल / सूअर नहीं")}</SelectItem>
-                          <SelectItem value="sattvic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
+                          <SelectItem value="sattvic_no_onion_garlic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
