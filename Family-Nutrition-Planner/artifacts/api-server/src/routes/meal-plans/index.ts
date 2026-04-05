@@ -1140,6 +1140,17 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
       memberFastingDays, festivalFasting: festivalFasting.festivals.map(f => f.name),
     }, "Fasting mode decision");
 
+    const memberFeelings: Array<{ name: string; feeling: string }> = [];
+    if (weeklyContext?.member_overrides) {
+      for (const [, _ov] of Object.entries(weeklyContext.member_overrides)) {
+        const ov = _ov as Record<string, unknown>;
+        if (ov.feeling_this_week) {
+          const member = members.find(m => m.id === ov.memberId);
+          if (member) memberFeelings.push({ name: member.name, feeling: String(ov.feeling_this_week) });
+        }
+      }
+    }
+
     const [mealPlan] = await db.insert(mealPlansTable).values({
       familyId,
       harmonyScore,
@@ -1156,6 +1167,7 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
         festivalFasting: festivalFasting.isFestivalFasting ? festivalFasting.festivals.map(f => f.name) : [],
         recipeSource: `recipe_db:${filteredRecipes.length}_filtered`,
         leftoverChainSource: "recipe_db_primary_ai_fallback",
+        ...(memberFeelings.length > 0 ? { memberFeelings } : {}),
         icmrCompliance: {
           ragSourcesUsed: ragResult.sources,
           guidelinesRetrieved: ragResult.chunkCount,
@@ -1348,6 +1360,8 @@ Return valid JSON:
 
     const enrichedPlanData = await enrichPlanWithDbLeftoverChains(planData);
 
+    const existingFeelings = (existingSummary?.memberFeelings ?? []) as Array<{ name: string; feeling: string }>;
+
     const [updatedPlan] = await db.update(mealPlansTable).set({
       days: enrichedPlanData,
       harmonyScore: Number(planData.harmonyScore ?? 70),
@@ -1360,6 +1374,7 @@ Return valid JSON:
         regeneratedAt: new Date().toISOString(),
         recipeSource: `recipe_db:${finalRecipes.length}_feedback_filtered`,
         leftoverChainSource: "recipe_db_primary_ai_fallback",
+        ...(existingFeelings.length > 0 ? { memberFeelings: existingFeelings } : {}),
       },
     }).where(eq(mealPlansTable.id, id)).returning();
 
