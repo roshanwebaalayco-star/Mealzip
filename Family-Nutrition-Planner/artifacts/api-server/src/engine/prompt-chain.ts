@@ -803,7 +803,7 @@ Respond ONLY with valid JSON:
 }
 `.trim();
 
-  const raw = await callGemini(prompt, 8192);
+  const raw = await callGemini(prompt, 2048);
   const parsed = safeParseJSON<{ items: GroceryItem[]; total_estimated_cost: number }>(raw, "staples");
 
   return { items: parsed.items, total_cost: parsed.total_estimated_cost };
@@ -879,40 +879,9 @@ export async function generateWeeklyMealPlan(
 You are a clinical Indian nutritionist generating a weekly meal plan. You are not a creative chef. You are not a food blogger. You generate medically appropriate, budget-compliant, regionally authentic meals. You do not have artistic freedom. You follow constraints exactly.
 
 LAW 0 — HINGLISH LANGUAGE RULE (MANDATORY):
-ALL ingredient names and recipe steps MUST use simple Hinglish (Hindi words in Roman script) — the everyday language an Indian home cook uses in their kitchen. NEVER use formal English names for common Indian ingredients.
-Examples of CORRECT vs WRONG naming:
-  ✅ "Pyaaz" NOT ❌ "Onion"
-  ✅ "Tamatar" NOT ❌ "Tomato"
-  ✅ "Haldi" NOT ❌ "Turmeric"
-  ✅ "Dhaniya" NOT ❌ "Coriander"
-  ✅ "Jeera" NOT ❌ "Cumin"
-  ✅ "Heeng" NOT ❌ "Asafoetida"
-  ✅ "Methi" NOT ❌ "Fenugreek"
-  ✅ "Rai/Sarson" NOT ❌ "Mustard seeds"
-  ✅ "Curry patta" NOT ❌ "Curry leaves"
-  ✅ "Palak" NOT ❌ "Spinach"
-  ✅ "Adrak" NOT ❌ "Ginger"
-  ✅ "Lahsun" NOT ❌ "Garlic"
-  ✅ "Aloo" NOT ❌ "Potato"
-  ✅ "Gobhi" NOT ❌ "Cauliflower"
-  ✅ "Matar" NOT ❌ "Green peas"
-  ✅ "Mirchi" NOT ❌ "Chilli"
-  ✅ "Elaichi" NOT ❌ "Cardamom"
-  ✅ "Dalchini" NOT ❌ "Cinnamon"
-  ✅ "Laung" NOT ❌ "Cloves"
-  ✅ "Tejpatta" NOT ❌ "Bay leaf"
-  ✅ "Bhindi" NOT ❌ "Okra"
-  ✅ "Baingan" NOT ❌ "Brinjal/Eggplant"
-  ✅ "Lauki" NOT ❌ "Bottle gourd"
-  ✅ "Karela" NOT ❌ "Bitter gourd"
-  ✅ "Suji" NOT ❌ "Semolina"
-  ✅ "Besan" NOT ❌ "Gram flour"
-  ✅ "Doodh" NOT ❌ "Milk"
-  ✅ "Dahi" NOT ❌ "Curd/Yogurt"
-  ✅ "Namak" NOT ❌ "Salt"
-  ✅ "Tel" NOT ❌ "Oil"
-Recipe steps must also be in simple Hinglish kitchen language, e.g. "Pyaaz ko tel mein bhuno jab tak golden ho jaaye" instead of "Sauté onions in oil until golden."
-The perishables list must also use Hinglish names consistently.
+ALL ingredient names and recipe steps MUST use simple Hinglish (Hindi words in Roman script) — the everyday language an Indian home cook uses. NEVER use formal English names.
+Key mappings: Pyaaz (not Onion), Tamatar (not Tomato), Haldi (not Turmeric), Dhaniya (not Coriander), Jeera (not Cumin), Heeng (not Asafoetida), Methi (not Fenugreek), Rai/Sarson (not Mustard seeds), Curry patta (not Curry leaves), Palak (not Spinach), Adrak (not Ginger), Lahsun (not Garlic), Aloo (not Potato), Gobhi (not Cauliflower), Matar (not Green peas), Mirchi (not Chilli), Elaichi (not Cardamom), Dalchini (not Cinnamon), Laung (not Cloves), Tejpatta (not Bay leaf), Bhindi (not Okra), Baingan (not Brinjal), Lauki (not Bottle gourd), Karela (not Bitter gourd), Suji (not Semolina), Besan (not Gram flour), Doodh (not Milk), Dahi (not Curd/Yogurt), Namak (not Salt), Tel (not Oil).
+Recipe steps in Hinglish, e.g. "Pyaaz ko tel mein bhuno jab tak golden ho jaaye". Perishables list must also use Hinglish names.
 
 LAW 1: Gemini NEVER makes clinical decisions. The TypeScript backend has pre-computed all medical constraints (Levels 1-5 below). You implement them exactly. You do not interpret, relax, or override any clinical rule.
 
@@ -1150,19 +1119,40 @@ Respond ONLY with valid JSON:
 
 export async function runPromptChain(
   packet: ConstraintPacket,
-  weekStartDate: string
+  weekStartDate: string,
 ): Promise<{ result: PromptChainResult; timings: PromptChainTimings }> {
-  const t1 = Date.now();
-  const staples = await generateStaplesList(packet);
-  const staples_ms = Date.now() - t1;
+  const t0 = Date.now();
 
-  const t2 = Date.now();
-  const meals = await generateWeeklyMealPlan(packet, weekStartDate);
-  const meals_ms = Date.now() - t2;
+  const staplesPromise = (async () => {
+    const t = Date.now();
+    const result = await generateStaplesList(packet);
+    return { result, ms: Date.now() - t };
+  })();
 
-  const t3 = Date.now();
-  const buffer = await generateBufferList(packet);
-  const buffer_ms = Date.now() - t3;
+  const mealsPromise = (async () => {
+    const t = Date.now();
+    const result = await generateWeeklyMealPlan(packet, weekStartDate);
+    return { result, ms: Date.now() - t };
+  })();
+
+  const bufferPromise = (async () => {
+    const t = Date.now();
+    const result = await generateBufferList(packet);
+    return { result, ms: Date.now() - t };
+  })();
+
+  const [staplesResult, mealsResult, bufferResult] = await Promise.all([
+    staplesPromise,
+    mealsPromise,
+    bufferPromise,
+  ]);
+
+  const staples = staplesResult.result;
+  const meals = mealsResult.result;
+  const buffer = bufferResult.result;
+  const staples_ms = staplesResult.ms;
+  const meals_ms = mealsResult.ms;
+  const buffer_ms = bufferResult.ms;
 
   const weeklyPerishables = [...meals.perishables];
   let weeklyPerishablesTotalCost = meals.perishables_total;
@@ -1193,7 +1183,7 @@ export async function runPromptChain(
       staples_ms,
       meals_ms,
       buffer_ms,
-      total_ms: staples_ms + meals_ms + buffer_ms,
+      total_ms: Date.now() - t0,
     },
   };
 }

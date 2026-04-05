@@ -309,11 +309,28 @@ async function runMealGeneration(
     }
 
     t = Date.now();
+
+    const staplesStepIndex = stepIndex++;
+    const mealsStepIndex = stepIndex++;
+    const bufferStepIndex = stepIndex++;
+
     await appendLog(mealPlanId, {
       message: `Generating monthly staples list within \u20B9${payload.budget.staplesBudget.toFixed(0)}...`,
       duration_ms: 0,
       completed: false,
-      step_index: stepIndex,
+      step_index: staplesStepIndex,
+    });
+    await appendLog(mealPlanId, {
+      message: `Building weekly meal plan for ${constraintPacket.effectiveProfiles.length} members...`,
+      duration_ms: 0,
+      completed: false,
+      step_index: mealsStepIndex,
+    });
+    await appendLog(mealPlanId, {
+      message: `Generating nutritional buffer (dry fruits & seasonal fruits)...`,
+      duration_ms: 0,
+      completed: false,
+      step_index: bufferStepIndex,
     });
 
     const { result: promptResult, timings } = await runPromptChain(
@@ -327,7 +344,7 @@ async function runMealGeneration(
         `\u20B9${promptResult.staples_total_cost.toFixed(0)} total.`,
       duration_ms: timings.staples_ms,
       completed: true,
-      step_index: stepIndex++,
+      step_index: staplesStepIndex,
     });
 
     await appendLog(mealPlanId, {
@@ -337,7 +354,7 @@ async function runMealGeneration(
         `\u20B9${promptResult.weeklyPerishables_total_cost.toFixed(0)} weekly perishables.`,
       duration_ms: timings.meals_ms,
       completed: true,
-      step_index: stepIndex++,
+      step_index: mealsStepIndex,
     });
 
     await appendLog(mealPlanId, {
@@ -346,7 +363,7 @@ async function runMealGeneration(
         `within \u20B9${payload.budget.bufferBudget.toFixed(0)}.`,
       duration_ms: timings.buffer_ms,
       completed: true,
-      step_index: stepIndex++,
+      step_index: bufferStepIndex,
     });
 
     t = Date.now();
