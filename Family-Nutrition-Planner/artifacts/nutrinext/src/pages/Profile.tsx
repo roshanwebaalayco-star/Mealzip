@@ -29,7 +29,6 @@ type MemberEdit = {
   nonVegDays: string[];
   nonVegTypes: string[];
   memberFastingDays: string[];
-  foodAllergies: string;
   dietaryType: string;
   healthGoal: string;
   spiceTolerance: string;
@@ -61,7 +60,6 @@ function memberToEdit(m: FamilyMember): MemberEdit {
     nonVegDays: nonvegConfig.days ?? [],
     nonVegTypes: nonvegConfig.types ?? [],
     memberFastingDays: fastingConfig.baselineDays ?? [],
-    foodAllergies: allergies.join(", "),
     dietaryType: m.dietaryType ?? "strictly_vegetarian",
     healthGoal: m.primaryGoal ?? "no_specific_goal",
     spiceTolerance: m.spiceTolerance ?? "medium",
@@ -159,12 +157,25 @@ export default function Profile() {
     updateEdit(memberId, "memberFastingDays", next);
   };
 
+  const toggleAllergy = (memberId: number, allergy: string) => {
+    const member = familyInfo.members.find(m => m.id === memberId);
+    if (!member) return;
+    const current = getEdit(member).allergies;
+    let next: string[];
+    if (allergy === "none") {
+      next = current.includes("none") ? [] : ["none"];
+    } else {
+      const without = current.filter(a => a !== "none");
+      next = without.includes(allergy) ? without.filter(a => a !== allergy) : [...without, allergy];
+    }
+    updateEdit(memberId, "allergies", next);
+  };
+
   const handleSave = async (member: FamilyMember) => {
     if (!familyId) return;
     const edit = getEdit(member);
     setSavingIds(prev => new Set(prev).add(member.id));
     try {
-      const allergyList = edit.foodAllergies.split(",").map(s => s.trim()).filter(Boolean);
       await updateMember.mutateAsync({
         familyId,
         memberId: member.id,
@@ -177,7 +188,7 @@ export default function Profile() {
           activityLevel: edit.activityLevel,
           dietaryType: edit.dietaryType,
           healthConditions: edit.healthConditions.filter(c => c !== "none"),
-          allergies: allergyList,
+          allergies: edit.allergies.filter(a => a !== "none"),
           primaryGoal: edit.healthGoal !== "no_specific_goal" ? edit.healthGoal : undefined,
           goalPace: edit.goalPace !== "none" ? edit.goalPace : undefined,
           tiffinNeeded: edit.tiffinNeeded !== "no" ? edit.tiffinNeeded : undefined,
@@ -326,11 +337,11 @@ export default function Profile() {
                       <Select value={edit.dietaryType} onValueChange={v => updateEdit(member.id, "dietaryType", v)}>
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="vegetarian">{t("Vegetarian", "शाकाहारी")}</SelectItem>
-                          <SelectItem value="non-vegetarian">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
-                          <SelectItem value="vegan">{t("Vegan", "शुद्ध शाकाहारी")}</SelectItem>
-                          <SelectItem value="jain">{t("Jain", "जैन")}</SelectItem>
+                          <SelectItem value="strictly_vegetarian">{t("Strictly Vegetarian", "पूर्ण शाकाहारी")}</SelectItem>
+                          <SelectItem value="jain_vegetarian">{t("Jain Vegetarian", "जैन शाकाहारी")}</SelectItem>
                           <SelectItem value="eggetarian">{t("Eggetarian", "अंडाहारी")}</SelectItem>
+                          <SelectItem value="non_vegetarian">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
+                          <SelectItem value="occasional_non_veg">{t("Occasional Non-Veg", "कभी-कभार मांसाहारी")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -435,7 +446,7 @@ export default function Profile() {
                         </Label>
                       </div>
                       <div className="sm:col-span-2">
-                        <Label className="text-sm font-semibold">{t("Ingredient Dislikes", "पसंद न आने वाली चीजें")} <span className="text-muted-foreground font-normal">{t("(max 5)", "(अधिकतम 5)")}</span></Label>
+                        <Label className="text-sm font-semibold">{t("Ingredient Dislikes", "पसंद न आने वाली चीजें")} <span className="text-muted-foreground font-normal">({edit.ingredientDislikes.length}/5 {t("added", "जोड़े")})</span></Label>
                         <div className="flex flex-wrap gap-1.5 mt-2 min-h-[28px]">
                           {edit.ingredientDislikes.map((item, i) => (
                             <span key={i} className="inline-flex items-center gap-1 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-0.5 text-xs text-orange-800">
@@ -456,7 +467,7 @@ export default function Profile() {
                     </div>
 
                     {/* Non-veg breakdown */}
-                    {edit.dietaryType === "non-vegetarian" && (
+                    {(edit.dietaryType === "non_vegetarian" || edit.dietaryType === "occasional_non_veg" || edit.dietaryType === "non-vegetarian") && (
                       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-sm font-semibold">{t("Non-Veg Days", "मांसाहार के दिन")}</Label>
@@ -515,13 +526,14 @@ export default function Profile() {
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">{t("Health Conditions", "स्वास्थ्य स्थितियां")}</Label>
                         {[
-                          { id: 'diabetes', en: 'Diabetes', hi: 'मधुमेह' },
+                          { id: 'diabetes_type_2', en: 'Diabetes Type 2', hi: 'मधुमेह (टाइप 2)' },
                           { id: 'hypertension', en: 'Hypertension', hi: 'उच्च रक्तचाप' },
+                          { id: 'anaemia', en: 'Anaemia', hi: 'रक्ताल्पता' },
                           { id: 'obesity', en: 'Obesity', hi: 'मोटापा' },
-                          { id: 'anemia', en: 'Anemia', hi: 'रक्ताल्पता' },
-                          { id: 'thyroid', en: 'Thyroid', hi: 'थायरॉइड' },
                           { id: 'high_cholesterol', en: 'High Cholesterol', hi: 'उच्च कोलेस्ट्रॉल' },
-                          { id: 'pcod', en: 'PCOD', hi: 'पीसीओडी' },
+                          { id: 'hypothyroid', en: 'Hypothyroid', hi: 'थायरॉइड' },
+                          { id: 'pcos', en: 'PCOS', hi: 'पीसीओएस' },
+                          { id: 'kidney_issues', en: 'Kidney Issues', hi: 'गुर्दे की समस्या' },
                           { id: 'none', en: 'None', hi: 'कोई नहीं' },
                         ].map(({ id: cond, en, hi }) => (
                           <div key={cond} className="flex items-center space-x-2">
@@ -554,14 +566,27 @@ export default function Profile() {
                             <Label htmlFor={`${member.id}-fasting-${day}`} className="text-xs">{t(en, hi)}</Label>
                           </div>
                         ))}
-                        <div className="pt-2">
+                        <div className="pt-2 space-y-2">
                           <Label className="text-sm font-semibold">{t("Food Allergies", "खाद्य एलर्जी")}</Label>
-                          <Input
-                            value={edit.foodAllergies}
-                            onChange={e => updateEdit(member.id, "foodAllergies", e.target.value)}
-                            placeholder={t("e.g. peanuts, milk", "जैसे मूंगफली, दूध")}
-                            className="mt-1 text-sm"
-                          />
+                          {[
+                            { id: 'peanuts', en: 'Peanuts', hi: 'मूंगफली' },
+                            { id: 'dairy', en: 'Dairy', hi: 'डेयरी' },
+                            { id: 'gluten', en: 'Gluten', hi: 'ग्लूटेन' },
+                            { id: 'tree_nuts', en: 'Tree Nuts', hi: 'मेवे' },
+                            { id: 'shellfish', en: 'Shellfish', hi: 'शेलफिश' },
+                            { id: 'soy', en: 'Soy', hi: 'सोया' },
+                            { id: 'sesame', en: 'Sesame', hi: 'तिल' },
+                            { id: 'none', en: 'None', hi: 'कोई नहीं' },
+                          ].map(({ id: al, en, hi }) => (
+                            <div key={al} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`${member.id}-allergy-${al}`}
+                                checked={edit.allergies.includes(al)}
+                                onCheckedChange={() => toggleAllergy(member.id, al)}
+                              />
+                              <Label htmlFor={`${member.id}-allergy-${al}`} className="text-sm">{t(en, hi)}</Label>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>

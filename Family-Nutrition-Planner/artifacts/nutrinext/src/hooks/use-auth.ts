@@ -54,7 +54,9 @@ export function useAuth() {
     localStorage.removeItem("demo_family_cache");
     localStorage.removeItem("demo_meal_plan_cache");
     localStorage.removeItem("active_family");
+    sessionStorage.clear();
     setUser(null);
+    window.dispatchEvent(new Event("auth:unauthorized"));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

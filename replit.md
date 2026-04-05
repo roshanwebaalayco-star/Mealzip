@@ -89,7 +89,11 @@ Comprehensive audit-driven fix pass:
 - **Profile Page Completeness (Section 2)**: Added Spice Tolerance dropdown and Festival Fasting Alerts checkbox to Profile.tsx advanced section.
 - **Auth Hardening (Section 1)**: Logout now clears all localStorage state including `demo_family_cache`, `demo_meal_plan_cache`, and `active_family`.
 - **Grocery Budget Status Fix**: Made `monthlyBudgetsTable` query graceful with try-catch fallback — prevents 500 error when table doesn't exist yet.
-- **Navigation**: Recipes link added to both desktop sidebar and mobile bottom nav (6 items: Profile, Meals, Recipes, Grocery, AI Chat, Clinical Insights).
+- **Navigation (Section 8)**: Recipes REMOVED from nav per audit spec. Final nav: Profile | Meal Plan | Grocery | AI Chat | Clinical Insights (5 items on both desktop sidebar and mobile bottom nav).
+- **ThaliScore Bug Fix (Section 9)**: Fixed 422 error "Cannot create property '_thaliScore' on string" — meal slots returned as raw strings from Gemini are now wrapped in `{ name: string }` objects before scoring.
+- **MealGenPopup Polling Fix**: Fixed polling treating `apiFetch` Response as parsed JSON (was `res as any`, now `await res.json()`). Added max retry count (90 retries = 3 min) with user-facing timeout/connection-lost toast on failure.
+- **Dietary Type Enum Fix**: Normalized `occasional_non_veg` / `occasional_nonveg` mismatch between Profile.tsx and MealGenPopup.tsx — both variants now accepted.
+- **Grocery Pincode Prompt (Section 5)**: Added first-time pincode capture banner to Grocery page with 6-digit validation, localStorage persistence per family, and MapPin badge display after save.
 
 ## External Dependencies
 

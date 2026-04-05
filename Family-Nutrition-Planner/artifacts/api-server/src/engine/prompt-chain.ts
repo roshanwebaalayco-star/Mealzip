@@ -81,6 +81,18 @@ function buildAbsoluteProhibitions(packet: ConstraintPacket): string {
       if (cond === "high_cholesterol") {
         ["vanaspati", "dalda", "margarine", "trans fats", "hydrogenated oil"].forEach(i => conditionBlocks.add(i));
       }
+      if (cond === "kidney_issues") {
+        ["high-sodium pickles", "papads", "processed foods", "excessive potassium fruits (banana, orange)", "raw sprouts", "spinach in excess", "tomato in excess"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "hypothyroid") {
+        ["raw cruciferous vegetables in excess (cabbage, cauliflower, broccoli)", "soy-based foods", "highly processed foods", "excessive sugar"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "pcos") {
+        ["white sugar", "refined carbs", "maida", "white bread", "cold drinks", "packaged juice", "deep fried foods"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "anaemia") {
+        ["tea with meals (inhibits iron absorption)", "coffee with meals", "calcium supplements with iron-rich meals"].forEach(i => conditionBlocks.add(i));
+      }
     }
   }
 

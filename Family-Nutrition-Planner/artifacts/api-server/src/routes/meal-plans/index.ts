@@ -1090,12 +1090,17 @@ MANDATORY: Generate ONLY these 3 days: Friday, Saturday, Sunday. Every day MUST 
           validationWarnings.push(...sieveResult.violations);
         }
 
-        const finalMeal = day.meals[slotKey] as Record<string, unknown>;
-        delete finalMeal.candidates;
-        const thali = scoreThaliCompleteness(finalMeal as unknown as Parameters<typeof scoreThaliCompleteness>[0]);
-        finalMeal._thaliScore = thali.score;
-        finalMeal._thaliPresent = thali.present;
-        finalMeal._thaliMissing = thali.missing;
+        let finalMeal = day.meals[slotKey];
+        if (typeof finalMeal === "string") {
+          finalMeal = { name: finalMeal } as Record<string, unknown>;
+          day.meals[slotKey] = finalMeal;
+        }
+        const finalMealObj = finalMeal as Record<string, unknown>;
+        delete finalMealObj.candidates;
+        const thali = scoreThaliCompleteness(finalMealObj as unknown as Parameters<typeof scoreThaliCompleteness>[0]);
+        finalMealObj._thaliScore = thali.score;
+        finalMealObj._thaliPresent = thali.present;
+        finalMealObj._thaliMissing = thali.missing;
       }
     }
     if (candidateSelections > 0 || validationFallbacks > 0) {

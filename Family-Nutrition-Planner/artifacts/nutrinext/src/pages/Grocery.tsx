@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList, Camera, ScanLine, Loader2, TrendingUp, Zap, RefreshCw } from "lucide-react";
+import { ShoppingCart, TrendingDown, CheckCircle2, Circle, Sparkles, Leaf, IndianRupee, ArrowLeftRight, Package, Plus, X, ChefHat, Share2, Languages, ChevronDown, ChevronUp, Printer, Table2, LayoutList, Camera, ScanLine, Loader2, TrendingUp, Zap, RefreshCw, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export default function Grocery() {
   const { lang, toggleLang, t } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"list" | "pantry">("list");
+  const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "pantry">("weekly");
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [pantryAlreadyHaveExpanded, setPantryAlreadyHaveExpanded] = useState(false);
   const [swappedItems, setSwappedItems] = useState<Record<string, { name: string; estimatedCost?: number }>>({});
@@ -79,6 +79,33 @@ export default function Grocery() {
   });
   const [pantryInput, setPantryInput] = useState("");
   const pantryInputRef = useRef<HTMLInputElement>(null);
+
+  const pincodeKey = activeFamily ? `pincode_${activeFamily.id}` : null;
+  const [pincode, setPincode] = useState<string>(() => {
+    if (!activeFamily) return "";
+    return localStorage.getItem(`pincode_${activeFamily.id}`) ?? "";
+  });
+  const [showPincodePrompt, setShowPincodePrompt] = useState<boolean>(() => {
+    if (!activeFamily) return false;
+    return !localStorage.getItem(`pincode_${activeFamily.id}`);
+  });
+  const [pincodeInput, setPincodeInput] = useState("");
+
+  const savePincode = () => {
+    const val = pincodeInput.trim();
+    if (!/^\d{6}$/.test(val)) return;
+    setPincode(val);
+    setShowPincodePrompt(false);
+    if (pincodeKey) localStorage.setItem(pincodeKey, val);
+    toast({ title: t("Pincode saved", "पिनकोड सेव हुआ"), description: val });
+  };
+
+  useEffect(() => {
+    if (!activeFamily) { setPincode(""); setShowPincodePrompt(false); return; }
+    const saved = localStorage.getItem(`pincode_${activeFamily.id}`);
+    setPincode(saved ?? "");
+    setShowPincodePrompt(!saved);
+  }, [activeFamily?.id]);
 
   // Pantry scan state
   const [isScanningPantry, setIsScanningPantry] = useState(false);
@@ -282,7 +309,7 @@ export default function Grocery() {
       queryClient.invalidateQueries({ queryKey: ["grocery-lists", activeFamily?.id] });
       const pantryNote = pantryItems.length > 0 ? ` (${pantryItems.length} pantry items excluded)` : "";
       toast({ title: t("Grocery list generated!", "खरीदारी सूची तैयार!"), description: t(`AI found the best deals for your family.${pantryNote}`, `AI ने आपके परिवार के लिए सबसे अच्छे विकल्प खोजे।${pantryNote}`) });
-      setActiveTab("list");
+      setActiveTab("weekly");
     },
     onError: () => {
       toast({ title: t("Error", "त्रुटि"), description: t("Failed to generate grocery list.", "खरीदारी सूची बनाने में विफल।"), variant: "destructive" });
@@ -423,32 +450,78 @@ export default function Grocery() {
             {t("Track your pantry & generate smart shopping lists", "पेंट्री ट्रैक करें और स्मार्ट खरीदारी सूची बनाएं")}
           </p>
         </div>
-        <Button
-          onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending}
-          className="shrink-0 gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          {generateMutation.isPending
-            ? t("Generating…", "तैयार हो रहा है…")
-            : pantryItems.length > 0
-              ? t(`Generate List (${pantryItems.length} in pantry)`, `सूची बनाएं (${pantryItems.length} पेंट्री में)`)
-              : t("Generate List", "सूची बनाएं")}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {pincode && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/50 px-2.5 py-1.5 rounded-full">
+              <MapPin className="w-3 h-3" /> {pincode}
+            </span>
+          )}
+          <Button
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            className="gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            {generateMutation.isPending
+              ? t("Generating…", "तैयार हो रहा है…")
+              : pantryItems.length > 0
+                ? t(`Generate List (${pantryItems.length} in pantry)`, `सूची बनाएं (${pantryItems.length} पेंट्री में)`)
+                : t("Generate List", "सूची बनाएं")}
+          </Button>
+        </div>
       </div>
+
+      {showPincodePrompt && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 print:hidden">
+          <div className="flex items-center gap-2 text-amber-800 flex-1 min-w-0">
+            <MapPin className="w-5 h-5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">{t("Enter your pincode for local prices", "स्थानीय कीमतों के लिए पिनकोड दें")}</p>
+              <p className="text-xs text-amber-600">{t("Helps us show seasonal availability & local pricing", "मौसमी उपलब्धता और स्थानीय कीमतें दिखाने में मदद करता है")}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="e.g. 110001"
+              value={pincodeInput}
+              onChange={e => setPincodeInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onKeyDown={e => e.key === "Enter" && savePincode()}
+              className="w-28 h-9 text-sm"
+              maxLength={6}
+            />
+            <Button size="sm" onClick={savePincode} disabled={!/^\d{6}$/.test(pincodeInput)}>
+              {t("Save", "सेव")}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowPincodePrompt(false)}>
+              {t("Skip", "छोड़ें")}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit print:hidden">
         <button
-          onClick={() => setActiveTab("list")}
+          onClick={() => setActiveTab("weekly")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "list"
+            activeTab === "weekly"
               ? "bg-white shadow-sm text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <ShoppingCart className="w-4 h-4" />
-          {t("Shopping List", "खरीदारी")}
+          {t("Weekly Perishables", "साप्ताहिक ताज़ा सामान")}
+        </button>
+        <button
+          onClick={() => setActiveTab("monthly")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "monthly"
+              ? "bg-white shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          {t("Monthly Staples", "मासिक राशन")}
         </button>
         <button
           onClick={() => setActiveTab("pantry")}
@@ -459,7 +532,7 @@ export default function Grocery() {
           }`}
         >
           <Package className="w-4 h-4" />
-          {t("Pantry Inventory", "पेंट्री इन्वेंटरी")}
+          {t("Pantry", "पेंट्री")}
           {pantryItems.length > 0 && (
             <span className="ml-1 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {pantryItems.length}
@@ -649,13 +722,34 @@ export default function Grocery() {
       )}
 
       {/* Grocery List Tab */}
-      {activeTab === "list" && isLoading && (
+      {activeTab === "monthly" && (
+        <div className="space-y-4">
+          <div className="glass-card rounded-2xl p-5">
+            <h3 className="font-semibold text-sm mb-3">{t("Monthly Staples Budget", "मासिक राशन बजट")}</h3>
+            <p className="text-xs text-muted-foreground mb-4">{t("Essential items to buy once a month in bulk", "हर महीने थोक में खरीदने वाली ज़रूरी चीज़ें")}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {PANTRY_STAPLES.map(staple => {
+                const isInPantry = pantryItems.some(p => p.toLowerCase().includes(staple.split("/")[0].trim().toLowerCase()));
+                return (
+                  <div key={staple} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs ${isInPantry ? "bg-green-50 border-green-200" : "bg-white border-border"}`}>
+                    {isInPantry && <span className="text-green-600">📦</span>}
+                    <span className={isInPantry ? "text-green-700 font-medium" : "text-foreground"}>{staple}</span>
+                    {isInPantry && <Badge variant="outline" className="text-[9px] px-1 py-0 border-green-300 text-green-600 ml-auto">{t("Already have", "पास है")}</Badge>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "weekly" && isLoading && (
         <div className="glass-card rounded-3xl p-8 text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       )}
 
-      {activeTab === "list" && !isLoading && !latest && (
+      {activeTab === "weekly" && !isLoading && !latest && (
         <div className="glass-card rounded-3xl p-8 text-center space-y-4">
           <ShoppingCart className="w-16 h-16 text-muted-foreground/50 mx-auto" />
           <h2 className="font-medium text-xl">{t("No Grocery List Yet", "अभी तक कोई सूची नहीं")}</h2>
@@ -674,7 +768,7 @@ export default function Grocery() {
         </div>
       )}
 
-      {activeTab === "list" && latest && (
+      {activeTab === "weekly" && latest && (
         <>
           {/* Action row: language toggle + share + print */}
           <div className="flex items-center justify-end gap-2 print:hidden">
@@ -785,6 +879,7 @@ export default function Grocery() {
                       const dbSwap = dbSwaps[swapKey];
                       const originalName = lang === "hi" && item.nameHindi ? item.nameHindi : item.name;
                       const displayCost = isSwapped && dbSwap ? dbSwap.cost : item.estimatedCost;
+                      const itemInPantry = pantryItems.some(p => p.toLowerCase().includes(item.name.toLowerCase().split("/")[0].trim()));
                       return (
                         <tr key={checkKey} className={`border-t border-muted/50 transition-all ${isChecked ? "opacity-40 bg-muted/20" : "hover:bg-muted/10"}`}>
                           <td className="px-3 py-2">
@@ -802,7 +897,10 @@ export default function Grocery() {
                                 <span className={`font-medium text-green-700 text-sm ${isChecked ? "line-through" : ""}`}>{dbSwap.name}</span>
                               </div>
                             ) : (
-                              <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>{originalName}</div>
+                              <div className={`font-medium text-foreground ${isChecked ? "line-through" : ""}`}>
+                                {originalName}
+                                {itemInPantry && <span className="ml-1.5 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">📦 {t("Already have", "पास है")}</span>}
+                              </div>
                             )}
                             <div className="text-xs text-muted-foreground">{item.category}</div>
                           </td>

@@ -69,6 +69,7 @@ function isOccasionalNonVeg(member: FamilyMember): boolean {
   const nonvegConfig = member.occasionalNonvegConfig;
   return (
     dietaryType === "non_vegetarian" ||
+    dietaryType === "occasional_non_veg" ||
     dietaryType === "occasional_nonveg" ||
     (nonvegConfig?.days?.length ?? 0) > 0
   );
@@ -107,6 +108,13 @@ function mergeProfileAndStored(profileDefaults: WeeklyContext, stored: WeeklyCon
   return merged;
 }
 
+interface GenerationLog {
+  message: string;
+  duration_ms?: number;
+  completed?: boolean;
+  step_index?: number;
+}
+
 export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopupProps) {
   const { activeFamily } = useAppState();
   const { t, lang } = useLanguage();
@@ -114,6 +122,10 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
   const queryClient = useQueryClient();
   const familyId = activeFamily?.id || 0;
   const defaultBudget = activeFamily?.monthlyBudget ?? 5000;
+
+  const [generatingPlanId, setGeneratingPlanId] = useState<number | null>(null);
+  const [generationLogs, setGenerationLogs] = useState<GenerationLog[]>([]);
+  const [generationStatus, setGenerationStatus] = useState<string>("pending");
 
   const { data: familyMembers } = useQuery<FamilyMember[]>({
     queryKey: ["family-members", familyId],
@@ -216,11 +228,56 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
     return finalCtx;
   };
 
+  useEffect(() => {
+    if (!generatingPlanId) return;
+    let retryCount = 0;
+    const MAX_RETRIES = 90;
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiFetch(`/api/meal-gen/${generatingPlanId}/status`);
+        if (!res.ok) {
+          retryCount++;
+          if (retryCount >= MAX_RETRIES) {
+            clearInterval(interval);
+            setGeneratingPlanId(null);
+            setGenerationLogs([]);
+            toast({ title: t("Generation timed out", "योजना बनाने में समय समाप्त"), description: t("Please try again", "कृपया फिर से प्रयास करें"), variant: "destructive" });
+          }
+          return;
+        }
+        const data = await res.json() as any;
+        retryCount = 0;
+        if (data.generation_log) setGenerationLogs(data.generation_log);
+        if (data.status) setGenerationStatus(data.status);
+        if (data.status === "completed") {
+          clearInterval(interval);
+          setGeneratingPlanId(null);
+          queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey({ familyId }) });
+          onGenerated();
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setGeneratingPlanId(null);
+          setGenerationLogs([]);
+          toast({ title: t("Generation failed", "योजना बनाने में विफल"), variant: "destructive" });
+        }
+      } catch {
+        retryCount++;
+        if (retryCount >= MAX_RETRIES) {
+          clearInterval(interval);
+          setGeneratingPlanId(null);
+          setGenerationLogs([]);
+          toast({ title: t("Connection lost", "कनेक्शन टूट गया"), variant: "destructive" });
+        }
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [generatingPlanId, familyId]);
+
   const submitPlan = async () => {
     const finalCtx = buildFinalCtx();
     persist(finalCtx);
     try {
-      await generate.mutateAsync({
+      const result = await generate.mutateAsync({
         data: {
           familyId: activeFamily!.id,
           weekStartDate: new Date().toISOString(),
@@ -228,13 +285,23 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
           weeklyContext: finalCtx,
         },
       });
-      queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey({ familyId }) });
-      onGenerated();
+      const planId = (result as any)?.id ?? (result as any)?.mealPlanId;
+      if (planId) {
+        setGeneratingPlanId(planId);
+        setGenerationLogs([]);
+        setGenerationStatus("processing");
+      } else {
+        queryClient.invalidateQueries({ queryKey: getListMealPlansQueryKey({ familyId }) });
+        onGenerated();
+      }
     } catch (e) {
       console.error(e);
       toast({ title: t("Generation failed", "योजना बनाने में विफल"), variant: "destructive" });
     }
   };
+
+  const isPolling = generatingPlanId !== null;
+  const isGenerating = generate.isPending || isPolling;
 
   if (!open) return null;
 
@@ -246,7 +313,7 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center"
-          onClick={(e) => { if (e.target === e.currentTarget && !generate.isPending) onClose(); }}
+          onClick={(e) => { if (e.target === e.currentTarget && !isGenerating) onClose(); }}
         >
           <motion.div
             initial={{ y: "100%", opacity: 0 }}
@@ -255,6 +322,50 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="bg-background w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl"
           >
+            {isPolling ? (
+              <div className="p-6 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center animate-pulse">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-center">{t("Generating Your Meal Plan…", "आपकी भोजन योजना बना रहे हैं…")}</h2>
+                <p className="text-xs text-muted-foreground text-center">{t("Building constraint packet → Running AI → Validating meals", "प्रतिबंध पैकेट बना रहे → AI चला रहे → भोजन जांच रहे")}</p>
+                <div className="w-full max-w-sm space-y-2 mt-2">
+                  {generationLogs.map((log, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-start gap-2 text-xs"
+                    >
+                      {log.completed ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <svg className="w-4 h-4 animate-spin text-primary shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      <span className={log.completed ? "text-foreground" : "text-muted-foreground"}>
+                        {log.message}
+                        {log.duration_ms != null && log.completed && (
+                          <span className="text-muted-foreground ml-1">({(log.duration_ms / 1000).toFixed(1)}s)</span>
+                        )}
+                      </span>
+                    </motion.div>
+                  ))}
+                  {generationLogs.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      {t("Initializing…", "शुरू कर रहे हैं…")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+            <>
             <div className="shrink-0 px-5 pt-4 pb-3 flex items-center justify-between border-b border-border">
               <div>
                 <h2 className="text-lg font-semibold">{t("This Week's Plan", "इस हफ्ते की योजना")}</h2>
@@ -262,7 +373,7 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
               </div>
               <button
                 onClick={onClose}
-                disabled={generate.isPending}
+                disabled={isGenerating}
                 className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -272,10 +383,10 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               <button
                 onClick={submitPlan}
-                disabled={generate.isPending}
+                disabled={isGenerating}
                 className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-2xl border-2 border-green-500 bg-green-50 hover:bg-green-100 transition-colors text-green-800 font-semibold text-sm disabled:opacity-50"
               >
-                {generate.isPending ? (
+                {isGenerating ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -283,7 +394,7 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
                 ) : (
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                 )}
-                {generate.isPending
+                {isGenerating
                   ? t("Generating…", "बना रहे हैं…")
                   : t("Nothing changed — confirm ✓", "कुछ नहीं बदला — पुष्टि करें ✓")}
               </button>
@@ -606,7 +717,7 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
             <div className="shrink-0 border-t border-border px-5 py-3 bg-background rounded-b-2xl">
               <button
                 onClick={submitPlan}
-                disabled={generate.isPending}
+                disabled={isGenerating}
                 className="btn-liquid w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold px-6 py-3 rounded-2xl disabled:opacity-60"
               >
                 {generate.isPending ? (
@@ -620,6 +731,8 @@ export default function MealGenPopup({ open, onClose, onGenerated }: MealGenPopu
                   : t("Generate Plan", "योजना बनाएं")}
               </button>
             </div>
+            </>
+            )}
           </motion.div>
         </motion.div>
       )}

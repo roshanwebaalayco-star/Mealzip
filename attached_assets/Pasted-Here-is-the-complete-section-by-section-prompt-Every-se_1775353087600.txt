@@ -1,0 +1,402 @@
+Here is the complete section-by-section prompt. Every section is written so Replit cannot misinterpret, skip steps, or let Gemini hallucinate a samosa.
+
+---
+
+# NutriNext ParivarSehat — Complete App Audit and Fix Prompt
+
+You are doing a full audit and repair of every section of this app. Work through each section in the exact order listed. After finishing each section, print `[SECTION NAME] — DONE` before moving to the next. Do not skip any section. Do not combine sections.
+
+---
+
+## BEFORE YOU START — READ THIS FIRST
+
+The core problem with this app right now is that **Gemini is being given too much freedom**. It is suggesting inappropriate meals like samosas, fried snacks, and street food because the constraints are either not being built, not being passed, or not being enforced in the prompt. The fix is not to call Gemini differently. The fix is to build an iron-clad constraint packet in TypeScript before Gemini is ever called, and then write a system prompt that makes Gemini behave like a clinical nutritionist with zero creative freedom.
+
+Every section below addresses a specific failure mode. Fix all of them.
+
+---
+
+## SECTION 1 — AUTHENTICATION (Supabase)
+
+**What to verify and fix:**
+
+Open `server/auth` or wherever Supabase auth is handled. Verify:
+
+1. Signup creates a user in `auth.users` AND creates a corresponding row in the `families` table linked to `auth.users.id`. If only the auth user is created but no `families` row exists, the new user redirect to profile setup will fail silently. Fix: add a Supabase database trigger OR add explicit row creation in the signup handler immediately after `supabase.auth.signUp()` succeeds.
+
+2. Login sets a session. On every protected route, the session must be verified server-side using `supabase.auth.getUser()` — not `getSession()`. `getSession()` reads from local storage and can be faked. `getUser()` hits the Supabase server and cannot be faked.
+
+3. New user detection: after login, query `SELECT id FROM families WHERE user_id = auth.uid() LIMIT 1`. If no row exists, redirect to `/profile/setup`. If a row exists but `family_members` count is 0, also redirect to profile setup. If both exist, allow navigation to the main app.
+
+4. The redirect after login must be server-side (middleware or a protected route wrapper), not a client-side `useEffect`. If it is a `useEffect`, it will flash the protected page for a fraction of a second before redirecting. Fix this.
+
+5. Logout must call `supabase.auth.signOut()` AND clear all local state (React state, localStorage, sessionStorage). After logout, navigating back must not restore any previous session.
+
+6. Row Level Security on Supabase: Open the Supabase dashboard. Go to every table: `families`, `family_members`, `monthly_budgets`, `weekly_contexts`, `member_weekly_contexts`, `meal_plans`, `grocery_lists`. Confirm RLS is ENABLED on every table. If any table has RLS disabled, that is a critical security bug — any authenticated user can read any family's data. Enable RLS and add a policy: `USING (family_id = (SELECT id FROM families WHERE user_id = auth.uid()))` or equivalent.
+
+---
+
+## SECTION 2 — PROFILE SETUP AND EDITING
+
+**The profile must be a form that saves every field listed below. Verify each field saves correctly to Supabase.**
+
+**Family-level fields (saved to `families` table):**
+
+- State/region: must be a searchable dropdown of all 28 Indian states + 8 UTs. Not a free-text field. Validate that the value is from the list before saving.
+- Language preference: Hindi / English toggle. Saved as `'hindi'` or `'english'`.
+- Household dietary baseline: strictly veg / veg with eggs / non-veg / mixed. Saved as enum string.
+- Meals per day: 2 meals / 3 meals / 3 meals + snacks. This value controls how many meal slots appear in the meal plan. If this is wrong, the meal plan generates the wrong number of slots.
+- Cooking skill level: beginner / intermediate / experienced. This affects the complexity of recipes Gemini is allowed to suggest.
+- Appliances: multi-select checkboxes. Saved as a JSON array to `families.appliances`. If no appliances are selected, default to `["gas_stove"]`.
+
+**Per-member fields (saved to `family_members` table, one row per member):**
+
+Every field below must be saved. Verify each one is not being silently dropped:
+
+- Name: required, text
+- Age: required, integer. This drives the auto-assignment rules below.
+- Gender: male / female / other
+- Height in cm: optional numeric
+- Weight in kg: optional numeric. If provided AND goal is set, the backend must immediately calculate `daily_calorie_target` using the ICMR-NIN Mifflin-St Jeor formula and save it to `family_members.daily_calorie_target`.
+- Activity level: sedentary / lightly_active / moderately_active / very_active
+- Primary goal: the dropdown options must change based on age (see auto-assignment rules). Do not show "weight loss" for members aged 13–17.
+- Goal pace: only show this field when goal is weight_loss or weight_gain. Hide it completely for all other goals.
+- Health conditions: multi-select. Options: none, diabetes_type_2, hypertension, anaemia, obesity, high_cholesterol, hypothyroid, pcos, kidney_issues. Plus a free-text field for custom conditions. Saved as JSON array.
+- Dietary type: strictly_vegetarian / jain_vegetarian / eggetarian / non_vegetarian / occasional_non_veg
+- Occasional non-veg config: only show when dietary type is occasional_non_veg. Show day checkboxes (Mon–Sun) and type checkboxes (chicken, mutton, fish, eggs). Saved as JSON: `{ "days": ["monday", "friday"], "types": ["chicken", "eggs"] }`.
+- Religious/cultural rules: none / no_beef / no_pork / sattvic_no_onion_garlic / jain_rules. Saved as JSON: `{ "type": "jain_rules", "details": [] }`.
+- Spice tolerance: mild / medium / spicy
+- Allergies: multi-select. Options: none, peanuts, dairy, gluten, tree_nuts, shellfish, soy, sesame. Saved as JSON array.
+- Ingredient dislikes: free text, maximum 5 entries. Show a counter "3/5 dislikes added". Block the 6th entry.
+- Fasting baseline: no_fasting / weekly / ekadashi. If weekly: show Mon–Sun checkboxes. Saved as JSON: `{ "type": "weekly", "weekly_days": ["monday", "thursday"], "ekadashi": false }`.
+- Festival fasting alerts: yes / no boolean.
+- Tiffin needed: no / yes_school / yes_office.
+
+**Auto-assignment rules (run in the backend, never show these fields to the user):**
+- Age < 5: set `primary_goal = 'early_childhood_nutrition'`. Hide the goal field.
+- Age 5–12: set `primary_goal = 'healthy_growth'`. Hide the goal field.
+- Age 13–17: show goal field but remove the weight_loss option.
+- Age >= 60: default `primary_goal = 'senior_nutrition'` but allow override.
+
+**Profile edit:**
+The profile page must pre-fill every saved value. Changing any field and clicking save must update only the changed fields, not overwrite the entire row. After save, show a toast notification and keep the user on the profile page.
+
+**Calorie target display:**
+After saving a member's profile, if weight and goal are both set, display the calculated daily calorie target on their profile card. Format: `"Daily target: 1,850 kcal"`. This is informational only — the user cannot edit it directly.
+
+---
+
+## SECTION 3 — MEAL GENERATION (THIS IS THE MOST CRITICAL SECTION)
+
+**The root cause of the samosa problem and all bad meal suggestions is here. Fix every step below.**
+
+### 3A — The Monthly Budget Setup (One Time)
+
+When a user first visits the meal section after completing profile, show the budget setup screen. This screen appears exactly once per month.
+
+Steps:
+1. Show the family's state/region detected from profile.
+2. Show a regional price suggestion: look up the state in the REGIONAL_PRICE_BASELINES table in `budgetEngine.ts`. Display: `"Families in [State] typically spend ₹[amount]/month. You can accept this or enter your own."`.
+3. User either accepts or types a custom amount.
+4. On submission, the backend runs `calculateBudgetSplit()` from `budgetEngine.ts` immediately. Store the result in `monthly_budgets` table. Never let Gemini touch this math.
+5. Display the split to the user: `"₹[X] for monthly staples · ₹[Y] per week for fresh ingredients · ₹[Z] for dry fruits and fruits"`.
+6. If the budget is critically low (below 65% of regional baseline for the family size), show a warning and suggest the minimum viable amount. Allow the user to proceed but flag it.
+
+### 3B — The Weekly Context Form (Every Week)
+
+Before each week's meal generation, the user fills this form:
+
+- Eating out this week: none / 1 to 2 times / frequently
+- Weekday cooking time: under_20_mins / 20_40_mins / no_limit
+- Weekend cooking time: quick / elaborate / no_preference
+
+Per member (pre-filled from profile, editable this week):
+- Current goal (pre-filled, editable)
+- Current weight (only if goal is weight_loss or weight_gain): "Any change since last time?" with optional number input
+- Health conditions this week (pre-filled, user can add/remove)
+- How are you feeling this week: free text, optional
+- Active medications and timing: free text. Example: "Metformin with breakfast, Iron pill at night". This is parsed by the backend — not by Gemini.
+
+Optional pantry scan:
+- User can type or speak the names and quantities of ingredients already at home.
+- Store as `weekly_contexts.pantry_snapshot` JSON array: `[{ "name": "cabbage", "quantity": 500, "unit": "grams", "is_perishable": true }]`.
+- Perishable items must be used in the generated plan before new ones are bought.
+
+### 3C — Pre-Generation: The Constraint Packet (CRITICAL — THIS IS WHY SAMOSAS APPEAR)
+
+**This runs entirely in TypeScript before ANY Gemini call. If this is not running, Gemini has no constraints and will suggest whatever it wants.**
+
+Open `conflict-engine.ts`. Verify the function `runConflictEngine()` is being called with the full family data before `runPromptChain()` is called. If `runConflictEngine()` is not called, or is called but its output is not passed to the prompt chain, fix this immediately.
+
+The constraint packet must include:
+1. All allergy blocks — every allergen maps to a list of specific Indian ingredient names (peanuts → groundnuts, mungfali, peanut oil, chikki, etc.). These are hard blocks. Gemini must never suggest a meal containing these.
+2. All religious/dietary blocks — jain means no onion, garlic, potato, carrot, radish, beetroot, turnip. Sattvic means no onion or garlic. These are hard blocks.
+3. All medication interaction constraints — parsed from the free text using regex, not AI.
+4. Clinical condition constraints — diabetes means no maida, no refined sugar, no white rice as the primary carb. Hypertension means sodium cap 1500mg/day. Kidney issues means potassium and phosphorus restrictions. These are hard blocks.
+5. Budget constraints — the exact daily cost limit per meal slot in INR. Gemini must not suggest a meal that costs more than this.
+6. Cooking time constraints — if weekday cooking time is under_20_mins, Gemini cannot suggest a biryani or any dish requiring more than 25 minutes.
+7. Regional food constraints — a family in Kerala should get Kerala dishes. A family in Punjab should get Punjabi dishes. The region is passed explicitly. Gemini is not allowed to suggest dishes from a different cuisine unless the family has explicitly set a mixed diet.
+
+**Verify this specific check: open the Gemini prompt being built in `prompt-chain.ts`. Find the section that lists hard constraints. If this section is empty, or if the word "forbidden" or "NEVER" does not appear in the constraints, the constraints are not being enforced. A Gemini prompt that says "prefer healthy options" is not a constraint. A constraint says "NEVER suggest: samosas, pakoras, fried snacks, maida-based foods, refined sugar dishes."**
+
+### 3D — The Gemini System Prompt (Fix This to Stop the Samosa Problem)
+
+Find where the Call 2 Gemini prompt is built in `prompt-chain.ts`. Replace the meal generation prompt with this structure. Do not change the overall code structure — only replace the text of the prompt.
+
+The Call 2 system prompt must contain these sections in this order:
+
+**Section A — Identity:**
+```
+You are a clinical Indian nutritionist generating a weekly meal plan. You are not a creative chef. You are not a food blogger. You generate medically appropriate, budget-compliant, regionally authentic meals. You do not have artistic freedom. You follow constraints exactly.
+```
+
+**Section B — Absolute prohibitions (build this list dynamically from the constraint packet):**
+```
+ABSOLUTE PROHIBITIONS — You MUST NEVER suggest any meal containing these ingredients under ANY circumstances:
+[Insert allergen list for the family]
+[Insert dietary type forbidden list — e.g. for strictly vegetarian: "meat, chicken, mutton, fish, seafood, shellfish, eggs, pork, beef"]
+[Insert religious forbidden list — e.g. for jain: "onion, garlic, potato, carrot, radish, beetroot, turnip, sweet potato, arbi"]
+
+ABSOLUTE MEAL TYPE PROHIBITIONS — You MUST NEVER suggest these as primary meals:
+- Samosas (fried, unhealthy, not a meal)
+- Pakoras or any deep-fried snack as a main meal slot
+- Mithai or sweets as a meal
+- Any street food as a primary meal slot
+- Maggi noodles or any instant noodle product
+- Pizza, burger, sandwich (unless family explicitly has western diet — this family does not)
+- Any dish with maida (refined flour) as primary ingredient if any member has diabetes or obesity
+```
+
+**Section C — Meal structure requirements:**
+```
+MEAL STRUCTURE RULES:
+- Every breakfast must include: a complex carbohydrate (poha, upma, idli, dosa, paratha with whole wheat, oats) + a protein source (dal, eggs if eggetarian, sprouts, curd) + a vegetable.
+- Every lunch must include: a dal or legume + a sabzi (vegetable) + a roti or rice + optionally curd.
+- Every dinner must include: a dal or legume + a sabzi + a roti. Avoid heavy fried items at dinner.
+- No meal slot may be filled with a fried snack (samosa, pakora, bhajia, kachori) as the primary item.
+- No two consecutive days may have the exact same main dish. Variety is required.
+- The meal must be realistically cookable in [weekdayCookingTime] on weekdays and [weekendCookingTime] on weekends.
+```
+
+**Section D — Per-member clinical constraints (build dynamically from constraint packet):**
+```
+MEMBER-SPECIFIC CONSTRAINTS:
+[For each member, insert]:
+[MemberName] (Age [X], [condition list]):
+- HARD BLOCKS for [MemberName]: [list specific ingredients they cannot have]
+- PORTION RULES for [MemberName]: [e.g. "rice: 150g max instead of 250g", "no ghee", "half salt"]
+- PLATE ADDITIONS for [MemberName]: [e.g. "add lemon juice for iron absorption", "extra dal scoop for protein"]
+```
+
+**Section E — Budget constraint:**
+```
+BUDGET CONSTRAINT:
+- Daily perishable budget: ₹[X]
+- Breakfast cost limit: ₹[breakfast_limit] (ingredients only, not staples)
+- Lunch cost limit: ₹[lunch_limit]
+- Dinner cost limit: ₹[dinner_limit]
+- You must estimate the ingredient cost of each meal and ensure it does not exceed the slot limit.
+- Staples (atta, dal, rice, oil) are pre-purchased and do not count toward this daily limit.
+```
+
+**Section F — Regional requirement:**
+```
+REGIONAL REQUIREMENT:
+- This family is from [state_region].
+- All meals must use [state_region] cuisine as the default.
+- Use local ingredient names: [e.g. for Kerala: use coconut oil, curry leaves, appam, puttu, fish curry if non-veg]
+- Do not suggest dishes from a different regional cuisine unless the dish is universally common in India (e.g., dal tadka is acceptable everywhere).
+```
+
+**Section G — Zero-waste pantry requirement:**
+```
+ZERO-WASTE MANDATE:
+The following ingredients are currently in the family's pantry and MUST be used in the meal plan THIS WEEK before buying new items:
+[List pantry items with quantities]
+Prioritize using these in the first 3 days of the week.
+```
+
+**Section H — Output format (JSON only):**
+```
+OUTPUT FORMAT:
+Return ONLY valid JSON. No prose. No explanation. No markdown code fences.
+The JSON must exactly match this schema:
+[paste the DayPlan[] schema here]
+```
+
+### 3E — The Waiting Screen
+
+The waiting screen must show real log entries from `meal_plans.generation_log`. Frontend must poll `GET /api/meal-plans/:id/status` every 2 seconds. Each poll returns the current `generation_log` array. Append new entries to the display — do not replace the whole list.
+
+Each log entry appears with a checkmark animation when `completed: true`. The currently running step shows a spinner. Total expected time: 35–55 seconds. Do not fake timings.
+
+### 3F — After Generation
+
+After status becomes `completed`:
+1. Hide the waiting screen.
+2. Show the 7-day meal plan as a grid: 7 columns (days) × 3 rows (breakfast, lunch, dinner).
+3. Each cell shows the dish name and estimated cost.
+4. Clicking a day opens the Recipe Viewer carousel.
+5. Show the Harmony Score as a number with a brief breakdown line below the grid.
+6. Show the conflict resolution card if any conflicts were detected.
+
+---
+
+## SECTION 4 — RECIPE VIEWER (Carousel)
+
+The recipe viewer opens only when `meal_plans.generation_status === 'completed'`. If status is anything else, the viewer must not be accessible.
+
+**Backend route:** `GET /api/meal-plans/:id/day/:date/recipe`
+
+This route:
+1. Checks generation_status. If not `completed`, return 403.
+2. Finds the day in `meal_plans.days` matching the date.
+3. For each meal slot (breakfast, lunch, dinner):
+   - Fetch recipe steps and ingredients from the stored `base_recipe` in the meal plan.
+   - If steps are empty, query the local recipes database: `SELECT * FROM recipes WHERE name ILIKE :mealName LIMIT 1`.
+   - If still empty, call Gemini to generate steps for that specific dish only. The Gemini call for recipe steps is NOT a nutritional generation — it is a simple cooking instruction request. The prompt must be: `"Generate cooking steps for [dish name] as made in [region]. Return JSON only: { ingredients: [{name, quantity}], steps: ['Step 1: ...'] }. Do not add any health modifications to the steps."`.
+   - Inject member modifications: for each step, check if any `member_plates[].modifications[]` string contains a keyword matching that step (salt → salting step, onion → tempering step, etc.). Inject matching modifications into that step as inline annotations.
+4. Fetch image using `image_search_query` from the meal. Try Unsplash API if `UNSPLASH_ACCESS_KEY` is set. If not available, return null — the frontend handles the fallback.
+5. Return the complete `RecipeSlideData` for all 3 slots in one response.
+
+**Frontend carousel:**
+- Full-screen modal on mobile, centered panel on desktop.
+- 3 slides: Breakfast, Lunch, Dinner.
+- Navigation: arrows + dots + swipe (touch events) + keyboard arrows.
+- Each slide: hero image (or gradient placeholder) → dish name + timing → priority flag chips → ingredients list (2-column grid) → cooking steps with inline modification cards.
+- Modification cards: CRITICAL (red left border), RECOMMENDED (amber), INFO (blue).
+- Member chips at bottom: tap to see that member's full modification list.
+- Escape key closes the modal.
+
+---
+
+## SECTION 5 — GROCERY LIST
+
+**Two separate sections. Render them as two distinct tabs or accordion panels.**
+
+**Section A — Monthly Staples:**
+- Generated by Gemini Call 1 using the 40% staples budget.
+- Shows: item name, quantity, estimated unit price, total estimated cost.
+- This list does not change week to week unless the user manually edits it.
+- Each item has a checkbox. Checking it means "purchased". State persists in Supabase.
+
+**Section B — Weekly Perishables:**
+- Generated by Gemini Call 2 as a byproduct of the meal plan.
+- Shows: item name, quantity needed for the week, estimated price.
+- Price estimation: if `PINCODE` is set in the family profile, show a note: `"Prices are approximate for [pincode] area. Check your local market."` Do not call an external price API — just show the estimated prices from the Gemini output.
+- Each item has a checkbox. If an item is in the pantry (from `pantry_snapshot`), show it with a `"📦 Already have"` badge and do not show it as a purchase item.
+
+**Pincode setup:**
+- First time the user opens grocery section: show a one-time prompt: `"Enter your PIN code for local price guidance"`. Store in `families.pincode`. Show an edit button on the grocery page to change it.
+- Validate: exactly 6 digits, all numeric.
+
+---
+
+## SECTION 6 — AI CHAT
+
+The AI chat is not a general chatbot. It has one specific purpose: the user logs a meal they ate that was not in the plan (street food, dining out, a guest's home), and the AI calculates the macro impact and adjusts the week's remaining meals.
+
+**What the AI must do:**
+1. User types or speaks what they ate. Example: `"Had 3 samosas and chai at a friend's place for lunch"`.
+2. The backend identifies this as an unplanned meal log.
+3. The backend estimates macros: samosa (approximately 150 kcal, 8g fat, 18g carbs each × 3 = 450 kcal, 24g fat, 54g carbs). Chai with sugar: 60 kcal. Total unplanned: ~510 kcal.
+4. The backend compares this against today's lunch target from the meal plan.
+5. The backend adjusts tomorrow's meals to rebalance: if sodium was high (samosas are salty), reduce tomorrow's dinner salt. If fat was high, reduce tomorrow's cooking oil.
+6. The AI response must NEVER use these phrases: "I'm sorry", "I apologize", "Great question", "That's okay", "Don't worry". It speaks like a clinical calculator: `"Logged: 510 kcal unplanned at lunch. Tomorrow's dinner adjusted to 420 kcal (down from 520 kcal) to rebalance the week's fat intake. No further change needed to sodium — within weekly limit."`.
+7. The adjustment is stored back to `meal_plans.days` in Supabase so the meal plan reflects the change.
+
+**Voice input (Sarvam AI):**
+If `SARVAM_API_KEY` is set, enable microphone input. The user speaks in any Indian language. Sarvam transcribes it. The transcription is passed to Gemini for interpretation. If `SARVAM_API_KEY` is not set, show only the text input. Do not crash.
+
+---
+
+## SECTION 7 — CLINICAL INSIGHTS DASHBOARD
+
+This page requires a completed meal plan to show any data. If no completed plan exists, show: `"Complete your first week's meal plan to see clinical insights."` Do not show empty charts.
+
+**Card 1 — Nutritional Debt Ledger:**
+For each family member, show horizontal bar charts for: Calories, Protein, Iron, Calcium, Sodium. Each bar shows the weekly average vs the ICMR-NIN daily target. Data comes from `meal_plans.nutritional_summary` (generated by the prompt chain). If a nutrient is below 80% of target, the bar is amber. Below 60%, it is red.
+
+**Card 2 — Nutritional Shadow Warning:**
+If any member's iron intake has been below target for 3+ consecutive days, show a warning card: `"[MemberName]'s iron intake has been below target for [N] days. Consider increasing rajma, chana, or spinach in remaining meals."` This uses data from `nutritional_summary.nutritional_debt[]`. If `nutritional_debt` is empty, show: `"All nutritional targets on track this week. ✅"`.
+
+**Card 3 — Medication Guardrail Timeline:**
+Show a visual timeline of the day (6am to 10pm) for each member who has active medications. Plot: medication time as a pill icon, meal slots as plate icons. Draw a shaded exclusion zone around each medication time showing the food restriction window. Example: Iron supplement at 9pm → shaded zone from 7pm to 11pm labelled `"No dairy in this window"`. If no medications are logged, show: `"No active medications logged this week."`.
+
+**Harmony Score card (shown at the top of the dashboard):**
+- Large number: e.g. `91/100`
+- Label: `"Excellent"` / `"Good"` / `"Moderate"` / `"Challenging"` based on score ranges
+- Breakdown: show each deduction and addition as a line item
+- Example: `"-2 pts: Papa's low-sodium plate modification required"` and `"+3 pts: Metformin window correctly scheduled"`
+
+---
+
+## SECTION 8 — NAVIGATION AND GLOBAL SHELL
+
+**Nav items (exactly these, in this order):**
+Profile | Meal Plan | Grocery | AI Chat | Clinical Insights
+
+**No other nav items.** If a "Recipes" nav item exists anywhere, remove it. Recipes are only accessible from within the meal plan view.
+
+**Active state:** The current section must be visually highlighted. Switching sections must update the highlight immediately.
+
+**Protected routes:** Every section except the login page must require authentication. If the user is not logged in, redirect to `/login`. This must happen server-side, not in a `useEffect`.
+
+**Profile gate:** If the user is logged in but has no completed profile (no `family_members` rows), redirect to `/profile/setup` from every section. This gate must apply on direct URL navigation too.
+
+**Mobile responsiveness:** Test at 390px width (iPhone 14). Nav must be a bottom tab bar on mobile. Content must not overflow horizontally. All tap targets must be at least 44×44px.
+
+---
+
+## SECTION 9 — FINAL VERIFICATION
+
+After fixing all sections above, verify these specific scenarios in order:
+
+**Scenario A — The Samosa Test:**
+Create a test family: 2 members, one with diabetes_type_2, strictly vegetarian, no allergies, region: Delhi, budget: ₹8000/month. Generate a meal plan. Inspect every one of the 21 generated meals. Verify:
+- No samosas, pakoras, or deep-fried snacks appear as any primary meal slot
+- No maida-based items appear as the primary dish for the diabetic member
+- Every breakfast includes a protein source
+- Every lunch includes a dal or legume
+- Every dinner is under the dinner cost limit
+
+**Scenario B — The Allergy Test:**
+Add a dairy allergy to one member. Generate a plan. Verify no meal for that member contains milk, paneer, curd, ghee, butter, cream, or khoya.
+
+**Scenario C — The Jain Test:**
+Set one member to jain_vegetarian. Generate a plan. Verify no meal for that member contains onion, garlic, potato, carrot, or radish.
+
+**Scenario D — The Budget Test:**
+Set budget to ₹6000. Verify the staples list total does not exceed ₹2400. Verify the weekly perishable list total does not exceed ₹750 per week. Verify the meal plan does not suggest expensive ingredients like saffron, imported cheese, or exotic produce.
+
+**Scenario E — The Cooking Time Test:**
+Set weekday cooking time to under_20_mins. Generate a plan. Verify no weekday meal requires more than 25 minutes (check `cook_time_mins` in the generated recipe data).
+
+**Print results for all 5 scenarios. If any scenario fails, fix the failure before marking the section done.**
+
+---
+
+## WHAT TO PRINT WHEN DONE
+
+After all sections are complete, print this:
+
+```
+NUTRINEXT FULL AUDIT — COMPLETE
+═══════════════════════════════
+Section 1 — Authentication:        [PASS/FAIL] [one line]
+Section 2 — Profile:               [PASS/FAIL] [one line]
+Section 3 — Meal Generation:       [PASS/FAIL] [one line]
+Section 4 — Recipe Viewer:         [PASS/FAIL] [one line]
+Section 5 — Grocery List:          [PASS/FAIL] [one line]
+Section 6 — AI Chat:               [PASS/FAIL] [one line]
+Section 7 — Clinical Dashboard:    [PASS/FAIL] [one line]
+Section 8 — Navigation/Shell:      [PASS/FAIL] [one line]
+Section 9 — Verification Scenarios:
+  Samosa Test:    [PASS/FAIL]
+  Allergy Test:   [PASS/FAIL]
+  Jain Test:      [PASS/FAIL]
+  Budget Test:    [PASS/FAIL]
+  Cooking Test:   [PASS/FAIL]
+Total issues fixed: [number]
+App status: PRODUCTION READY / NEEDS MORE WORK
+```
