@@ -30,6 +30,347 @@ const UNIVERSAL_MEAL_PROHIBITIONS = [
   "Cold drinks, packaged juice, or sweetened beverages",
 ];
 
+const CONDITION_CLINICAL_RULES: Record<string, { forbidden: string[]; rules: string[] }> = {
+  diabetes_type_2: {
+    forbidden: ["white sugar", "refined sugar", "maida", "fried foods", "mithai"],
+    rules: [
+      "No white rice as primary carb — replace with brown rice, jowar, or bajra",
+      "No maida in any form",
+      "No added sugar — no jaggery except tiny quantity",
+      "Include dal at EVERY meal (protein slows glucose spike)",
+      "Rice portion: 150g cooked max (not 250g)",
+      "Roti: jowar or bajra preferred, max 2 per meal",
+    ],
+  },
+  diabetes_type_1: {
+    forbidden: ["white sugar", "refined sugar", "maida", "fried foods", "mithai", "honey in excess"],
+    rules: [
+      "CRITICAL: Consistent carbohydrate counting required — each meal must have predictable carb content",
+      "No white rice as primary carb — replace with brown rice, jowar, or bajra",
+      "Include protein and fat with every carb portion to slow glucose spike",
+      "Snacks must be pre-portioned with known carb content",
+      "Include glucagon kit items in grocery: glucose tablets, fruit juice box (emergency only)",
+      "Avoid large gaps between meals — risk of hypoglycemia",
+    ],
+  },
+  ckd_stage_1_2: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods"],
+    rules: [
+      "Moderate protein: 0.8g per kg bodyweight per day",
+      "Low sodium: avoid added salt at table, minimal in cooking",
+      "Monitor potassium: limit banana, orange, coconut water",
+      "Adequate hydration: 2-3L water daily unless restricted",
+      "Prefer plant-based protein sources over animal protein",
+    ],
+  },
+  ckd_stage_3a: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "raw sprouts", "star fruit"],
+    rules: [
+      "CRITICAL: Protein restricted to 0.6-0.8g per kg bodyweight",
+      "Restrict phosphorus: limit dairy, nuts, whole grains, cola",
+      "Restrict potassium: no banana, orange, coconut water, tomato in excess",
+      "Low sodium: under 2000mg per day",
+      "Prefer white rice over brown rice (lower phosphorus/potassium)",
+    ],
+  },
+  ckd_stage_3b: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "raw sprouts", "star fruit", "whole grains in excess"],
+    rules: [
+      "CRITICAL: Protein restricted to 0.6g per kg bodyweight",
+      "Strictly restrict phosphorus: no dairy, no nuts, no whole grains",
+      "Strictly restrict potassium: no banana, orange, coconut water, potato, tomato",
+      "Sodium under 1500mg per day",
+      "White rice only as carb source",
+      "Consult nephrologist for meal adjustments",
+    ],
+  },
+  ckd_stage_4: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "raw sprouts", "star fruit", "whole grains", "dairy in excess", "nuts"],
+    rules: [
+      "CRITICAL: Very low protein — 0.6g per kg bodyweight maximum",
+      "Phosphorus under 800mg per day — no dairy, no nuts, no cola",
+      "Potassium under 2000mg per day — strict food restrictions",
+      "Sodium under 1500mg per day",
+      "Fluid restriction may apply — check with nephrologist",
+      "Only white rice, refined grains as carb sources",
+    ],
+  },
+  ckd_stage_5: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "raw sprouts", "star fruit", "whole grains", "dairy", "nuts", "dried fruits"],
+    rules: [
+      "CRITICAL: Renal diet — strict protein, phosphorus, potassium, sodium, fluid restrictions",
+      "Meals must be designed by or validated against nephrologist guidelines",
+      "Protein: 0.6g per kg or as prescribed by nephrologist",
+      "Phosphorus under 700mg per day",
+      "Potassium under 1500mg per day",
+      "Sodium under 1200mg per day",
+    ],
+  },
+  ckd_stage_5_dialysis: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "raw sprouts", "star fruit"],
+    rules: [
+      "CRITICAL: Dialysis diet — HIGHER protein than pre-dialysis (1.2g per kg bodyweight)",
+      "Phosphorus restriction still applies: under 800mg per day",
+      "Potassium restriction: under 2000mg per day",
+      "Sodium under 2000mg per day",
+      "Fluid restriction as per dialysis schedule",
+      "Include high-biological-value protein: eggs, paneer, fish",
+    ],
+  },
+  pregnancy_t1: {
+    forbidden: ["raw papaya", "raw pineapple", "ajinomoto", "excess caffeine", "alcohol", "raw sprouts", "unpasteurized dairy"],
+    rules: [
+      "First trimester: No extra calories needed yet — focus on nutrient density",
+      "MANDATORY: Folic acid-rich foods in every meal: spinach, methi, dal, fortified cereals",
+      "Iron-rich foods daily: palak, beetroot, dates, jaggery",
+      "Vitamin C pairing with iron foods for absorption",
+      "Small frequent meals if morning sickness present",
+      "Avoid heavy spicy foods if nausea is an issue",
+    ],
+  },
+  pregnancy_t2: {
+    forbidden: ["raw papaya", "raw pineapple", "ajinomoto", "excess caffeine", "alcohol", "raw sprouts", "unpasteurized dairy"],
+    rules: [
+      "Second trimester: Extra 300 kcal/day above maintenance",
+      "Calcium: 1200mg/day — ragi, sesame, curd, milk, paneer",
+      "Iron: double the standard RDA — include heme and non-heme sources",
+      "Protein: 78g/day (ICMR-NIN) — dal, paneer, eggs, chicken",
+      "DHA/omega-3: walnuts, flaxseeds, fish (if non-veg)",
+      "Fibre-rich foods to prevent constipation",
+    ],
+  },
+  pregnancy_t3: {
+    forbidden: ["raw papaya", "raw pineapple", "ajinomoto", "excess caffeine", "alcohol", "raw sprouts", "unpasteurized dairy"],
+    rules: [
+      "Third trimester: Extra 400-500 kcal/day above maintenance",
+      "Small frequent meals — large meals cause discomfort",
+      "Calcium: 1200mg/day — critical for foetal bone development",
+      "Iron: continued high intake, vitamin C pairing mandatory",
+      "Protein: 78g/day minimum",
+      "Avoid gas-producing foods in excess: rajma, chole, cabbage",
+      "Light dinner — prevent heartburn/reflux",
+    ],
+  },
+  lactating_0_6m: {
+    forbidden: ["alcohol", "excess caffeine", "strong spices that may affect milk taste"],
+    rules: [
+      "Lactation 0-6 months: Extra 500 kcal/day above pre-pregnancy maintenance",
+      "Protein: 75g/day (ICMR-NIN 2024)",
+      "Calcium: 1200mg/day — ragi, sesame, curd, milk",
+      "Iron-rich foods: jaggery-based laddoos, dates, green leafy vegetables",
+      "Traditional galactagogues: methi seeds, ajwain, saunf, jeera water",
+      "Adequate fluids: 3-4L/day including water, buttermilk, dal water",
+    ],
+  },
+  lactating_7_12m: {
+    forbidden: ["alcohol", "excess caffeine"],
+    rules: [
+      "Lactation 7-12 months: Extra 400 kcal/day above pre-pregnancy maintenance",
+      "Protein: 68g/day",
+      "Calcium: 1200mg/day — continue high calcium foods",
+      "Iron-rich foods daily: prevent postnatal anaemia",
+      "Continue galactagogues if milk supply is a concern",
+      "Gradually introduce complementary foods for baby — not reflected in mother's plate",
+    ],
+  },
+  obesity: {
+    forbidden: ["deep fried foods", "mithai", "packaged snacks", "maida", "cold drinks"],
+    rules: [
+      "Calorie deficit meals only — no second servings in recipe",
+      "No fried items at dinner",
+      "Include high-fibre vegetables in every meal",
+      "Protein in every meal slot to maintain satiety",
+      "No calorie-dense gravies (malai, cream, coconut milk)",
+    ],
+  },
+  hypertension: {
+    forbidden: ["high-sodium pickles", "papads", "processed snacks", "readymade masala mixes"],
+    rules: [
+      "Salt in base dish: HALF the standard recipe quantity",
+      "No papad — contains 400-600mg sodium per piece",
+      "No pickle/achar as a side",
+      "Include potassium-rich foods: banana, tomato, spinach, sweet potato",
+      "Use amchur, lemon, herbs for flavour instead of salt",
+    ],
+  },
+  high_cholesterol: {
+    forbidden: ["vanaspati", "dalda", "margarine", "trans fats", "hydrogenated oil"],
+    rules: [
+      "Use mustard oil or olive oil only — no refined oil",
+      "Include soluble fibre sources: oats, flaxseeds, isabgol",
+      "No coconut cream or heavy cream gravies",
+      "Include omega-3 sources: walnuts, flaxseeds, fish (if non-veg)",
+      "Limit egg yolk to 3 per week",
+    ],
+  },
+  kidney_issues: {
+    forbidden: ["high-sodium pickles", "papads", "processed foods", "excessive potassium fruits (banana, orange)", "raw sprouts", "spinach in excess", "tomato in excess"],
+    rules: [
+      "CRITICAL: Limit protein to prescribed amount — do not exceed",
+      "Restrict phosphorus: limit dairy, nuts, whole grains",
+      "Restrict potassium: no banana, orange, coconut water, tomato in excess",
+      "Low sodium: no added salt at table, minimal in cooking",
+      "Prefer white rice over brown rice (lower phosphorus)",
+    ],
+  },
+  hypothyroid: {
+    forbidden: ["raw cruciferous vegetables in excess (cabbage, cauliflower, broccoli)", "soy-based foods", "highly processed foods", "excessive sugar"],
+    rules: [
+      "MANDATORY: Iodised salt only",
+      "Cruciferous vegetables must be cooked (not raw) — cooking deactivates goitrogens",
+      "Avoid soy-based foods entirely (soya chunks, tofu, soy milk)",
+      "Include selenium sources: Brazil nuts (if no tree nut allergy), eggs",
+      "Include zinc sources: pumpkin seeds, sesame seeds",
+    ],
+  },
+  pcos: {
+    forbidden: ["white sugar", "refined carbs", "maida", "white bread", "cold drinks", "packaged juice", "deep fried foods"],
+    rules: [
+      "Anti-inflammatory spices in every meal: turmeric, cinnamon, ginger",
+      "Low glycemic index carbs only: whole grains, millets",
+      "Include omega-3 fatty acids: flaxseeds, walnuts",
+      "Chromium-rich foods: broccoli (cooked), green beans, whole grains",
+      "No refined carbs — use jowar, bajra, ragi instead of wheat",
+    ],
+  },
+  anaemia: {
+    forbidden: ["tea with meals (inhibits iron absorption)", "coffee with meals", "calcium supplements with iron-rich meals"],
+    rules: [
+      "Iron-rich food in every meal: spinach (palak), beetroot, dates, jaggery, rajma",
+      "Vitamin C pairing mandatory: lemon, amla, guava alongside iron-rich foods",
+      "No tea or coffee within 1 hour of meals",
+      "Include B12 sources: curd, paneer (if vegetarian); eggs, fish (if non-veg)",
+      "Soak and sprout legumes to increase iron bioavailability",
+    ],
+  },
+};
+
+function buildPerMemberClinicalBlocks(packet: ConstraintPacket): string {
+  const { effectiveProfiles } = packet;
+  const blocks: string[] = [];
+
+  for (const p of effectiveProfiles) {
+    const memberBlocks: string[] = [];
+
+    const activeAllergies = p.allergies.filter(a => a !== "none");
+    if (activeAllergies.length > 0) {
+      const allergyItems = activeAllergies.flatMap(allergy => {
+        const mapped: Record<string, string[]> = {
+          peanuts: ["peanuts", "groundnuts", "mungfali", "moongphali", "peanut oil", "groundnut oil", "chikki"],
+          dairy: ["milk", "paneer", "curd", "dahi", "ghee", "butter", "cream", "malai", "khoya", "cheese", "lassi", "raita", "kheer"],
+          gluten: ["wheat", "atta", "maida", "suji", "roti", "paratha", "naan", "bread", "seviyan", "daliya"],
+          tree_nuts: ["almonds", "cashews", "walnuts", "pistachios", "mixed dry fruits"],
+          shellfish: ["prawns", "shrimp", "crab", "lobster", "mussels"],
+          soy: ["soya chunks", "nutrela", "tofu", "soy sauce", "soya milk"],
+          sesame: ["til", "sesame seeds", "tahini", "til ladoo", "gingelly oil"],
+        };
+        return mapped[allergy] ?? [];
+      });
+      memberBlocks.push(`  [${p.name}] LEVEL 1 — ALLERGY HARD BLOCKS:\n    ZERO TOLERANCE: ${allergyItems.join(", ")}`);
+    }
+
+    const dietForbidden = DIETARY_TYPE_FORBIDDEN[p.dietaryType] ?? [];
+    if (dietForbidden.length > 0) {
+      memberBlocks.push(`  [${p.name}] LEVEL 2 — DIETARY TYPE BLOCKS (${p.dietaryType}):\n    FORBIDDEN: ${dietForbidden.join(", ")}`);
+    }
+
+    if (p.activeMedications.length > 0) {
+      const medLines = p.activeMedications.map(m => `    - ${m.name} (${m.timing}): ${m.notes || "follow standard drug-food interaction rules"}`);
+      memberBlocks.push(`  [${p.name}] LEVEL 3 — MEDICATION INTERACTION WINDOWS:\n${medLines.join("\n")}`);
+    }
+
+    const activeConditions = p.effectiveHealthConditions.filter(c => c !== "none");
+    if (activeConditions.length > 0) {
+      const condLines: string[] = [];
+      for (const cond of activeConditions) {
+        const clinicalRule = CONDITION_CLINICAL_RULES[cond];
+        if (clinicalRule) {
+          condLines.push(`    ${cond.toUpperCase().replace(/_/g, " ")}:`);
+          clinicalRule.rules.forEach(r => condLines.push(`      - ${r}`));
+        }
+      }
+      if (condLines.length > 0) {
+        memberBlocks.push(`  [${p.name}] LEVEL 4 — CLINICAL CONDITION RULES:\n${condLines.join("\n")}`);
+      }
+    }
+
+    const goalRules = buildGoalRules(p);
+    if (goalRules.length > 0) {
+      memberBlocks.push(`  [${p.name}] LEVEL 5 — GOAL-SPECIFIC RULES (${p.effectiveGoal}):\n${goalRules.map(r => `    - ${r}`).join("\n")}`);
+    }
+
+    const religType = p.religiousCulturalRules?.type;
+    if (religType && religType !== "none") {
+      const religMap: Record<string, string[]> = {
+        no_beef: ["beef", "veal"],
+        no_pork: ["pork", "bacon", "ham", "lard"],
+        sattvic_no_onion_garlic: ["onion", "garlic", "leek", "spring onion", "shallots"],
+        jain_rules: ["onion", "garlic", "potato", "carrot", "radish", "beetroot", "turnip", "sweet potato", "arbi", "yam"],
+      };
+      const religForbidden = religMap[religType] ?? [];
+      if (religForbidden.length > 0) {
+        memberBlocks.push(`  [${p.name}] RELIGIOUS/CULTURAL BLOCKS (${religType}):\n    FORBIDDEN: ${religForbidden.join(", ")}`);
+      }
+    }
+
+    if (memberBlocks.length > 0) {
+      blocks.push(memberBlocks.join("\n\n"));
+    }
+  }
+
+  if (blocks.length === 0) return "";
+
+  return `═══════════════════════════════════════════════
+PER-MEMBER CLINICAL CONSTRAINTS (MANDATORY — TypeScript backend has pre-computed these. Gemini MUST obey every line):
+${blocks.join("\n\n")}
+═══════════════════════════════════════════════`;
+}
+
+function buildGoalRules(p: EffectiveMemberProfile): string[] {
+  const goal = p.effectiveGoal;
+  const rules: string[] = [];
+
+  if (goal === "weight_loss") {
+    rules.push(`Daily calorie target: ${p.dailyCalorieTarget ?? "calculated"} kcal — do not exceed`);
+    rules.push("High protein, high fibre in every meal");
+    rules.push("No fried items at dinner");
+    rules.push("Dinner must be the lightest meal — under 400 kcal");
+    if (p.goalPace === "slow_0.25kg") rules.push("Pace: gradual 0.25kg/week — mild 250 kcal deficit");
+    if (p.goalPace === "moderate_0.5kg") rules.push("Pace: moderate 0.5kg/week — 500 kcal deficit");
+  } else if (goal === "weight_gain") {
+    rules.push(`Daily calorie target: ${p.dailyCalorieTarget ?? "calculated"} kcal — caloric surplus required`);
+    rules.push("Include calorie-dense healthy foods: ghee (if no dairy allergy), nuts, full-fat curd");
+    rules.push("Larger portions of complex carbs: extra roti, rice");
+    rules.push("Pre-bed snack: warm milk with turmeric + dry fruit (if no allergy)");
+  } else if (goal === "build_muscle") {
+    rules.push(`Daily calorie target: ${p.dailyCalorieTarget ?? "calculated"} kcal`);
+    rules.push("Protein target: 1.6-2.0g per kg bodyweight");
+    rules.push("Include protein in every meal: dal, paneer, eggs, chicken, soy");
+    rules.push("Post-workout meal timing: within 2 hours of exercise");
+  } else if (goal === "manage_condition") {
+    rules.push("Follow all Level 4 clinical condition rules strictly");
+    rules.push("Prioritize therapeutic foods for the specific condition");
+  } else if (goal === "early_childhood_nutrition") {
+    rules.push("CRITICAL: Age-appropriate textures and portions");
+    rules.push("No whole nuts (choking hazard) — use ground/paste form");
+    rules.push("No added salt or sugar for under 1 year");
+    rules.push("Include iron-fortified cereals, mashed dal, soft vegetables");
+  } else if (goal === "healthy_growth") {
+    rules.push("Balanced meals with all food groups");
+    rules.push("Calcium-rich foods: milk, curd, ragi, sesame");
+    rules.push("Iron-rich foods daily: green leafy vegetables, jaggery");
+    rules.push("No junk food substitutions — whole foods only");
+  } else if (goal === "senior_nutrition") {
+    rules.push("Easy to chew and digest meals");
+    rules.push("Higher calcium: ragi, sesame, curd");
+    rules.push("Adequate protein to prevent muscle loss");
+    rules.push("Fibre-rich to aid digestion");
+    rules.push("Low oil, low spice — gentle on the digestive system");
+  }
+
+  return rules;
+}
+
 function buildAbsoluteProhibitions(packet: ConstraintPacket): string {
   const { effectiveProfiles } = packet;
 
@@ -69,30 +410,8 @@ function buildAbsoluteProhibitions(packet: ConstraintPacket): string {
 
     for (const cond of p.effectiveHealthConditions) {
       if (cond === "none") continue;
-      if (cond === "diabetes_type_2") {
-        ["white sugar", "refined sugar", "maida", "fried foods", "mithai"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "obesity") {
-        ["deep fried foods", "mithai", "packaged snacks", "maida", "cold drinks"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "hypertension") {
-        ["high-sodium pickles", "papads", "processed snacks", "readymade masala mixes"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "high_cholesterol") {
-        ["vanaspati", "dalda", "margarine", "trans fats", "hydrogenated oil"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "kidney_issues") {
-        ["high-sodium pickles", "papads", "processed foods", "excessive potassium fruits (banana, orange)", "raw sprouts", "spinach in excess", "tomato in excess"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "hypothyroid") {
-        ["raw cruciferous vegetables in excess (cabbage, cauliflower, broccoli)", "soy-based foods", "highly processed foods", "excessive sugar"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "pcos") {
-        ["white sugar", "refined carbs", "maida", "white bread", "cold drinks", "packaged juice", "deep fried foods"].forEach(i => conditionBlocks.add(i));
-      }
-      if (cond === "anaemia") {
-        ["tea with meals (inhibits iron absorption)", "coffee with meals", "calcium supplements with iron-rich meals"].forEach(i => conditionBlocks.add(i));
-      }
+      const rule = CONDITION_CLINICAL_RULES[cond];
+      if (rule) rule.forbidden.forEach(i => conditionBlocks.add(i));
     }
   }
 
@@ -552,15 +871,20 @@ export async function generateWeeklyMealPlan(
   const absoluteProhibitions = buildAbsoluteProhibitions(packet);
   const mealStructureRules = buildMealStructureRules(packet);
   const regionalRequirement = buildRegionalRequirement(packet);
+  const perMemberClinicalBlocks = buildPerMemberClinicalBlocks(packet);
 
   const prompt = `
 You are a clinical Indian nutritionist generating a weekly meal plan. You are not a creative chef. You are not a food blogger. You generate medically appropriate, budget-compliant, regionally authentic meals. You do not have artistic freedom. You follow constraints exactly.
+
+LAW 1: Gemini NEVER makes clinical decisions. The TypeScript backend has pre-computed all medical constraints (Levels 1-5 below). You implement them exactly. You do not interpret, relax, or override any clinical rule.
 
 ${familyContext}
 
 ═══════════════════════════════════════════════
 ${absoluteProhibitions}
 ═══════════════════════════════════════════════
+
+${perMemberClinicalBlocks}
 
 ${mealStructureRules}
 

@@ -227,6 +227,38 @@ router.post("/gemini/conversations/:id/messages", async (req, res): Promise<void
   let recipeContext = "";
   let knowledgeContext = "";
 
+  const MEAL_LOG_KEYWORDS = [
+    "had", "ate", "eaten", "khaya", "khaaya", "khaa liya", "kha liya",
+    "lunch was", "breakfast was", "dinner was",
+    "at a restaurant", "ordered", "street food",
+    "we ate", "i ate", "he ate", "she ate",
+    "maine khaya", "humne khaya", "usne khaya",
+    "bahar khaya", "outside food",
+  ];
+  const msgLower = userMsg.toLowerCase();
+  const isMealLog = MEAL_LOG_KEYWORDS.some(kw => msgLower.includes(kw));
+
+  let mealLogContext = "";
+  if (isMealLog) {
+    try {
+      const extractResult = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: `Analyse this message and extract EVERY food/beverage item mentioned: "${userMsg}"\n\nFor each food item, estimate nutritional composition. Return ONLY JSON:\n{"foods": [{"name": "string", "kcal_per_serve": number, "sodium_mg_per_serve": number, "is_hfss": boolean}]}\n\nHFSS = true if kcal_per_100g > 250 or sodium_mg_per_serve > 2000.` }] }],
+        config: { maxOutputTokens: 512, responseMimeType: "application/json" },
+      });
+      const rawText = extractResult.text ?? "{}";
+      const foodData = JSON.parse(rawText.includes("{") ? rawText.slice(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1) : "{}") as { foods?: Array<{ name: string; kcal_per_serve: number; sodium_mg_per_serve: number; is_hfss: boolean }> };
+      const foods = foodData.foods ?? [];
+      if (foods.length > 0) {
+        const totalKcal = foods.reduce((s, f) => s + (f.kcal_per_serve ?? 0), 0);
+        const totalSodium = foods.reduce((s, f) => s + (f.sodium_mg_per_serve ?? 0), 0);
+        const hfssItems = foods.filter(f => f.is_hfss);
+        mealLogContext = `\n\n--- UNPLANNED MEAL DETECTED ---\nThe user just logged eating outside the plan. Detected foods:\n${foods.map(f => `- ${f.name}: ~${f.kcal_per_serve} kcal, ${f.sodium_mg_per_serve}mg sodium${f.is_hfss ? " [HFSS]" : ""}`).join("\n")}\nTotal: ~${totalKcal} kcal, ~${totalSodium}mg sodium.\n${hfssItems.length > 0 ? `HFSS WARNING: ${hfssItems.map(f => f.name).join(", ")} are high fat/sugar/sodium items.\n` : ""}YOU MUST:\n1. Do NOT scold. Acknowledge casually.\n2. Estimate the caloric and sodium impact.\n3. Provide a SPECIFIC clinical adjustment for the next 24-48 hours referencing the family's current meal plan.\n4. Name exact Indian dishes for the next meal that would rebalance the nutritional debt.\n5. Reference specific family member health conditions when giving the adjustment.\n---`;
+      }
+    } catch {
+    }
+  }
+
   let dynamicContext = "";
   let familyGreeting = "Namaste! I'm NutriNext AI. How can I help your family with nutrition today?";
   let familyState: string | undefined;
@@ -319,7 +351,7 @@ When the user refers to any member by name or pronoun (he/she/they/uska/unka), i
     const script = scriptMap[requestedLanguage.toLowerCase()] || requestedLanguage;
     languageInstruction = `\n\nCRITICAL LANGUAGE RULE: The user has selected "${requestedLanguage}" as their language. You MUST respond entirely in ${requestedLanguage} using its native script (${script}). Do NOT transliterate into Roman/Latin script. Do NOT use English unless the selected language is English. Keep technical nutrition terms (like kcal, mg, BMI) in English only when no native equivalent exists. Every sentence must be in ${script} script.`;
   }
-  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + knowledgeContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
+  const fullSystemInstruction = SYSTEM_PROMPT + dynamicContext + mealLogContext + knowledgeContext + (recipeContext ? `\n\n${recipeContext}` : "") + languageInstruction;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

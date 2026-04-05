@@ -122,6 +122,21 @@ The pipeline follows this exact architecture:
 5. **Meal Plan Storage** → `mealPlansTable` in Supabase with familyId, weekStartDate, calendarJson, createdAt.
 6. **On-Demand Recipe (Call 2)** → Regenerate endpoint reads stored calendar + modifiers, passes to Gemini with inline ⚠️ warnings. `planValidator.ts` for clinical validation.
 
+### Per-Member Level 1-5 Clinical Blocks (prompt-chain.ts)
+
+The Gemini prompt now includes explicit per-member constraint blocks:
+- **Level 1 — Allergy Hard Blocks**: Zero-tolerance allergen lists per member (e.g., `[Amit] LEVEL 1 — ALLERGY HARD BLOCKS: peanuts, groundnuts...`)
+- **Level 2 — Dietary Type Blocks**: Forbidden ingredients per dietary type per member
+- **Level 3 — Medication Interaction Windows**: Drug-food interaction rules per member
+- **Level 4 — Clinical Condition Rules**: Detailed per-condition rules (e.g., diabetes: no white rice, rice portion 150g max; hypertension: salt HALF, no papad; PCOS: anti-inflammatory spices)
+- **Level 5 — Goal-Specific Rules**: Weight loss deficit, muscle gain protein, child nutrition age-appropriate, senior easy-to-digest
+
+Clinical rules are stored in `CONDITION_CLINICAL_RULES` constant — hardcoded TypeScript, no AI decisions (Law 1).
+
+### AI Chat — Meal Logging Detection
+
+The chat route (`/gemini/conversations/:id/messages`) auto-detects unplanned meal logs using `MEAL_LOG_KEYWORDS` (e.g., "had", "ate", "khaya", "at a restaurant"). When detected, it triggers an inline HFSS food classifier and injects the nutritional analysis into the system prompt so Gemini provides a specific clinical adjustment (no scolding, just rebalance advice).
+
 Pipeline validation script: `pnpm exec tsx scripts/pipeline-validation.ts` (3 scenarios: Sharma/Menon/Joshi families, all PASS). Validation checks are data-backed: hard-block ingredient matching (word-boundary + fasting-safe compound exceptions), medication timing modifier injection, budget pre-filtering, and Navratri grain ban enforcement.
 
 ## TypeScript Project References
