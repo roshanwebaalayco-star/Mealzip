@@ -26,16 +26,17 @@ router.get("/grocery-lists", assertFamilyOwnership, async (req, res): Promise<vo
       .where(eq(groceryListsTable.familyId, familyId))
       .orderBy(groceryListsTable.createdAt);
 
-    // Fetch the latest monthly budget for this family to compute budget status
-    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
-    const budgets = await db.select().from(monthlyBudgetsTable)
-      .where(eq(monthlyBudgetsTable.familyId, familyId))
-      .orderBy(monthlyBudgetsTable.createdAt);
-
-    // Use latest budget, prefer current month
-    const budget = budgets.find(b => b.monthYear === currentMonth) ?? budgets[budgets.length - 1];
-    // Weekly perishables budget = monthly perishables budget / 4
-    const weeklyBudget = budget ? parseFloat(budget.perishablesBudget) / 4 : null;
+    let weeklyBudget: number | null = null;
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const budgets = await db.select().from(monthlyBudgetsTable)
+        .where(eq(monthlyBudgetsTable.familyId, familyId))
+        .orderBy(monthlyBudgetsTable.createdAt);
+      const budget = budgets.find(b => b.monthYear === currentMonth) ?? budgets[budgets.length - 1];
+      weeklyBudget = budget ? parseFloat(budget.perishablesBudget) / 4 : null;
+    } catch {
+      // monthly_budgets table may not exist yet — fallback to no budget comparison
+    }
 
     const listsWithStatus = lists.map(list => {
       const cost = parseFloat(list.totalEstimatedCost ?? "0");

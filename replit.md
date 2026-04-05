@@ -81,6 +81,16 @@ Comprehensive bug-fix and quality pass:
 - **FamilySetup TypeScript**: Fixed `healthGoal` property access using `Record<string,unknown>` cast to match API client types.
 - **UI QA Fixes**: Jain dietary warning, T1D alert, BMI badge display, Register inline error, age>120 validation block.
 
+## 9-Section Audit Fix Pass (April 2026)
+
+Comprehensive audit-driven fix pass:
+
+- **Meal Generation Prompt Hardening (Section 3D)**: Rewrote Gemini prompt in `prompt-chain.ts` with clinical identity preamble, ABSOLUTE PROHIBITIONS section (samosa, pakora, kachori, bhajia, maggi, maida, mithai, street food as primary meals), MEAL STRUCTURE RULES (every breakfast needs complex carb + protein, every lunch needs dal + sabzi + roti, dinner lighter than lunch), REGIONAL REQUIREMENT section (18 state-specific cuisine hints), and budget/constraint sections with separator formatting. Added `buildAbsoluteProhibitions()`, `buildMealStructureRules()`, `buildRegionalRequirement()` helper functions.
+- **Profile Page Completeness (Section 2)**: Added Spice Tolerance dropdown and Festival Fasting Alerts checkbox to Profile.tsx advanced section.
+- **Auth Hardening (Section 1)**: Logout now clears all localStorage state including `demo_family_cache`, `demo_meal_plan_cache`, and `active_family`.
+- **Grocery Budget Status Fix**: Made `monthlyBudgetsTable` query graceful with try-catch fallback — prevents 500 error when table doesn't exist yet.
+- **Navigation**: Recipes link added to both desktop sidebar and mobile bottom nav (6 items: Profile, Meals, Recipes, Grocery, AI Chat, Clinical Insights).
+
 ## External Dependencies
 
 **AI Services:**

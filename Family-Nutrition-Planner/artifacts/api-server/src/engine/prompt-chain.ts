@@ -12,6 +12,146 @@ import { cookingTimeToConstraintString } from "./budget-engine";
 import { buildMemberModifierMap, buildModifierInjectionSection } from "./one-many-plates";
 import { T1D_MANDATORY_GROCERY_ITEMS } from "./clinical/type1Diabetes";
 
+const DIETARY_TYPE_FORBIDDEN: Record<string, string[]> = {
+  strictly_vegetarian: ["meat", "chicken", "mutton", "fish", "seafood", "shellfish", "eggs", "pork", "beef", "lamb", "prawns", "crab"],
+  jain_vegetarian: ["meat", "chicken", "mutton", "fish", "seafood", "shellfish", "eggs", "pork", "beef", "onion", "garlic", "potato", "carrot", "radish", "beetroot", "turnip", "sweet potato", "arbi", "yam"],
+  eggetarian: ["meat", "chicken", "mutton", "fish", "seafood", "shellfish", "pork", "beef", "lamb", "prawns", "crab"],
+  vegan: ["meat", "chicken", "mutton", "fish", "seafood", "shellfish", "eggs", "pork", "beef", "milk", "paneer", "curd", "ghee", "butter", "cream", "cheese", "khoya", "honey"],
+};
+
+const UNIVERSAL_MEAL_PROHIBITIONS = [
+  "Samosas (fried, not a meal)",
+  "Pakoras, bhajias, or any deep-fried snack as a primary meal slot",
+  "Mithai or sweets as a meal",
+  "Street food (chaat, vada pav, pav bhaji) as a primary meal slot",
+  "Maggi noodles or any instant noodle product",
+  "Pizza, burger, sandwich, or fast food",
+  "Kachori, puri (deep-fried) as primary carb — use roti/paratha instead",
+  "Cold drinks, packaged juice, or sweetened beverages",
+];
+
+function buildAbsoluteProhibitions(packet: ConstraintPacket): string {
+  const { effectiveProfiles } = packet;
+
+  const allergenBlocks = new Set<string>();
+  const dietaryBlocks = new Set<string>();
+  const religiousBlocks = new Set<string>();
+  const conditionBlocks = new Set<string>();
+
+  for (const p of effectiveProfiles) {
+    for (const allergy of p.allergies) {
+      if (allergy === "none") continue;
+      const mapped: Record<string, string[]> = {
+        peanuts: ["peanuts", "groundnuts", "mungfali", "moongphali", "peanut oil", "groundnut oil", "chikki"],
+        dairy: ["milk", "paneer", "curd", "dahi", "ghee", "butter", "cream", "malai", "khoya", "cheese", "lassi", "raita", "kheer"],
+        gluten: ["wheat", "atta", "maida", "suji", "roti", "paratha", "naan", "bread", "seviyan", "daliya"],
+        tree_nuts: ["almonds", "cashews", "walnuts", "pistachios", "mixed dry fruits"],
+        shellfish: ["prawns", "shrimp", "crab", "lobster", "mussels"],
+        soy: ["soya chunks", "nutrela", "tofu", "soy sauce", "soya milk"],
+        sesame: ["til", "sesame seeds", "tahini", "til ladoo", "gingelly oil"],
+      };
+      (mapped[allergy] ?? []).forEach(i => allergenBlocks.add(i));
+    }
+
+    const dietForbidden = DIETARY_TYPE_FORBIDDEN[p.dietaryType] ?? [];
+    dietForbidden.forEach(i => dietaryBlocks.add(i));
+
+    const religType = p.religiousCulturalRules?.type;
+    if (religType) {
+      const religMap: Record<string, string[]> = {
+        no_beef: ["beef", "veal"],
+        no_pork: ["pork", "bacon", "ham", "lard"],
+        sattvic_no_onion_garlic: ["onion", "garlic", "leek", "spring onion", "shallots"],
+        jain_rules: ["onion", "garlic", "potato", "carrot", "radish", "beetroot", "turnip", "sweet potato", "arbi", "yam"],
+      };
+      (religMap[religType] ?? []).forEach(i => religiousBlocks.add(i));
+    }
+
+    for (const cond of p.effectiveHealthConditions) {
+      if (cond === "none") continue;
+      if (cond === "diabetes_type_2") {
+        ["white sugar", "refined sugar", "maida", "fried foods", "mithai"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "obesity") {
+        ["deep fried foods", "mithai", "packaged snacks", "maida", "cold drinks"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "hypertension") {
+        ["high-sodium pickles", "papads", "processed snacks", "readymade masala mixes"].forEach(i => conditionBlocks.add(i));
+      }
+      if (cond === "high_cholesterol") {
+        ["vanaspati", "dalda", "margarine", "trans fats", "hydrogenated oil"].forEach(i => conditionBlocks.add(i));
+      }
+    }
+  }
+
+  const sections: string[] = [];
+
+  sections.push(`ABSOLUTE PROHIBITIONS — You MUST NEVER suggest any meal containing these under ANY circumstances:`);
+
+  if (allergenBlocks.size > 0) {
+    sections.push(`\nALLERGEN BLOCKS (life-threatening — zero tolerance):\n  ${[...allergenBlocks].join(", ")}`);
+  }
+  if (dietaryBlocks.size > 0) {
+    sections.push(`\nDIETARY TYPE BLOCKS (family dietary restriction):\n  ${[...dietaryBlocks].join(", ")}`);
+  }
+  if (religiousBlocks.size > 0) {
+    sections.push(`\nRELIGIOUS/CULTURAL BLOCKS:\n  ${[...religiousBlocks].join(", ")}`);
+  }
+  if (conditionBlocks.size > 0) {
+    sections.push(`\nHEALTH CONDITION BLOCKS:\n  ${[...conditionBlocks].join(", ")}`);
+  }
+
+  sections.push(`\nABSOLUTE MEAL TYPE PROHIBITIONS — NEVER suggest these as primary meals:\n  ${UNIVERSAL_MEAL_PROHIBITIONS.map(p => `- ${p}`).join("\n  ")}`);
+
+  return sections.join("\n");
+}
+
+function buildMealStructureRules(packet: ConstraintPacket): string {
+  return `MEAL STRUCTURE RULES (MANDATORY — every meal must follow this):
+- Every BREAKFAST must include: a complex carbohydrate (poha, upma, idli, dosa, paratha with whole wheat, oats, daliya) + a protein source (dal, sprouts, curd, eggs if eggetarian, paneer, besan chilla) + optionally a vegetable.
+- Every LUNCH must include: a dal or legume (mandatory) + a sabzi/vegetable + a roti or rice + optionally curd/raita.
+- Every DINNER must include: a dal or legume + a sabzi/vegetable + a roti. Dinner must be lighter than lunch. Avoid heavy fried items at dinner.
+- No meal slot may be filled with a fried snack (samosa, pakora, bhajia, kachori) as the primary item.
+- No two consecutive days may have the exact same main dish at the same meal slot. Variety is required.
+- Use whole grains (whole wheat atta, bajra, jowar, ragi) as default. White maida is forbidden unless no member has diabetes or obesity.
+- The meal must be realistically cookable within the cooking time constraints listed below.
+- Include seasonal vegetables and locally available ingredients only.`;
+}
+
+function buildRegionalRequirement(packet: ConstraintPacket): string {
+  const { family } = packet;
+  const region = family.stateRegion || "India";
+
+  const regionalHints: Record<string, string> = {
+    "Kerala": "Use coconut oil, curry leaves, appam, puttu, avial, thorans, rice-based dishes. Fish curry for non-veg.",
+    "Tamil Nadu": "Use gingelly oil, filter coffee, idli, dosa, sambar, rasam, kootu, poriyal. Tamarind-based gravies.",
+    "Karnataka": "Use ragi mudde, bisi bele bath, akki rotti, jolada rotti, sambar, rasam. Coconut-heavy curries.",
+    "Andhra Pradesh": "Use red chilli-heavy dishes, pesarattu, gongura, pappu, pulihora. Spicy and tangy flavors.",
+    "Telangana": "Use jonna roti, sajja roti, sakinalu, pesarattu. Hyderabadi cuisine elements for non-veg.",
+    "Maharashtra": "Use pithla bhakri, bharli vangi, usal, misal base. Kokum-based drinks, groundnut oil.",
+    "Gujarat": "Use rotla, thepla, dhokla, undhiyu, kadhi, dal dhokli. Slightly sweet flavors. Groundnut oil.",
+    "Rajasthan": "Use dal baati, gatte ki sabzi, ker sangri, bajra roti, churma (healthy version). Minimal water dishes.",
+    "Punjab": "Use makki di roti, sarson da saag, rajma chawal, chole, paneer dishes, lassi. Mustard oil.",
+    "Uttar Pradesh": "Use dal roti, sabzi, raita, tahiri, chana masala, lauki. Local seasonal vegetables.",
+    "Bihar": "Use litti chokha, sattu paratha, dal pitha, chana dal. Mustard oil-based cooking.",
+    "Jharkhand": "Use dhuska, litti chokha, rugda (mushroom), bamboo shoot curry. Local tribal ingredients.",
+    "West Bengal": "Use bhat dal, shukto, posto, machher jhol for non-veg. Mustard oil, panch phoron.",
+    "Odisha": "Use dalma, santula, pakhala, saga bhaja. Temple-style cuisine.",
+    "Madhya Pradesh": "Use poha jalebi (healthy poha only), dal bafla, bhutte ka kees. Soy-based dishes.",
+    "Delhi": "Use rajma chawal, chole bhature (use whole wheat, not maida), dal makhani (low-fat version). North Indian cuisine.",
+    "Goa": "Use fish curry rice for non-veg, solkadhi, xacuti spice blends. Coconut-heavy.",
+    "Assam": "Use khar, masor tenga, aloo pitika, ou tenga. Mustard oil, bamboo shoot.",
+  };
+
+  const hints = regionalHints[region] ?? "Use locally popular Indian cuisine authentic to the family's region.";
+
+  return `REGIONAL REQUIREMENT:
+- This family is from ${region}.
+- All meals must use ${region} cuisine as the default.
+- ${hints}
+- Do not suggest dishes from a completely different regional cuisine unless universally common (e.g. dal tadka, poha are acceptable everywhere).`;
+}
+
 import { ai } from "@workspace/integrations-gemini-ai";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
@@ -397,19 +537,36 @@ export async function generateWeeklyMealPlan(
   const mealsIncludeSnack = family.mealsPerDay === "3_meals_snacks";
   const weeklyBudget = round2(packet.effectiveDailyBudget * 7);
 
+  const absoluteProhibitions = buildAbsoluteProhibitions(packet);
+  const mealStructureRules = buildMealStructureRules(packet);
+  const regionalRequirement = buildRegionalRequirement(packet);
+
   const prompt = `
-You are an expert Indian family nutritionist and home cook. Generate a complete 7-day meal plan using the "One Base, Many Plates" method.
+You are a clinical Indian nutritionist generating a weekly meal plan. You are not a creative chef. You are not a food blogger. You generate medically appropriate, budget-compliant, regionally authentic meals. You do not have artistic freedom. You follow constraints exactly.
 
 ${familyContext}
 
-BUDGET:
-- Weekly perishable budget: ₹${weeklyBudget.toFixed(0)} total
-- Daily budget: ₹${packet.effectiveDailyBudget.toFixed(0)}
-- Breakfast limit: ₹${budget.budgetBreakdown.daily_limits.breakfast.toFixed(0)}
-- Lunch limit: ₹${budget.budgetBreakdown.daily_limits.lunch.toFixed(0)}
-- Dinner limit: ₹${budget.budgetBreakdown.daily_limits.dinner.toFixed(0)}
-${mealsIncludeSnack ? `- Snack limit: ₹${budget.budgetBreakdown.daily_limits.snack.toFixed(0)}` : ""}
+═══════════════════════════════════════════════
+${absoluteProhibitions}
+═══════════════════════════════════════════════
 
+${mealStructureRules}
+
+═══════════════════════════════════════════════
+BUDGET CONSTRAINT:
+- Weekly perishable budget: ₹${weeklyBudget.toFixed(0)} total (HARD LIMIT — do not exceed)
+- Daily perishable budget: ₹${packet.effectiveDailyBudget.toFixed(0)}
+- Breakfast cost limit: ₹${budget.budgetBreakdown.daily_limits.breakfast.toFixed(0)} (ingredients only, staples pre-purchased)
+- Lunch cost limit: ₹${budget.budgetBreakdown.daily_limits.lunch.toFixed(0)}
+- Dinner cost limit: ₹${budget.budgetBreakdown.daily_limits.dinner.toFixed(0)}
+${mealsIncludeSnack ? `- Snack cost limit: ₹${budget.budgetBreakdown.daily_limits.snack.toFixed(0)}` : ""}
+- Staples (atta, dal, rice, oil, spices) are pre-purchased and do NOT count toward daily limits.
+- You must estimate the ingredient cost of each meal and ensure it does not exceed the slot limit.
+═══════════════════════════════════════════════
+
+${regionalRequirement}
+
+═══════════════════════════════════════════════
 WEEK DATES: ${weekDays.map((d) => `${d.name} ${d.date}`).join(", ")}
 
 ${constraintInstructions}
@@ -420,8 +577,10 @@ ${nonvegSummary}
 FASTING THIS WEEK:
 ${fastingSummary || "  No fasting members this week."}
 
-PANTRY AVAILABLE: ${pantryStr || "None"}
+ZERO-WASTE PANTRY MANDATE:
+${pantryStr ? `The following ingredients are in the family's pantry and MUST be used THIS WEEK before buying new items:\n  ${pantryStr}\nPrioritize using these in the first 3 days of the week.` : "No pantry items to use up."}
 
+═══════════════════════════════════════════════
 ONE BASE, MANY PLATES — MANDATORY RULES:
 1. Every meal slot has ONE base dish cooked for the whole family (cost-efficient, kitchen-efficient).
 2. For each member, list plate_modifications — what changes on their plate vs. the base.

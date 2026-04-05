@@ -51,6 +51,9 @@ export function useAuth() {
   const clearAuth = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem("demo_family_cache");
+    localStorage.removeItem("demo_meal_plan_cache");
+    localStorage.removeItem("active_family");
     setUser(null);
   }, []);
 

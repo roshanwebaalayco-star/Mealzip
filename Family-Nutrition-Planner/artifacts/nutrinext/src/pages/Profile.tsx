@@ -413,6 +413,27 @@ export default function Profile() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div>
+                        <Label className="text-sm font-semibold">{t("Spice Tolerance", "मसाला सहनशीलता")}</Label>
+                        <Select value={edit.spiceTolerance} onValueChange={v => updateEdit(member.id, "spiceTolerance", v)}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">{t("Low (mild)", "कम (हल्का)")}</SelectItem>
+                            <SelectItem value="medium">{t("Medium", "मध्यम")}</SelectItem>
+                            <SelectItem value="high">{t("High (spicy)", "तेज (मसालेदार)")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Checkbox
+                          id={`${member.id}-festival-fasting`}
+                          checked={edit.festivalFastingAlerts}
+                          onCheckedChange={(checked) => updateEdit(member.id, "festivalFastingAlerts", !!checked)}
+                        />
+                        <Label htmlFor={`${member.id}-festival-fasting`} className="text-sm">
+                          {t("Festival fasting alerts (Navratri, Ekadashi, etc.)", "त्योहार उपवास अलर्ट (नवरात्रि, एकादशी आदि)")}
+                        </Label>
+                      </div>
                       <div className="sm:col-span-2">
                         <Label className="text-sm font-semibold">{t("Ingredient Dislikes", "पसंद न आने वाली चीजें")} <span className="text-muted-foreground font-normal">{t("(max 5)", "(अधिकतम 5)")}</span></Label>
                         <div className="flex flex-wrap gap-1.5 mt-2 min-h-[28px]">
