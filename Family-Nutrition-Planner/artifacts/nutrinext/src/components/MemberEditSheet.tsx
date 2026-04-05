@@ -230,16 +230,16 @@ export default function MemberEditSheet({ member, onClose }: Props) {
           <div>
             <Label className="text-xs font-semibold">{t("Religious Rules", "धार्मिक नियम")}</Label>
             <Select
-              value={(form.religiousCulturalRules as Record<string, string>)?.primary ?? "none"}
-              onValueChange={v => set("religiousCulturalRules", v !== "none" ? { primary: v } : {})}
+              value={(form.religiousCulturalRules as Record<string, string>)?.type ?? (form.religiousCulturalRules as Record<string, string>)?.primary ?? "none"}
+              onValueChange={v => set("religiousCulturalRules", v !== "none" ? { type: v } : {})}
             >
               <SelectTrigger className="mt-1 h-9 rounded-xl text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
                 <SelectItem value="no_beef">{t("No Beef", "गोमांस नहीं")}</SelectItem>
                 <SelectItem value="no_pork">{t("No Pork", "सुअर नहीं")}</SelectItem>
-                <SelectItem value="sattvic">{t("Sattvic", "सात्विक")}</SelectItem>
-                <SelectItem value="jain">{t("Jain", "जैन")}</SelectItem>
+                <SelectItem value="sattvic_no_onion_garlic">{t("Sattvic", "सात्विक")}</SelectItem>
+                <SelectItem value="jain_rules">{t("Jain", "जैन")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

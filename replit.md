@@ -86,13 +86,13 @@ Comprehensive bug-fix and quality pass:
 Comprehensive audit-driven fix pass:
 
 - **Meal Generation Prompt Hardening (Section 3D)**: Rewrote Gemini prompt in `prompt-chain.ts` with clinical identity preamble, ABSOLUTE PROHIBITIONS section (samosa, pakora, kachori, bhajia, maggi, maida, mithai, street food as primary meals), MEAL STRUCTURE RULES (every breakfast needs complex carb + protein, every lunch needs dal + sabzi + roti, dinner lighter than lunch), REGIONAL REQUIREMENT section (18 state-specific cuisine hints), and budget/constraint sections with separator formatting. Added `buildAbsoluteProhibitions()`, `buildMealStructureRules()`, `buildRegionalRequirement()` helper functions.
-- **Profile Page Completeness (Section 2)**: Added Spice Tolerance dropdown and Festival Fasting Alerts checkbox to Profile.tsx advanced section.
+- **Profile Page Completeness (Section 2)**: Added family-level settings section (state/region searchable dropdown with 28 states + 8 UTs, language toggle, household dietary baseline, meals per day, cooking skill level, kitchen appliances multi-select). Added Spice Tolerance dropdown, Festival Fasting Alerts checkbox, gender "other" option. Fixed religious rules values: `jain` → `jain_rules`, `sattvic` → `sattvic_no_onion_garlic` in Profile.tsx and MemberEditSheet.tsx. Fixed calorie display format to "X,XXX kcal". Changed religiousCulturalRules from `primary` field to `type` field for backend consistency.
 - **Auth Hardening (Section 1)**: Logout now clears all localStorage state including `demo_family_cache`, `demo_meal_plan_cache`, and `active_family`.
 - **Grocery Budget Status Fix**: Made `monthlyBudgetsTable` query graceful with try-catch fallback — prevents 500 error when table doesn't exist yet.
 - **Navigation (Section 8)**: Recipes REMOVED from nav per audit spec. Final nav: Profile | Meal Plan | Grocery | AI Chat | Clinical Insights (5 items on both desktop sidebar and mobile bottom nav).
 - **ThaliScore Bug Fix (Section 9)**: Fixed 422 error "Cannot create property '_thaliScore' on string" — meal slots returned as raw strings from Gemini are now wrapped in `{ name: string }` objects before scoring.
-- **MealGenPopup Polling Fix**: Fixed polling treating `apiFetch` Response as parsed JSON (was `res as any`, now `await res.json()`). Added max retry count (90 retries = 3 min) with user-facing timeout/connection-lost toast on failure.
-- **Dietary Type Enum Fix**: Normalized `occasional_non_veg` / `occasional_nonveg` mismatch between Profile.tsx and MealGenPopup.tsx — both variants now accepted.
+- **MealGenPopup Removal**: Fully removed MealGenPopup component and all references from MealPlan.tsx. "Generate AI Plan" and "New Plan" buttons now navigate to full-page `/meal-plan/generate`.
+- **Dietary Type Enum Fix**: Normalized `occasional_non_veg` / `occasional_nonveg` mismatch between Profile.tsx and MealGenPage.tsx — both variants now accepted.
 - **Grocery Pincode Prompt (Section 5)**: Added first-time pincode capture banner to Grocery page with 6-digit validation, localStorage persistence per family, and MapPin badge display after save.
 
 ## External Dependencies

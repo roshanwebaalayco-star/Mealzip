@@ -1,17 +1,40 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAppState } from "@/hooks/use-app-state";
-import { useGetFamily, useUpdateFamilyMember } from "@workspace/api-client-react";
+import { useGetFamily, useUpdateFamilyMember, useUpdateFamily } from "@workspace/api-client-react";
 import type { FamilyMember } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Save, ChevronDown, ChevronUp, User, X, Plus } from "lucide-react";
+import { Loader2, Save, ChevronDown, ChevronUp, User, X, Plus, Home, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language-context";
 import { useQueryClient } from "@tanstack/react-query";
+
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
+  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
+  "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+];
+
+const APPLIANCE_OPTIONS = [
+  { id: "gas_stove", en: "Gas Stove", hi: "गैस स्टोव" },
+  { id: "induction", en: "Induction Cooktop", hi: "इंडक्शन" },
+  { id: "pressure_cooker", en: "Pressure Cooker", hi: "प्रेशर कुकर" },
+  { id: "mixer_grinder", en: "Mixer Grinder", hi: "मिक्सर ग्राइंडर" },
+  { id: "microwave", en: "Microwave", hi: "माइक्रोवेव" },
+  { id: "oven", en: "Oven/OTG", hi: "ओवन/OTG" },
+  { id: "air_fryer", en: "Air Fryer", hi: "एयर फ्रायर" },
+  { id: "tawa", en: "Tawa", hi: "तवा" },
+  { id: "idli_maker", en: "Idli/Dosa Maker", hi: "इडली/डोसा मेकर" },
+  { id: "rice_cooker", en: "Rice Cooker", hi: "राइस कुकर" },
+];
 
 type MemberEdit = {
   name: string;
@@ -42,7 +65,10 @@ function memberToEdit(m: FamilyMember): MemberEdit {
   const ingredientDislikes = Array.isArray(m.ingredientDislikes) ? m.ingredientDislikes as string[] : [];
   const nonvegConfig = (m.occasionalNonvegConfig ?? {}) as { days?: string[]; types?: string[] };
   const fastingConfig = (m.fastingConfig ?? {}) as { baselineDays?: string[]; ekadashi?: boolean };
-  const religiousConfig = (m.religiousCulturalRules ?? {}) as { primary?: string };
+  const religiousConfig = (m.religiousCulturalRules ?? {}) as { primary?: string; type?: string };
+  let religiousValue = religiousConfig.type ?? religiousConfig.primary ?? "none";
+  if (religiousValue === "jain") religiousValue = "jain_rules";
+  if (religiousValue === "sattvic") religiousValue = "sattvic_no_onion_garlic";
 
   return {
     name: m.name,
@@ -64,7 +90,7 @@ function memberToEdit(m: FamilyMember): MemberEdit {
     healthGoal: m.primaryGoal ?? "no_specific_goal",
     spiceTolerance: m.spiceTolerance ?? "medium",
     festivalFastingAlerts: m.festivalFastingAlerts ?? false,
-    religiousCulturalRules: religiousConfig.primary ?? "none",
+    religiousCulturalRules: religiousValue,
   };
 }
 
@@ -96,6 +122,7 @@ export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateMember = useUpdateFamilyMember();
+  const updateFamilyMut = useUpdateFamily();
 
   const familyId = activeFamily?.id;
   const { data: familyInfo, isLoading } = useGetFamily(familyId ?? 0, { query: { enabled: !!familyId } });
@@ -103,6 +130,9 @@ export default function Profile() {
   const [editStates, setEditStates] = useState<Record<number, MemberEdit>>({});
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
+  const [familySettingsOpen, setFamilySettingsOpen] = useState(false);
+  const [savingFamily, setSavingFamily] = useState(false);
+  const [stateSearch, setStateSearch] = useState("");
 
   if (isLoading) {
     return (
@@ -192,7 +222,7 @@ export default function Profile() {
           primaryGoal: edit.healthGoal !== "no_specific_goal" ? edit.healthGoal : undefined,
           goalPace: edit.goalPace !== "none" ? edit.goalPace : undefined,
           tiffinNeeded: edit.tiffinNeeded !== "no" ? edit.tiffinNeeded : undefined,
-          religiousCulturalRules: edit.religiousCulturalRules !== "none" ? { primary: edit.religiousCulturalRules } : undefined,
+          religiousCulturalRules: edit.religiousCulturalRules !== "none" ? { type: edit.religiousCulturalRules } : undefined,
           ingredientDislikes: edit.ingredientDislikes.length > 0 ? edit.ingredientDislikes : undefined,
           occasionalNonvegConfig: (edit.nonVegDays.length > 0 || edit.nonVegTypes.length > 0)
             ? { days: edit.nonVegDays, types: edit.nonVegTypes } : undefined,
@@ -232,6 +262,165 @@ export default function Profile() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("Edit member details and nutrition preferences below.", "नीचे सदस्यों की जानकारी और पोषण वरीयताएं संपादित करें।")}
         </p>
+      </div>
+
+      {/* Family-Level Settings */}
+      <div className="bg-white rounded-3xl shadow-sm border border-border mb-6">
+        <div
+          className="flex items-center justify-between p-5 cursor-pointer"
+          onClick={() => setFamilySettingsOpen(!familySettingsOpen)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white shadow-sm">
+              <Home className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-semibold">{t("Family Settings", "परिवार सेटिंग्स")}</p>
+              <p className="text-xs text-muted-foreground">{familyInfo.stateRegion || t("Region not set", "क्षेत्र सेट नहीं")} · {familyInfo.mealsPerDay || "3_meals"} · {familyInfo.cookingSkillLevel || "intermediate"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-muted-foreground" />
+            {familySettingsOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </div>
+        </div>
+        {familySettingsOpen && (
+          <div className="px-5 pb-5 border-t border-border pt-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>{t("State / Region", "राज्य / क्षेत्र")}</Label>
+                <div className="relative mt-1">
+                  <Input
+                    placeholder={t("Search states...", "राज्य खोजें...")}
+                    value={stateSearch}
+                    onChange={e => setStateSearch(e.target.value)}
+                    className="text-sm"
+                  />
+                  {stateSearch.length > 0 && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {INDIAN_STATES.filter(s => s.toLowerCase().includes(stateSearch.toLowerCase())).map(st => (
+                        <button
+                          key={st}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-primary/5 transition-colors"
+                          onClick={() => {
+                            if (!familyId) return;
+                            updateFamilyMut.mutateAsync({ id: familyId, data: { stateRegion: st } })
+                              .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); toast({ title: t("Saved!", "सहेजा गया!") }); })
+                              .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                            setStateSearch("");
+                          }}
+                        >{st}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {familyInfo.stateRegion && <p className="text-xs text-primary mt-1">{t("Current:", "वर्तमान:")} {familyInfo.stateRegion}</p>}
+              </div>
+              <div>
+                <Label>{t("Language", "भाषा")}</Label>
+                <Select
+                  value={familyInfo.languagePreference || "hindi"}
+                  onValueChange={v => {
+                    if (!familyId) return;
+                    updateFamilyMut.mutateAsync({ id: familyId, data: { languagePreference: v } })
+                      .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); toast({ title: t("Saved!", "सहेजा गया!") }); })
+                      .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hindi">{t("Hindi", "हिंदी")}</SelectItem>
+                    <SelectItem value="english">{t("English", "अंग्रेजी")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("Household Dietary Baseline", "परिवार का आहार")}</Label>
+                <Select
+                  value={familyInfo.householdDietaryBaseline || "mixed"}
+                  onValueChange={v => {
+                    if (!familyId) return;
+                    updateFamilyMut.mutateAsync({ id: familyId, data: { householdDietaryBaseline: v } })
+                      .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); toast({ title: t("Saved!", "सहेजा गया!") }); })
+                      .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strictly_veg">{t("Strictly Vegetarian", "पूर्ण शाकाहारी")}</SelectItem>
+                    <SelectItem value="veg_with_eggs">{t("Veg with Eggs", "अंडों के साथ शाकाहारी")}</SelectItem>
+                    <SelectItem value="non_veg">{t("Non-Vegetarian", "मांसाहारी")}</SelectItem>
+                    <SelectItem value="mixed">{t("Mixed", "मिश्रित")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("Meals Per Day", "प्रतिदिन भोजन")}</Label>
+                <Select
+                  value={familyInfo.mealsPerDay || "3_meals"}
+                  onValueChange={v => {
+                    if (!familyId) return;
+                    updateFamilyMut.mutateAsync({ id: familyId, data: { mealsPerDay: v } })
+                      .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); toast({ title: t("Saved!", "सहेजा गया!") }); })
+                      .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2_meals">{t("2 Meals", "2 भोजन")}</SelectItem>
+                    <SelectItem value="3_meals">{t("3 Meals", "3 भोजन")}</SelectItem>
+                    <SelectItem value="3_meals_snacks">{t("3 Meals + Snacks", "3 भोजन + नाश्ता")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("Cooking Skill Level", "खाना बनाने का कौशल")}</Label>
+                <Select
+                  value={familyInfo.cookingSkillLevel || "intermediate"}
+                  onValueChange={v => {
+                    if (!familyId) return;
+                    updateFamilyMut.mutateAsync({ id: familyId, data: { cookingSkillLevel: v } })
+                      .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); toast({ title: t("Saved!", "सहेजा गया!") }); })
+                      .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">{t("Beginner", "शुरुआती")}</SelectItem>
+                    <SelectItem value="intermediate">{t("Intermediate", "मध्यम")}</SelectItem>
+                    <SelectItem value="experienced">{t("Experienced", "अनुभवी")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">{t("Kitchen Appliances", "रसोई उपकरण")}</Label>
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {APPLIANCE_OPTIONS.map(({ id, en, hi }) => {
+                  const currentAppliances = (familyInfo.appliances as string[] | null) ?? ["gas_stove"];
+                  const isChecked = currentAppliances.includes(id);
+                  return (
+                    <div key={id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`appliance-${id}`}
+                        checked={isChecked}
+                        onCheckedChange={() => {
+                          if (!familyId) return;
+                          let next = isChecked ? currentAppliances.filter(a => a !== id) : [...currentAppliances, id];
+                          if (next.length === 0) next = ["gas_stove"];
+                          updateFamilyMut.mutateAsync({ id: familyId, data: { appliances: next } })
+                            .then(() => { queryClient.invalidateQueries({ queryKey: ["/api/families"] }); })
+                            .catch(() => toast({ title: t("Error", "त्रुटि"), variant: "destructive" }));
+                        }}
+                      />
+                      <Label htmlFor={`appliance-${id}`} className="text-sm">{t(en, hi)}</Label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <motion.div className="space-y-4" initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}>
@@ -316,6 +505,7 @@ export default function Profile() {
                         <SelectContent>
                           <SelectItem value="male">{t("Male", "पुरुष")}</SelectItem>
                           <SelectItem value="female">{t("Female", "महिला")}</SelectItem>
+                          <SelectItem value="other">{t("Other", "अन्य")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -417,10 +607,10 @@ export default function Profile() {
                           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">{t("None", "कोई नहीं")}</SelectItem>
-                            <SelectItem value="jain">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
+                            <SelectItem value="jain_rules">{t("Jain (no root veg)", "जैन (मूल सब्जी नहीं)")}</SelectItem>
                             <SelectItem value="no_beef">{t("Hindu (no beef)", "हिंदू (गोमांस नहीं)")}</SelectItem>
                             <SelectItem value="no_pork">{t("Halal / No Pork", "हलाल / सूअर नहीं")}</SelectItem>
-                            <SelectItem value="sattvic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
+                            <SelectItem value="sattvic_no_onion_garlic">{t("Sattvic (no onion/garlic)", "सात्विक (प्याज/लहसुन नहीं)")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -594,8 +784,8 @@ export default function Profile() {
                     {/* ICMR Calorie Target Badge */}
                     {kcal && (
                       <div className="mt-3 inline-flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
-                        <span className="text-xs text-muted-foreground">{t("ICMR Daily Target:", "ICMR दैनिक लक्ष्य:")}</span>
-                        <span className="text-sm font-bold text-primary">~{kcal} kcal/day</span>
+                        <span className="text-xs text-muted-foreground">{t("Daily target:", "दैनिक लक्ष्य:")}</span>
+                        <span className="text-sm font-bold text-primary">{Number(kcal).toLocaleString("en-IN")} kcal</span>
                       </div>
                     )}
                   </div>
