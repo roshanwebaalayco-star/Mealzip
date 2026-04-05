@@ -578,11 +578,17 @@ export default function FamilySetup() {
     <div className="p-4 md:p-8 max-w-3xl mx-auto animate-fade-up">
       <div className="mb-8">
         <h1 className="text-3xl font-semibold" style={{ letterSpacing: '-0.025em', color: 'var(--text-primary)' }}>
-          {step === 1 ? t("Family Details", "परिवार का विवरण") : t("Family Members", "सदस्य")}
+          {step === 1 ? t("Family Details", "परिवार का विवरण") : step === 2 ? t("Family Members", "सदस्य") : t("Review & Save", "समीक्षा और सेव")}
         </h1>
         <div className="flex gap-2 mt-4">
           <div className={`h-2 flex-1 rounded-full ${step >= 1 ? "bg-primary" : "bg-muted"}`} />
           <div className={`h-2 flex-1 rounded-full ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`h-2 flex-1 rounded-full ${step >= 3 ? "bg-primary" : "bg-muted"}`} />
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+          <span className={step === 1 ? "text-primary font-medium" : ""}>{t("Step 1: Family", "चरण 1: परिवार")}</span>
+          <span className={step === 2 ? "text-primary font-medium" : ""}>{t("Step 2: Members", "चरण 2: सदस्य")}</span>
+          <span className={step === 3 ? "text-primary font-medium" : ""}>{t("Step 3: Review", "चरण 3: समीक्षा")}</span>
         </div>
       </div>
 
@@ -1502,6 +1508,113 @@ export default function FamilySetup() {
             <div className="flex justify-between pt-6">
               <Button variant="ghost" size="lg" className="rounded-xl" onClick={() => setStep(1)}>
                 <ArrowLeft className="w-5 h-5 mr-2" /> {t("Back", "वापस")}
+              </Button>
+              <Button size="lg" className="rounded-xl px-8" onClick={() => setStep(3)}>
+                {t("Next: Review", "अगला: समीक्षा")} <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {step === 3 && (
+          <motion.div
+            key="step3"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="glass-elevated rounded-2xl p-6 space-y-4">
+              <h2 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                {t("Family Details", "परिवार का विवरण")}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Family Name", "परिवार का नाम")}</span>
+                  <p className="font-medium">{familyData.name || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Region", "क्षेत्र")}</span>
+                  <p className="font-medium">{familyData.stateRegion || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Diet Baseline", "आहार आधारभूत")}</span>
+                  <p className="font-medium capitalize">{(familyData.householdDietaryBaseline || "—").replace(/_/g, " ")}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Meals/Day", "भोजन/दिन")}</span>
+                  <p className="font-medium">{(familyData.mealsPerDay || "—").replace(/_/g, " ")}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Cooking Skill", "खाना पकाने का कौशल")}</span>
+                  <p className="font-medium capitalize">{familyData.cookingSkillLevel}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs">{t("Appliances", "उपकरण")}</span>
+                  <p className="font-medium">{familyData.appliances.length > 0 ? familyData.appliances.join(", ").replace(/_/g, " ") : "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>
+                {t(`Members (${members.length})`, `सदस्य (${members.length})`)}
+              </h2>
+              {members.map((m, idx) => (
+                <div key={m._id} className="glass-elevated rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-base">{m.name || t(`Member ${idx + 1}`, `सदस्य ${idx + 1}`)}</h3>
+                    <span className="text-xs text-muted-foreground px-2 py-1 rounded-full bg-muted">
+                      {m.age ? `${m.age}y` : "—"} · {m.gender || "—"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {m.weightKg && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">{t("Weight", "वजन")}</span>
+                        <p className="font-medium">{m.weightKg} kg</p>
+                      </div>
+                    )}
+                    {m.heightCm && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">{t("Height", "ऊंचाई")}</span>
+                        <p className="font-medium">{m.heightCm} cm</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-xs text-muted-foreground">{t("Diet", "आहार")}</span>
+                      <p className="font-medium capitalize">{(m.dietaryType || "—").replace(/_/g, " ")}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">{t("Goal", "लक्ष्य")}</span>
+                      <p className="font-medium capitalize">{(m.primaryGoal || m.healthGoal || "—").replace(/_/g, " ")}</p>
+                    </div>
+                    {m.healthConditions.length > 0 && (
+                      <div className="col-span-2">
+                        <span className="text-xs text-muted-foreground">{t("Health Conditions", "स्वास्थ्य स्थितियां")}</span>
+                        <p className="font-medium">{m.healthConditions.map(c => c.replace(/_/g, " ")).join(", ")}</p>
+                      </div>
+                    )}
+                    {m.spiceTolerance && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">{t("Spice", "मसाला")}</span>
+                        <p className="font-medium capitalize">{m.spiceTolerance}</p>
+                      </div>
+                    )}
+                    {m.tiffinNeeded && m.tiffinNeeded !== "no" && (
+                      <div>
+                        <span className="text-xs text-muted-foreground">{t("Tiffin", "टिफिन")}</span>
+                        <p className="font-medium capitalize">{m.tiffinNeeded.replace(/_/g, " ")}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-6">
+              <Button variant="ghost" size="lg" className="rounded-xl" onClick={() => setStep(2)}>
+                <ArrowLeft className="w-5 h-5 mr-2" /> {t("Back to Members", "सदस्यों पर वापस")}
               </Button>
               <Button size="lg" className="rounded-xl px-8" onClick={handleSave} disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}

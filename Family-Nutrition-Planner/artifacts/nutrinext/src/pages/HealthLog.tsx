@@ -7,6 +7,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { Heart, Scale, Activity, User, Plus, Sparkles, Target, TrendingUp, ActivitySquare, CheckCircle2, XCircle, Lightbulb, RotateCcw, ClipboardList, Stethoscope, AlertTriangle, Shield, Pill } from "lucide-react";
+import { HarmonyScore } from "@/components/HarmonyScore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -277,6 +278,17 @@ export default function HealthLog() {
     enabled: !!activeFamily?.id && !!activeMemberId,
   });
 
+  const { data: latestMealPlan } = useQuery({
+    queryKey: ["meal-plan-harmony", activeFamily?.id],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/meal-plans?familyId=${activeFamily?.id}`);
+      const plans = await res.json() as Array<{ id: number; harmonyScore: number; harmonyScoreBreakdown?: Record<string, unknown> }>;
+      if (plans.length === 0) return null;
+      return plans[0];
+    },
+    enabled: !!activeFamily?.id,
+  });
+
   const { data: healthLogs } = useQuery({
     queryKey: ["health-logs", activeFamily?.id, activeMemberId],
     staleTime: 0,
@@ -402,6 +414,33 @@ export default function HealthLog() {
         )}
       </div>
 
+      {latestMealPlan && (
+        <div className="glass-card rounded-3xl p-5 border border-emerald-200/50 flex items-center gap-5" style={{ background: "rgba(236,253,245,0.70)" }}>
+          <HarmonyScore score={Number(latestMealPlan.harmonyScore)} size="lg" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base mb-1">{t("Family Harmony Score", "पारिवारिक सामंजस्य स्कोर")}</h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              {Number(latestMealPlan.harmonyScore) >= 85
+                ? t("Excellent — meals satisfy all members with minimal compromise", "उत्कृष्ट — सभी सदस्यों के लिए न्यूनतम समझौते के साथ")
+                : Number(latestMealPlan.harmonyScore) >= 65
+                ? t("Good — minor adjustments needed for some members", "अच्छा — कुछ सदस्यों के लिए मामूली बदलाव जरूरी")
+                : Number(latestMealPlan.harmonyScore) >= 40
+                ? t("Moderate — significant dietary conflicts detected", "मध्यम — महत्वपूर्ण आहार संघर्ष पाए गए")
+                : t("Challenging — complex dietary needs require careful balancing", "चुनौतीपूर्ण — जटिल आहार जरूरतों में सावधानीपूर्वक संतुलन आवश्यक")}
+            </p>
+            {latestMealPlan.harmonyScoreBreakdown && typeof latestMealPlan.harmonyScoreBreakdown === "object" && (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(latestMealPlan.harmonyScoreBreakdown as Record<string, unknown>).slice(0, 4).map(([key, val]) => (
+                  <span key={key} className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
+                    {key.replace(/_/g, " ")}: {typeof val === "number" ? val : String(val)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-card rounded-3xl p-5 border border-amber-200/50" style={{ background: "rgba(255,251,235,0.70)" }}>
           <div className="flex items-center gap-2 mb-3">
@@ -472,16 +511,53 @@ export default function HealthLog() {
             <h3 className="font-semibold text-sm">{t("Medication Guardrail", "दवा सुरक्षा मार्गदर्शन")}</h3>
           </div>
           {memberConditions.length > 0 ? (
-            <div className="space-y-2">
-              {memberConditions.slice(0, 3).map(c => (
-                <div key={c} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-100">
-                  <Stethoscope className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                  <span className="text-xs font-medium text-blue-800 capitalize">{c.replace(/_/g, " ")}</span>
+            <div className="space-y-3">
+              <div className="relative">
+                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                  <span>6am</span><span>8am</span><span>10am</span><span>12pm</span><span>2pm</span><span>4pm</span><span>6pm</span><span>8pm</span><span>10pm</span>
                 </div>
-              ))}
-              <p className="text-[11px] text-blue-600/70 mt-1">
-                {t("Meal plans account for these conditions", "भोजन योजनाएं इन स्थितियों को ध्यान में रखती हैं")}
-              </p>
+                <div className="relative h-8 rounded-full bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 border border-blue-200 overflow-hidden">
+                  <div className="absolute left-[0%] w-[6%] h-full bg-red-400/15" title="Exclusion: Empty stomach window" />
+                  <div className="absolute left-[24%] w-[13%] h-full bg-red-400/15" title="Exclusion: Post-breakfast gap" />
+                  <div className="absolute left-[50%] w-[25%] h-full bg-red-400/15" title="Exclusion: Afternoon gap" />
+                  <div className="absolute left-[0%] w-[6%] h-full flex items-center justify-center">
+                    <span className="text-[8px] text-red-500 font-bold rotate-0">✕</span>
+                  </div>
+                  <div className="absolute left-[24%] w-[13%] h-full flex items-center justify-center">
+                    <span className="text-[8px] text-red-500 font-bold">✕</span>
+                  </div>
+                  <div className="absolute left-[50%] w-[25%] h-full flex items-center justify-center">
+                    <span className="text-[8px] text-red-400 font-bold">✕</span>
+                  </div>
+                  <div className="absolute left-[6%] w-[18%] h-full bg-emerald-400/40 border-l border-r border-emerald-300" title="Breakfast 7-9am" />
+                  <div className="absolute left-[37%] w-[13%] h-full bg-amber-400/40 border-l border-r border-amber-300" title="Lunch 12-2pm" />
+                  <div className="absolute left-[75%] w-[13%] h-full bg-purple-400/40 border-l border-r border-purple-300" title="Dinner 7-9pm" />
+                  <div className="absolute left-[12%] top-1/2 -translate-y-1/2 flex items-center justify-center">
+                    <Pill className="w-3.5 h-3.5 text-emerald-700" />
+                  </div>
+                  <div className="absolute left-[43%] top-1/2 -translate-y-1/2 flex items-center justify-center">
+                    <Pill className="w-3.5 h-3.5 text-amber-700" />
+                  </div>
+                  <div className="absolute left-[81%] top-1/2 -translate-y-1/2 flex items-center justify-center">
+                    <Pill className="w-3.5 h-3.5 text-purple-700" />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full bg-emerald-400" />{t("Breakfast", "नाश्ता")}</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full bg-amber-400" />{t("Lunch", "दोपहर")}</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full bg-purple-400" />{t("Dinner", "रात्रि")}</span>
+                  <span className="flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full bg-red-300" />{t("Avoid zone", "बचाव क्षेत्र")}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {memberConditions.slice(0, 3).map(c => (
+                  <div key={c} className="flex items-center gap-1.5 text-[11px]">
+                    <Shield className="w-3 h-3 text-blue-500 shrink-0" />
+                    <span className="text-blue-800 capitalize">{c.replace(/_/g, " ")}</span>
+                    <span className="text-blue-500/70">— {t("guarded", "सुरक्षित")}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 py-3">
