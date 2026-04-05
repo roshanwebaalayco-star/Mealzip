@@ -576,13 +576,24 @@ export default function MealGenPage() {
                             )}
 
                             <div className={showWeight ? "" : "pt-3"}>
-                              <Label className="text-xs font-semibold text-muted-foreground">{t("Feeling this week?", "इस हफ्ते कैसा महसूस?")}</Label>
+                              <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                {t("Feeling this week?", "इस हफ्ते कैसा महसूस?")}
+                                <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted text-[9px] text-muted-foreground cursor-help" title={t("This personalizes your meal plan — e.g. lighter meals when tired, warming comfort food when stressed, energizing meals when feeling great.", "यह आपकी भोजन योजना को व्यक्तिगत बनाता है — जैसे थकान में हल्का भोजन, तनाव में आरामदायक भोजन।")}>?</span>
+                              </Label>
                               <Input
                                 value={memberOv.feeling_this_week ?? ""}
                                 onChange={e => updateMemberOverride(member.id, "feeling_this_week", e.target.value || undefined)}
                                 placeholder={t("tired, stressed, great…", "थका, तनाव, बढ़िया…")}
                                 className="mt-1 h-8 rounded-lg text-xs"
                               />
+                              {memberOv.feeling_this_week && (
+                                <p className="text-[10px] text-primary/70 mt-1 italic">
+                                  {t(
+                                    `✨ AI will adapt ${member.name}'s meals based on "${memberOv.feeling_this_week}"`,
+                                    `✨ AI "${memberOv.feeling_this_week}" के अनुसार ${member.name} का भोजन बनाएगा`
+                                  )}
+                                </p>
+                              )}
                             </div>
 
                             <div>

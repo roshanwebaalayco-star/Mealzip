@@ -65,17 +65,26 @@ const COMMON_PANTRY_INGREDIENTS = [
   "Rai (Mustard Seeds)", "Hing (Asafoetida)", "Sugar / Cheeni", "Besan (Gram Flour)",
 ];
 
+interface ScanGroup {
+  id: number;
+  imagePreview: string;
+  items: PantryItem[];
+}
+
 function PantryScanner({ familyId }: { familyId: number }) {
   const { t } = useLanguage();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [scanGroups, setScanGroups] = useState<ScanGroup[]>([]);
+  const [currentPreview, setCurrentPreview] = useState<string | null>(null);
   const [savedToPantry, setSavedToPantry] = useState(false);
   const [showCommonList, setShowCommonList] = useState(false);
   const [commonChecked, setCommonChecked] = useState<Record<string, boolean>>({});
   const [isVisionScanning, setIsVisionScanning] = useState(false);
+  const [scanCounter, setScanCounter] = useState(0);
   const scanMutation = useScanFood();
+
+  const pantryItems = scanGroups.flatMap(g => g.items);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,8 +93,10 @@ function PantryScanner({ familyId }: { familyId: number }) {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const result = event.target?.result as string;
-      setImagePreview(result);
+      setCurrentPreview(result);
       const base64 = result.split(",")[1];
+      const groupId = scanCounter + 1;
+      setScanCounter(groupId);
 
       setIsVisionScanning(true);
       try {
@@ -97,7 +108,7 @@ function PantryScanner({ familyId }: { familyId: number }) {
         if (res.ok) {
           const visionData = await res.json() as { items?: Array<{ name: string; nameHindi?: string; quantity: number; unit: string; weightGrams: number; confidence: number }> };
           if (visionData.items && visionData.items.length > 0) {
-            setPantryItems(visionData.items.map(item => ({
+            const newItems = visionData.items.map(item => ({
               name: item.name,
               nameHindi: item.nameHindi,
               quantity: item.quantity,
@@ -106,8 +117,10 @@ function PantryScanner({ familyId }: { familyId: number }) {
               confidence: item.confidence,
               checked: item.confidence >= CONFIDENCE_THRESHOLD,
               source: "vision" as const,
-            })));
+            }));
+            setScanGroups(prev => [...prev, { id: groupId, imagePreview: result, items: newItems }]);
             setIsVisionScanning(false);
+            toast({ title: t(`Scan ${groupId} complete`, `स्कैन ${groupId} पूर्ण`), description: t(`Found ${newItems.length} items`, `${newItems.length} आइटम मिले`) });
             return;
           }
         }
@@ -117,13 +130,15 @@ function PantryScanner({ familyId }: { familyId: number }) {
       try {
         const data = await scanMutation.mutateAsync({ data: { imageBase64: base64, mode: "pantry" } });
         const allDetected = [...(data.detectedFoods ?? []), ...(data.lowConfidenceItems ?? [])];
-        setPantryItems(allDetected.map((f: DetectedFood) => ({
+        const newItems = allDetected.map((f: DetectedFood) => ({
           name: f.name,
           confidence: f.confidence,
           weightGrams: f.estimatedGrams,
           checked: f.confidence >= CONFIDENCE_THRESHOLD,
           source: "yolo" as const,
-        })));
+        }));
+        setScanGroups(prev => [...prev, { id: groupId, imagePreview: result, items: newItems }]);
+        toast({ title: t(`Scan ${groupId} complete`, `स्कैन ${groupId} पूर्ण`), description: t(`Found ${newItems.length} items`, `${newItems.length} आइटम मिले`) });
       } catch (err) {
         if (!isYoloUnavailable(err)) {
           toast({ title: t("Scan failed", "स्कैन विफल"), variant: "destructive" });
@@ -131,6 +146,19 @@ function PantryScanner({ familyId }: { familyId: number }) {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const toggleItemInGroup = (groupId: number, itemIdx: number, checked: boolean) => {
+    setScanGroups(prev => prev.map(g => {
+      if (g.id !== groupId) return g;
+      const items = [...g.items];
+      items[itemIdx] = { ...items[itemIdx], checked };
+      return { ...g, items };
+    }));
+  };
+
+  const removeGroup = (groupId: number) => {
+    setScanGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
   const savePantryMutation = useMutation({
@@ -181,30 +209,31 @@ function PantryScanner({ familyId }: { familyId: number }) {
         <div className="flex items-center gap-2 mb-4">
           <Package className="w-5 h-5 text-primary" />
           <h3 className="font-medium" style={{ letterSpacing: '-0.015em', color: 'var(--text-primary)' }}>{t("Scan Your Pantry", "अपनी पेंट्री स्कैन करें")}</h3>
+          {scanGroups.length > 0 && (
+            <Badge className="ml-auto text-xs bg-primary/10 text-primary">{pantryItems.length} {t("items total", "कुल आइटम")}</Badge>
+          )}
         </div>
         <p className="text-xs mb-4 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t(
-            "Take a photo of your fridge, pantry shelf, or vegetables. AI identifies ingredients and updates your grocery list.",
-            "अपने फ्रिज, पेंट्री शेल्फ या सब्जियों की फोटो लें। AI सामग्री पहचानेगा और किराने की सूची अपडेट करेगा।"
+            "Take multiple photos of your fridge, pantry shelf, or vegetables. AI identifies ingredients from each photo and accumulates them.",
+            "अपने फ्रिज, पेंट्री शेल्फ या सब्जियों की कई फोटो लें। AI हर फोटो से सामग्री पहचानेगा।"
           )}
         </p>
-        {imagePreview ? (
+        {(isVisionScanning || scanMutation.isPending) && currentPreview ? (
           <div className="rounded-2xl overflow-hidden aspect-video bg-black/80 relative mb-3">
-            <img src={imagePreview} className="w-full h-full object-contain" alt="Pantry" />
-            {(isVisionScanning || scanMutation.isPending) && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm font-semibold">
-                    {isVisionScanning
-                      ? t("AI Vision scanning…", "AI Vision स्कैन हो रहा है…")
-                      : t("Identifying ingredients…", "सामग्री पहचानी जा रही है…")}
-                  </p>
-                </div>
+            <img src={currentPreview} className="w-full h-full object-contain" alt="Pantry" />
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="text-center text-white">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm font-semibold">
+                  {isVisionScanning
+                    ? t("AI Vision scanning…", "AI Vision स्कैन हो रहा है…")
+                    : t("Identifying ingredients…", "सामग्री पहचानी जा रही है…")}
+                </p>
               </div>
-            )}
+            </div>
           </div>
-        ) : (
+        ) : scanGroups.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-white/60 rounded-2xl bg-white/20 cursor-pointer hover:bg-white/30 transition-colors"
             onClick={() => fileInputRef.current?.click()}
@@ -213,12 +242,12 @@ function PantryScanner({ familyId }: { familyId: number }) {
             <p className="text-sm font-semibold text-muted-foreground">{t("Tap to photograph pantry", "पेंट्री की फोटो लें")}</p>
             <p className="text-xs text-muted-foreground mt-1">{t("or upload from gallery", "या गैलरी से अपलोड करें")}</p>
           </div>
-        )}
+        ) : null}
         <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1 text-xs">
+          <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1 text-xs" disabled={isVisionScanning || scanMutation.isPending}>
             <ImageIcon className="w-3.5 h-3.5 mr-1" />
-            {imagePreview ? t("Re-scan", "फिर स्कैन करें") : t("Upload Photo", "फोटो अपलोड करें")}
+            {scanGroups.length > 0 ? t("+ Add Another Photo", "+ और फोटो जोड़ें") : t("Upload Photo", "फोटो अपलोड करें")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setShowCommonList(v => !v)} className="flex-1 text-xs">
             <ShoppingBag className="w-3.5 h-3.5 mr-1" />
@@ -261,43 +290,51 @@ function PantryScanner({ familyId }: { familyId: number }) {
         </div>
       )}
 
-      {/* Detected ingredients from scan */}
-      {pantryItems.length > 0 && (
-        <div className="glass-card rounded-3xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-sm">{t("Detected Ingredients", "पहचाने गए तत्व")}</h4>
-            <Badge className="text-xs">{pantryItems.length} {t("items", "आइटम")}</Badge>
-          </div>
-          <div className="space-y-2">
-            {pantryItems.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/50 border border-white/60">
-                <Checkbox
-                  id={`pantry-${idx}`}
-                  checked={item.checked}
-                  onCheckedChange={(v) => {
-                    const updated = [...pantryItems];
-                    updated[idx] = { ...updated[idx], checked: !!v };
-                    setPantryItems(updated);
-                  }}
-                />
-                <label htmlFor={`pantry-${idx}`} className="flex-1 cursor-pointer min-w-0">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  {item.nameHindi && (
-                    <p className="text-xs text-muted-foreground">{item.nameHindi}</p>
-                  )}
-                  {(item.quantity != null && item.unit) && (
-                    <p className="text-xs text-primary/70 font-medium">
-                      {item.quantity} {item.unit}
-                      {item.weightGrams ? ` · ~${item.weightGrams}g` : ""}
-                    </p>
-                  )}
-                </label>
-                <Badge className={`text-[11px] shrink-0 ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                  {(item.confidence * 100).toFixed(0)}%
-                </Badge>
+      {/* Detected ingredients from scans — grouped by scan */}
+      {scanGroups.length > 0 && (
+        <div className="space-y-4">
+          {scanGroups.map((group) => (
+            <div key={group.id} className="glass-card rounded-3xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-black/10 shrink-0">
+                    <img src={group.imagePreview} className="w-full h-full object-cover" alt={`Scan ${group.id}`} />
+                  </div>
+                  <h4 className="font-semibold text-sm">{t(`Scan ${group.id}`, `स्कैन ${group.id}`)}</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className="text-xs">{group.items.length} {t("items", "आइटम")}</Badge>
+                  <button onClick={() => removeGroup(group.id)} className="text-xs text-muted-foreground hover:text-destructive">✕</button>
+                </div>
               </div>
-            ))}
-          </div>
+              <div className="space-y-2">
+                {group.items.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/50 border border-white/60">
+                    <Checkbox
+                      id={`pantry-${group.id}-${idx}`}
+                      checked={item.checked}
+                      onCheckedChange={(v) => toggleItemInGroup(group.id, idx, !!v)}
+                    />
+                    <label htmlFor={`pantry-${group.id}-${idx}`} className="flex-1 cursor-pointer min-w-0">
+                      <p className="text-sm font-medium">{item.name}</p>
+                      {item.nameHindi && (
+                        <p className="text-xs text-muted-foreground">{item.nameHindi}</p>
+                      )}
+                      {(item.quantity != null && item.unit) && (
+                        <p className="text-xs text-primary/70 font-medium">
+                          {item.quantity} {item.unit}
+                          {item.weightGrams ? ` · ~${item.weightGrams}g` : ""}
+                        </p>
+                      )}
+                    </label>
+                    <Badge className={`text-[11px] shrink-0 ${item.confidence >= CONFIDENCE_THRESHOLD ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                      {(item.confidence * 100).toFixed(0)}%
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

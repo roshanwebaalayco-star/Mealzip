@@ -426,23 +426,35 @@ router.post("/nutrition/pantry-vision", async (req, res): Promise<void> => {
     return;
   }
 
-  const PANTRY_VISION_PROMPT = `You are an expert Indian pantry analyst. Look at this image of a kitchen pantry, fridge, shelf, or vegetables and identify ALL visible food ingredients.
+  const PANTRY_VISION_PROMPT = `You are an expert Indian kitchen pantry analyst with deep knowledge of Indian grocery items, packaging, and brands.
 
-For each visible item estimate:
-- name: English name (e.g. "Tomatoes", "Atta", "Toor Dal")
-- nameHindi: Hindi name (e.g. "टमाटर", "आटा", "तुअर दाल")
-- quantity: numeric amount (e.g. 4, 0.5, 1, 500)
+Carefully examine this image and identify ALL visible food ingredients, packaged goods, and cooking supplies.
+
+IDENTIFICATION GUIDELINES:
+- **Packaged goods**: Read brand names and product text (including Hindi/regional labels). Common brands: Aashirvaad, Fortune, Tata, MDH, Everest, Patanjali, Amul, Mother Dairy, Haldiram's, Saffola, Daawat, India Gate.
+- **Dal varieties**: Distinguish between Toor/Arhar Dal, Moong Dal (whole green vs yellow split), Masoor Dal (red/orange), Chana Dal, Urad Dal (black vs white), Rajma, Chole/Kabuli Chana.
+- **Rice types**: Basmati, Sona Masoori, brown rice, poha/flattened rice, rice flour.
+- **Flours & grains**: Atta (whole wheat), Maida, Besan (gram flour), Ragi, Jowar, Bajra, Sooji/Rava, Dalia.
+- **Spices in containers**: Haldi (turmeric), Jeera (cumin), Dhania (coriander), Lal Mirch (red chili), Garam Masala, Hing (asafoetida), Methi seeds, Rai/Sarso (mustard seeds), Ajwain (carom).
+- **Oils**: Mustard oil, Groundnut oil, Sunflower oil, Coconut oil, Ghee, Refined oil.
+- **Fresh produce**: Identify exact vegetable/fruit type, not generic "vegetables".
+- **Dairy**: Milk (toned/full cream/buffalo), Curd/Dahi, Paneer, Butter, Cream.
+- **Estimate quantities**: For packaged items use the package size if visible. For loose items estimate weight from visual size.
+
+For each item return:
+- name: English name with clarification (e.g. "Toor Dal (Split Pigeon Peas)", "Aashirvaad Atta")
+- nameHindi: Hindi name (e.g. "तूर दाल", "आटा")
+- quantity: numeric amount
 - unit: kg | g | pieces | litre | ml | bunch | packet | bag
-- weightGrams: total estimated weight in grams (e.g. 300, 1000, 500)
-- confidence: 0.0 to 1.0
+- weightGrams: total estimated weight in grams
+- confidence: 0.0 to 1.0 (use 0.7+ only when clearly identifiable)
 
 Return ONLY a valid JSON array with no other text:
 [
   { "name": "Tomatoes", "nameHindi": "टमाटर", "quantity": 4, "unit": "pieces", "weightGrams": 320, "confidence": 0.92 },
-  { "name": "Atta (Whole Wheat Flour)", "nameHindi": "आटा", "quantity": 1, "unit": "kg", "weightGrams": 1000, "confidence": 0.89 }
-]
-
-Focus on raw ingredients common in Indian kitchens: vegetables, pulses/dal, grains/atta/rice, spices, oils, dairy (milk/paneer/curd), fruits. Skip unreadable packaged products.`;
+  { "name": "Aashirvaad Atta (Whole Wheat Flour)", "nameHindi": "आटा", "quantity": 1, "unit": "kg", "weightGrams": 1000, "confidence": 0.95 },
+  { "name": "Toor Dal (Split Pigeon Peas)", "nameHindi": "तूर/अरहर दाल", "quantity": 1, "unit": "packet", "weightGrams": 500, "confidence": 0.88 }
+]`;
 
   try {
     const result = await ai.models.generateContent({

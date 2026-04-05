@@ -281,6 +281,21 @@ async function runMealGeneration(
       );
     }
 
+    const feelingMembers = constraintPacket.effectiveProfiles.filter(
+      (p) => p.feelingThisWeek
+    );
+    if (feelingMembers.length > 0) {
+      t = Date.now();
+      const feelingDetails = feelingMembers
+        .map((m) => `${m.name}: "${m.feelingThisWeek}"`)
+        .join(", ");
+      await makeLogger(mealPlanId, stepIndex++)(
+        `Weekly feelings noted — ${feelingDetails}. ` +
+        `Gemini will adapt meal suggestions accordingly (lighter meals if tired, warming comfort food if stressed, etc).`,
+        t
+      );
+    }
+
     const fastingMembers = constraintPacket.effectiveProfiles.filter(
       (p) => p.effectiveFastingDays.length > 0 || p.ekadashiThisWeek || p.festivalFastThisWeek
     );
