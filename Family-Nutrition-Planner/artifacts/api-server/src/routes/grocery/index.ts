@@ -98,6 +98,8 @@ router.post("/grocery-lists/generate", assertFamilyOwnership, async (req, res): 
 
   const prompt = `You are ParivarSehat AI — a smart Indian Kirana grocery assistant. Generate a comprehensive weekly grocery list for this family's meal plan.
 
+LANGUAGE RULE (MANDATORY): Use simple Hinglish names for ALL items — the everyday names an Indian home cook uses in their kitchen. Examples: "Pyaaz" not "Onion", "Tamatar" not "Tomato", "Aloo" not "Potato", "Palak" not "Spinach", "Gobhi" not "Cauliflower", "Haldi" not "Turmeric", "Dhaniya" not "Coriander", "Jeera" not "Cumin", "Heeng" not "Asafoetida", "Methi" not "Fenugreek", "Doodh" not "Milk", "Dahi" not "Curd", "Bhindi" not "Okra", "Baingan" not "Brinjal", "Adrak" not "Ginger", "Lahsun" not "Garlic".
+
 Family: ${family.name}, Region: ${family.stateRegion}${pantryNote}
 
 Meal plan summary: ${JSON.stringify(mealPlan.days).slice(0, 2500)}
@@ -106,15 +108,15 @@ Return ONLY valid JSON with this structure — every item MUST have a healthRati
 {
   "items": [
     {
-      "category": "Vegetables|Fruits|Grains|Pulses|Dairy|Spices|Oil|Other",
-      "name": "ingredient name in English",
-      "nameHindi": "name in Hindi",
+      "category": "Sabzi|Fruits|Anaaj|Dal|Dairy|Masale|Tel|Other",
+      "name": "Hinglish ingredient name (e.g. Palak, Pyaaz, Tamatar)",
+      "nameHindi": "name in Hindi script",
       "quantity": "500g or 1 kg or 250 ml",
       "estimatedCost": 30,
-      "cheaperAlternative": "optional cheaper swap for same nutrition",
+      "cheaperAlternative": "optional cheaper swap for same nutrition (Hinglish name)",
       "alternativeCost": 20,
       "priority": "essential|optional",
-      "healthRationale": "1-line reason why this ingredient is good for the family's health (e.g. 'Rich in iron — supports anaemia management per ICMR-NIN 2024')"
+      "healthRationale": "1-line reason why this ingredient is good for the family's health (e.g. 'Iron se bharpur — anaemia management ke liye ICMR-NIN 2024 ke hisaab se')"
     }
   ],
   "totalEstimatedCost": 850,
@@ -126,7 +128,8 @@ Rules:
 - Use tier-2 Indian city prices (Lucknow, Nagpur, Coimbatore etc.)
 - Prioritize seasonal local produce
 - Group essential items first within each category
-- healthRationale must reference ICMR-NIN 2024 or specific health benefit`;
+- healthRationale must reference ICMR-NIN 2024 or specific health benefit
+- ALL item names must be in Hinglish — never use formal English names for common Indian ingredients`;
 
   try {
     const response = await ai.models.generateContent({

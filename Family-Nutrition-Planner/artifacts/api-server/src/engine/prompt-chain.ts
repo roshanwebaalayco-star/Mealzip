@@ -764,6 +764,8 @@ export async function generateStaplesList(packet: ConstraintPacket): Promise<{
   const prompt = `
 You are a professional Indian home-cooking nutritionist. Generate a precise monthly bulk grocery (staples) list.
 
+LANGUAGE RULE (MANDATORY): Use simple Hinglish names for ALL items — the everyday names an Indian home cook uses. Examples: "Atta" not "Wheat flour", "Chawal" not "Rice", "Toor Dal" not "Pigeon pea lentils", "Haldi" not "Turmeric", "Jeera" not "Cumin", "Dhaniya powder" not "Coriander powder", "Rai" not "Mustard seeds", "Heeng" not "Asafoetida", "Lal mirchi powder" not "Red chilli powder", "Cheeni" not "Sugar", "Namak" not "Salt", "Tel" not "Oil", "Besan" not "Gram flour", "Suji" not "Semolina". Notes should also be in simple Hinglish.
+
 ${familyContext}
 
 BUDGET: ₹${budget.staplesBudget.toFixed(0)} total for the entire month's staples.
@@ -776,10 +778,10 @@ HEALTH-DRIVEN INCLUSIONS:
 ${healthStaples.join("\n") || "No specific health-driven staple requirements."}
 
 RULES:
-1. DRY GOODS ONLY: atta, rice, assorted dals (minimum: toor, moong, chana, masoor), cooking oil, sugar, salt, spices (haldi, jeera, dhaniya powder, rai, hing, red chilli powder, garam masala), tea leaves, poha, suji, besan, papad.
-2. NO fresh vegetables, fruit, dairy, eggs, or meat — those are weekly perishables.
+1. DRY GOODS ONLY: atta, chawal, assorted dals (minimum: toor, moong, chana, masoor), tel, cheeni, namak, masale (haldi, jeera, dhaniya powder, rai, heeng, lal mirchi powder, garam masala), chai patti, poha, suji, besan, papad.
+2. NO fresh sabzi, fruit, dairy, anda, or meat — those are weekly perishables.
 3. Quantities must be realistic for ${familySize} people for 30 days.
-   (Reference: a family of 4 uses ~8–10 kg atta/month, ~5–6 kg rice/month, ~2 kg toor dal/month.)
+   (Reference: a family of 4 uses ~8–10 kg atta/month, ~5–6 kg chawal/month, ~2 kg toor dal/month.)
 4. Total sum of estimated_price must NOT exceed ₹${budget.staplesBudget.toFixed(0)}.
 5. Use realistic retail prices for ${family.stateRegion} region.
 6. Include the complete range of Indian kitchen essentials.
@@ -794,7 +796,7 @@ Respond ONLY with valid JSON:
       "estimated_price": 240,
       "category": "dal",
       "purchased": false,
-      "notes": "For daily dal. Buy from local kirana."
+      "notes": "Roz ki dal ke liye. Kirana se kharido."
     }
   ],
   "total_estimated_cost": 3800
@@ -876,6 +878,42 @@ export async function generateWeeklyMealPlan(
   const prompt = `
 You are a clinical Indian nutritionist generating a weekly meal plan. You are not a creative chef. You are not a food blogger. You generate medically appropriate, budget-compliant, regionally authentic meals. You do not have artistic freedom. You follow constraints exactly.
 
+LAW 0 — HINGLISH LANGUAGE RULE (MANDATORY):
+ALL ingredient names and recipe steps MUST use simple Hinglish (Hindi words in Roman script) — the everyday language an Indian home cook uses in their kitchen. NEVER use formal English names for common Indian ingredients.
+Examples of CORRECT vs WRONG naming:
+  ✅ "Pyaaz" NOT ❌ "Onion"
+  ✅ "Tamatar" NOT ❌ "Tomato"
+  ✅ "Haldi" NOT ❌ "Turmeric"
+  ✅ "Dhaniya" NOT ❌ "Coriander"
+  ✅ "Jeera" NOT ❌ "Cumin"
+  ✅ "Heeng" NOT ❌ "Asafoetida"
+  ✅ "Methi" NOT ❌ "Fenugreek"
+  ✅ "Rai/Sarson" NOT ❌ "Mustard seeds"
+  ✅ "Curry patta" NOT ❌ "Curry leaves"
+  ✅ "Palak" NOT ❌ "Spinach"
+  ✅ "Adrak" NOT ❌ "Ginger"
+  ✅ "Lahsun" NOT ❌ "Garlic"
+  ✅ "Aloo" NOT ❌ "Potato"
+  ✅ "Gobhi" NOT ❌ "Cauliflower"
+  ✅ "Matar" NOT ❌ "Green peas"
+  ✅ "Mirchi" NOT ❌ "Chilli"
+  ✅ "Elaichi" NOT ❌ "Cardamom"
+  ✅ "Dalchini" NOT ❌ "Cinnamon"
+  ✅ "Laung" NOT ❌ "Cloves"
+  ✅ "Tejpatta" NOT ❌ "Bay leaf"
+  ✅ "Bhindi" NOT ❌ "Okra"
+  ✅ "Baingan" NOT ❌ "Brinjal/Eggplant"
+  ✅ "Lauki" NOT ❌ "Bottle gourd"
+  ✅ "Karela" NOT ❌ "Bitter gourd"
+  ✅ "Suji" NOT ❌ "Semolina"
+  ✅ "Besan" NOT ❌ "Gram flour"
+  ✅ "Doodh" NOT ❌ "Milk"
+  ✅ "Dahi" NOT ❌ "Curd/Yogurt"
+  ✅ "Namak" NOT ❌ "Salt"
+  ✅ "Tel" NOT ❌ "Oil"
+Recipe steps must also be in simple Hinglish kitchen language, e.g. "Pyaaz ko tel mein bhuno jab tak golden ho jaaye" instead of "Sauté onions in oil until golden."
+The perishables list must also use Hinglish names consistently.
+
 LAW 1: Gemini NEVER makes clinical decisions. The TypeScript backend has pre-computed all medical constraints (Levels 1-5 below). You implement them exactly. You do not interpret, relax, or override any clinical rule.
 
 ${familyContext}
@@ -944,8 +982,8 @@ Respond ONLY with valid JSON:
           "name": "Vegetable Poha",
           "is_base_dish": true,
           "base_recipe": {
-            "ingredients": [{"name": "Poha", "quantity": "200g"}, {"name": "Onion", "quantity": "1 medium"}],
-            "steps": ["Wash and soak poha for 5 mins.", "Temper mustard seeds and curry leaves.", "Add onion, cook till soft.", "Add poha, salt, turmeric. Toss for 3 mins.", "Garnish with coriander."],
+            "ingredients": [{"name": "Poha", "quantity": "200g"}, {"name": "Pyaaz", "quantity": "1 medium"}, {"name": "Hari mirchi", "quantity": "2"}, {"name": "Curry patta", "quantity": "5-6"}],
+            "steps": ["Poha ko dho kar 5 min bhigo do.", "Tel mein rai aur curry patta tadka lagao.", "Pyaaz daalo, halka golden hone tak bhuno.", "Poha, namak, haldi daal ke 3 min chalao.", "Dhaniya se garnish karo."],
             "prep_time_mins": 5,
             "cook_time_mins": 10,
             "image_search_query": "poha Indian breakfast recipe"
@@ -970,13 +1008,13 @@ Respond ONLY with valid JSON:
   ],
   "perishables": [
     {
-      "name": "Spinach",
+      "name": "Palak",
       "quantity": 500,
       "unit": "grams",
       "estimated_price": 40,
-      "category": "vegetable",
+      "category": "sabzi",
       "purchased": false,
-      "notes": "Buy fresh twice a week"
+      "notes": "Hafte mein do baar taaza kharido"
     }
   ],
   "perishables_total": 1150,
