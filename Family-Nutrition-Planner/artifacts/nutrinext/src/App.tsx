@@ -24,6 +24,7 @@ import Profile from "@/pages/Profile";
 import WeeklyContext from "@/pages/WeeklyContext";
 import RecipeDetail from "@/pages/RecipeDetail";
 import Scanner from "@/pages/Scanner";
+import MealGenPage from "@/pages/MealGenPage";
 import NotFound from "@/pages/not-found";
 
 const TOKEN_KEY = "auth_token";
@@ -96,6 +97,7 @@ function Router() {
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
         <Route path="/family-setup" component={() => <ProtectedRoute component={FamilySetup} />} />
         <Route path="/meal-plan" component={() => <ProtectedRoute component={MealPlan} />} />
+        <Route path="/meal-plan/generate" component={() => <ProtectedRoute component={MealGenPage} />} />
         <Route path="/meal-plan/context" component={() => <ProtectedRoute component={WeeklyContext} />} />
         <Route path="/recipes/:id" component={() => <ProfileGatedRoute component={RecipeDetail} />} />
         <Route path="/recipes" component={() => <ProfileGatedRoute component={RecipeExplorer} />} />
