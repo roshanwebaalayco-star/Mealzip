@@ -385,7 +385,8 @@ export default function Scanner() {
   const { activeFamily } = useAppState();
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [mode, setMode] = useState<"food-log" | "pantry">("food-log");
+  const initialMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mode") === "pantry" ? "pantry" : "food-log";
+  const [mode, setMode] = useState<"food-log" | "pantry">(initialMode);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);

@@ -918,6 +918,31 @@ export default function MealPlan() {
         </div>
       )}
 
+      {/* Member Feeling Indicators */}
+      {(() => {
+        const ns = currentPlan.nutritionSummary as Record<string, unknown> | null;
+        const feelings = (ns?.memberFeelings ?? []) as Array<{ name: string; feeling: string }>;
+        if (feelings.length === 0) return null;
+        return (
+          <div className="glass-card rounded-3xl p-4 border border-violet-200/40 flex gap-3">
+            <Sparkles className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-violet-600 uppercase tracking-wider mb-1.5">{t("Personalized for Feelings", "भावनाओं के अनुसार")}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {feelings.map((f) => (
+                  <span key={f.name} className="text-xs bg-violet-50 text-violet-700 px-2 py-1 rounded-full border border-violet-200/60">
+                    <span className="font-semibold">{f.name}</span>: {f.feeling}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                {t("Meal suggestions were adapted based on how each member is feeling this week.", "भोजन सुझाव इस हफ्ते हर सदस्य की भावना के अनुसार बनाए गए हैं।")}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* AI Insights */}
       {currentPlan.aiInsights && (
         <div className="glass-card rounded-3xl p-4 border border-secondary/20 flex gap-3">

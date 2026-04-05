@@ -368,13 +368,21 @@ async function runMealGeneration(
       step_index: stepIndex++,
     });
 
+    const memberFeelings = constraintPacket.effectiveProfiles
+      .filter((p) => p.feelingThisWeek)
+      .map((p) => ({ name: p.name, feeling: p.feelingThisWeek }));
+    const nutritionSummaryWithFeelings = {
+      ...finalResult.mealPlan.nutritional_summary,
+      ...(memberFeelings.length > 0 ? { memberFeelings } : {}),
+    };
+
     await db
       .update(mealPlans)
       .set({
         harmonyScore: finalResult.harmonyScore.score,
         harmonyScoreBreakdown: finalResult.harmonyScore.breakdown as any,
         days: finalResult.mealPlan.days as any,
-        nutritionalSummary: finalResult.mealPlan.nutritional_summary as any,
+        nutritionalSummary: nutritionSummaryWithFeelings as any,
         generationStatus: "completed",
         updatedAt: new Date(),
       })
