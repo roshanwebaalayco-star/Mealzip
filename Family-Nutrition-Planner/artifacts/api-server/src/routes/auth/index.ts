@@ -1,15 +1,20 @@
 import { Router, type IRouter } from "express";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { getJwtSecret, authenticateToken, type AuthPayload } from "../../middlewares/auth.js";
+import { db, usersTable } from "@workspace/db";
+import { authenticateToken } from "../../middlewares/auth.js";
+import { findOrCreateLocalUserFromSupabase, supabaseSignIn, supabaseSignOut, supabaseSignUp, verifySupabaseAccessToken } from "../../lib/supabase-auth.js";
 
 const router: IRouter = Router();
 
-const SALT_ROUNDS = 12;
-const TOKEN_EXPIRY = "7d";
+function sanitizeUser(user: typeof usersTable.$inferSelect) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    primaryLanguage: user.primaryLanguage,
+    createdAt: user.createdAt,
+  };
+}
 
 router.post("/auth/register", async (req, res): Promise<void> => {
   const { email, password, name, primaryLanguage } = req.body as {
@@ -24,61 +29,35 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  if (typeof name === "string" && name.length > 100) {
-    res.status(400).json({ error: "Name must be 100 characters or less" });
-    return;
-  }
-
-  if (password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
-    return;
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    res.status(400).json({ error: "Password must contain at least one uppercase letter" });
-    return;
-  }
-
-  if (!/[0-9]/.test(password)) {
-    res.status(400).json({ error: "Password must contain at least one number" });
-    return;
-  }
-
   const trimmedEmail = email.trim().toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(trimmedEmail)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
     res.status(400).json({ error: "Invalid email address" });
     return;
   }
 
-  const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, trimmedEmail));
-  if (existing) {
-    res.status(409).json({ error: "An account with this email already exists" });
+  const data = await supabaseSignUp(trimmedEmail, password, {
+    name: name.trim().slice(0, 100),
+    primaryLanguage: (primaryLanguage ?? "hindi").toLowerCase(),
+  }).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "Unable to create account";
+    res.status(400).json({ error: message });
+    return null;
+  });
+
+  if (!data?.user || !data.session) {
     return;
   }
 
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-  const [user] = await db.insert(usersTable).values({
-    email: trimmedEmail,
-    passwordHash,
-    name,
-    primaryLanguage: primaryLanguage || "hindi",
-  }).returning({
-    id: usersTable.id,
-    email: usersTable.email,
-    name: usersTable.name,
-    primaryLanguage: usersTable.primaryLanguage,
-    createdAt: usersTable.createdAt,
+  const localUser = await findOrCreateLocalUserFromSupabase(data.user);
+  res.status(201).json({
+    session: {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresAt: data.session.expires_at,
+      tokenType: data.session.token_type,
+    },
+    user: sanitizeUser(localUser),
   });
-
-  const token = jwt.sign(
-    { userId: user.id, email: user.email } satisfies AuthPayload,
-    getJwtSecret(),
-    { expiresIn: TOKEN_EXPIRY }
-  );
-
-  res.status(201).json({ token, user });
 });
 
 router.post("/auth/login", async (req, res): Promise<void> => {
@@ -89,54 +68,52 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim().toLowerCase()));
-  if (!user) {
+  const data = await supabaseSignIn(email.trim().toLowerCase(), password).catch(() => null);
+
+  if (!data?.user || !data.access_token || !data.refresh_token) {
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
-  const isValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isValid) {
-    res.status(401).json({ error: "Invalid email or password" });
-    return;
-  }
-
-  const token = jwt.sign(
-    { userId: user.id, email: user.email } satisfies AuthPayload,
-    getJwtSecret(),
-    { expiresIn: TOKEN_EXPIRY }
-  );
-
+  const localUser = await findOrCreateLocalUserFromSupabase(data.user);
   res.json({
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      primaryLanguage: user.primaryLanguage,
-      createdAt: user.createdAt,
+    session: {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: data.expires_at,
+      tokenType: data.token_type,
     },
+    user: sanitizeUser(localUser),
   });
 });
 
 router.get("/auth/me", authenticateToken, async (req, res): Promise<void> => {
-  const [user] = await db.select({
-    id: usersTable.id,
-    email: usersTable.email,
-    name: usersTable.name,
-    primaryLanguage: usersTable.primaryLanguage,
-    createdAt: usersTable.createdAt,
-  }).from(usersTable).where(eq(usersTable.id, req.user!.userId));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, req.user!.userId));
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  res.json(user);
+  res.json(sanitizeUser(user));
 });
 
-router.post("/auth/logout", authenticateToken, (_req, res): void => {
+router.post("/auth/logout", authenticateToken, async (req, res): Promise<void> => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+  if (token) {
+    const supabaseUser = await verifySupabaseAccessToken(token);
+    if (supabaseUser) {
+      await supabaseSignOut(token).catch(() => {
+        // Best effort; client-side session invalidation is authoritative.
+      });
+    }
+  }
+
   res.json({ message: "Logged out successfully" });
 });
 
