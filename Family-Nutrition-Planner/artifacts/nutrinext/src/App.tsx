@@ -28,37 +28,58 @@ import MealGenPage from "@/pages/MealGenPage";
 import NotFound from "@/pages/not-found";
 
 const TOKEN_KEY = "auth_token";
+const LAST_ACTIVE_SECTION_KEY = "nutrinext_last_active_section";
 
 function isAuthenticated(): boolean {
   return !!localStorage.getItem(TOKEN_KEY);
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center p-12">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 }
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   if (!isAuthenticated()) {
     return <Redirect to="/login" />;
   }
+  return <ProfileGuard component={Component} />;
+}
+
+function ProfileGuard({ component: Component }: { component: React.ComponentType }) {
+  const { isLoading, isProfileBootstrapLoading, profileBootstrap } = useAppState();
+
+  if (isLoading || isProfileBootstrapLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!profileBootstrap?.hasFamilyProfile) {
+    return <Redirect to="/family-setup" />;
+  }
+
   return <Component />;
 }
 
-function ProfileGatedRoute({ component: Component }: { component: React.ComponentType }) {
-  if (!isAuthenticated()) {
-    return <Redirect to="/login" />;
-  }
-  return <ProfileGate component={Component} />;
-}
+function MealGenerationGuard({ component: Component }: { component: React.ComponentType }) {
+  const { isLoading, isProfileBootstrapLoading, profileBootstrap } = useAppState();
 
-function ProfileGate({ component: Component }: { component: React.ComponentType }) {
-  const { activeFamily, isLoading } = useAppState();
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (isLoading || isProfileBootstrapLoading) {
+    return <LoadingSpinner />;
   }
-  if (!activeFamily) {
+
+  if (!profileBootstrap?.hasFamilyProfile) {
     return <Redirect to="/family-setup" />;
   }
+  if (!profileBootstrap.hasBudget) {
+    return <Redirect to="/profile" />;
+  }
+  if (!profileBootstrap.hasWeeklyContext) {
+    return <Redirect to="/meal-plan/context" />;
+  }
+
   return <Component />;
 }
 
@@ -87,28 +108,41 @@ function AuthGuard() {
   return null;
 }
 
+function LastActiveTracker() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    if (["/login", "/register"].includes(location)) return;
+    localStorage.setItem(LAST_ACTIVE_SECTION_KEY, location);
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   return (
     <Layout>
       <AuthGuard />
+      <LastActiveTracker />
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
-        <Route path="/family-setup" component={() => <ProtectedRoute component={FamilySetup} />} />
+        <Route path="/family-setup" component={() => (isAuthenticated() ? <FamilySetup /> : <Redirect to="/login" />)} />
         <Route path="/meal-plan" component={() => <ProtectedRoute component={MealPlan} />} />
-        <Route path="/meal-plan/generate" component={() => <ProtectedRoute component={MealGenPage} />} />
+        <Route path="/meal-plan/generate" component={() => <MealGenerationGuard component={MealGenPage} />} />
         <Route path="/meal-plan/context" component={() => <ProtectedRoute component={WeeklyContext} />} />
-        <Route path="/recipes/:id" component={() => <ProfileGatedRoute component={RecipeDetail} />} />
-        <Route path="/recipes" component={() => <ProfileGatedRoute component={RecipeExplorer} />} />
+        <Route path="/recipes/:id" component={() => <ProtectedRoute component={RecipeDetail} />} />
+        <Route path="/recipes" component={() => <ProtectedRoute component={RecipeExplorer} />} />
         <Route path="/chat" component={() => <ProtectedRoute component={Chat} />} />
-        <Route path="/grocery" component={() => <ProfileGatedRoute component={Grocery} />} />
+        <Route path="/grocery" component={() => <ProtectedRoute component={Grocery} />} />
         <Route path="/pantry" component={() => <ProtectedRoute component={Pantry} />} />
         <Route path="/pantry-scan" component={() => <ProtectedRoute component={PantryScan} />} />
-        <Route path="/scanner" component={() => <ProtectedRoute component={Scanner} />} />
+        <Route path="/scanner" component={() => <MealGenerationGuard component={Scanner} />} />
         <Route path="/nutrition">{() => <Redirect to="/insights" />}</Route>
         <Route path="/health">{() => <Redirect to="/insights" />}</Route>
-        <Route path="/insights" component={() => <ProfileGatedRoute component={HealthLog} />} />
+        <Route path="/insights" component={() => <ProtectedRoute component={HealthLog} />} />
         <Route path="/profile" component={() => <ProtectedRoute component={Profile} />} />
         <Route component={NotFound} />
       </Switch>

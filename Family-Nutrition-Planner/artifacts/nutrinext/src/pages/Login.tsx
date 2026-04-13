@@ -10,6 +10,13 @@ import { useAuth } from "@/hooks/use-auth";
 
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
+const LAST_ACTIVE_SECTION_KEY = "nutrinext_last_active_section";
+
+interface ProfileBootstrapState {
+  profileComplete: boolean;
+  hasFamilyProfile: boolean;
+  lastActiveContext: string;
+}
 
 export default function Login() {
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
@@ -24,9 +31,36 @@ export default function Login() {
   const { login, register } = useAuth();
   const [, navigate] = useLocation();
 
+  const resolvePostAuthDestination = async (): Promise<string> => {
+    const response = await fetch("/api/families/bootstrap", {
+      headers: { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ""}` },
+    });
+
+    if (!response.ok) {
+      return "/family-setup";
+    }
+
+    const bootstrap = await response.json() as ProfileBootstrapState;
+
+    if (!bootstrap.hasFamilyProfile) {
+      return "/family-setup";
+    }
+
+    const lastActive = localStorage.getItem(LAST_ACTIVE_SECTION_KEY);
+    if (lastActive && !["/login", "/register", "/family-setup"].includes(lastActive)) {
+      return lastActive;
+    }
+
+    return bootstrap.lastActiveContext || "/meal-plan";
+  };
+
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (token) navigate("/profile");
+    if (!token) return;
+
+    resolvePostAuthDestination()
+      .then((destination) => navigate(destination))
+      .catch(() => navigate("/family-setup"));
   }, [navigate]);
 
   const handleInstantDemo = async () => {
@@ -56,7 +90,8 @@ export default function Login() {
         }
       }
       window.dispatchEvent(new Event("auth:login"));
-      navigate("/meal-plan");
+      const destination = await resolvePostAuthDestination();
+      navigate(destination);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Demo login failed.";
       toast({ variant: "destructive", title: "Demo Login Failed", description: msg });
@@ -74,7 +109,8 @@ export default function Login() {
     setIsLoading(true);
     try {
       await login(email, password);
-      navigate("/");
+      const destination = await resolvePostAuthDestination();
+      navigate(destination);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed. Please check your credentials.";
       toast({ variant: "destructive", title: "Login Failed", description: msg });
